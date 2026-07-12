@@ -1,0 +1,4 @@
+Possibly use a similar method to MAP testing for adaptive difficulty - may have to go different route if trying to turn this into a business
+Index ACT questions - Not sure what licensing is with previous questions (may have to create our own, similar questions) 
+
+    
