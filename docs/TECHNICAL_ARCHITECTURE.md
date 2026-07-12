@@ -26,12 +26,14 @@ The dependency arrow points from AI to trusted data, never from trusted scoring 
 
 ## 2. Stack
 
-| Layer | Choice | Reason |
+This table describes the target MVP architecture. The first local slice currently implements the Next.js/pnpm/UI/core/Vitest portions; rows that mention Supabase, Playwright, AI, deployment, and monitoring are planned rather than present.
+
+| Layer | Current/target choice | Reason |
 |---|---|---|
 | Application | Next.js App Router + TypeScript | One deployable frontend/BFF, fast collaboration, good preview workflow |
 | Package manager | pnpm workspace | Shared pure packages without unnecessary monorepo tooling |
-| UI | Tailwind CSS + shadcn/Radix | Fast, accessible primitives and consistent states |
-| Forms | React Hook Form + Zod | Shared client/server validation for scores, dates, and answers |
+| UI | Tailwind CSS + shadcn components built on Base UI | Fast, accessible primitives and consistent states |
+| Forms | React state in the current slice; React Hook Form + Zod planned where form complexity requires it | Shared client/server validation for scores, dates, and answers without forcing a second form abstraction prematurely |
 | Database | Supabase Postgres | Hosted relational data, auth, migrations, RPC, and RLS |
 | Authentication | Supabase anonymous auth; link email later | No login wall, but durable server-owned records |
 | DB access | `@supabase/ssr`, `supabase-js`, generated types | Direct JWT/RLS model with minimal ORM overhead |
@@ -43,7 +45,9 @@ The dependency arrow points from AI to trusted data, never from trusted scoring 
 
 Cloudflare Workers AI currently lists Qwen text-generation models and provides a daily free allocation; treat the quota as a replaceable demo dependency, not a permanent business model. See the [model catalog](https://developers.cloudflare.com/workers-ai/models/) and [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Alibaba Model Studio is a second Qwen option, but its new-user quota is time-limited and region-specific, so enable its “Free Quota Only” control before using it. See [Alibaba's quota rules](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 
-## 3. Repository layout
+## 3. Target repository layout
+
+The current repository has a smaller vertical-slice layout: `apps/web` contains one page with onboarding, dashboard, lesson-preview, and diagnostic-setup components; `packages/core` contains types, scoring, target selection, runway planning, and unit tests; `docs/design` contains accepted visual concepts. The separate route folders, AI/content/database packages, Supabase project, E2E suite, CI workflow, and environment contract below are target additions, not current files.
 
 ```text
 /
@@ -397,7 +401,17 @@ The FTC states that covered services collecting personal information from childr
 
 ## 10. Testing
 
-### Pull-request checks
+### Current local verification
+
+The root workspace currently wires the checks that exist today:
+
+```text
+pnpm check
+```
+
+This runs lint, typecheck, core unit tests, and the production web build. The current local-only slice requires no environment variables.
+
+### Target pull-request checks
 
 ```text
 pnpm lint

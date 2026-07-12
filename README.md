@@ -6,17 +6,53 @@ An adaptive, Duolingo-style ACT study product that turns a student's score histo
 
 ## Repository status
 
-This fork is currently in product-planning mode. The product specification, architecture, implementation backlog, and a 48-hour hackathon schedule are ready for the team to execute.
+This fork now contains the first working local vertical slice plus the product specification, technical architecture, prioritized backlog, and a practical 36-day execution roadmap.
+
+Working in the current slice:
+
+- a responsive three-step onboarding flow for goal score, prior scores, and test date;
+- prior-score branches for full section scores or a low-confidence Composite-only starting point, plus a never-tested path;
+- versioned local draft persistence across refreshes;
+- deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
+- a generated Today/Plan/Progress dashboard and an authored lesson preview;
+- a no-score route that lets the learner choose a half-length diagnostic or a rapid fallback.
+
+Still placeholders or future milestones:
+
+- the diagnostic question runner, reviewed question bank, scoring calibration, and baseline results;
+- practice answers, mastery updates, spaced repetition, and visible plan regeneration;
+- Supabase authentication/persistence, answer-key isolation, AI providers, CI, deployment, and production monitoring.
+
+The diagnostic setup screen is intentionally honest: it configures the path, but it does not yet claim that a diagnostic was completed or scored.
+
+## Quick start
+
+Requirements: Node.js `>=20.9.0` and pnpm `11.7.0`. Node.js `22.12` is the recommended team version and is pinned in `.nvmrc`.
+
+```bash
+nvm use
+corepack enable
+pnpm install
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). The current local-only slice does not require environment variables.
+
+Run all checks currently wired into the workspace with:
+
+```bash
+pnpm check
+```
 
 ## Core experience
 
 The website opens directly into a three-part placement flow:
 
 1. Goal Composite score.
-2. Current Composite and section scores, or “I have never taken the ACT.”
+2. Current Composite and section scores, Composite only, or “I have never taken the ACT.”
 3. Next planned ACT date.
 
-Students with prior scores receive a provisional study plan immediately, followed by short skill probes in their first sessions. Students without prior scores take a truncated diagnostic. Both paths produce:
+The intended complete experience gives students with prior scores a provisional study plan immediately, followed by short skill probes in their first sessions. Students without prior scores take a truncated, half-length diagnostic. Both completed paths will produce:
 
 - an estimated baseline and confidence range;
 - strengths and weaknesses at the skill level;
@@ -26,17 +62,12 @@ Students with prior scores receive a provisional study plan immediately, followe
 
 The current enhanced ACT uses English, Math, and Reading for the Composite. Science and Writing are optional, so this product must not use the legacy four-section Composite model. See the [official ACT structure](https://www.act.org/content/act/en/products-and-services/the-act/test-preparation/act-exam-sections-and-structure.html) and [score explanation](https://www.act.org/content/act/en/products-and-services/the-act/scores/understanding-your-scores.html).
 
-## Recommended MVP stack
+## MVP stack
 
-- Next.js App Router and TypeScript
-- Tailwind CSS with shadcn/Radix components
-- Supabase Postgres, anonymous auth, Row Level Security, and migrations
-- Zod for shared validation
-- Pure TypeScript scoring, mastery, planning, scheduling, and selection modules
-- A provider-agnostic tutor interface with Cloudflare Workers AI/Qwen as the first live adapter
-- Static authored explanations as the guaranteed fallback
-- Vitest, Playwright, and Supabase database tests
-- Vercel deployment with preview builds
+- Implemented now: Next.js App Router, TypeScript, Tailwind CSS, shadcn components built on Base UI, a pure TypeScript core package, and Vitest.
+- Planned next: Zod-backed shared validation, Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
+- Planned after the trusted loop: a provider-agnostic tutor interface with Cloudflare Workers AI/Qwen as an optional first live adapter.
+- Required throughout: static authored explanations as the guaranteed fallback.
 
 The LLM is a presentation layer, not the source of truth. Code owns answer keys, scoring, mastery, dates, question selection, and spaced repetition. The product must remain fully usable with AI disabled.
 
@@ -44,7 +75,7 @@ The LLM is a presentation layer, not the source of truth. Code owns answer keys,
 
 - [Product specification](docs/PRODUCT_SPEC.md)
 - [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md)
-- [48-hour hackathon plan](docs/HACKATHON_PLAN.md)
+- [36-day execution roadmap](docs/36_DAY_ROADMAP.md)
 - [Prioritized implementation backlog](docs/BACKLOG.md)
 
 ## Hackathon demo target
@@ -58,7 +89,7 @@ A judge should be able to watch this complete loop in under four minutes:
 5. See a trusted explanation and the exact skill involved.
 6. Return to the dashboard and see mastery and the next review update.
 
-For presentation speed, use a seeded student and a clearly labeled rapid diagnostic. The production design still supports the promised half-length diagnostic.
+For presentation speed, the final demo may use a seeded student and a clearly labeled rapid diagnostic fallback. The intended no-score product path remains the promised half-length diagnostic; its runner and reviewed content are not implemented in the current slice.
 
 ## Content and score disclaimer
 

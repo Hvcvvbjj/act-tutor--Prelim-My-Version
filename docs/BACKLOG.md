@@ -10,6 +10,23 @@ Create one GitHub issue per numbered item. Add these labels:
 
 Keep `main` deployable. An issue is done only when its acceptance criteria and relevant tests pass in the preview deployment.
 
+## Current implementation checkpoint
+
+This table records local evidence only. It does not mark an issue `done` before every acceptance criterion and relevant preview test passes.
+
+| Backlog item | Local evidence | Remaining before done |
+|---|---|---|
+| 0.1 | pnpm workspace, Next.js/Tailwind/shadcn Base UI app, `packages/core`, lint/typecheck/build scripts, and Vitest are present | add Playwright, `packages/ai`, `packages/content`, `.env.example`, and clean-checkout CI proof |
+| 1.1 | goal-score gate and versioned local refresh persistence are implemented | finish browser, keyboard, and mobile acceptance verification |
+| 1.2 | full-score, Composite-only low-confidence, and never-tested branches plus optional Science are implemented and manually exercised | add automated browser coverage and preview acceptance proof |
+| 1.3 | quick/custom dates, past-date rejection, and routing to plan or diagnostic setup are implemented | capture timezone and add browser coverage |
+| 4.1 | English/Math/Reading round-half-up Composite logic and Science-exclusion unit tests exist | keep this covered in the integrated placement and diagnostic paths |
+| 5.1 | deterministic feasible target-vector selection and unit tests exist | expose/verify edge-case rationale in the integrated plan flow |
+| 5.3 | runway modes and weekly intensity are implemented | generate and persist actual dated tasks within capacity |
+| 6.1 | Today/Plan/Progress dashboard shell, assignment reasons, and provisional confidence are implemented | connect persisted baseline ranges, real tasks, and completion/adaptation state |
+
+The diagnostic setup screen is not a diagnostic runner. Diagnostic content, answering, submission, score ranges, mastery evidence, and baseline results remain open work.
+
 ## Epic 0 — Foundation
 
 ### 0.1 Initialize the pnpm/Next.js workspace — P0
@@ -93,7 +110,7 @@ Acceptance criteria:
 - Every demo item is independently solved and reviewed.
 - All passages/questions are original or licensed.
 
-### 2.5 Expand to full half-diagnostic content — P1
+### 2.5 Produce the half-length core diagnostic content — P0
 
 - 25 English, 23 Math, and 18 Reading reviewed diagnostic items.
 - Stimulus blocks and category coverage meet blueprint tolerances.
@@ -109,7 +126,8 @@ Acceptance criteria:
 
 ### 3.1 Create assessment session and freeze item versions — P0
 
-- Rapid diagnostic starts from the no-score path.
+- The 66-question half-length diagnostic is the intended no-score path.
+- A rapid form can be selected as a clearly labeled fallback.
 - Item/version/order are fixed at start.
 - Seeded generation is reproducible.
 
@@ -125,11 +143,12 @@ Acceptance criteria:
 - Scoring, mastery update, baseline creation, and completion occur atomically.
 - Known response fixtures produce expected skill weaknesses.
 
-### 3.4 Add full half-length mode — P1
+### 3.4 Add rapid fallback mode — P0
 
-- 66-question core diagnostic with section timing and breaks.
-- Optional Science adds 20 questions.
-- Resume works across sections.
+- Uses a smaller reviewed, seeded subset of the same core blueprint.
+- Returns a wider estimated score range than the half-length form.
+- Is labeled as a fallback/rapid estimate, not equivalent evidence.
+- Uses the same autosave, resume, answer-key isolation, and submission path as the half-length form.
 
 ## Epic 4 — Scoring, mastery, and misconceptions
 
@@ -277,14 +296,15 @@ Acceptance criteria:
 
 ### 9.1 Create seeded demo learner and reset — P0
 
-- Maya fixture has a goal of 30, current 24, six-week runway, and intended English/Math weakness.
+- Maya fixture has a goal of 30, current 24, a 36-day runway, and intended English/Math weakness.
 - Reset is one protected action or script.
 - Seed contains no real student information.
 
 ### 9.2 Add critical automated journeys — P0
 
 - Score path.
-- No-score rapid diagnostic path.
+- No-score half-length diagnostic path.
+- No-score rapid fallback path.
 - AI-disabled path.
 - Optional Science exclusion.
 - Duplicate submit and resume.

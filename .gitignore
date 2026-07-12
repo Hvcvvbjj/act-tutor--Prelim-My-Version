@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# builds and test output
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# environment and local files
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# debug
+*.log
