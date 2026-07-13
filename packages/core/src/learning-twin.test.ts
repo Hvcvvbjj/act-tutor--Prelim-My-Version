@@ -127,8 +127,39 @@ describe("Bayesian learning twin", () => {
       total: 3,
       diagnostic: 2,
       practice: 1,
+      calibration: 0,
       lastUpdatedAt: "2026-07-13T12:00:00.000Z",
     });
     expect(JSON.stringify(snapshot)).not.toContain("correctChoiceId");
+  });
+
+  it("counts the full evidence history while limiting the public ledger", () => {
+    let state = createInitialKnowledgeState(skill, { correct: 1, total: 2 });
+    const events = [];
+
+    for (let index = 0; index < 15; index += 1) {
+      const update = applyKnowledgeObservation(state, {
+        questionId: `long-session-${index}`,
+        correct: index % 3 !== 0,
+        difficulty: "medium",
+        observedAt: new Date(
+          Date.UTC(2026, 6, 13, 12, index),
+        ).toISOString(),
+        source: index < 8 ? "calibration" : "practice",
+      });
+      state = update.state;
+      events.push(update.event);
+    }
+
+    const snapshot = buildLearningTwinSnapshot({ states: [state], events });
+
+    expect(snapshot.events).toHaveLength(12);
+    expect(snapshot.events[0]?.questionId).toBe("long-session-14");
+    expect(snapshot.evidence).toMatchObject({
+      total: 17,
+      diagnostic: 2,
+      practice: 7,
+      calibration: 8,
+    });
   });
 });

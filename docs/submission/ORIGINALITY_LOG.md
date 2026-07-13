@@ -23,6 +23,8 @@ Final pushed branch: PENDING
 
 - Score-evidence normalization and goal vector planning.
 - Original half-length ACT-style diagnostic and calibration.
+- Bayesian 2PL IRT ability estimation, Fisher-information selection, coverage policy, uncertainty display, and stop rule.
+- Durable ordered calibration sessions and IRT-to-BKT evidence handoff.
 - Durable diagnostic, learning, plan, and exam-lab sessions.
 - Server-only question keys and trusted scoring.
 - Twelve-skill Bayesian Knowledge Tracing implementation.
@@ -39,7 +41,7 @@ The product uses open-source frameworks and pretrained model APIs rather than tr
 
 - Next.js, React, TypeScript, Tailwind CSS, Base UI, Lucide, Vitest, and pnpm.
 - An optional OpenAI-compatible model endpoint for structured lesson and debrief generation.
-- Bayesian Knowledge Tracing as a published modeling approach; this repository’s implementation, parameter policy, product integration, tests, and interface are original application work.
+- Item Response Theory and Bayesian Knowledge Tracing as published modeling approaches; this repository’s implementations, parameter policies, product integration, tests, and interfaces are original application work.
 
 ## Final verification evidence
 
@@ -53,11 +55,11 @@ git log -1 --format="%H%n%aI%n%s"
 ```
 
 ```text
-Automated test count: PASS — 90 tests (56 core, 9 content, 25 server)
-Production build: PASS — Next.js production build completed with all six routes
-Desktop browser QA: PASS — onboarding, judge demo, lesson, practice, and live BKT update
-Mobile browser QA: PASS — 390 px viewport with no horizontal overflow
-Console errors: FIXED — a Fast Refresh stale-payload crash was found and guarded; final production browser reload was blocked by the browser URL policy, while the production build and HTTP smoke check passed
+Automated test count: PASS — 106 tests (65 core, 9 content, 32 server)
+Production build: PASS — Next.js production build completed with all seven app routes
+Desktop browser QA: PASS — live IRT answer updated theta +0.13 → +0.24, met the precision rule, and appeared in BKT
+Mobile browser QA: PASS — Progress at 390 × 844 with 375 px document width and no horizontal overflow
+Console errors: PASS — no application errors or warnings in the final adaptive-model journey
 Final video duration: PENDING
 ```
 

@@ -8,7 +8,7 @@ This folder contains the competition-facing materials for the Prometheus July AI
 2. Rehearse `DEMO_SCRIPT.md` until the recording finishes below the two-minute hard limit.
 3. Record the product at a desktop viewport with the app running from the fork.
 4. Paste and lightly personalize `DEVPOST_SUBMISSION.md` in Devpost.
-5. Use `ARCHITECTURE.md` for technical questions and screenshots.
+5. Use `ARCHITECTURE.md` for the system story and `ML_MODEL_CARD.md` for technical or trust questions.
 6. Capture the final commit hash and test output in `ORIGINALITY_LOG.md`.
 
 Official competition references:

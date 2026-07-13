@@ -32,6 +32,7 @@ import {
 } from "@act-tutor/core";
 
 import { AuthoredLessonComposer, type LessonComposer } from "./lesson-composer";
+import type { CalibrationKnowledgeEvidence } from "./adaptive-calibration-repository";
 
 export interface LearningBankInput {
   version: string;
@@ -463,7 +464,9 @@ function ensureLearningTwin(
   bank: LearningBankInput,
 ): Record<string, KnowledgeState> {
   if (session.learningTwinBySkill) {
-    session.learningTwinEvents ??= [];
+    session.learningTwinEvents = (session.learningTwinEvents ?? []).map(
+      (event) => ({ ...event, source: event.source ?? "practice" }),
+    );
     return session.learningTwinBySkill;
   }
 
@@ -486,6 +489,7 @@ function ensureLearningTwin(
       correct: answer.feedback.correct,
       difficulty: question.difficulty,
       observedAt: answer.feedback.mastery.lastPracticedAt ?? session.updatedAt,
+      source: "practice",
     });
     states[question.skill] = update.state;
     events.push(update.event);
@@ -870,6 +874,7 @@ export class FileLearningSessionRepository {
           correct,
           difficulty: expectedQuestion.difficulty,
           observedAt: now,
+          source: "practice",
         },
       );
       learningTwinBySkill[expectedQuestion.skill] = twinUpdate.state;
@@ -950,6 +955,60 @@ export class FileLearningSessionRepository {
       }
       await this.writeStore(store);
       return toPayload(session, bank, feedback);
+    });
+  }
+
+  async recordCalibrationEvidence(
+    sessionId: string,
+    bank: LearningBankInput,
+    evidence: CalibrationKnowledgeEvidence,
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const skill = getSkill(bank, evidence.skill);
+      const twinEvents = session.learningTwinEvents ?? [];
+      const alreadyRecorded = twinEvents.some(
+        (event) =>
+          event.questionId === evidence.questionId &&
+          event.source === "calibration" &&
+          event.observedAt === evidence.observedAt,
+      );
+      if (alreadyRecorded) return toPayload(session, bank);
+
+      const learningTwinBySkill = ensureLearningTwin(session, bank);
+      const current = learningTwinBySkill[skill.slug];
+      if (!current)
+        throw new RangeError(
+          `Learning Twin state is missing for ${skill.label}.`,
+        );
+      const update = applyKnowledgeObservation(current, {
+        questionId: evidence.questionId,
+        correct: evidence.correct,
+        difficulty: evidence.difficulty,
+        observedAt: evidence.observedAt,
+        source: "calibration",
+      });
+      learningTwinBySkill[skill.slug] = update.state;
+      session.learningTwinEvents = [...twinEvents, update.event].slice(-100);
+
+      const previousRecommendation = session.nextSkill;
+      const recommendation = recommendKnowledgeState(
+        Object.values(learningTwinBySkill),
+        session.todaySkill,
+      );
+      session.previousNextSkill = previousRecommendation;
+      session.nextSkill = recommendation.skill;
+      session.futureTask = {
+        todaySkill: session.todaySkill,
+        nextSkill: recommendation.skill,
+        changed: recommendation.skill !== previousRecommendation,
+        reason: recommendation.reason,
+      };
+      session.updatedAt = evidence.observedAt;
+      await this.writeStore(store);
+      return toPayload(session, bank);
     });
   }
 

@@ -25,6 +25,8 @@ Working in the current slice:
 - server-earned XP, levels, daily/longest streaks, twelve-skill mastery map, due-review queue, and a persistent mistake notebook;
 - lesson completion, immediate trusted feedback, mastery updates, spaced review scheduling, direct skill selection, and visible next-session regeneration.
 - a persistent 12-skill Bayesian Learning Twin that updates P(Learned), predicted next-answer accuracy, uncertainty, and the next-skill recommendation after every server-scored response;
+- an 8–12 item adaptive **Precision Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
+- a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual readiness projections;
 - a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
@@ -111,7 +113,7 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000). Stop the development server with `Ctrl+C`.
 
-No environment variables, database, or external AI key are required for the current local MVP. Diagnostic and learning progress are stored as ignored JSON files under `apps/web/.data/`.
+No environment variables, database, or external AI key are required for the current local MVP. Diagnostic, calibration, and learning progress are stored as ignored JSON files under `apps/web/.data/`.
 
 ### Optional local configuration
 
@@ -119,6 +121,7 @@ To store session data somewhere else, set either or both variables before starti
 
 ```bash
 export DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
+export CALIBRATION_SESSION_STORE_PATH=/absolute/path/calibration-sessions.json
 export LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
 export EXAM_LAB_STORE_PATH=/absolute/path/exam-lab-sessions.json
 export STUDY_PLAN_STORE_PATH=/absolute/path/study-plan-sessions.json
@@ -163,7 +166,7 @@ Restart `pnpm dev` after changing environment variables. A generated lesson is l
 To erase local demo progress and start onboarding again:
 
 ```bash
-rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json apps/web/.data/exam-lab-sessions.json apps/web/.data/study-plan-sessions.json
+rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/calibration-sessions.json apps/web/.data/learning-sessions.json apps/web/.data/exam-lab-sessions.json apps/web/.data/study-plan-sessions.json
 ```
 
 You may also need to clear cookies for `localhost:3000` if you want a completely new anonymous session.
@@ -196,7 +199,7 @@ pnpm --filter web start
 - `pnpm: command not found`: rerun `corepack enable` and `corepack prepare pnpm@11.7.0 --activate`.
 - Unsupported Node.js version: run `nvm install && nvm use`, or install Node.js `22.12.0` manually.
 - Port `3000` is already in use: stop the other process or run `pnpm --filter web dev -- -p 3001`, then open [http://localhost:3001](http://localhost:3001).
-- Stale local progress: delete the four session files in `apps/web/.data/` and clear the localhost cookies as described above.
+- Stale local progress: delete the five session files in `apps/web/.data/` and clear the localhost cookies as described above.
 
 ## Core experience
 
@@ -222,10 +225,11 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 - Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, pure TypeScript core/content/server packages, Zod content validation, durable anonymous local sessions, and Vitest.
 - Planned next: automated Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
 - Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with validated output and reviewed fallbacks.
-- Implemented ML control loop: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from trusted evidence and expose their probabilities, uncertainty, parameters, and recommendation features in the Learning Twin.
+- Implemented evidence-acquisition model: a Bayesian 2PL IRT Precision Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.
+- Implemented learning model: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from diagnostic, calibration, and practice evidence and expose their probabilities, uncertainty, parameters, and recommendation features in the Learning Twin.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
-The LLM is the personalized teaching layer, not the source of truth. The Bayesian learner model is the adaptive ML layer. Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because BKT and reviewed lessons run locally.
+The three layers have deliberately different jobs: **IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.** Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because both probabilistic models and reviewed lessons run locally.
 
 ## Planning documents
 
@@ -241,10 +245,10 @@ The LLM is the personalized teaching layer, not the source of truth. The Bayesia
 The first onboarding screen includes **Preview the adaptive demo**, which loads a clearly labeled representative diagnostic profile without an account or API key. The competition-facing two-minute path is:
 
 1. Show the diagnostic-driven Daily Mission.
-2. Open **Progress** and explain the twelve-skill Bayesian Learning Twin.
-3. Inspect P(Learned), P(Correct next), uncertainty, and the exact next-skill feature contributions.
-4. Preview a counterfactual evidence scenario.
-5. Open the personalized lesson, answer one server-scored question, and return to the evidence ledger to show the probability update.
+2. Open **Calibrate**, answer one ACT-shaped item, and show the ability estimate, uncertainty, and precision stop rule move live.
+3. Open **Progress** and show that the same trusted response entered the Bayesian Learning Twin evidence ledger.
+4. Inspect P(Learned), P(Correct next), uncertainty, and the exact next-skill feature contributions.
+5. Open the personalized lesson and show the AI-personalized or reviewed-fallback generation stamp.
 
 Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Test Day Lab, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
 

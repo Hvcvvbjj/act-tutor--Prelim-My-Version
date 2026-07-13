@@ -451,4 +451,50 @@ describe("FileLearningSessionRepository", () => {
       ).toBe(5);
     });
   });
+
+  it("routes trusted IRT calibration evidence into BKT without awarding practice XP", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const before = started.payload.learningTwin.skills.find(
+        (skill) => skill.skill === "linear-equations",
+      );
+      const evidence = {
+        questionId: "adaptive-math-probe-1",
+        skill: "linear-equations",
+        correct: false,
+        difficulty: "hard" as const,
+        observedAt: "2026-07-13T18:00:00.000Z",
+      };
+      const updated = await repo.recordCalibrationEvidence(
+        started.sessionId,
+        bank,
+        evidence,
+      );
+      const after = updated.learningTwin.skills.find(
+        (skill) => skill.skill === "linear-equations",
+      );
+
+      expect(after?.learnedProbability).toBeLessThan(
+        before?.learnedProbability ?? 0,
+      );
+      expect(updated.learningTwin.events[0]).toMatchObject({
+        questionId: evidence.questionId,
+        source: "calibration",
+        correct: false,
+      });
+      expect(updated.learningTwin.evidence.calibration).toBe(1);
+      expect(updated.learningTwin.evidence.practice).toBe(0);
+      expect(updated.mission.progress.xp).toBe(0);
+
+      const retried = await repo.recordCalibrationEvidence(
+        started.sessionId,
+        bank,
+        evidence,
+      );
+      expect(retried.learningTwin.evidence.calibration).toBe(1);
+    });
+  });
 });

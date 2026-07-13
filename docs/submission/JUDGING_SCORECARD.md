@@ -30,6 +30,9 @@ The team should avoid claiming measured score improvement without a longitudinal
 ### Evidence already in the product
 
 - Bayesian Knowledge Tracing is in the trusted answer path, not a demo-only visualization.
+- A Bayesian 2PL IRT Precision Check actively selects the next item by Fisher information plus section/skill coverage.
+- The public interface exposes ability, uncertainty, an 80% interval, item parameters, top candidate scores, and the stop policy.
+- Every calibration response crosses a tested server boundary into BKT; calibration never awards practice XP.
 - Every server-scored response updates P(Learned), P(Correct next), uncertainty, and the public evidence ledger.
 - The next-skill decision is driven by explicit knowledge-gap, uncertainty, evidence-scarcity, and lapse contributions.
 - Twelve skill models expose guess, slip, and transition parameters.
@@ -39,14 +42,14 @@ The team should avoid claiming measured score improvement without a longitudinal
 
 ### Proof to show judges
 
-- One incorrect or correct response changing P(Learned) live.
+- One response changing theta and uncertainty live, then appearing in BKT.
 - The recommendation changing or remaining stable for an inspectable reason.
 - The AI-personalized or reviewed-fallback generation stamp.
 - Architecture diagram separating trusted scoring, BKT, planner, and generative teaching.
 
 ### Remaining submission risk
 
-Do not spend the video explaining implementation jargon before showing the model move. The visible probability update is the proof.
+Do not spend the video explaining implementation jargon before showing the model move. The visible IRT update and BKT handoff are the proof. Describe current item parameters as reviewed product priors, not empirical ACT calibration.
 
 ## 3. Technical Execution / UI / UX — target 23–25 / 25
 
@@ -56,7 +59,7 @@ Do not spend the video explaining implementation jargon before showing the model
 - Server-only answer keys and rationales; public question payloads are sanitized.
 - Durable, atomic file repositories and duplicate-answer protection for the hackathon build.
 - Resumable diagnostics, learning sessions, adaptive plans, and exam rehearsals.
-- Test coverage across scoring, diagnostics, learning, BKT, missions, study plans, repositories, lesson composition, and exam debriefs.
+- Test coverage across scoring, IRT estimation/selection/stopping, diagnostics, learning, BKT, missions, study plans, repositories, lesson composition, and exam debriefs.
 - Distinctive Scout field-notebook interface rather than a generic chatbot or card-grid dashboard.
 - Desktop and mobile flows, keyboard-visible focus, reduced motion, loading, empty, error, and disabled states.
 
@@ -75,7 +78,8 @@ File storage is appropriate for a runnable hackathon demo but not horizontal pro
 
 ### Evidence already prepared
 
-- One-sentence differentiator: “Scout can explain not only the lesson, but why this student should learn it next.”
+- One-sentence differentiator: “IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.”
+- Closing line: “Every question earns its place; every answer teaches the plan.”
 - One-click representative judge profile.
 - A 1:52–1:57 script centered on the visible evidence update.
 - Competition-specific Devpost story and technical architecture.

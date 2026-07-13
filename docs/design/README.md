@@ -35,7 +35,7 @@ A focused academic coach: editorial study-guide precision with restrained game p
 
 ### Anti-generic rule
 
-No marketing hero, bento grid, decorative AI chat box, mascot, copied Duolingo visual language, fake metrics, or rounded card around every piece of content. The working surface is the first screen.
+No marketing hero, bento grid, decorative AI chat box, copied Duolingo visual language, fake metrics, or rounded card around every piece of content. Scout may appear only when it teaches, reflects model state, or helps repair an error—not as decorative chrome. The working surface is the first screen.
 
 ## Extracted tokens
 
@@ -90,6 +90,18 @@ Compared at the concept's native desktop viewport (`1487 × 1058`) and the mobil
 8. **Intentional deviation — dynamic scheduling.** “Tomorrow” and “Friday checkpoint” became “Next session” and a computed checkpoint cadence so the interface does not make a false calendar promise.
 
 Temporary implementation captures used for this review were kept outside the repository so dev-browser chrome is not shipped as a product asset.
+
+## Adaptive-model extension
+
+The Precision Check extends the accepted dashboard into a live psychometrics workspace. It was grounded in the existing Scout field-notebook system and reviewed against the additional local resources `DSR-006`, `LC-006`, `PAS-002`, `PAS-009`, `ARQ-006`, `AIA-002`, `AIA-004`, `AIA-007`, `AIA-011`, `AIA-017`, `ELP-004`, `ELP-011`, `ELP-017`, `DSM-005`, `RST-008`, `DVA-018`, and `IPQ-019`.
+
+### Fidelity and interaction ledger
+
+1. **Hierarchy — matched.** The ACT-shaped item is the dominant decision surface; ability/uncertainty and “Why this item” evidence are subordinate, not a stat-card dashboard.
+2. **Visual language — matched.** Deep navy rules, cobalt/teal evidence states, editorial labels, squared surfaces, and restrained shadows reuse Scout’s established notebook grammar.
+3. **Adaptive interaction — proved.** A live answer changed theta from `+0.13` to `+0.24`, reduced standard error from `0.36` to `0.35`, triggered the explicit precision stop, and appeared in BKT.
+4. **Trust state — expanded.** Representative evidence is visibly labeled, answer keys remain server-only, and the UI separates model readiness from official ACT scores.
+5. **Responsive behavior — proved.** The Learning Twin at `390 × 844` rendered inside a 375 px document width with no horizontal overflow; navigation and all semantic controls remained available.
 
 ## Diagnostic-runner extension ledger
 

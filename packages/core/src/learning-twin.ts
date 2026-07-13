@@ -17,6 +17,7 @@ export const LEARNING_TWIN_MODEL = {
 export type KnowledgePriorSource =
   "diagnostic" | "score-estimate" | "neutral-prior";
 export type KnowledgeConfidence = "exploring" | "forming" | "stable";
+export type LearningEvidenceSource = "practice" | "calibration";
 
 export interface KnowledgeModelParameters {
   transition: number;
@@ -57,6 +58,7 @@ export interface KnowledgeObservation {
   correct: boolean;
   difficulty: PracticeDifficulty;
   observedAt: string;
+  source?: LearningEvidenceSource;
 }
 
 export interface LearningTwinEvent {
@@ -71,6 +73,7 @@ export interface LearningTwinEvent {
   learnedAfter: number;
   predictedCorrectAfter: number;
   observedAt: string;
+  source: LearningEvidenceSource;
 }
 
 export type RecommendationContributionId =
@@ -110,6 +113,7 @@ export interface LearningTwinSnapshot {
     total: number;
     diagnostic: number;
     practice: number;
+    calibration: number;
     lastUpdatedAt: string | null;
   };
 }
@@ -317,6 +321,7 @@ export function applyKnowledgeObservation(
       learnedAfter: trace.learnedAfterTransition,
       predictedCorrectAfter: trace.predictedCorrectAfter,
       observedAt: trace.observedAt,
+      source: observation.source ?? "practice",
     },
   };
 }
@@ -465,9 +470,20 @@ export function buildLearningTwinSnapshot(input: {
       SECTION_ORDER[left.section] - SECTION_ORDER[right.section] ||
       left.label.localeCompare(right.label),
   );
-  const events = [...(input.events ?? [])]
-    .sort((left, right) => right.observedAt.localeCompare(left.observedAt))
-    .slice(0, 12);
+  const allEvents = [...(input.events ?? [])]
+    .map((event) => ({ ...event, source: event.source ?? "practice" }))
+    .sort((left, right) => right.observedAt.localeCompare(left.observedAt));
+  const events = allEvents.slice(0, 12);
+  const diagnosticEvidence = skills.reduce(
+    (total, skill) => total + skill.baselineEvidence,
+    0,
+  );
+  const practiceEvidence = allEvents.filter(
+    (event) => event.source === "practice",
+  ).length;
+  const calibrationEvidence = allEvents.filter(
+    (event) => event.source === "calibration",
+  ).length;
   return {
     model: LEARNING_TWIN_MODEL,
     skills,
@@ -475,12 +491,10 @@ export function buildLearningTwinSnapshot(input: {
     events,
     forecast: buildLearningTwinForecast(skills),
     evidence: {
-      total: skills.reduce((total, skill) => total + skill.evidenceCount, 0),
-      diagnostic: skills.reduce(
-        (total, skill) => total + skill.baselineEvidence,
-        0,
-      ),
-      practice: skills.reduce((total, skill) => total + skill.observations, 0),
+      total: diagnosticEvidence + practiceEvidence + calibrationEvidence,
+      diagnostic: diagnosticEvidence,
+      practice: practiceEvidence,
+      calibration: calibrationEvidence,
       lastUpdatedAt: events[0]?.observedAt ?? null,
     },
   };

@@ -25,45 +25,43 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 **Do:** Click **Preview the adaptive demo**.
 
-### 0:18–0:34 — Daily mission
+### 0:18–0:31 — Daily mission
 
 **Say:** “It turns that evidence into today’s mission: one targeted lesson, ACT-shaped practice, mistake repair, and a mixed checkpoint.”
 
 **Show:** The Sentence Boundaries mission and the 0% diagnostic-evidence explanation. Briefly point to the four mission stages and Scout.
 
-### 0:34–1:04 — The AI/ML differentiator
+### 0:31–1:01 — The first adaptive decision
+
+**Do:** Open **Calibrate**. The judge path preloads seven visibly labeled representative responses. Answer the eighth question.
+
+**Say:** “Scout’s first model decides what to ask. This two-parameter IRT check scores every unanswered item by Fisher information plus coverage. I’ll submit one real, server-scored answer.”
+
+**Show:** The selected ACT-shaped item, Why this item panel, theta and uncertainty band. Submit the answer and pause on the before/after strip and precision stop reason.
+
+**Say:** “The estimate and uncertainty move live. Scout stops only after eight items, evidence from every core section, and the precision target—or at twelve. This is readiness evidence, not an official ACT score.”
+
+### 1:01–1:27 — The second adaptive decision
 
 **Do:** Open **Progress**.
 
-**Say:** “The core is not a chatbot. Scout maintains twelve Bayesian Knowledge Tracing models. Sentence Boundaries is first because the model predicts only a 37% chance of a correct next answer and still has high uncertainty.”
+**Say:** “That same trusted response enters a different model: twelve-skill Bayesian Knowledge Tracing. IRT chooses what to ask; BKT chooses what to teach. The ledger proves the handoff.”
 
-**Show:** The recommendation, P(Learned), P(Correct next), uncertainty, and the priority contributions.
+**Show:** Calibration count, newest IRT calibration event, selected skill’s P(Learned), P(Correct next), uncertainty, and priority contributions.
 
-**Say:** “Judges and students can see the exact features behind the decision: knowledge gap, uncertainty, evidence scarcity, and recent lapses.”
+**Say:** “The next skill is ranked from knowledge gap, uncertainty, evidence scarcity, and recent lapses—every contribution is inspectable.”
 
-### 1:04–1:18 — Honest counterfactuals
+### 1:27–1:49 — Personalized teaching
 
-**Do:** Click **+6 evidence sessions** in the Counterfactual Lab.
-
-**Say:** “Scout can preview how additional evidence changes modeled readiness, and it labels this correctly: it is a counterfactual, not a score promise.”
-
-### 1:18–1:39 — Personalized teaching
-
-**Do:** Click **Run a live model update**, then use the lesson stage navigation to show the worked example, decision rule, and generation stamp.
+**Do:** Return to **Today**, open the targeted lesson, and show the worked example, decision rule, and generation stamp.
 
 **Say:** “The learner model chooses what to teach. An LLM can then assemble the lesson from reviewed content at the right depth. It never controls answer keys or scoring, and a reviewed fallback keeps the product fully runnable without a key.”
 
-### 1:39–1:51 — Trusted evidence loop
+### 1:49–1:57 — Close
 
-**Do:** Start focused practice, answer the first question, then return to **Progress**. If this click sequence is not consistently under twelve seconds, pre-position the recording after the answer and use a clean cut.
+**Say:** “Scout is ACT prep where every question earns its place, every answer teaches the plan, and every decision can be inspected.”
 
-**Say:** “That server-scored answer becomes evidence. P(Learned) changes, the ledger records the update, and the next learning decision is recalculated.”
-
-### 1:51–1:57 — Close
-
-**Say:** “Scout is ACT prep that can explain not only the lesson, but why this student should learn it next.”
-
-**Show:** The updated Learning Twin recommendation and evidence ledger. End on the Scout ACT mark.
+**Show:** The lesson and Scout ACT mark.
 
 ## Recording rules
 

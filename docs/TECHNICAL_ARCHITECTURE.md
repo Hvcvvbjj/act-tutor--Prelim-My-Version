@@ -10,8 +10,9 @@ flowchart LR
     B --> C[Three-gate onboarding]
     C -->|Prior scores| D[Broad section priors]
     C -->|No prior score| E[Diagnostic assessment]
-    D --> F[Early skill probes]
+    D --> F[2PL IRT Precision Check]
     E --> G[Deterministic score estimate]
+    G --> F
     F --> H[Beta progress plus Bayesian Learning Twin]
     G --> H
     H --> I[Interpretable next-skill ranking]
@@ -22,7 +23,7 @@ flowchart LR
     J --> M[Optional AI hint or re-explanation]
 ```
 
-The trusted loop is response scoring → BKT update → next-skill ranking → plan/lesson. Generative AI consumes the selected skill and reviewed content; it never writes answer keys, scores responses, or mutates the Bayesian state.
+The trusted loop is IRT next-item selection → response scoring → BKT update → next-skill ranking → plan/lesson. IRT chooses which evidence to collect; BKT chooses what to teach. Generative AI consumes the selected skill and reviewed content; it never writes answer keys, scores responses, or mutates either probabilistic state.
 
 ## 2. Stack
 
@@ -37,7 +38,7 @@ This table describes the target MVP architecture. The local slice currently impl
 | Database         | Atomic local JSON repository now; Supabase Postgres target                                        | Restart-safe local demo today; hosted relational data, transactions, migrations, RPC, and RLS for production         |
 | Authentication   | Opaque HttpOnly session cookie now; Supabase anonymous auth target                                | No login wall; production records must be durable, server-owned, and user-scoped                                     |
 | DB access        | `@supabase/ssr`, `supabase-js`, generated types                                                   | Direct JWT/RLS model with minimal ORM overhead                                                                       |
-| ML student model | Bayesian Knowledge Tracing in `packages/core`                                                     | Persistent, interpretable skill acquisition estimates that run without an external provider                          |
+| ML student model | 2PL Item Response Theory plus Bayesian Knowledge Tracing in `packages/core`                     | Interpretable evidence acquisition and skill estimates that run without an external provider                         |
 | Generative AI    | Validated OpenAI-compatible lesson/debrief composers with reviewed fallbacks                      | Switch hosted or local providers without touching scoring or the learner model                                       |
 | Deployment       | Vercel + Supabase                                                                                 | Low-friction previews and production deployment                                                                      |
 | Tests            | Vitest + Playwright + Supabase pgTAP                                                              | Pure logic, end-to-end journeys, and RLS coverage                                                                    |
@@ -47,7 +48,7 @@ Cloudflare Workers AI currently lists Qwen text-generation models and provides a
 
 ## 3. Target repository layout
 
-The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, twelve-skill mastery map, Learning Twin inspector, review queue, mistake notebook, interactive Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question diagnostic runner, and the Test Day Lab setup/runner/review/report surfaces; `packages/core` contains trusted types, scoring, range/skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, simulation selection, pacing, confidence-calibration, and planning logic; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed learner, study-plan, and simulation sessions plus validated OpenAI-compatible lesson and debrief composers. Supabase, automated browser E2E, CI, empirical calibration, and production monitoring remain target additions.
+The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, adaptive Precision Check, twelve-skill mastery map, Learning Twin inspector, review queue, mistake notebook, interactive Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question diagnostic runner, and the Test Day Lab setup/runner/review/report surfaces; `packages/core` contains trusted types, scoring, 2PL IRT estimation/selection/stopping, range/skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, simulation selection, pacing, confidence-calibration, and planning logic; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed calibration, learner, study-plan, and simulation sessions plus validated OpenAI-compatible lesson and debrief composers. Supabase, automated browser E2E, CI, empirical parameter calibration, and production monitoring remain target additions.
 
 ```text
 /
@@ -229,6 +230,7 @@ Suggested Route Handlers:
 - `GET /api/assessments/:id`
 - `POST /api/assessments/:id/answers`
 - `POST /api/assessments/:id/submit`
+- `GET|POST|DELETE /api/calibration`
 - `GET /api/dashboard/today`
 - `POST /api/practice`
 - `POST /api/practice/:id/answers`
@@ -272,7 +274,15 @@ For MVP:
 4. Display at least a ±3 section-point range for the half form and wider for rapid estimates.
 5. Store the calibration version with the baseline.
 
-Do not claim equating, IRT calibration, or official score prediction until enough real response data exists.
+Do not claim official equating, population-calibrated IRT parameters, or official score prediction until enough real response data exists.
+
+### Adaptive Precision Check
+
+The fixed half-length diagnostic remains blueprint-balanced and comparable. After score entry or that baseline, the optional Precision Check uses a Bayesian two-parameter logistic IRT model to refine uncertainty in 8–12 items.
+
+At the current ability estimate, every unanswered item is ranked by Fisher information plus section- and first-sample skill-coverage bonuses. A normal prior stabilizes sparse estimates. The check cannot stop before eight responses; it requires at least two observations from every core section and a standard error at or below `0.56`, or stops at the twelve-item cap. The UI exposes the estimate, 80% interval, standard error, candidate ranking, item parameters, and stop reason.
+
+Current difficulty/discrimination parameters are reviewed product priors by difficulty band. The readiness index is not mapped to an ACT score. Each server-scored response becomes calibration-sourced BKT evidence without awarding practice XP.
 
 ### Skill mastery
 
@@ -298,7 +308,7 @@ The Beta state remains useful for XP-facing progress bands and spaced-review int
 
 ### Bayesian Learning Twin
 
-Each of the twelve skills also owns a Bayesian Knowledge Tracing state with P(Learned), P(Guess), P(Slip), and P(Transition). Diagnostic results create smoothed skill priors; submitted scores create cautious priors until direct evidence arrives. Every server-scored practice response performs an observation update followed by a learning transition and stores a public before/after event.
+Each of the twelve skills also owns a Bayesian Knowledge Tracing state with P(Learned), P(Guess), P(Slip), and P(Transition). Diagnostic results create smoothed skill priors; submitted scores create cautious priors until direct evidence arrives. Every server-scored calibration or practice response performs an observation update followed by a learning transition and stores a public before/after event.
 
 The next-skill policy ranks four explicit features: 52% knowledge gap, 24% model uncertainty, 14% evidence scarcity, and 10% recent lapse pressure. This BKT recommendation controls future skill selection and mixed-checkpoint composition. The UI exposes every feature contribution and labels its readiness forecast as a counterfactual rather than an ACT-score prediction.
 

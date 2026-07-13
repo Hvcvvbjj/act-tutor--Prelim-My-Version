@@ -121,6 +121,19 @@ For the hackathon demo, add a **Rapid Estimate** mode with roughly 24 balanced q
 - Do not include fake unscored field-test items.
 - Do not branch adaptively inside the baseline; adapt after the baseline so coverage remains comparable.
 
+### 5.3 Adaptive Precision Check
+
+After the fixed diagnostic or score-based placement, offer an 8–12 item adaptive Precision Check. Its job is to reduce model uncertainty and collect stronger direct skill evidence; it must not replace the blueprint-balanced no-score baseline.
+
+- Select each next item with a documented 2PL IRT information score plus section/skill coverage safeguards.
+- Show the learner why the item was selected, the current uncertainty band, and the stop rule.
+- Require at least two observations from English, Math, and Reading before a precision stop.
+- Keep answer keys server-side and require ordered submissions.
+- Send every scored outcome into the tested skill’s Learning Twin state.
+- Award no XP or practice mastery for seeded representative evidence.
+- Label theta, intervals, and any readiness index as practice-model outputs—not an official ACT score.
+- Describe current item parameters as reviewed product priors until they are calibrated from consented outcome data.
+
 ## 6. Skill taxonomy
 
 Use official reporting categories as parents and teachable product skills beneath them.

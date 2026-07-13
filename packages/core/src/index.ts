@@ -1,3 +1,4 @@
+export * from "./calibration";
 export * from "./diagnostic";
 export * from "./exam-lab";
 export * from "./learning";

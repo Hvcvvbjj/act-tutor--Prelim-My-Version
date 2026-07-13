@@ -437,6 +437,12 @@ function EvidenceLedger({
               {twin.evidence.practice}
             </p>
           </div>
+          <div>
+            <p className="ink-label text-muted-foreground">Calibration</p>
+            <p className="font-heading text-2xl font-black tabular-nums">
+              {twin.evidence.calibration}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -464,6 +470,10 @@ function EvidenceLedger({
               <div>
                 <p className="text-sm font-bold">{event.skillLabel}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
+                  {event.source === "calibration"
+                    ? "IRT calibration"
+                    : "Practice"}
+                  {" · "}
                   {event.correct ? "Correct" : "Missed"} · {event.difficulty}
                   {" item · "}P(L) {percent(event.learnedBefore)} →{" "}
                   {percent(event.learnedAfter)}
@@ -547,7 +557,7 @@ export function LearningTwinLab({
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
             {recommendation.reason} The recommendation updates only from
-            server-scored diagnostic and practice evidence.
+            server-scored diagnostic, calibration, and practice evidence.
           </p>
         </div>
         <aside className="border-l-4 border-[var(--scout-coral)] bg-background px-5 py-5 shadow-[5px_5px_0_rgb(20_35_58_/_0.12)]">

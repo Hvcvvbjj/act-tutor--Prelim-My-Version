@@ -369,8 +369,13 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
 
   async function launchJudgeDemo() {
     try {
-      const response = await fetch("/api/learning", { method: "DELETE" })
-      if (!response.ok) throw new Error("Could not reset the demo learner.")
+      const [learningResponse, calibrationResponse] = await Promise.all([
+        fetch("/api/learning", { method: "DELETE" }),
+        fetch("/api/calibration", { method: "DELETE" }),
+      ])
+      if (!learningResponse.ok || !calibrationResponse.ok) {
+        throw new Error("Could not reset the demo learner.")
+      }
       const demoDraft: PlacementDraft = {
         goal: 31,
         priorScoreChoice: "scores",

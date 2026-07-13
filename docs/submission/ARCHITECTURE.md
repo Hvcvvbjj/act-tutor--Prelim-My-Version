@@ -6,6 +6,9 @@
 flowchart LR
     A["Goal, score evidence, test date"] --> B["Diagnostic or score normalization"]
     B --> C["Server-only scoring"]
+    B --> L["2PL IRT Precision Check"]
+    L --> M["Fisher-information item selection"]
+    M --> C
     C --> D["12-skill Bayesian Learning Twin"]
     D --> E["Interpretable next-skill ranking"]
     E --> F["Adaptive plan and spaced review"]
@@ -18,7 +21,13 @@ flowchart LR
     D --> K["Visible probabilities, uncertainty, and evidence ledger"]
 ```
 
-The critical loop is **trusted response → probabilistic model update → next-skill decision → personalized teaching → new trusted response**. The generative model is inside the teaching layer, while scoring and the learner model remain deterministic, testable, and inspectable.
+The critical loop is **next-best probe → trusted response → skill-model update → next-skill decision → personalized teaching → new trusted response**. IRT decides which evidence to collect, BKT decides what to teach, and the generative model decides how to explain reviewed material. Scoring and both probabilistic decisions remain deterministic, testable, and inspectable.
+
+## Why 2PL Item Response Theory
+
+The optional Precision Check estimates a single practice-readiness ability parameter, `theta`, with a normal prior and maximum-a-posteriori updates. Each item has an explicit difficulty (`b`) and discrimination (`a`) parameter. At the current estimate, Scout ranks every unanswered item by Fisher information, then adds small section- and skill-coverage bonuses so a mathematically informative test does not become educationally narrow.
+
+The check cannot stop before eight items. It stops when English, Math, and Reading each have at least two observations and standard error is at or below `0.56`, or when it reaches the twelve-item cap. The displayed 80% interval and readiness index are model diagnostics—not an official ACT score. Current item parameters are reviewed product priors by difficulty band and are explicitly not described as empirically equated ACT parameters.
 
 ## Why Bayesian Knowledge Tracing
 
@@ -68,22 +77,23 @@ It may personalize lesson depth, opening, guided explanation, strategy checklist
 
 ## Trust boundaries
 
-| Boundary          | Public client receives                                            | Server retains                              |
-| ----------------- | ----------------------------------------------------------------- | ------------------------------------------- |
-| Diagnostic        | prompt, choices, progress, post-submit feedback                   | answer key, rationale before submission     |
-| Practice          | prompt, choices, skill, difficulty                                | answer key, misconception tags, scoring     |
-| Learning Twin     | probabilities, uncertainty, update event, recommendation features | trusted response validation and persistence |
-| Generative lesson | structured lesson and provider stamp                              | provider credentials and prompt assembly    |
+| Boundary          | Public client receives                                             | Server retains                              |
+| ----------------- | ------------------------------------------------------------------ | ------------------------------------------- |
+| Diagnostic        | prompt, choices, progress, post-submit feedback                    | answer key, rationale before submission     |
+| Precision Check   | public item, ability interval, information, candidate explanations | answer keys, ordered scoring and persistence |
+| Practice          | prompt, choices, skill, difficulty                                 | answer key, misconception tags, scoring     |
+| Learning Twin     | probabilities, uncertainty, update event, recommendation features  | trusted response validation and persistence |
+| Generative lesson | structured lesson and provider stamp                               | provider credentials and prompt assembly    |
 
 ## Package map
 
 | Package            | Responsibility                                                            |
 | ------------------ | ------------------------------------------------------------------------- |
-| `packages/core`    | scoring, diagnostics, planning, BKT, missions, study plans, exam analysis |
+| `packages/core`    | scoring, 2PL IRT, diagnostics, planning, BKT, missions, study plans, exam analysis |
 | `packages/content` | original reviewed diagnostic, skill, lesson, and practice content         |
 | `packages/server`  | durable repositories, trusted scoring flow, lesson/debrief composition    |
 | `apps/web`         | Next.js routes, cookies, server wiring, and responsive Scout UI           |
 
 ## Persistence and production path
 
-The hackathon build uses atomic JSON-file repositories so judges can run the entire system without provisioning an external service. Repository boundaries isolate persistence. A production deployment would replace them with authenticated Postgres repositories, encrypted user identifiers, rate limiting, telemetry, and calibrated BKT parameters learned from consented longitudinal data.
+The hackathon build uses atomic JSON-file repositories so judges can run the entire system without provisioning an external service. Repository boundaries isolate persistence. A production deployment would replace them with authenticated Postgres repositories, encrypted user identifiers, rate limiting, telemetry, and IRT/BKT parameters calibrated from consented longitudinal data. See the [model card](ML_MODEL_CARD.md) for assumptions, safeguards, and evaluation criteria.

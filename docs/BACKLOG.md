@@ -190,11 +190,20 @@ Acceptance criteria:
 ### 4.5 Add an interpretable Bayesian Learning Twin — P0
 
 - Maintain P(Learned), P(Correct next), uncertainty, and evidence counts for every supported skill.
-- Update only from server-scored diagnostic and practice responses.
+- Update only from server-scored diagnostic, calibration, and practice responses.
 - Make guess, slip, transition, and next-skill feature contributions inspectable.
 - Persist a public before/after evidence ledger without exposing answer keys.
 - Use the model to choose future skill work and mixed checkpoints.
 - **Implemented locally:** twelve BKT models, difficulty-aware observation updates, four-feature recommendation scoring, persistent evidence events, counterfactual readiness projections, core/server tests, and the Learning Twin UI are complete.
+
+### 4.6 Add information-maximizing baseline refinement — P0
+
+- Maintain a Bayesian 2PL IRT ability estimate and uncertainty interval.
+- Rank unanswered items by Fisher information plus section/skill coverage.
+- Enforce an 8-item evidence floor, three-section coverage, precision target, and 12-item cap.
+- Make candidate ranking and the IRT-to-BKT handoff visible.
+- Keep item keys server-side and store ordered, idempotent calibration sessions.
+- **Implemented locally:** the Precision Check, atomic calibration repository, secure API route, representative judge seeding, BKT handoff, model UI, and core/server tests are complete.
 
 ## Epic 5 — Plan generator and scheduler
 

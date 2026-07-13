@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import type { LearningSessionPayload, StudyPlanTask } from "@act-tutor/core"
 import { ArrowRightIcon, InfoIcon, PencilLineIcon } from "lucide-react"
 
 import { AdaptivePlanStudio } from "@/components/tutor/adaptive-plan-studio"
+import { AdaptiveCalibrationLab } from "@/components/tutor/adaptive-calibration-lab"
 import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
 import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
 import { LearningTwinLab } from "@/components/tutor/learning-twin-lab"
@@ -37,6 +38,18 @@ async function learningRequest(body: Record<string, unknown>) {
   if (!response.ok || "error" in payload) {
     throw new Error(
       "error" in payload ? payload.error : "Learning request failed."
+    )
+  }
+  return payload
+}
+
+async function loadLearningSession() {
+  const response = await fetch("/api/learning", { cache: "no-store" })
+  const payload = (await response.json()) as
+    LearningSessionPayload | { error: string }
+  if (!response.ok || "error" in payload) {
+    throw new Error(
+      "error" in payload ? payload.error : "Learning session refresh failed."
     )
   }
   return payload
@@ -90,6 +103,19 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState("today")
+
+  const refreshLearningSession = useCallback(async () => {
+    try {
+      setLearning(await loadLearningSession())
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error
+          ? error.message
+          : "The updated learner model could not load."
+      )
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -245,6 +271,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           >
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="plan">Plan</TabsTrigger>
+            <TabsTrigger value="calibrate">Calibrate</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
             <TabsTrigger value="lab">Test Lab</TabsTrigger>
           </TabsList>
@@ -327,6 +354,24 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
             <ScoutCoach
               mood="thinking"
               message="Scout is collecting the evidence needed to date your plan."
+            />
+          </main>
+        )}
+      </TabsContent>
+      <TabsContent value="calibrate">
+        {learning ? (
+          <AdaptiveCalibrationLab
+            representativeDemo={
+              plan.diagnosticResult?.formId === "scout-judge-demo"
+            }
+            onLearningTwinUpdated={refreshLearningSession}
+            onInspectLearningTwin={() => setActiveTab("progress")}
+          />
+        ) : (
+          <main className="mx-auto max-w-3xl px-5 py-20">
+            <ScoutCoach
+              mood="thinking"
+              message="Scout is connecting the precision model to your Learning Twin."
             />
           </main>
         )}
