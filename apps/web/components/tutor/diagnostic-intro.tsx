@@ -7,6 +7,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react"
 
+import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -22,11 +23,11 @@ interface DiagnosticIntroProps {
 const SECTION_BLUEPRINT = [
   [
     "English",
-    "8 reviewed questions",
-    "Boundaries, concision, commas + transitions",
+    "25 questions · 18-minute target",
+    "Half of the enhanced ACT's 50-question section",
   ],
-  ["Math", "8 reviewed questions", "Equations, functions, percent + geometry"],
-  ["Reading", "8 reviewed questions", "Ideas, inference, evidence + purpose"],
+  ["Math", "23 questions · 25-minute target", "Half of the enhanced ACT's 45-question section, rounded up"],
+  ["Reading", "18 questions · 20-minute target", "Half of the enhanced ACT's 36-question section"],
 ] as const
 
 export function DiagnosticIntro({
@@ -37,10 +38,9 @@ export function DiagnosticIntro({
 }: DiagnosticIntroProps) {
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex h-20 items-center border-b px-5 sm:px-8 lg:px-12">
-        <p className="text-lg font-bold tracking-tight sm:text-xl">
-          AI ACT Tutor
-        </p>
+      <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
+        <ScoutMark className="size-11" />
+        <p className="font-heading text-2xl font-black tracking-tight">SCOUT ACT</p>
       </header>
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16">
         <Button type="button" variant="ghost" onClick={onBack}>
@@ -49,8 +49,9 @@ export function DiagnosticIntro({
         </Button>
         <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
           <section>
-            <h1 className="text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-              Let&apos;s find your baseline.
+            <p className="ink-label text-primary">No prior score · establish the evidence</p>
+            <h1 className="mt-3 font-heading text-5xl leading-[0.95] font-black tracking-[-0.035em] sm:text-7xl">
+              Earn a stronger baseline.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">
               You&apos;re aiming for {goal} by {formatCalendarDate(testDate)}.
@@ -58,12 +59,12 @@ export function DiagnosticIntro({
               asking you to guess a current score.
             </p>
 
-            <div className="mt-10 border-y py-7">
+            <div className="mt-10 border-y-2 border-foreground py-7">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xl font-bold">Reviewed rapid diagnostic</p>
+                  <p className="font-heading text-3xl font-bold">Enhanced ACT half-length baseline</p>
                   <p className="mt-1 text-muted-foreground">
-                    24 original questions · about 25 minutes
+                    66 original questions · about 63 minutes
                   </p>
                 </div>
                 <span className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary sm:mt-0">
@@ -78,28 +79,34 @@ export function DiagnosticIntro({
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
 
+            <ScoutCoach
+              className="mt-8 max-w-2xl"
+              mood="ready"
+              message="This is long enough to expose patterns, not just lucky guesses. You can save and return at any point."
+              detail="Questions remain original and are organized in ACT-style passage and four-choice formats. Results are still estimated practice ranges, not official ACT scores."
+            />
+
             <Alert className="mt-8 max-w-2xl bg-[var(--info-surface)]">
               <ShieldCheckIcon />
-              <AlertTitle>Real evidence, intentionally wide range</AlertTitle>
+              <AlertTitle>ACT-shaped, not ACT-official</AlertTitle>
               <AlertDescription>
-                This reviewed rapid form covers 12 skills, but it is not the
-                finished half-length form. Its result is an estimated practice
-                range and feeds the planner without claiming official ACT
-                precision.
+                The 25/23/18 split mirrors half of the current enhanced ACT core.
+                The content is original, the score range is estimated, and the
+                planner keeps recalibrating from future evidence.
               </AlertDescription>
             </Alert>
           </section>
 
-          <aside className="border-t pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
-            <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-              Current blueprint
+          <aside className="border-t-2 border-foreground pt-8 lg:border-t-0 lg:border-l-2 lg:pt-0 lg:pl-10">
+            <p className="ink-label text-muted-foreground">
+              Half-length blueprint
             </p>
             <dl className="mt-6 flex flex-col">
               {SECTION_BLUEPRINT.map(([section, questions, skills], index) => (
                 <div key={section}>
                   {index > 0 ? <Separator /> : null}
                   <div className="py-5">
-                    <dt className="font-semibold">{section}</dt>
+                    <dt className="font-heading text-2xl font-bold">{section}</dt>
                     <dd className="mt-1 text-sm text-muted-foreground">
                       {questions}
                     </dd>

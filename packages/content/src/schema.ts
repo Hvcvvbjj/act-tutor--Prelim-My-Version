@@ -24,6 +24,10 @@ export const diagnosticQuestionSchema = z
     stimulus: z.string().min(10).optional(),
     choices: z.array(diagnosticChoiceSchema).length(4),
     expectedSeconds: z.number().int().min(20).max(180),
+    format: z.enum(["passage", "standalone"]),
+    passageId: slugSchema.optional(),
+    passageTitle: z.string().min(2).optional(),
+    lineReference: z.string().min(1).optional(),
     correctChoiceId: z.string().min(1),
     rationale: z.string().min(20),
     content: z.object({
@@ -49,7 +53,29 @@ export const diagnosticQuestionSchema = z
         message: "The correct choice must exist in choices.",
       });
     }
+    if (
+      question.format === "passage" &&
+      (!question.passageId || !question.passageTitle || !question.stimulus)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["passageId"],
+        message: "Passage questions require passage metadata and a stimulus.",
+      });
+    }
   });
+
+const diagnosticBlueprintSchema = z.object({
+  section: z.enum(CORE_SECTIONS),
+  officialQuestions: z.number().int().positive(),
+  officialScoredQuestions: z.number().int().positive(),
+  officialMinutes: z.number().int().positive(),
+  diagnosticQuestions: z.number().int().positive(),
+  diagnosticMinutes: z.number().int().positive(),
+  reportingCategories: z.array(
+    z.object({ label: z.string().min(2), range: z.string().min(2) }),
+  ).min(2),
+});
 
 export const rapidDiagnosticFormSchema = z
   .object({
@@ -57,8 +83,9 @@ export const rapidDiagnosticFormSchema = z
     version: slugSchema,
     mode: z.literal("rapid"),
     title: z.string().min(4),
-    estimatedMinutes: z.number().int().min(10).max(45),
-    questions: z.array(diagnosticQuestionSchema).length(24),
+    estimatedMinutes: z.number().int().min(55).max(75),
+    blueprint: z.array(diagnosticBlueprintSchema).length(3),
+    questions: z.array(diagnosticQuestionSchema).length(66),
   })
   .superRefine((form, context) => {
     const ids = form.questions.map((question) => question.id);
@@ -70,15 +97,16 @@ export const rapidDiagnosticFormSchema = z
       });
     }
 
+    const expectedCounts = { english: 25, math: 23, reading: 18 } as const;
     for (const section of CORE_SECTIONS) {
       const count = form.questions.filter(
         (question) => question.section === section,
       ).length;
-      if (count !== 8) {
+      if (count !== expectedCounts[section]) {
         context.addIssue({
           code: "custom",
           path: ["questions"],
-          message: `Rapid blueprint requires 8 ${section} questions; found ${count}.`,
+          message: `Half-length blueprint requires ${expectedCounts[section]} ${section} questions; found ${count}.`,
         });
       }
     }
@@ -92,13 +120,60 @@ export const rapidDiagnosticFormSchema = z
     }
     if (
       skillCounts.size !== 12 ||
-      Array.from(skillCounts.values()).some((count) => count !== 2)
+      Array.from(skillCounts.values()).some((count) => count < 4 || count > 7)
     ) {
       context.addIssue({
         code: "custom",
         path: ["questions"],
-        message: "Rapid blueprint requires exactly 12 skills with 2 items each.",
+        message: "Half-length blueprint requires 12 skills with 4 to 7 items each.",
       });
+    }
+
+    for (const blueprint of form.blueprint) {
+      if (blueprint.diagnosticQuestions !== expectedCounts[blueprint.section]) {
+        context.addIssue({
+          code: "custom",
+          path: ["blueprint"],
+          message: `Blueprint count does not match ${blueprint.section} questions.`,
+        });
+      }
+    }
+
+    const expectedCategoryCounts: Record<
+      (typeof CORE_SECTIONS)[number],
+      Record<string, number>
+    > = {
+      english: {
+        "Production of Writing": 10,
+        "Knowledge of Language": 5,
+        "Conventions of Standard English": 10,
+      },
+      math: {
+        "Preparing for Higher Math": 18,
+        "Integrating Essential Skills": 5,
+      },
+      reading: {
+        "Key Ideas and Details": 9,
+        "Craft and Structure": 5,
+        "Integration of Knowledge and Ideas": 4,
+      },
+    };
+    for (const section of CORE_SECTIONS) {
+      for (const [category, expected] of Object.entries(
+        expectedCategoryCounts[section],
+      )) {
+        const actual = form.questions.filter(
+          (question) =>
+            question.section === section && question.category === category,
+        ).length;
+        if (actual !== expected) {
+          context.addIssue({
+            code: "custom",
+            path: ["questions"],
+            message: `${section} requires ${expected} ${category} questions; found ${actual}.`,
+          });
+        }
+      }
     }
   });
 

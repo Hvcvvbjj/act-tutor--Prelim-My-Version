@@ -41,6 +41,7 @@ function question(
       { id: "d", text: "Still incorrect" },
     ],
     expectedSeconds: 45,
+    format: "standalone",
     correctChoiceId: "b",
     rationale: "Choice B is the authored correct response for this fixture.",
     content: {
@@ -58,6 +59,11 @@ const FORM: DiagnosticFormSecure = {
   mode: "starter",
   title: "Session fixture",
   estimatedMinutes: 5,
+  blueprint: [
+    { section: "english", officialQuestions: 50, officialScoredQuestions: 40, officialMinutes: 35, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Writing", range: "50%" }, { label: "Language", range: "50%" }] },
+    { section: "math", officialQuestions: 45, officialScoredQuestions: 41, officialMinutes: 50, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Higher Math", range: "80%" }, { label: "Essential Skills", range: "20%" }] },
+    { section: "reading", officialQuestions: 36, officialScoredQuestions: 27, officialMinutes: 40, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Ideas", range: "50%" }, { label: "Structure", range: "50%" }] },
+  ],
   questions: [
     question("english-1", "english"),
     question("english-2", "english"),

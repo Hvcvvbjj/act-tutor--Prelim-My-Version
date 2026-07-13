@@ -3,8 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-heading: var(--font-barlow-condensed);
+  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,41 +47,47 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #071638;
-  --card: #ffffff;
-  --card-foreground: #071638;
-  --popover: #ffffff;
-  --popover-foreground: #071638;
-  --primary: #075eea;
-  --primary-foreground: #ffffff;
-  --secondary: #edf4ff;
-  --secondary-foreground: #071638;
-  --muted: #eef1f6;
-  --muted-foreground: #63708a;
-  --accent: #edf4ff;
-  --accent-foreground: #071638;
-  --destructive: #c8283d;
-  --border: #d7dce5;
-  --input: #cbd2de;
-  --ring: #075eea;
-  --chart-1: #075eea;
-  --chart-2: #4c7fd6;
-  --chart-3: #ff5a3d;
-  --chart-4: #7f8da8;
-  --chart-5: #b7c1d1;
-  --radius: 0.75rem;
-  --sidebar: #fbfcff;
-  --sidebar-foreground: #071638;
-  --sidebar-primary: #075eea;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edf4ff;
-  --sidebar-accent-foreground: #071638;
-  --sidebar-border: #d7dce5;
-  --sidebar-ring: #075eea;
-  --rail: #fbfcff;
-  --info-surface: #eef5ff;
-  --reward: #ff5a3d;
+  --background: #fffdf6;
+  --foreground: #14233a;
+  --card: #fffdf6;
+  --card-foreground: #14233a;
+  --popover: #fffdf6;
+  --popover-foreground: #14233a;
+  --primary: #0c9c7c;
+  --primary-foreground: #071e1a;
+  --secondary: #dff8ef;
+  --secondary-foreground: #12372f;
+  --muted: #f1eee3;
+  --muted-foreground: #5e6875;
+  --accent: #fff0bd;
+  --accent-foreground: #3b2d00;
+  --destructive: #c64736;
+  --border: #c8c5b9;
+  --input: #aaa79c;
+  --ring: #0c9c7c;
+  --chart-1: #0c9c7c;
+  --chart-2: #ff6b52;
+  --chart-3: #f6c945;
+  --chart-4: #14233a;
+  --chart-5: #68778d;
+  --radius: 0.45rem;
+  --sidebar: #f6f2e8;
+  --sidebar-foreground: #14233a;
+  --sidebar-primary: #0c9c7c;
+  --sidebar-primary-foreground: #071e1a;
+  --sidebar-accent: #dff8ef;
+  --sidebar-accent-foreground: #12372f;
+  --sidebar-border: #c8c5b9;
+  --sidebar-ring: #0c9c7c;
+  --rail: #f6f2e8;
+  --info-surface: #eef9f5;
+  --reward: #ff6b52;
+  --scout-coral: #ff6b52;
+  --scout-sun: #f6c945;
+  --scout-mint: #b8ffdf;
+  --scout-paper: #fffdf6;
+  --coach-surface: #fff0bd;
+  --coach-shadow: #14233a;
 }
 
 @layer base {
@@ -96,6 +103,10 @@
   body {
     @apply bg-background text-foreground;
     min-width: 320px;
+    background-image:
+      linear-gradient(rgb(20 35 58 / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(20 35 58 / 0.025) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
   button:not(:disabled),
@@ -107,6 +118,48 @@
     color: var(--primary-foreground);
     background: var(--primary);
   }
+}
+
+@layer components {
+  .paper-panel {
+    background-color: var(--background);
+    box-shadow: 5px 5px 0 rgb(20 35 58 / 0.12);
+  }
+
+  .ink-label {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .marker-underline {
+    background-image: linear-gradient(transparent 67%, rgb(246 201 69 / 0.7) 67%);
+  }
+}
+
+@keyframes scout-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-4px) rotate(1deg); }
+}
+
+@keyframes scout-celebrate {
+  0%, 100% { transform: scale(1) rotate(0); }
+  45% { transform: scale(1.07) rotate(-4deg); }
+  75% { transform: scale(1.04) rotate(4deg); }
+}
+
+.scout-float {
+  animation: scout-float 3.4s ease-in-out infinite;
+}
+
+.scout-celebrate {
+  animation: scout-celebrate 600ms ease-out both;
+}
+
+.scout-thinking {
+  animation-duration: 1.8s;
 }
 
 @media (prefers-reduced-motion: reduce) {

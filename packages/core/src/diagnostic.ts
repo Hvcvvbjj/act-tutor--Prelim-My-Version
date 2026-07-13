@@ -25,6 +25,23 @@ export interface DiagnosticQuestionPublic {
   stimulus?: string;
   choices: ReadonlyArray<DiagnosticChoice>;
   expectedSeconds: number;
+  format: "passage" | "standalone";
+  passageId?: string;
+  passageTitle?: string;
+  lineReference?: string;
+}
+
+export interface DiagnosticSectionBlueprint {
+  section: CoreSection;
+  officialQuestions: number;
+  officialScoredQuestions: number;
+  officialMinutes: number;
+  diagnosticQuestions: number;
+  diagnosticMinutes: number;
+  reportingCategories: ReadonlyArray<{
+    label: string;
+    range: string;
+  }>;
 }
 
 export interface DiagnosticQuestionSecure extends DiagnosticQuestionPublic {
@@ -44,6 +61,7 @@ export interface DiagnosticFormPublic {
   mode: "starter" | "rapid";
   title: string;
   estimatedMinutes: number;
+  blueprint: ReadonlyArray<DiagnosticSectionBlueprint>;
   questions: ReadonlyArray<DiagnosticQuestionPublic>;
 }
 
@@ -127,6 +145,7 @@ export function toPublicDiagnosticForm(
     mode: form.mode,
     title: form.title,
     estimatedMinutes: form.estimatedMinutes,
+    blueprint: form.blueprint,
     questions: form.questions.map(
       ({
         correctChoiceId: _key,
@@ -157,7 +176,7 @@ function estimateSectionRange(
   // it earns a narrower (but still intentionally cautious) range.
   const smoothedAccuracy = (correct + 1) / (total + 2);
   const estimate = Math.round(1 + smoothedAccuracy * 35);
-  const margin = mode === "rapid" ? 4 : 6;
+  const margin = mode === "rapid" ? 2 : 6;
 
   return {
     low: Math.max(1, estimate - margin),

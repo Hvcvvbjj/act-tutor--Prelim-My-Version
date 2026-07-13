@@ -60,6 +60,13 @@ const bank: LearningBankInput = {
   })),
 };
 
+const plan = {
+  goalScore: 31,
+  currentScore: 24,
+  daysUntilTest: 42,
+  minutesPerSession: 35,
+} as const;
+
 async function withRepository<T>(run: (repo: FileLearningSessionRepository, path: string) => Promise<T>) {
   const dir = await mkdtemp(join(tmpdir(), "act-learning-"));
   const filePath = join(dir, "learning.json");
@@ -76,6 +83,7 @@ describe("FileLearningSessionRepository", () => {
       const { payload } = await repo.getOrCreate(null, bank, {
         skill: "sentence-boundaries",
         diagnosticSkillResults: [{ skill: "sentence-boundaries", label: "Sentence boundaries", section: "english", correct: 0, total: 2, accuracy: 0, signal: "focus" }],
+        plan,
       });
 
       expect(payload.questions).toHaveLength(5);
@@ -87,7 +95,7 @@ describe("FileLearningSessionRepository", () => {
 
   it("persists lesson completion and answer feedback across repository instances", async () => {
     await withRepository(async (repo, filePath) => {
-      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries" });
+      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries", plan });
       await repo.completeLesson(started.sessionId, bank);
       const answered = await repo.answerQuestion(started.sessionId, bank, {
         questionId: "sentence-boundaries-practice-1",
@@ -106,7 +114,7 @@ describe("FileLearningSessionRepository", () => {
 
   it("returns the same feedback for duplicate identical answers", async () => {
     await withRepository(async (repo) => {
-      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries" });
+      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries", plan });
       await repo.completeLesson(started.sessionId, bank);
       const first = await repo.answerQuestion(started.sessionId, bank, {
         questionId: "sentence-boundaries-practice-1",
@@ -124,7 +132,7 @@ describe("FileLearningSessionRepository", () => {
 
   it("does not store public-only payloads as the source of truth", async () => {
     await withRepository(async (repo, filePath) => {
-      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries" });
+      const started = await repo.getOrCreate(null, bank, { skill: "sentence-boundaries", plan });
       await repo.completeLesson(started.sessionId, bank);
       await repo.answerQuestion(started.sessionId, bank, {
         questionId: "sentence-boundaries-practice-1",

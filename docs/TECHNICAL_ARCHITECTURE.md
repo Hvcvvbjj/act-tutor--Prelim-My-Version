@@ -47,7 +47,7 @@ Cloudflare Workers AI currently lists Qwen text-generation models and provides a
 
 ## 3. Target repository layout
 
-The current repository has a vertical-slice layout: `apps/web` contains onboarding, dashboard, lesson preview, diagnostic intro/runner components, and a server-only diagnostic Route Handler; `packages/core` contains trusted types, scoring, range/skill signals, targets, and planning; `packages/content` contains the versioned 24-question rapid form and Zod blueprint validation; `packages/server` contains the atomic file-backed session repository; `docs/design` contains accepted visual concepts. The AI/database packages, Supabase project, E2E suite, CI workflow, and environment contract below remain target additions.
+The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the mission-path dashboard, interactive Scout tutor, four-stage lesson workspace, the 66-question diagnostic runner, and server-only Route Handlers; `packages/core` contains trusted types, scoring, range/skill signals, targets, mastery, spacing, and planning; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed sessions and the validated OpenAI-compatible lesson composer. Supabase, browser E2E automation, CI, empirical calibration, and production monitoring remain target additions.
 
 ```text
 /
@@ -443,7 +443,7 @@ pnpm build
 ### Critical end-to-end tests
 
 1. Prior-score user gets a provisional plan.
-2. No-score user completes rapid diagnostic and gets results plus plan.
+2. No-score user completes or resumes the half-length diagnostic and gets results plus a plan.
 3. Optional Science omission creates no Science work.
 4. Diagnostic answer keys never appear in network responses.
 5. Duplicate submission is idempotent.

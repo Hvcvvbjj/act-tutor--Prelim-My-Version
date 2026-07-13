@@ -2,6 +2,7 @@ import type { DiagnosticSkillResult } from "@act-tutor/core"
 import { type NextRequest, NextResponse } from "next/server"
 
 import { LEARNING_BANK } from "@/lib/learning-content.server"
+import { lessonComposer } from "@/lib/lesson-composer.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
 
 export const runtime = "nodejs"
@@ -73,6 +74,30 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
   })
 }
 
+function parsePlanContext(body: Record<string, unknown>) {
+  const goalScore = Number(body.goalScore)
+  const currentScore = Number(body.currentScore)
+  const daysUntilTest = Number(body.daysUntilTest)
+  const minutesPerSession = Number(body.minutesPerSession)
+  if (
+    !Number.isInteger(goalScore) ||
+    goalScore < 1 ||
+    goalScore > 36 ||
+    !Number.isInteger(currentScore) ||
+    currentScore < 1 ||
+    currentScore > 36 ||
+    !Number.isInteger(daysUntilTest) ||
+    daysUntilTest < 1 ||
+    daysUntilTest > 730 ||
+    !Number.isInteger(minutesPerSession) ||
+    minutesPerSession < 15 ||
+    minutesPerSession > 180
+  ) {
+    throw new RangeError("Learning plan context is malformed.")
+  }
+  return { goalScore, currentScore, daysUntilTest, minutesPerSession }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const payload = await learningSessions.get(requireSessionId(request), LEARNING_BANK)
@@ -97,7 +122,9 @@ export async function POST(request: NextRequest) {
         {
           skill: body.skill,
           diagnosticSkillResults: parseDiagnosticSkillResults(body.diagnosticSkillResults),
-        }
+          plan: parsePlanContext(body),
+        },
+        lessonComposer
       )
       const response = NextResponse.json(session.payload)
       response.headers.set("Cache-Control", "no-store")

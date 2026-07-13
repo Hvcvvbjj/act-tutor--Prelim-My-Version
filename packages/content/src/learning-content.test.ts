@@ -27,4 +27,19 @@ describe("ACT learning content", () => {
       expect(question.content.license).toBe("original");
     }
   });
+
+  it("uses rotated keys and skill-specific distractors instead of placeholders", () => {
+    expect(new Set(ACT_PRACTICE_QUESTIONS.map((question) => question.correctChoiceId))).toEqual(
+      new Set(["A", "B", "C", "D"]),
+    );
+    const serializedChoices = JSON.stringify(
+      ACT_PRACTICE_QUESTIONS.flatMap((question) => question.choices),
+    );
+    expect(serializedChoices).not.toContain("Opposite relationship");
+    expect(serializedChoices).not.toContain("Too broad");
+    expect(serializedChoices).not.toContain("Not enough information");
+    for (const question of ACT_PRACTICE_QUESTIONS) {
+      expect(new Set(question.choices.map((choice) => choice.text)).size).toBe(4);
+    }
+  });
 });

@@ -18,9 +18,9 @@ import {
   ShieldCheckIcon,
 } from "lucide-react"
 
+import { ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Field, FieldContent, FieldLabel } from "@/components/ui/field"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
@@ -44,19 +44,20 @@ function SectionProgress({
   form,
   answers,
   currentSection,
-  submitted,
 }: {
   form: DiagnosticFormPublic
   answers: Record<string, string>
   currentSection: CoreSection | null
-  submitted: boolean
 }) {
   return (
-    <aside className="border-t pt-8 lg:border-t-0 lg:border-r lg:pt-2 lg:pr-10">
-      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-        Section progress
-      </p>
-      <ol className="mt-4 grid grid-cols-3 gap-3 lg:mt-6 lg:flex lg:flex-col lg:gap-5">
+    <aside className="border-b-2 border-foreground pb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="ink-label text-muted-foreground">Section progress</p>
+        <p className="text-xs text-muted-foreground">
+          Correctness hidden until final submission
+        </p>
+      </div>
+      <ol className="mt-4 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground">
         {Object.entries(SECTION_LABELS).map(([section, label]) => {
           const sectionQuestions = form.questions.filter(
             (question) => question.section === section
@@ -65,39 +66,37 @@ function SectionProgress({
             (question) => answers[question.id]
           ).length
           const active = currentSection === section
+          const blueprint = form.blueprint.find((item) => item.section === section)
           return (
             <li
               key={section}
-              className="grid min-w-0 grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 lg:grid-cols-[auto_1fr_auto] lg:gap-3"
+              className={cn(
+                "min-w-0 px-3 py-4 sm:px-5",
+                active && "bg-[var(--coach-surface)]"
+              )}
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "size-3 rounded-full border-2",
-                  answered === sectionQuestions.length
-                    ? "border-primary bg-primary"
-                    : active
-                      ? "border-primary bg-background ring-2 ring-primary/20"
-                      : "border-border bg-background"
-                )}
-              />
-              <span
-                className={cn("truncate text-sm", active && "font-semibold")}
-              >
-                {label}
-              </span>
-              <span className="col-start-2 text-sm text-muted-foreground tabular-nums lg:col-start-auto">
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-3 border-2",
+                    answered === sectionQuestions.length
+                      ? "border-primary bg-primary"
+                      : active
+                        ? "border-primary bg-background"
+                        : "border-border bg-background"
+                  )}
+                />
+                <span className={cn("truncate font-heading text-xl font-bold sm:text-2xl", active && "text-primary")}>{label}</span>
+              </div>
+              <p className="mt-1 pl-5 font-mono text-xs text-muted-foreground tabular-nums">
                 {answered}/{sectionQuestions.length}
-              </span>
+                {blueprint ? ` · ${blueprint.diagnosticMinutes} min target` : ""}
+              </p>
             </li>
           )
         })}
       </ol>
-      <p className="mt-8 hidden text-sm leading-6 text-muted-foreground lg:block">
-        {submitted
-          ? "Your diagnostic is submitted. The planner now uses this baseline and its direct skill evidence."
-          : "Your answers are saved to this anonymous session. Correctness stays hidden until you submit the complete form."}
-      </p>
     </aside>
   )
 }
@@ -121,90 +120,79 @@ function QuestionView({
 }) {
   const isLast = currentIndex === form.questions.length - 1
   const progress = ((currentIndex + 1) / form.questions.length) * 100
+  const sectionQuestions = form.questions.filter((item) => item.section === question.section)
+  const sectionIndex = sectionQuestions.findIndex((item) => item.id === question.id)
+
+  const answerPanel = (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="ink-label text-primary">
+          {SECTION_LABELS[question.section]} · {sectionIndex + 1}/{sectionQuestions.length}
+        </p>
+        <p className="font-mono text-xs font-bold text-muted-foreground tabular-nums">
+          Overall {currentIndex + 1}/{form.questions.length}
+        </p>
+      </div>
+      {question.lineReference ? (
+        <p className="mt-5 font-mono text-xs font-bold text-muted-foreground uppercase">
+          {question.lineReference}
+        </p>
+      ) : null}
+      <h1 className="mt-4 max-w-3xl font-heading text-3xl leading-tight font-bold tracking-[-0.02em] sm:text-4xl">
+        {question.prompt}
+      </h1>
+
+      <RadioGroup
+        value={answers[question.id] ?? ""}
+        onValueChange={onAnswer}
+        aria-label={`Answer choices for question ${currentIndex + 1}`}
+        className="mt-7 gap-3"
+      >
+        {question.choices.map((choice, index) => (
+          <label
+            key={choice.id}
+            className={cn(
+              "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground sm:text-base",
+              answers[question.id] === choice.id && "border-primary bg-secondary"
+            )}
+          >
+            <RadioGroupItem value={choice.id} className="sr-only" />
+            <strong className="col-start-1 row-start-1 font-mono text-primary">{String.fromCharCode(65 + index)}</strong>
+            <span className="col-start-2 row-start-1 min-w-0">{choice.text}</span>
+          </label>
+        ))}
+      </RadioGroup>
+
+      <div className="mt-8 flex gap-3 border-t-2 border-foreground pt-6">
+        <Button type="button" variant="outline" size="xl" onClick={onPrevious} disabled={currentIndex === 0}>
+          <ArrowLeftIcon data-icon="inline-start" />
+          Previous
+        </Button>
+        <Button type="button" size="xl" className="flex-1" onClick={onNext} disabled={!answers[question.id]}>
+          {isLast ? "Review answers" : "Next question"}
+          <ArrowRightIcon data-icon="inline-end" />
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
-    <section>
-      <div className="flex items-center justify-between gap-4 text-sm font-semibold text-primary">
-        <span>{SECTION_LABELS[question.section]}</span>
-        <span className="tabular-nums">
-          {currentIndex + 1} of {form.questions.length}
-        </span>
-      </div>
-      <Progress
-        value={progress}
-        aria-label={`Diagnostic question ${currentIndex + 1} of ${form.questions.length}`}
-        className="mt-3"
-      />
-
-      <div
-        key={question.id}
-        className="mt-10 animate-in duration-200 fade-in motion-reduce:animate-none"
-      >
-        <p className="text-sm font-semibold text-muted-foreground">
-          {question.skillLabel}
-        </p>
-        {question.stimulus ? (
-          <div className="mt-5 border-l-2 border-primary bg-[var(--info-surface)] px-5 py-4 text-base leading-7">
-            {question.stimulus}
-          </div>
-        ) : null}
-        <h1 className="mt-6 max-w-3xl text-2xl leading-9 font-bold tracking-[-0.02em] sm:text-3xl sm:leading-10">
-          {question.prompt}
-        </h1>
-
-        <RadioGroup
-          value={answers[question.id] ?? ""}
-          onValueChange={onAnswer}
-          aria-label={`Answer choices for question ${currentIndex + 1}`}
-          className="mt-7 gap-3"
-        >
-          {question.choices.map((choice, index) => (
-            <FieldLabel
-              key={choice.id}
-              className={cn(
-                "cursor-pointer border p-4 text-base transition-colors sm:p-5",
-                answers[question.id] === choice.id &&
-                  "border-primary bg-primary/5"
-              )}
-            >
-              <Field orientation="horizontal">
-                <RadioGroupItem value={choice.id} />
-                <FieldContent>
-                  <span className="flex gap-3">
-                    <strong className="text-primary">
-                      {String.fromCharCode(65 + index)}.
-                    </strong>
-                    <span>{choice.text}</span>
-                  </span>
-                </FieldContent>
-              </Field>
-            </FieldLabel>
-          ))}
-        </RadioGroup>
-
-        <div className="mt-8 flex gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            onClick={onPrevious}
-            disabled={currentIndex === 0}
-          >
-            <ArrowLeftIcon data-icon="inline-start" />
-            Previous
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            className="flex-1"
-            onClick={onNext}
-            disabled={!answers[question.id]}
-          >
-            {isLast ? "Review answers" : "Next question"}
-            <ArrowRightIcon data-icon="inline-end" />
-          </Button>
+    <section key={question.id} className="animate-in duration-200 fade-in motion-reduce:animate-none">
+      <Progress value={progress} aria-label={`Diagnostic question ${currentIndex + 1} of ${form.questions.length}`} />
+      {question.format === "passage" && question.stimulus ? (
+        <div className="paper-panel mt-6 grid overflow-hidden border-2 border-foreground bg-background lg:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
+          <article className="max-h-[70svh] overflow-y-auto border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:border-r-2 lg:border-b-0 lg:px-8">
+            <p className="ink-label text-primary">{question.section === "english" ? "Passage to revise" : "Passage"}</p>
+            <h2 className="mt-2 font-heading text-3xl font-bold">{question.passageTitle}</h2>
+            <div className="mt-6 whitespace-pre-line text-[0.98rem] leading-8 sm:text-base">
+              {question.stimulus}
+            </div>
+          </article>
+          <div className="px-5 py-7 lg:px-8">{answerPanel}</div>
         </div>
-      </div>
+      ) : (
+        <div className="mx-auto mt-8 max-w-4xl border-y-2 border-foreground py-8">{answerPanel}</div>
+      )}
     </section>
   )
 }
@@ -314,7 +302,7 @@ function ResultsView({
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         We&apos;ll plan from a midpoint of {result.compositeRange.estimate}{" "}
-        while continuing to strengthen this rapid estimate with practice
+        while continuing to strengthen this half-length estimate with practice
         evidence.
       </p>
 
@@ -381,9 +369,9 @@ function ResultsView({
           Estimated practice range—not an official ACT score
         </AlertTitle>
         <AlertDescription>
-          Twenty-four questions provide useful direction, not official
-          precision. The planner will keep learning from lessons, focused sets,
-          and checkpoints.
+          This original 66-question half-length form follows the enhanced ACT
+          section proportions, but it is not an official ACT administration.
+          The planner will keep calibrating from lessons, focused sets, and checkpoints.
         </AlertDescription>
       </Alert>
 
@@ -585,12 +573,15 @@ export function DiagnosticRunner({
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex min-h-20 items-center justify-between gap-4 border-b px-5 py-4 sm:px-8 lg:px-12">
-        <div>
-          <p className="text-lg font-bold tracking-tight sm:text-xl">
-            AI ACT Tutor
+      <header className="flex min-h-20 items-center justify-between gap-4 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
+        <div className="flex items-center gap-3">
+          <ScoutMark className="size-11" />
+          <div>
+          <p className="font-heading text-xl font-black tracking-tight sm:text-2xl">
+            SCOUT ACT
           </p>
           <p className="text-sm text-muted-foreground">{form.title}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
           <span
@@ -627,12 +618,11 @@ export function DiagnosticRunner({
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-10 px-5 py-10 sm:px-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:py-14">
+      <main className="mx-auto flex max-w-[96rem] flex-col gap-7 px-4 py-7 sm:px-8 lg:py-10">
         <SectionProgress
           form={form}
           answers={answers}
           currentSection={currentSection}
-          submitted={phase === "results"}
         />
 
         {phase === "questions" ? (

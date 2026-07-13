@@ -29,6 +29,41 @@ export interface LessonContent {
   trap: string;
 }
 
+export type LessonDepth = "foundation" | "standard" | "stretch";
+export type LessonGenerationMode = "ai" | "authored-fallback";
+
+export interface LessonGenerationDetails {
+  mode: LessonGenerationMode;
+  provider: string;
+  model: string | null;
+  generatedAt: string;
+}
+
+export interface PersonalizedLessonSection {
+  id: "mental-model" | "guided-example" | "decision-rule" | "transfer";
+  title: string;
+  explanation: string;
+  coachPrompt: string;
+}
+
+export interface PersonalizedLessonContent extends LessonContent {
+  depth: LessonDepth;
+  whyAssigned: string;
+  evidenceSummary: string;
+  tutorOpening: string;
+  sections: ReadonlyArray<PersonalizedLessonSection>;
+  strategyChecklist: ReadonlyArray<string>;
+  transferPrompt: string;
+  generation: LessonGenerationDetails;
+}
+
+export interface LessonPlanContext {
+  goalScore: number;
+  currentScore: number;
+  daysUntilTest: number;
+  minutesPerSession: number;
+}
+
 export interface PracticeChoicePublic {
   id: string;
   text: string;
@@ -123,7 +158,7 @@ export interface LearningSessionPayload {
   todaySkill: SkillSlug;
   previousNextSkill: SkillSlug;
   nextSkill: SkillSlug;
-  lesson: LessonContent;
+  lesson: PersonalizedLessonContent;
   lessonComplete: boolean;
   questions: ReadonlyArray<PracticeQuestionPublic>;
   answeredQuestionIds: ReadonlyArray<string>;

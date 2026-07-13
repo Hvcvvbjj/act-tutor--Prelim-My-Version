@@ -8,6 +8,7 @@ import {
   PlusIcon,
 } from "lucide-react"
 
+import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -154,24 +155,23 @@ export function Onboarding({
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex h-20 items-center border-b px-5 sm:px-8 lg:px-12">
-        <p className="text-lg font-bold tracking-tight sm:text-xl">
-          AI ACT Tutor
-        </p>
+      <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
+        <ScoutMark className="size-11" />
+        <p className="font-heading text-2xl font-black tracking-tight">SCOUT ACT</p>
       </header>
 
       <main className="grid min-h-[calc(100svh-5rem)] lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <section className="px-5 py-10 sm:px-10 sm:py-14 lg:px-[max(4rem,10vw)] lg:py-20">
+        <section className="px-5 py-8 sm:px-10 sm:py-10 lg:px-[max(4rem,10vw)] lg:py-12">
           <div className="mx-auto max-w-3xl">
-            <h1 className="max-w-3xl text-4xl leading-[1.05] font-bold tracking-[-0.035em] sm:text-5xl lg:text-6xl">
-              Let&apos;s build your ACT plan.
+            <h1 className="max-w-3xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.04em] sm:text-6xl lg:text-7xl">
+              Build the plan that reacts to you.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               Three quick answers. Then we&apos;ll map the work between today
               and test day.
             </p>
 
-            <div className="mt-10 sm:mt-14">
+            <div className="mt-8 sm:mt-10">
               <div className="mb-3 flex items-center justify-between text-sm font-semibold text-primary">
                 <span>{step} of 3</span>
                 <span className="sr-only">
@@ -186,7 +186,7 @@ export function Onboarding({
 
             <div
               key={step}
-              className="mt-12 animate-in duration-300 fade-in slide-in-from-right-3 motion-reduce:animate-none sm:mt-14"
+              className="mt-8 animate-in duration-300 fade-in slide-in-from-right-3 motion-reduce:animate-none sm:mt-10"
             >
               {step === 1 ? (
                 <FieldSet>
@@ -362,11 +362,12 @@ export function Onboarding({
                       ) : null}
                     </FieldGroup>
                   ) : (
-                    <p className="mt-6 max-w-xl border-l-2 border-primary pl-4 text-sm leading-6 text-muted-foreground">
-                      We&apos;ll start with a reviewed rapid diagnostic, then
-                      build your plan from the skills you show us. The item bank
-                      will expand toward the full half-length form.
-                    </p>
+                    <ScoutCoach
+                      className="mt-6 max-w-2xl"
+                      mood="ready"
+                      message="No score is fine. I’ll establish one from a 66-question half-length baseline: 25 English, 23 Math, and 18 Reading."
+                      detail="It autosaves, uses original ACT-style passage and four-choice questions, and produces an estimated practice range rather than an official score."
+                    />
                   )}
                 </FieldSet>
               ) : null}
@@ -424,7 +425,7 @@ export function Onboarding({
               ) : null}
             </div>
 
-            <div className="mt-10 flex max-w-2xl gap-3 sm:mt-12">
+            <div className="mt-8 flex max-w-2xl gap-3 sm:mt-9">
               {step > 1 ? (
                 <Button
                   type="button"

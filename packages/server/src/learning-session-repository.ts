@@ -10,11 +10,18 @@ import {
   type DiagnosticSkillResult,
   type LearningSessionPayload,
   type LessonContent,
+  type LessonPlanContext,
   type MasteryState,
+  type PersonalizedLessonContent,
   type PracticeFeedback,
   type PracticeQuestionSecure,
   type SkillDefinition,
 } from "@act-tutor/core";
+
+import {
+  AuthoredLessonComposer,
+  type LessonComposer,
+} from "./lesson-composer";
 
 export interface LearningBankInput {
   version: string;
@@ -26,6 +33,7 @@ export interface LearningBankInput {
 export interface StartLearningSessionInput {
   skill: string;
   diagnosticSkillResults?: ReadonlyArray<DiagnosticSkillResult>;
+  plan: LessonPlanContext;
 }
 
 interface StoredAnswer {
@@ -45,6 +53,7 @@ interface StoredLearningSession {
   answers: StoredAnswer[];
   masteryBySkill: Record<string, MasteryState>;
   futureTask: LearningSessionPayload["futureTask"];
+  lesson?: PersonalizedLessonContent;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,9 +66,9 @@ interface LearningStoreFile {
 const EMPTY_STORE: LearningStoreFile = { version: 1, sessions: {} };
 const queues = new Map<string, Promise<void>>();
 
-function lessonWithoutMeta(lesson: LessonContent & { content?: unknown }): LessonContent {
+function lessonWithoutMeta<T extends LessonContent>(lesson: T & { content?: unknown }): T {
   const { content: _content, ...publicLesson } = lesson;
-  return publicLesson;
+  return publicLesson as T;
 }
 
 function getSkill(bank: LearningBankInput, slug: string) {
@@ -98,7 +107,50 @@ function toPayload(
   bank: LearningBankInput,
   lastFeedback: PracticeFeedback | null = null,
 ): LearningSessionPayload {
-  const lesson = getLesson(bank, session.todaySkill);
+  const baseLesson = getLesson(bank, session.todaySkill);
+  const lesson =
+    session.lesson ??
+    {
+      ...baseLesson,
+      depth: "foundation",
+      whyAssigned: `${baseLesson.title} is the current assigned focus.`,
+      evidenceSummary: "This session predates personalized lesson generation.",
+      tutorOpening: `Let’s make ${baseLesson.title.toLowerCase()} predictable.`,
+      sections: [
+        {
+          id: "mental-model",
+          title: "Build the mental model",
+          explanation: baseLesson.concept,
+          coachPrompt: "What do you need to notice first?",
+        },
+        {
+          id: "guided-example",
+          title: "Work one with Scout",
+          explanation: `${baseLesson.workedExample.prompt} ${baseLesson.workedExample.explanation.join(" ")}`,
+          coachPrompt: `Compare your first step with the answer: ${baseLesson.workedExample.answer}.`,
+        },
+        {
+          id: "decision-rule",
+          title: "Use the decision rule",
+          explanation: baseLesson.steps.join(" "),
+          coachPrompt: "Which step prevents the common trap?",
+        },
+        {
+          id: "transfer",
+          title: "Transfer it",
+          explanation: baseLesson.trap,
+          coachPrompt: "Say the rule once without looking.",
+        },
+      ],
+      strategyChecklist: baseLesson.steps,
+      transferPrompt: `Identify the ${baseLesson.title.toLowerCase()} decision before choosing an answer.`,
+      generation: {
+        mode: "authored-fallback",
+        provider: "Reviewed lesson engine",
+        model: null,
+        generatedAt: session.createdAt,
+      },
+    } satisfies PersonalizedLessonContent;
   const questions = getQuestions(bank, session.todaySkill);
   const answeredQuestionIds = session.answers.map((answer) => answer.questionId);
   const status =
@@ -202,6 +254,7 @@ export class FileLearningSessionRepository {
     sessionId: string | null,
     bank: LearningBankInput,
     input: StartLearningSessionInput,
+    lessonComposer: LessonComposer = new AuthoredLessonComposer(),
   ): Promise<{ sessionId: string; payload: LearningSessionPayload }> {
     getSkill(bank, input.skill);
     const questionIds = getQuestions(bank, input.skill).map((question) => question.id);
@@ -223,6 +276,12 @@ export class FileLearningSessionRepository {
       const now = new Date().toISOString();
       const masteryBySkill = makeInitialMasteries(bank, input.diagnosticSkillResults);
       const nextSkill = input.skill;
+      const lesson = await lessonComposer.compose({
+        baseLesson: getLesson(bank, input.skill),
+        skill: getSkill(bank, input.skill),
+        diagnosticSkillResults: input.diagnosticSkillResults ?? [],
+        plan: input.plan,
+      });
       const created: StoredLearningSession = {
         id: randomUUID(),
         bankVersion: bank.version,
@@ -239,6 +298,7 @@ export class FileLearningSessionRepository {
           changed: false,
           reason: `${getSkill(bank, input.skill).label} is today's assigned focus.`,
         },
+        lesson,
         createdAt: now,
         updatedAt: now,
       };

@@ -1,24 +1,26 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
+import type { LearningSessionPayload } from "@act-tutor/core"
 import {
-  BookOpenIcon,
+  ArrowRightIcon,
+  BookOpenCheckIcon,
+  BrainCircuitIcon,
   CheckCircle2Icon,
-  Clock3Icon,
   InfoIcon,
   ListChecksIcon,
   PencilLineIcon,
   RefreshCwIcon,
+  SparklesIcon,
+  TargetIcon,
 } from "lucide-react"
-import type { LearningSessionPayload } from "@act-tutor/core"
 
+import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
+import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Progress, ProgressLabel } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { GeneratedPlan } from "@/components/tutor/types"
 import { formatCalendarDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
@@ -27,65 +29,29 @@ interface DashboardProps {
   onEditPlan: () => void
 }
 
-const FOCUS_CONTENT = {
-  english: {
-    lesson: "Sentence boundaries: complete vs. incomplete clauses",
-    reason: "English conventions are your biggest score opportunity",
-    concept:
-      "A complete sentence needs an independent clause: a subject, a working verb, and a complete thought.",
-    example:
-      "Because the library closed early is incomplete. Add an independent clause: Because the library closed early, we studied at home.",
-  },
-  math: {
-    lesson: "Linear equations: isolate the variable",
-    reason: "Math is your biggest score opportunity",
-    concept:
-      "Keep an equation balanced by applying the same operation to both sides, then undo operations in reverse order.",
-    example:
-      "For 3x + 5 = 20, subtract 5, then divide by 3. The result is x = 5.",
-  },
-  reading: {
-    lesson: "Evidence and inference: prove the answer",
-    reason: "Reading is your biggest score opportunity",
-    concept:
-      "An ACT inference must be supported by the passage. Choose the smallest claim that the text can actually prove.",
-    example:
-      "If a passage says the researcher repeated the trial, you can infer she wanted stronger evidence—not that she expected a specific result.",
-  },
-} as const
-
-const PHASE_LABELS = {
-  foundation: "Foundation",
-  balanced: "Balanced build",
-  focused: "Focused practice",
-  triage: "Test-ready triage",
-} as const
-
-const STUDY_DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const
-
-const SESSION_FOCUSES = [
-  "Learn + focused practice",
-  "Review + skill probes",
-  "Learn + focused practice",
-  "Mixed timed transfer",
-  "Cumulative review",
-  "Focused practice",
-  "Timed mixed set",
-] as const
-
 const SECTION_FALLBACK_SKILLS = {
   english: "sentence-boundaries",
   math: "linear-equations",
   reading: "supported-inference",
 } as const
+
+const PHASE_LABELS = {
+  foundation: "Build the base",
+  balanced: "Build + transfer",
+  focused: "Focused score push",
+  triage: "Test-ready triage",
+} as const
+
+const STUDY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
+const SESSION_FOCUSES = [
+  "Teach + focused set",
+  "Repair + spaced review",
+  "Teach + focused set",
+  "Timed transfer",
+  "Cumulative review",
+  "Weak-skill sprint",
+  "Mixed section set",
+] as const
 
 async function learningRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/learning", {
@@ -100,127 +66,208 @@ async function learningRequest(body: Record<string, unknown>) {
   return payload
 }
 
-interface TaskRowProps {
-  icon: ReactNode
-  title: string
-  minutes: number
-  reason?: string
-  active?: boolean
-  complete?: boolean
-  action?: ReactNode
-  children?: ReactNode
-}
-
-function TaskRow({
-  icon,
-  title,
-  minutes,
-  reason,
-  active,
-  complete,
-  action,
-  children,
-}: TaskRowProps) {
+function Brand() {
   return (
-    <article
-      className={cn(
-        "min-w-0 rounded-xl border bg-background p-4 transition-colors sm:p-5",
-        active && "border-primary",
-        complete && "border-primary/30 bg-primary/[0.03]"
-      )}
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-          <span
-            className={cn(
-              "flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary",
-              complete && "bg-primary text-primary-foreground"
-            )}
-          >
-            {complete ? <CheckCircle2Icon /> : icon}
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold sm:text-lg">{title}</h3>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Clock3Icon aria-hidden="true" />
-              {minutes} min
-            </p>
-            {reason ? (
-              <p className="mt-1 text-sm text-muted-foreground">{reason}</p>
-            ) : null}
-          </div>
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+    <div className="flex items-center gap-2.5">
+      <ScoutMark className="size-10" />
+      <div>
+        <p className="font-heading text-xl leading-none font-black tracking-[-0.02em]">SCOUT ACT</p>
+        <p className="font-mono text-[0.58rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
+          Every answer teaches the plan
+        </p>
       </div>
-      {children}
-    </article>
+    </div>
   )
 }
 
-function ScoreStrip({ plan }: { plan: GeneratedPlan }) {
-  const sections =
-    plan.evidence.reportedSections ?? plan.evidence.planningBaseline
-  if (!sections) return null
-  const estimated = plan.evidence.reportedSections === null
-
+function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   return (
-    <dl className="grid grid-cols-4 divide-x">
+    <div className="flex items-center gap-3 border-l-2 border-foreground pl-4">
+      <div>
+        <p className="ink-label text-muted-foreground">Now</p>
+        <p className="font-heading text-3xl leading-none font-black tabular-nums">{plan.currentComposite}</p>
+      </div>
+      <ArrowRightIcon className="text-primary" aria-hidden="true" />
+      <div>
+        <p className="ink-label text-muted-foreground">Goal</p>
+        <p className="font-heading text-3xl leading-none font-black text-primary tabular-nums">{plan.draft.goal}</p>
+      </div>
+    </div>
+  )
+}
+
+function MissionStep({
+  number,
+  icon,
+  title,
+  meta,
+  state,
+  action,
+}: {
+  number: string
+  icon: ReactNode
+  title: string
+  meta: string
+  state: "done" | "current" | "queued"
+  action?: ReactNode
+}) {
+  return (
+    <li
+      className={cn(
+        "relative grid min-w-0 grid-cols-[3.25rem_minmax(0,1fr)] gap-x-4 pb-9 last:pb-0",
+        state === "queued" && "text-muted-foreground"
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute top-12 bottom-0 left-[1.6rem] border-l-2",
+          state === "done" ? "border-primary" : "border-dashed border-border",
+          "last:hidden"
+        )}
+      />
+      <span
+        className={cn(
+          "relative flex size-13 items-center justify-center border-2 border-foreground bg-background shadow-[3px_3px_0_var(--foreground)]",
+          state === "done" && "border-primary bg-primary text-primary-foreground shadow-none",
+          state === "current" && "bg-[var(--coach-surface)]"
+        )}
+      >
+        {state === "done" ? <CheckCircle2Icon /> : icon}
+      </span>
+      <div className="min-w-0 pt-1">
+        <p className="ink-label">{number}</p>
+        <h3 className="mt-1 font-heading text-2xl leading-tight font-bold tracking-[-0.015em]">{title}</h3>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{meta}</p>
+        {action ? <div className="mt-4">{action}</div> : null}
+      </div>
+    </li>
+  )
+}
+
+function ScoreTable({ plan }: { plan: GeneratedPlan }) {
+  const scores = plan.evidence.reportedSections ?? plan.evidence.planningBaseline
+  if (!scores) return null
+  const estimated = plan.evidence.reportedSections === null
+  return (
+    <dl className="divide-y-2 divide-foreground border-y-2 border-foreground">
       {[
-        ["Composite", plan.currentComposite],
-        [estimated ? "English est." : "English", sections.english],
-        [estimated ? "Math est." : "Math", sections.math],
-        [estimated ? "Reading est." : "Reading", sections.reading],
-      ].map(([label, value]) => (
-        <div key={label} className="px-2 text-center first:pl-0 last:pr-0">
-          <dt className="text-xs text-muted-foreground sm:text-sm">{label}</dt>
-          <dd className="mt-1 text-2xl font-bold text-primary tabular-nums sm:text-3xl">
-            {value}
-          </dd>
+        [estimated ? "English estimate" : "English", scores.english, plan.target.scores.english],
+        [estimated ? "Math estimate" : "Math", scores.math, plan.target.scores.math],
+        [estimated ? "Reading estimate" : "Reading", scores.reading, plan.target.scores.reading],
+      ].map(([label, current, target]) => (
+        <div key={label} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 py-3">
+          <dt className="text-sm font-semibold">{label}</dt>
+          <dd className="font-mono text-sm text-muted-foreground tabular-nums">{current}</dd>
+          <dd className="font-heading text-2xl font-black text-primary tabular-nums">→ {target}</dd>
         </div>
       ))}
     </dl>
   )
 }
 
-export function Dashboard({ plan, onEditPlan }: DashboardProps) {
-  const [lessonOpen, setLessonOpen] = useState(false)
-  const [learning, setLearning] = useState<LearningSessionPayload | null>(null)
-  const [learningError, setLearningError] = useState<string | null>(null)
-  const [selectedChoice, setSelectedChoice] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const compositeOnly = plan.evidence.source === "composite_only"
-  const diagnostic = plan.diagnosticResult
-  const sectionFocus = FOCUS_CONTENT[plan.weakestSection]
-  const startingSkill =
-    diagnostic?.focusSkills[0]?.skill ?? SECTION_FALLBACK_SKILLS[plan.weakestSection]
-  const focus = compositeOnly
-    ? {
-        ...FOCUS_CONTENT.english,
-        lesson: "English skill probe: sentence boundaries",
-        reason:
-          "Your Composite is only a starting point; this probe helps locate the real gap",
-      }
-    : sectionFocus
-  const lessonComplete = learning?.lessonComplete ?? false
-  const answeredCount = learning?.answeredQuestionIds.length ?? 0
-  const weeklySessions = learning?.status === "complete" ? 1 : 0
-  const sections = plan.evidence.reportedSections
-  const retentionMode = plan.target.mode === "retention"
-  const lessonMinutes = Math.min(8, plan.intensity.minutesPerSession)
-  const remainingMinutes = plan.intensity.minutesPerSession - lessonMinutes
-  const focusSetMinutes = Math.round(remainingMinutes * 0.55)
-  const reviewMinutes = remainingMinutes - focusSetMinutes
-  const weeklySchedule = STUDY_DAYS.slice(
-    0,
-    plan.intensity.studyDaysPerWeek
-  ).map((day, index) => ({
+function PlanView({ plan }: { plan: GeneratedPlan }) {
+  const schedule = STUDY_DAYS.slice(0, plan.intensity.studyDaysPerWeek).map((day, index) => ({
     day,
     task: SESSION_FOCUSES[index],
   }))
-  const currentQuestion = learning?.questions[learning.currentQuestionIndex]
-  const practicePercent = learning
-    ? Math.round((answeredCount / learning.questions.length) * 100)
-    : 0
+  return (
+    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
+      <p className="ink-label text-primary">Plan logic</p>
+      <h1 className="mt-3 max-w-3xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
+        {PHASE_LABELS[plan.intensity.phase]}
+      </h1>
+      <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
+        {plan.intensity.studyDaysPerWeek} sessions per week · {plan.intensity.minutesPerSession} minutes each · evidence checkpoint every {plan.intensity.checkpointEveryDays} days.
+      </p>
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.8fr)]">
+        <section>
+          <h2 className="font-heading text-3xl font-bold">Weekly rhythm</h2>
+          <ol className="mt-5 border-t-2 border-foreground">
+            {schedule.map(({ day, task }) => (
+              <li key={day} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-4 border-b border-border py-4">
+                <span className="font-mono text-sm font-bold text-primary">{day}</span>
+                <span className="font-semibold">{task}</span>
+                <span className="text-sm text-muted-foreground">{plan.intensity.minutesPerSession}m</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <aside>
+          <h2 className="font-heading text-3xl font-bold">Score route</h2>
+          <div className="mt-5"><ScoreTable plan={plan} /></div>
+          <p className="mt-5 text-sm leading-6 text-muted-foreground">
+            Targets are planning vectors, not guarantees. Checkpoints can move time toward skills that produce stronger evidence.
+          </p>
+        </aside>
+      </div>
+    </main>
+  )
+}
+
+function ProgressView({ plan, learning }: { plan: GeneratedPlan; learning: LearningSessionPayload | null }) {
+  const diagnostic = plan.diagnosticResult
+  const focusSkills = diagnostic?.focusSkills.slice(0, 5) ?? []
+  return (
+    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
+      <p className="ink-label text-primary">Evidence, not vibes</p>
+      <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
+        Your skill map changes when you prove something.
+      </h1>
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]">
+        <section>
+          <h2 className="font-heading text-3xl font-bold">Current focus evidence</h2>
+          {focusSkills.length ? (
+            <ol className="mt-5 border-t-2 border-foreground">
+              {focusSkills.map((skill) => (
+                <li key={skill.skill} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-b border-border py-4">
+                  <div>
+                    <p className="font-semibold">{skill.label}</p>
+                    <p className="mt-1 text-sm capitalize text-muted-foreground">{skill.section} · {skill.correct}/{skill.total} correct</p>
+                  </div>
+                  <span className="font-heading text-3xl font-black tabular-nums">{Math.round(skill.accuracy * 100)}%</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <ScoutCoach className="mt-6" message="Your submitted scores set the first route. Early skill probes will replace assumptions with direct evidence." />
+          )}
+        </section>
+        <aside>
+          <h2 className="font-heading text-3xl font-bold">Live mastery</h2>
+          {learning ? (
+            <div className="mt-5 border-y-2 border-foreground py-5">
+              <p className="text-sm font-semibold">{learning.mastery.label}</p>
+              <p className="mt-2 font-heading text-6xl font-black text-primary tabular-nums">
+                {Math.round(learning.mastery.mastery * 100)}%
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {learning.mastery.evidence} evidence points · {learning.mastery.band}
+              </p>
+            </div>
+          ) : null}
+          <Alert className="mt-6 bg-[var(--info-surface)]">
+            <InfoIcon />
+            <AlertTitle>How adaptation works</AlertTitle>
+            <AlertDescription>
+              Difficulty-weighted attempts update mastery and review spacing. AI can personalize the explanation, but it cannot alter keys, scoring, or mastery math.
+            </AlertDescription>
+          </Alert>
+        </aside>
+      </div>
+    </main>
+  )
+}
+
+export function Dashboard({ plan, onEditPlan }: DashboardProps) {
+  const diagnostic = plan.diagnosticResult
+  const startingSkill = diagnostic?.focusSkills[0]?.skill ?? SECTION_FALLBACK_SKILLS[plan.weakestSection]
+  const [learning, setLearning] = useState<LearningSessionPayload | null>(null)
+  const [learningError, setLearningError] = useState<string | null>(null)
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState(0)
+  const [selectedChoice, setSelectedChoice] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -228,508 +275,193 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       action: "start",
       skill: startingSkill,
       diagnosticSkillResults: diagnostic?.skillResults ?? [],
+      goalScore: plan.draft.goal,
+      currentScore: plan.currentComposite,
+      daysUntilTest: plan.intensity.daysUntilTest,
+      minutesPerSession: plan.intensity.minutesPerSession,
     })
       .then((payload) => {
-        if (active) {
-          setLearning(payload)
-          setLearningError(null)
-          setSelectedChoice("")
-        }
+        if (!active) return
+        setLearning(payload)
+        setLearningError(null)
       })
       .catch((error: unknown) => {
-        if (active) {
-          setLearningError(
-            error instanceof Error
-              ? error.message
-              : "The learning session could not be loaded."
-          )
-        }
+        if (!active) return
+        setLearningError(error instanceof Error ? error.message : "The learning session could not load.")
       })
-    return () => {
-      active = false
-    }
-  }, [diagnostic?.skillResults, startingSkill])
-
-  const masteryPercent = useMemo(
-    () => Math.round((learning?.mastery.mastery ?? 0) * 100),
-    [learning?.mastery.mastery]
-  )
+    return () => { active = false }
+  }, [
+    diagnostic?.skillResults,
+    plan.currentComposite,
+    plan.draft.goal,
+    plan.intensity.daysUntilTest,
+    plan.intensity.minutesPerSession,
+    startingSkill,
+  ])
 
   async function completeLesson() {
     setSubmitting(true)
-    setLearningError(null)
     try {
       setLearning(await learningRequest({ action: "complete_lesson" }))
-      setLessonOpen(false)
       setSelectedChoice("")
+      setLearningError(null)
     } catch (error) {
-      setLearningError(
-        error instanceof Error ? error.message : "Could not complete lesson."
-      )
+      setLearningError(error instanceof Error ? error.message : "Could not complete the lesson.")
     } finally {
       setSubmitting(false)
     }
   }
 
   async function submitAnswer() {
-    if (!currentQuestion || !selectedChoice) return
+    const question = learning?.questions[learning.currentQuestionIndex]
+    if (!question || !selectedChoice) return
     setSubmitting(true)
-    setLearningError(null)
     try {
-      const payload = await learningRequest({
-        action: "answer",
-        questionId: currentQuestion.id,
-        choiceId: selectedChoice,
-      })
-      setLearning(payload)
+      setLearning(await learningRequest({ action: "answer", questionId: question.id, choiceId: selectedChoice }))
       setSelectedChoice("")
+      setLearningError(null)
     } catch (error) {
-      setLearningError(
-        error instanceof Error ? error.message : "Could not submit answer."
-      )
+      setLearningError(error instanceof Error ? error.message : "Could not check the answer.")
     } finally {
       setSubmitting(false)
     }
   }
 
+  const lessonDone = learning?.lessonComplete ?? false
+  const practiceDone = learning?.status === "complete"
+  const answered = learning?.answeredQuestionIds.length ?? 0
+  const practiceTotal = learning?.questions.length ?? 5
+
   return (
-    <Tabs defaultValue="today" className="min-h-svh gap-0 bg-background">
-      <header className="grid min-h-20 grid-cols-[1fr_auto] items-center gap-y-2 border-b px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:px-8 sm:py-0 lg:px-12">
-        <p className="py-5 text-lg font-bold tracking-tight sm:py-0 sm:text-xl">
-          AI ACT Tutor
-        </p>
-        <TabsList
-          variant="line"
-          aria-label="Study dashboard navigation"
-          className="col-span-2 row-start-2 justify-self-center sm:col-span-1 sm:row-start-auto"
-        >
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="plan">Plan</TabsTrigger>
-          <TabsTrigger value="progress">Progress</TabsTrigger>
-        </TabsList>
-        <div className="flex justify-self-end sm:items-center sm:gap-3">
-          <Button type="button" variant="ghost" size="sm" onClick={onEditPlan}>
-            <PencilLineIcon data-icon="inline-start" />
-            Edit plan
-          </Button>
-          <span className="hidden size-10 items-center justify-center rounded-full border text-sm font-semibold sm:flex">
-            AS
-          </span>
+    <Tabs defaultValue="today" className="min-h-svh gap-0 bg-transparent">
+      <header className="sticky top-0 z-20 border-b-2 border-foreground bg-background">
+        <div className="mx-auto grid min-h-20 max-w-[96rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
+          <Brand />
+          <TabsList variant="line" className="order-3 col-span-2 justify-self-center lg:order-none lg:col-span-1" aria-label="Study navigation">
+            <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="plan">Plan</TabsTrigger>
+            <TabsTrigger value="progress">Progress</TabsTrigger>
+          </TabsList>
+          <div className="flex items-center justify-self-end gap-3">
+            <div className="hidden sm:block"><ScoreRoute plan={plan} /></div>
+            <Button type="button" variant="ghost" size="icon" onClick={onEditPlan} aria-label="Edit score plan">
+              <PencilLineIcon />
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="grid min-h-[calc(100svh-5rem)] lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <section className="min-w-0 px-4 py-10 sm:px-10 lg:px-14 lg:py-12">
-          <TabsContent value="today">
-            <div className="max-w-4xl min-w-0">
-              <h1 className="text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-                {retentionMode
-                  ? `Keep your ${plan.currentComposite} strong`
-                  : `Your path to ${plan.draft.goal}`}
-              </h1>
-              <p className="mt-4 text-xl">
-                <strong className="text-primary">
-                  {plan.intensity.daysUntilTest}
-                </strong>{" "}
-                days left <span className="text-muted-foreground">·</span>{" "}
-                {retentionMode ? (
-                  <>Goal {plan.draft.goal} already met</>
-                ) : (
-                  <>
-                    Current{" "}
-                    <strong className="text-primary">
-                      {plan.currentComposite}
-                    </strong>
-                  </>
-                )}
-              </p>
-
-              <div className="mt-10 grid grid-cols-[24px_minmax(0,1fr)] gap-x-3 sm:grid-cols-[32px_minmax(0,1fr)] sm:gap-x-5">
-                <div aria-hidden="true" className="flex flex-col items-center">
-                  <span className="size-6 rounded-full border-4 border-primary bg-background ring-2 ring-primary" />
-                  <span className="min-h-[26rem] w-1 flex-1 bg-primary" />
-                  <span className="size-5 rounded-full border-2 border-primary bg-background" />
-                  <span className="h-26 border-l-2 border-dashed border-primary" />
-                  <span className="size-5 rounded-full border-2 border-primary bg-background" />
+      <TabsContent value="today">
+        <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
+          {workspaceOpen && learning ? (
+            <LessonWorkspace
+              learning={learning}
+              activeSection={activeSection}
+              selectedChoice={selectedChoice}
+              submitting={submitting}
+              onSectionChange={setActiveSection}
+              onChoiceChange={setSelectedChoice}
+              onCompleteLesson={completeLesson}
+              onSubmitAnswer={submitAnswer}
+              onClose={() => setWorkspaceOpen(false)}
+            />
+          ) : (
+            <div className="grid gap-10 xl:grid-cols-[minmax(0,1.45fr)_minmax(21rem,0.65fr)] xl:gap-16">
+              <section className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                  <p className="ink-label text-primary">Today’s mission</p>
+                  <span className="font-mono text-xs font-bold text-muted-foreground">
+                    {plan.intensity.daysUntilTest} days to test day
+                  </span>
                 </div>
-                <div>
-                  <p className="mb-3 text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                    Today
-                  </p>
-                  <div className="flex flex-col gap-4">
-                    <TaskRow
-                      active={!lessonComplete}
-                      complete={lessonComplete}
-                      icon={<BookOpenIcon />}
-                      title={learning?.lesson.title ?? focus.lesson}
-                      minutes={learning?.lesson.minutes ?? lessonMinutes}
-                      reason={
-                        retentionMode
-                          ? `${plan.weakestSection[0].toUpperCase()}${plan.weakestSection.slice(1)} is the best place to protect points`
-                          : focus.reason
-                      }
-                      action={
-                        lessonComplete ? (
-                          <span className="text-sm font-semibold text-primary">
-                            Complete
-                          </span>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="lg"
-                            onClick={() => setLessonOpen((open) => !open)}
-                            disabled={!learning || submitting}
-                          >
-                            {lessonOpen
-                              ? "Close lesson"
-                              : "Start today's lesson"}
-                          </Button>
-                        )
-                      }
-                    >
-                      {lessonOpen && !lessonComplete ? (
-                        <div className="mt-5 border-t pt-5">
-                          <p className="font-semibold">
-                            {learning?.lesson.objective ?? "The idea"}
-                          </p>
-                          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            {learning?.lesson.concept ?? focus.concept}
-                          </p>
-                          {learning ? (
-                            <ol className="mt-4 grid gap-2 text-sm leading-6 text-muted-foreground">
-                              {learning.lesson.steps.map((step) => (
-                                <li key={step} className="flex gap-2">
-                                  <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-primary" />
-                                  <span>{step}</span>
-                                </li>
-                              ))}
-                            </ol>
-                          ) : null}
-                          <p className="mt-4 font-semibold">Worked example</p>
-                          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            {learning
-                              ? `${learning.lesson.workedExample.prompt} Answer: ${learning.lesson.workedExample.answer}. ${learning.lesson.workedExample.explanation.join(" ")}`
-                              : focus.example}
-                          </p>
-                          {learning ? (
-                            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
-                              <span className="font-semibold text-foreground">
-                                Common trap:
-                              </span>{" "}
-                              {learning.lesson.trap}
-                            </p>
-                          ) : null}
-                          {learningError ? (
-                            <Alert className="mt-5 bg-[var(--info-surface)]">
-                              <InfoIcon />
-                              <AlertTitle>Learning session issue</AlertTitle>
-                              <AlertDescription>{learningError}</AlertDescription>
-                            </Alert>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="lg"
-                            className="mt-5"
-                            onClick={completeLesson}
-                            disabled={!learning || submitting}
-                          >
-                            <CheckCircle2Icon data-icon="inline-start" />
-                            {submitting ? "Saving..." : "Mark lesson complete"}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </TaskRow>
-                    <TaskRow
-                      icon={<ListChecksIcon />}
-                      title="5-question focus set"
-                      minutes={focusSetMinutes}
-                      active={lessonComplete && learning?.status !== "complete"}
-                      complete={learning?.status === "complete"}
-                      reason={
-                        learning
-                          ? `${answeredCount} of ${learning.questions.length} answered`
-                          : "Loads after today's lesson"
-                      }
-                    >
-                      {lessonComplete && learning ? (
-                        <div className="mt-5 border-t pt-5">
-                          <Progress value={practicePercent}>
-                            <ProgressLabel>Focused practice progress</ProgressLabel>
-                            <span className="ml-auto text-sm text-muted-foreground tabular-nums">
-                              {practicePercent}%
-                            </span>
-                          </Progress>
-                          {learning.lastFeedback ? (
-                            <Alert
-                              className={cn(
-                                "mt-5",
-                                learning.lastFeedback.correct
-                                  ? "border-primary/30 bg-primary/[0.04]"
-                                  : "bg-[var(--info-surface)]"
-                              )}
-                            >
-                              <InfoIcon />
-                              <AlertTitle>
-                                {learning.lastFeedback.correct
-                                  ? "Correct"
-                                  : "Review this move"}
-                              </AlertTitle>
-                              <AlertDescription>
-                                {learning.lastFeedback.rationale}
-                                {learning.lastFeedback.misconception
-                                  ? ` ${learning.lastFeedback.misconception}`
-                                  : ""}
-                              </AlertDescription>
-                            </Alert>
-                          ) : null}
-                          {learning.status === "complete" ? (
-                            <div className="mt-5 rounded-xl border bg-primary/[0.03] p-4">
-                              <p className="font-semibold">Focus set complete</p>
-                              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                                Mastery is now {masteryPercent}% and the next
-                                review is{" "}
-                                {learning.mastery.nextReviewAt
-                                  ? formatCalendarDate(
-                                      learning.mastery.nextReviewAt.slice(0, 10)
-                                    )
-                                  : "not scheduled yet"}
-                                .
-                              </p>
-                            </div>
-                          ) : currentQuestion ? (
-                            <div className="mt-6">
-                              <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                                Question {learning.currentQuestionIndex + 1}
-                              </p>
-                              <p className="mt-2 text-base font-semibold leading-7">
-                                {currentQuestion.prompt}
-                              </p>
-                              {currentQuestion.stimulus ? (
-                                <p className="mt-3 rounded-lg border bg-muted/40 p-3 text-sm leading-6 text-muted-foreground">
-                                  {currentQuestion.stimulus}
-                                </p>
-                              ) : null}
-                              <RadioGroup
-                                className="mt-5"
-                                value={selectedChoice}
-                                onValueChange={setSelectedChoice}
-                              >
-                                {currentQuestion.choices.map((choice) => (
-                                  <label
-                                    key={choice.id}
-                                    className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm leading-6 transition-colors has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/[0.04]"
-                                  >
-                                    <RadioGroupItem
-                                      value={choice.id}
-                                      className="mt-1"
-                                    />
-                                    <span>{choice.text}</span>
-                                  </label>
-                                ))}
-                              </RadioGroup>
-                              <Button
-                                type="button"
-                                size="lg"
-                                className="mt-5"
-                                onClick={submitAnswer}
-                                disabled={!selectedChoice || submitting}
-                              >
-                                {submitting ? "Checking..." : "Check answer"}
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </TaskRow>
-                    <TaskRow
-                      icon={<RefreshCwIcon />}
-                      title="Mixed review"
-                      minutes={reviewMinutes}
-                      reason={
-                        learning?.mastery.nextReviewAt
-                          ? `Next ${learning.mastery.label} review: ${formatCalendarDate(
-                              learning.mastery.nextReviewAt.slice(0, 10)
-                            )}`
-                          : "Scheduled after focused practice evidence"
-                      }
-                    />
-                  </div>
+                <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+                  {learning?.lesson.title ?? "Building today’s lesson…"}
+                </h1>
+                <p className="marker-underline mt-6 max-w-3xl text-lg leading-8 font-semibold sm:text-xl">
+                  {learning?.lesson.whyAssigned ?? "Scout is reading your plan and diagnostic evidence."}
+                </p>
 
-                  <div className="mt-14">
-                    <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                      Next session
-                    </p>
-                    <p className="mt-2 text-base">
-                      {learning
-                        ? learning.futureTask.reason
-                        : "Next lesson and practice set"}
-                    </p>
-                  </div>
-                  <div className="mt-14">
-                    <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                      Next checkpoint
-                    </p>
-                    <p className="mt-2 text-base">
-                      Quick quiz + plan update in{" "}
-                      {plan.intensity.checkpointEveryDays} days
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
+                {learningError ? (
+                  <Alert className="mt-7 max-w-3xl bg-background">
+                    <InfoIcon />
+                    <AlertTitle>Lesson engine issue</AlertTitle>
+                    <AlertDescription>{learningError}</AlertDescription>
+                  </Alert>
+                ) : null}
 
-          <TabsContent value="plan">
-            <div className="max-w-4xl">
-              <h1 className="text-4xl font-bold tracking-[-0.035em]">
-                {retentionMode
-                  ? "Your score-maintenance plan"
-                  : `Your ${PHASE_LABELS[plan.intensity.phase].toLowerCase()} plan`}
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-                {plan.intensity.studyDaysPerWeek}{" "}
-                {plan.intensity.minutesPerSession}-minute sessions each week,
-                with a checkpoint every {plan.intensity.checkpointEveryDays}{" "}
-                days. The balance shifts as test day gets closer.
-              </p>
-              <div className="mt-10 border-y">
-                {weeklySchedule.map(({ day, task }) => (
-                  <div
-                    key={day}
-                    className="grid gap-2 border-b py-5 last:border-0 sm:grid-cols-[8rem_1fr_auto] sm:items-center"
-                  >
-                    <p className="font-semibold">{day}</p>
-                    <p className="text-muted-foreground">{task}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.intensity.minutesPerSession} min
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <h2 className="mt-10 text-xl font-bold">Section targets</h2>
-              <dl className="mt-4 grid max-w-2xl grid-cols-3 divide-x border-y py-5 text-center">
-                {[
-                  ["English", plan.target.scores.english],
-                  ["Math", plan.target.scores.math],
-                  ["Reading", plan.target.scores.reading],
-                ].map(([label, score]) => (
-                  <div key={label}>
-                    <dt className="text-sm text-muted-foreground">{label}</dt>
-                    <dd className="mt-1 text-3xl font-bold text-primary">
-                      {score}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="progress">
-            <div className="max-w-4xl">
-              <h1 className="text-4xl font-bold tracking-[-0.035em]">
-                Progress starts with evidence
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-                {diagnostic
-                  ? `Your rapid diagnostic found direct evidence across ${diagnostic.skillResults.length} skills. The first sessions will deepen that evidence and narrow the estimated range.`
-                  : compositeOnly
-                    ? "Your Composite sets a rough starting point. The first sessions use skill probes to find whether the real gap is algebra, redundancy, inference, pacing, or something else."
-                    : "Your section scores set the broad direction. The first sessions include skill probes so the plan can learn whether the real gap is algebra, redundancy, inference, pacing, or something else."}
-              </p>
-              <div className="mt-10 max-w-2xl">
-                <ScoreStrip plan={plan} />
-              </div>
-              <Alert className="mt-10 max-w-2xl bg-[var(--info-surface)]">
-                <InfoIcon />
-                <AlertTitle>Provisional skill map</AlertTitle>
-                <AlertDescription>
-                  {learning
-                    ? `${learning.mastery.label}: ${masteryPercent}% mastery from ${learning.mastery.evidence} evidence points. ${learning.futureTask.reason}`
-                    : diagnostic
-                    ? `First focus: ${diagnostic.focusSkills[0]?.label ?? "mixed skill practice"}. Complete the next sessions to confirm or revise this signal.`
-                    : "Complete the first three sessions to replace section-level assumptions with direct skill evidence."}
-                </AlertDescription>
-              </Alert>
-            </div>
-          </TabsContent>
-        </section>
-
-        <aside className="border-t bg-[var(--rail)] px-5 py-9 sm:px-10 lg:border-t-0 lg:border-l lg:px-10 lg:py-16">
-          <div className="lg:sticky lg:top-10">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                {diagnostic ? "Estimated baseline" : "Scores (provisional)"}
-              </p>
-              <InfoIcon className="text-muted-foreground" aria-hidden="true" />
-            </div>
-            <div className="mt-8">
-              <ScoreStrip plan={plan} />
-            </div>
-            {diagnostic ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Composite practice range: {diagnostic.compositeRange.low}–
-                {diagnostic.compositeRange.high}
-              </p>
-            ) : null}
-            <Separator className="my-10" />
-            <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-              This week
-            </p>
-            <p className="mt-3 text-2xl">
-              <strong>{weeklySessions}</strong> of{" "}
-              {plan.intensity.studyDaysPerWeek} sessions
-            </p>
-            <div
-              className="mt-5 flex gap-3"
-              aria-label={`${weeklySessions} of ${plan.intensity.studyDaysPerWeek} sessions complete`}
-            >
-              {Array.from(
-                { length: plan.intensity.studyDaysPerWeek },
-                (_, index) => (
-                  <span
-                    key={index}
-                    className={cn(
-                      "size-7 rounded-full border-2",
-                      index < weeklySessions
-                        ? "border-primary bg-primary"
-                        : "border-border bg-background"
-                    )}
+                <ol className="mt-10 max-w-3xl">
+                  <MissionStep
+                    number="01 · Learn"
+                    icon={<BookOpenCheckIcon />}
+                    title={learning?.lesson.objective ?? "Personalized teaching sequence"}
+                    meta={learning ? `${learning.lesson.minutes} minutes · ${learning.lesson.depth} depth` : "Loading reviewed lesson content"}
+                    state={lessonDone ? "done" : "current"}
+                    action={!lessonDone ? (
+                      <Button type="button" size="xl" onClick={() => setWorkspaceOpen(true)} disabled={!learning}>
+                        <SparklesIcon data-icon="inline-start" />
+                        Open teaching workspace
+                      </Button>
+                    ) : undefined}
                   />
-                )
-              )}
+                  <MissionStep
+                    number="02 · Prove"
+                    icon={<ListChecksIcon />}
+                    title="5-question focused set"
+                    meta={`${answered} of ${practiceTotal} answered · keys remain server-side`}
+                    state={practiceDone ? "done" : lessonDone ? "current" : "queued"}
+                    action={lessonDone && !practiceDone ? (
+                      <Button type="button" size="lg" onClick={() => setWorkspaceOpen(true)}>
+                        Continue focused set
+                        <ArrowRightIcon data-icon="inline-end" />
+                      </Button>
+                    ) : undefined}
+                  />
+                  <MissionStep
+                    number="03 · Remember"
+                    icon={<RefreshCwIcon />}
+                    title="Spaced repair review"
+                    meta={learning?.mastery.nextReviewAt
+                      ? `Scheduled ${formatCalendarDate(learning.mastery.nextReviewAt.slice(0, 10))}`
+                      : "Scheduled from today’s answer evidence"}
+                    state={practiceDone ? "current" : "queued"}
+                  />
+                </ol>
+              </section>
+
+              <aside className="min-w-0 xl:pt-6">
+                <ScoutCoach
+                  mood={practiceDone ? "correct" : learning ? "ready" : "thinking"}
+                  message={learning?.lesson.tutorOpening}
+                  detail={learning?.lesson.evidenceSummary}
+                />
+
+                <section className="mt-8 border-t-2 border-foreground pt-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="font-heading text-3xl font-bold">Plan snapshot</h2>
+                    <TargetIcon className="text-primary" aria-hidden="true" />
+                  </div>
+                  <div className="mt-5"><ScoreTable plan={plan} /></div>
+                </section>
+
+                <section className="mt-8 border-t-2 border-foreground pt-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="font-heading text-3xl font-bold">Lesson engine</h2>
+                    <BrainCircuitIcon className="text-primary" aria-hidden="true" />
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    {learning?.lesson.generation.mode === "ai"
+                      ? `Generated with ${learning.lesson.generation.model}; checked against a reviewed lesson shell.`
+                      : "Using the reviewed deterministic fallback. Connect an OpenAI-compatible model to generate the teaching sequence live."}
+                  </p>
+                </section>
+              </aside>
             </div>
-            <p className="mt-5 text-sm text-muted-foreground">
-              Learning progress is saved locally to this browser session.
-            </p>
-            <Separator className="my-10" />
-            <Alert className="bg-[var(--info-surface)]">
-              <InfoIcon />
-              <AlertTitle>
-                {diagnostic
-                  ? "Starter diagnostic complete"
-                  : "Skill map is still learning about you"}
-              </AlertTitle>
-              <AlertDescription>
-                {diagnostic
-                  ? "This plan uses direct answers, but the range remains wide until more evidence arrives."
-                  : compositeOnly
-                    ? "Your section estimates are provisional. Early skill probes will replace them with direct evidence."
-                    : "Your section scores are provisional. Keep practicing—your plan will get more accurate with time."}
-              </AlertDescription>
-            </Alert>
-            <p className="mt-8 text-sm leading-6 text-muted-foreground">
-              Test date: {formatCalendarDate(plan.draft.testDate)}
-            </p>
-            {sections && plan.evidence.compositeDifference ? (
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Your current-format Composite is calculated from English, Math,
-                and Reading.
-              </p>
-            ) : null}
-          </div>
-        </aside>
-      </main>
+          )}
+        </main>
+      </TabsContent>
+
+      <TabsContent value="plan"><PlanView plan={plan} /></TabsContent>
+      <TabsContent value="progress"><ProgressView plan={plan} learning={learning} /></TabsContent>
     </Tabs>
   )
 }

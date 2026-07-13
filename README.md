@@ -1,4 +1,4 @@
-# AI ACT Tutor
+# Scout ACT — AI ACT Tutor
 
 An adaptive, Duolingo-style ACT study product that turns a student's score history and every practice answer into the next best learning action.
 
@@ -15,18 +15,19 @@ Working in the current slice:
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
 - a generated Today/Plan/Progress dashboard with a durable adaptive learning session;
-- a no-score path with a validated 24-question rapid diagnostic covering 12 skills, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
+- a no-score path with a validated 66-question half-length diagnostic covering 12 skills, grouped ACT-style passages, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
-- a versioned 12-skill learning taxonomy, 12 authored micro-lessons, and 60 focused practice questions;
+- a versioned 12-skill learning taxonomy, 12 reviewed lesson foundations, AI-generated personalized four-stage teaching sequences, and 60 focused practice questions;
 - lesson completion, five-question focused practice, immediate trusted feedback, mastery updates, spaced review scheduling, and visible next-session regeneration.
+- an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 
 Still placeholders or future milestones:
 
-- the complete 66-question half-length bank, stronger empirical calibration, database-backed multi-instance submission, and broader skill coverage;
-- Supabase authentication/persistence, AI providers, CI, deployment, and production monitoring.
+- empirical score calibration, independent psychometric/content review, database-backed multi-instance submission, and broader skill coverage;
+- Supabase authentication/persistence, CI, deployment, and production monitoring.
 
-The current rapid diagnostic is intentionally labeled with a wide estimated practice range; it does not claim official ACT precision or pretend that the full half-length bank is finished.
+The half-length diagnostic is original and proportioned to the enhanced ACT core, but it still reports an estimated practice range rather than claiming official ACT precision.
 
 ## Run locally
 
@@ -92,6 +93,41 @@ export DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
 export LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
 pnpm dev
 ```
+
+### Optional live AI lesson generation
+
+The app has a real provider-neutral lesson composer. It calls any OpenAI-compatible `/chat/completions` endpoint, validates the model's JSON against the lesson contract, persists the generated lesson, and falls back to reviewed authored teaching if the request fails. The model never receives practice answer keys and cannot change scoring or mastery calculations.
+
+For a free local Qwen setup with [Ollama](https://ollama.com/):
+
+```bash
+ollama pull qwen3:4b
+ollama serve
+```
+
+In another terminal, create the local Next.js environment file:
+
+macOS/Linux:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item apps\web\.env.example apps\web\.env.local
+```
+
+The example file configures:
+
+```dotenv
+AI_TUTOR_BASE_URL=http://127.0.0.1:11434/v1
+AI_TUTOR_MODEL=qwen3:4b
+AI_TUTOR_API_KEY=
+```
+
+Restart `pnpm dev` after changing environment variables. A generated lesson is labeled **AI-personalized lesson** in the UI; fallback content is labeled **Reviewed personalized fallback**, so the demo never implies that AI ran when it did not.
 
 To erase local demo progress and start onboarding again:
 
@@ -162,6 +198,7 @@ The LLM is a presentation layer, not the source of truth. Code owns answer keys,
 
 - [Product specification](docs/PRODUCT_SPEC.md)
 - [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md)
+- [Enhanced ACT blueprint](docs/ACT_BLUEPRINT.md)
 - [Milestone roadmap](docs/PROJECT_ROADMAP.md)
 - [Prioritized implementation backlog](docs/BACKLOG.md)
 
@@ -176,7 +213,7 @@ A judge should be able to watch this complete loop in under four minutes:
 5. See a trusted explanation and the exact skill involved.
 6. Return to the dashboard and see mastery, review spacing, and the next-session update.
 
-For presentation speed, the current demo can use the working 24-question rapid diagnostic. It contains eight questions per core section and two items for each of 12 skills. The intended no-score product path remains the full half-length diagnostic; its content bank and calibration are not complete yet.
+The no-score demo now uses the working 66-question half-length diagnostic: 25 English, 23 Math, and 18 Reading questions across 12 skill signals. Progress autosaves, so a presenter can seed or resume a session instead of completing the entire form on stage. The content is original and blueprint-validated; independent psychometric calibration remains future work.
 
 ## Content and score disclaimer
 

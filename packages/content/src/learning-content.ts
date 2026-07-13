@@ -435,13 +435,133 @@ const PRACTICE_CONFIG = {
   ],
 } as const;
 
-function distractors(correct: string) {
-  return [
-    { id: "A", text: correct },
-    { id: "B", text: "Not enough information", misconception: "Avoids direct evidence already present in the question." },
-    { id: "C", text: "Opposite relationship", misconception: "Reverses the logic of the prompt." },
-    { id: "D", text: "Too broad", misconception: "Adds a claim beyond the evidence." },
-  ];
+const PRACTICE_DISTRACTORS = {
+  "sentence-boundaries": [
+    ["Complete sentence", "Run-on sentence", "Comma splice"],
+    ["Fragment", "Complete sentence", "Correctly joined clauses"],
+    ["Fragment", "Run-on sentence", "Dependent clause only"],
+    ["Complete sentence", "Run-on sentence", "Correctly joined clauses"],
+    ["Comma splice", "Fragment", "Replace the semicolon with a comma"],
+  ],
+  "concision-and-redundancy": [
+    ["completely final", "final and conclusive", "final in every respect"],
+    ["returned back", "went back and returned", "returned again back"],
+    ["summary", "brief and short summary", "summary of the main points in brief"],
+    ["collaborated together", "worked collaboratively together", "jointly collaborated together"],
+    ["The reason is because", "The reason why is due to", "Due to the reason being that"],
+  ],
+  "punctuation-and-commas": [
+    ["Remove the first comma only", "Remove the second comma only", "Remove both commas"],
+    ["Remove the comma", "Replace the comma with a semicolon and keep and", "Add a second comma after hikers"],
+    ["Keep the comma", "Delete all punctuation", "Add and without changing the comma"],
+    ["Add a comma after lecture", "Add a comma after students", "No comma is needed"],
+    ["Add commas around Leo", "Add a comma before plays", "Replace the period with a comma"],
+  ],
+  "logical-transitions": [
+    ["Therefore", "For example", "Similarly"],
+    ["However", "Meanwhile", "For instance"],
+    ["Nevertheless", "Consequently", "In contrast"],
+    ["Therefore", "For example", "Likewise"],
+    ["Meanwhile", "Nevertheless", "For example"],
+  ],
+  "linear-equations": [
+    ["5", "12", "13"],
+    ["4", "17/5", "25"],
+    ["4", "6", "20"],
+    ["3", "12", "24"],
+    ["−4", "5", "−5"],
+  ],
+  "functions-and-modeling": [
+    ["10", "16", "25"],
+    ["Cost per mile", "Total cost after 4 miles", "Maximum possible fare"],
+    ["8", "16", "17"],
+    ["3", "6", "8"],
+    ["H(w) = 2 + 5w", "H(w) = 5w", "H(w) = 7w"],
+  ],
+  "ratios-and-percent": [
+    ["4", "11.25", "25"],
+    ["10%", "20%", "125%"],
+    ["14", "32", "64"],
+    ["30%", "60%", "66.7%"],
+    ["45", "60", "75"],
+  ],
+  "geometry-and-measurement": [
+    ["16", "60", "120"],
+    ["3π", "9π", "18π"],
+    ["13", "40", "80"],
+    ["7", "12", "14"],
+    ["12", "20", "47"],
+  ],
+  "central-ideas-and-details": [
+    ["The scientist preferred the first test", "The laboratory equipment was expensive", "One revision changed a measurement"],
+    ["The date the town was founded", "One resident's opinion of the town", "The town's current population only"],
+    ["The maps changed how people traveled", "The two maps served different purposes", "Old and new maps share several features"],
+    ["Why every proposed fix failed", "Who first discovered the problem", "A description of the problem only"],
+    ["The artist used one material for decades", "The artist's childhood home", "One painting's auction price"],
+  ],
+  "supported-inference": [
+    ["The character never buys anything", "The character works as an accountant", "The receipts are required by law"],
+    ["The researcher expected the result to fail", "The first trial was definitely incorrect", "The researcher wants a different outcome"],
+    ["The main road is permanently closed", "The narrator is lost", "Dark clouds always cause flooding"],
+    ["The student is afraid of audiences", "The auditorium is empty", "The student has lost their voice"],
+    ["The shop lowered every price", "The earlier schedule was illegal", "Customers requested fewer products"],
+  ],
+  "textual-evidence-and-details": [
+    ["The bridge was built in exactly one year", "The bridge closed in 1920", "The bridge was the first in the region"],
+    ["The sensor eliminated every error", "The sensor was 12% cheaper", "Measurements took 12% less time"],
+    ["To see the sunrise", "To arrive before everyone else", "To avoid traffic"],
+    ["It is inexpensive to manufacture", "It performs equally well in every condition", "Its weakness is water damage"],
+    ["The maps were removed", "The text was shortened", "A second author was added"],
+  ],
+  "author-purpose-and-structure": [
+    ["To replace the statistics with opinion", "To prove the issue affects only one person", "To reveal the author's final conclusion"],
+    ["Introduce an unrelated historical detail", "Repeat the critics' claims as facts", "Avoid taking a position"],
+    ["To make the explanation more technical", "To delay the passage's main idea", "To contradict the later explanation"],
+    ["Introduce a completely new argument", "Show that the opening image was inaccurate", "Summarize every detail in order"],
+    ["To show both methods are identical", "To avoid explaining either method", "To prove the rejected method never works"],
+  ],
+} as const;
+
+const MISCONCEPTION_BY_SKILL: Record<string, string> = {
+  "sentence-boundaries": "Recheck whether each clause has a subject, working verb, and complete thought before naming the boundary.",
+  "concision-and-redundancy": "This choice keeps or creates wording that repeats an idea without adding meaning.",
+  "punctuation-and-commas": "Name the grammatical role of the phrase or clause before choosing punctuation; do not punctuate by pause.",
+  "logical-transitions": "This transition signals a different relationship from the one created by the surrounding sentences.",
+  "linear-equations": "Substitute this value into the original equation; it comes from undoing an operation or sign incorrectly.",
+  "functions-and-modeling": "Check the input, operation order, and what each coefficient or constant represents in context.",
+  "ratios-and-percent": "Identify the whole and the scale factor before calculating; this choice uses the wrong reference quantity.",
+  "geometry-and-measurement": "This choice uses the wrong formula, scale factor, or linear-versus-area relationship.",
+  "central-ideas-and-details": "This choice is too narrow, unsupported, or misses the pattern controlling the whole passage.",
+  "supported-inference": "This choice adds a motive, certainty, or fact that the supplied evidence does not establish.",
+  "textual-evidence-and-details": "The passage states a different detail; return to the exact wording before paraphrasing it.",
+  "author-purpose-and-structure": "This choice does not describe the actual job the referenced part performs in the passage.",
+};
+
+function practicePrompt(skill: SkillDefinition, source: string) {
+  if (skill.section !== "english") return source;
+  if (skill.slug === "sentence-boundaries") return "Which choice best describes the sentence as written?";
+  if (skill.slug === "concision-and-redundancy") return "Which choice is the most concise revision that preserves the meaning?";
+  if (skill.slug === "punctuation-and-commas") return "Which choice uses punctuation correctly?";
+  return "Which transition most logically completes the blank?";
+}
+
+function actStyleChoices(
+  skill: SkillDefinition,
+  index: number,
+  correct: string,
+) {
+  const slug = skill.slug as keyof typeof PRACTICE_DISTRACTORS;
+  const distractorTexts = PRACTICE_DISTRACTORS[slug][index];
+  const correctIndex = (index * 3 + 1) % 4;
+  const texts: string[] = [...distractorTexts];
+  texts.splice(correctIndex, 0, correct);
+  return texts.map((text, choiceIndex) => ({
+    id: ["A", "B", "C", "D"][choiceIndex],
+    text,
+    ...(choiceIndex === correctIndex
+      ? {}
+      : { misconception: MISCONCEPTION_BY_SKILL[skill.slug] }),
+  }));
 }
 
 export const ACT_PRACTICE_QUESTIONS = ACT_SKILLS.flatMap((skill) =>
@@ -451,9 +571,10 @@ export const ACT_PRACTICE_QUESTIONS = ACT_SKILLS.flatMap((skill) =>
     skill: skill.slug,
     section: skill.section,
     difficulty: index < 2 ? "easy" : index < 4 ? "medium" : "hard",
-    prompt,
-    choices: distractors(answer),
-    correctChoiceId: "A",
+    prompt: practicePrompt(skill, prompt),
+    ...(skill.section === "english" ? { stimulus: prompt } : {}),
+    choices: actStyleChoices(skill, index, answer),
+    correctChoiceId: ["A", "B", "C", "D"][(index * 3 + 1) % 4],
     rationale:
       rationale.length >= 24
         ? rationale
@@ -464,7 +585,7 @@ export const ACT_PRACTICE_QUESTIONS = ACT_SKILLS.flatMap((skill) =>
 
 export const ACT_LEARNING_BANK = validateLearningBank({
   id: "act-learning-bank",
-  version: "learning-v1",
+  version: "learning-v2",
   skills: ACT_SKILLS,
   lessons: ACT_LESSONS,
   practice: ACT_PRACTICE_QUESTIONS,

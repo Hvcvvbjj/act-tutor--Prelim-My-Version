@@ -31,6 +31,7 @@ function question(
       { id: "d", text: "Choice D" },
     ],
     expectedSeconds: 60,
+    format: "standalone",
     correctChoiceId,
     rationale: `Rationale for ${id}`,
     content: {
@@ -48,6 +49,11 @@ const FORM: DiagnosticFormSecure = {
   mode: "starter",
   title: "Fixture diagnostic",
   estimatedMinutes: 3,
+  blueprint: [
+    { section: "english", officialQuestions: 50, officialScoredQuestions: 40, officialMinutes: 35, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Writing", range: "100%" }, { label: "Language", range: "0%" }] },
+    { section: "math", officialQuestions: 45, officialScoredQuestions: 41, officialMinutes: 50, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Higher Math", range: "80%" }, { label: "Essential Skills", range: "20%" }] },
+    { section: "reading", officialQuestions: 36, officialScoredQuestions: 27, officialMinutes: 40, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Ideas", range: "50%" }, { label: "Structure", range: "50%" }] },
+  ],
   questions: [
     question("e1", "english", "boundaries"),
     question("e2", "english", "boundaries"),
