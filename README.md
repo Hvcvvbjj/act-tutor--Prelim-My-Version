@@ -28,31 +28,108 @@ Still placeholders or future milestones:
 
 The current rapid diagnostic is intentionally labeled with a wide estimated practice range; it does not claim official ACT precision or pretend that the full half-length bank is finished.
 
-## Quick start
+## Run locally
 
-Requirements: Node.js `>=20.9.0` and pnpm `11.7.0`. Node.js `22.12` is the recommended team version and is pinned in `.nvmrc`.
+### Requirements
+
+- Git
+- Node.js `>=20.9.0`
+- pnpm `11.7.0`
+
+Node.js `22.12.0` is recommended and pinned in [.nvmrc](.nvmrc). If you use [nvm](https://github.com/nvm-sh/nvm), it can install and select that version automatically.
+
+### 1. Clone the fork
 
 ```bash
+git clone https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version.git
+cd act-tutor--Prelim-My-Version
+```
+
+If you already cloned the repository, open a terminal in its root directory instead.
+
+### 2. Select Node and install pnpm
+
+With nvm:
+
+```bash
+nvm install
 nvm use
 corepack enable
+corepack prepare pnpm@11.7.0 --activate
+```
+
+If Node.js is already installed without nvm, run only the two `corepack` commands. Confirm the versions with:
+
+```bash
+node --version
+pnpm --version
+```
+
+### 3. Install dependencies
+
+Run this from the repository root:
+
+```bash
 pnpm install
+```
+
+### 4. Start the app
+
+```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The local slice does not require environment variables. Anonymous diagnostic sessions are stored in the ignored `.data` directory unless `DIAGNOSTIC_SESSION_STORE_PATH` is set.
-Anonymous learning sessions are stored beside them unless `LEARNING_SESSION_STORE_PATH` is set.
+Open [http://localhost:3000](http://localhost:3000). Stop the development server with `Ctrl+C`.
 
-Run all checks currently wired into the workspace with:
+No environment variables, database, or external AI key are required for the current local MVP. Diagnostic and learning progress are stored as ignored JSON files under `apps/web/.data/`.
+
+### Optional local configuration
+
+To store session data somewhere else, set either or both variables before starting the app:
+
+```bash
+export DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
+export LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
+pnpm dev
+```
+
+To erase local demo progress and start onboarding again:
+
+```bash
+rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json
+```
+
+You may also need to clear cookies for `localhost:3000` if you want a completely new anonymous session.
+
+## Verify the project
+
+Run the full lint, typecheck, test, and production-build suite:
 
 ```bash
 pnpm check
 ```
 
-Useful local reset while testing:
+Individual commands are also available:
 
 ```bash
-rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
+
+To run the production build locally after `pnpm build`:
+
+```bash
+pnpm --filter web start
+```
+
+### Troubleshooting
+
+- `pnpm: command not found`: rerun `corepack enable` and `corepack prepare pnpm@11.7.0 --activate`.
+- Unsupported Node.js version: run `nvm install && nvm use`, or install Node.js `22.12.0` manually.
+- Port `3000` is already in use: stop the other process or run `pnpm --filter web dev -- -p 3001`, then open [http://localhost:3001](http://localhost:3001).
+- Stale local progress: delete the two files in `apps/web/.data/` and clear the localhost cookie as described above.
 
 ## Core experience
 
