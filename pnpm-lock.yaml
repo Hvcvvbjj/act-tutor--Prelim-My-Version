@@ -17,9 +17,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@act-tutor/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@act-tutor/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@act-tutor/server':
+        specifier: workspace:*
+        version: link:../../packages/server
       '@base-ui/react':
         specifier: ^1.6.0
         version: 1.6.0(@types/react@19.2.17)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -82,8 +88,40 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/content:
+    dependencies:
+      '@act-tutor/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)
+
   packages/core:
     devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)
+
+  packages/server:
+    dependencies:
+      '@act-tutor/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

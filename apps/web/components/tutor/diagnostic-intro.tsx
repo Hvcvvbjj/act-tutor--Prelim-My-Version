@@ -20,9 +20,13 @@ interface DiagnosticIntroProps {
 }
 
 const SECTION_BLUEPRINT = [
-  ["English", "4 reviewed questions", "Boundaries + concision"],
-  ["Math", "4 reviewed questions", "Equations + functions"],
-  ["Reading", "4 reviewed questions", "Central ideas + inference"],
+  [
+    "English",
+    "8 reviewed questions",
+    "Boundaries, concision, commas + transitions",
+  ],
+  ["Math", "8 reviewed questions", "Equations, functions, percent + geometry"],
+  ["Reading", "8 reviewed questions", "Ideas, inference, evidence + purpose"],
 ] as const
 
 export function DiagnosticIntro({
@@ -57,11 +61,9 @@ export function DiagnosticIntro({
             <div className="mt-10 border-y py-7">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xl font-bold">
-                    Reviewed starter diagnostic
-                  </p>
+                  <p className="text-xl font-bold">Reviewed rapid diagnostic</p>
                   <p className="mt-1 text-muted-foreground">
-                    12 original questions · about 12 minutes
+                    24 original questions · about 25 minutes
                   </p>
                 </div>
                 <span className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary sm:mt-0">
@@ -80,9 +82,10 @@ export function DiagnosticIntro({
               <ShieldCheckIcon />
               <AlertTitle>Real evidence, intentionally wide range</AlertTitle>
               <AlertDescription>
-                This is the first reviewed content slice, not the finished
-                half-length form. Its result is an estimated practice range and
-                feeds the same planner without claiming official ACT precision.
+                This reviewed rapid form covers 12 skills, but it is not the
+                finished half-length form. Its result is an estimated practice
+                range and feeds the planner without claiming official ACT
+                precision.
               </AlertDescription>
             </Alert>
           </section>

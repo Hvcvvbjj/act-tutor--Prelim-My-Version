@@ -33,6 +33,12 @@ function question(
     expectedSeconds: 60,
     correctChoiceId,
     rationale: `Rationale for ${id}`,
+    content: {
+      status: "published",
+      license: "original",
+      reviewer: "Fixture reviewer",
+      reviewedAt: "2026-07-12",
+    },
   };
 }
 
@@ -50,6 +56,13 @@ const FORM: DiagnosticFormSecure = {
     question("r1", "reading", "inference"),
     question("r2", "reading", "inference"),
   ],
+};
+
+const RAPID_FORM: DiagnosticFormSecure = {
+  ...FORM,
+  id: "rapid-fixture",
+  version: "rapid-fixture-v1",
+  mode: "rapid",
 };
 
 function answers(choiceByQuestion: Record<string, string>): DiagnosticAnswer[] {
@@ -105,6 +118,24 @@ describe("scoreDiagnostic", () => {
     expect(evidence.source).toBe("starter_diagnostic");
     expect(evidence.confidence).toBe("low");
     expect(evidence.planningBaseline).toEqual(result.planningBaseline);
+  });
+
+  it("labels rapid evidence and returns a narrower range", () => {
+    const result = scoreDiagnostic(
+      RAPID_FORM,
+      RAPID_FORM.questions.map((item) => ({
+        questionId: item.id,
+        choiceId: item.correctChoiceId,
+      })),
+    );
+
+    expect(result.source).toBe("rapid_diagnostic");
+    expect(result.calibrationVersion).toBe("rapid-v1");
+    expect(
+      result.sectionResults[0].range.high -
+        result.sectionResults[0].range.low,
+    ).toBeLessThanOrEqual(8);
+    expect(diagnosticResultToEvidence(result).source).toBe("rapid_diagnostic");
   });
 
   it("rejects missing answers", () => {

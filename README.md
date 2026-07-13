@@ -6,7 +6,7 @@ An adaptive, Duolingo-style ACT study product that turns a student's score histo
 
 ## Repository status
 
-This fork now contains the first working local vertical slice plus the product specification, technical architecture, prioritized backlog, and an undated milestone roadmap.
+This fork now contains a working local vertical slice plus the product specification, technical architecture, prioritized backlog, and an undated milestone roadmap.
 
 Working in the current slice:
 
@@ -15,16 +15,17 @@ Working in the current slice:
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
 - a generated Today/Plan/Progress dashboard and an authored lesson preview;
-- a no-score path with 12 original reviewed questions, per-answer autosave/resume, review, deterministic server-side scoring, skill signals, and baseline-to-plan handoff;
+- a no-score path with a validated 24-question rapid diagnostic covering 12 skills, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
+- anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
 
 Still placeholders or future milestones:
 
-- the complete 66-question half-length bank, a 24-question rapid form, stronger calibration, database-backed atomic submission, and broader skill coverage;
+- the complete 66-question half-length bank, stronger empirical calibration, database-backed multi-instance submission, and broader skill coverage;
 - practice answers, mastery updates, spaced repetition, and visible plan regeneration;
 - Supabase authentication/persistence, AI providers, CI, deployment, and production monitoring.
 
-The current diagnostic is intentionally labeled a starter slice with a wide estimated practice range; it does not claim official ACT precision or pretend that the full half-length bank is finished.
+The current rapid diagnostic is intentionally labeled with a wide estimated practice range; it does not claim official ACT precision or pretend that the full half-length bank is finished.
 
 ## Quick start
 
@@ -37,7 +38,7 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The current local-only slice does not require environment variables.
+Open [http://localhost:3000](http://localhost:3000). The local slice does not require environment variables. Anonymous diagnostic sessions are stored in the ignored `.data` directory unless `DIAGNOSTIC_SESSION_STORE_PATH` is set.
 
 Run all checks currently wired into the workspace with:
 
@@ -65,8 +66,8 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 
 ## MVP stack
 
-- Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, a pure TypeScript core package, and Vitest.
-- Planned next: Zod-backed shared validation, Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
+- Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, pure TypeScript core/content/server packages, Zod content validation, durable anonymous local sessions, and Vitest.
+- Planned next: Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
 - Planned after the trusted loop: a provider-agnostic tutor interface with Cloudflare Workers AI/Qwen as an optional first live adapter.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
@@ -90,7 +91,7 @@ A judge should be able to watch this complete loop in under four minutes:
 5. See a trusted explanation and the exact skill involved.
 6. Return to the dashboard and see mastery and the next review update.
 
-For presentation speed, the current demo can use the working 12-question starter diagnostic. The intended no-score product path remains the full half-length diagnostic; its content bank and calibration are not complete yet.
+For presentation speed, the current demo can use the working 24-question rapid diagnostic. It contains eight questions per core section and two items for each of 12 skills. The intended no-score product path remains the full half-length diagnostic; its content bank and calibration are not complete yet.
 
 ## Content and score disclaimer
 

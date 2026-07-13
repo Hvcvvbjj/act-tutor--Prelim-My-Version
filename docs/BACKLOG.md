@@ -14,24 +14,24 @@ Keep `main` deployable. An issue is done only when its acceptance criteria and r
 
 This table records local evidence only. It does not mark an issue `done` before every acceptance criterion and relevant preview test passes.
 
-| Backlog item | Local evidence | Remaining before done |
-|---|---|---|
-| 0.1 | pnpm workspace, Next.js/Tailwind/shadcn Base UI app, `packages/core`, lint/typecheck/build scripts, and Vitest are present | add Playwright, `packages/ai`, `packages/content`, `.env.example`, and clean-checkout CI proof |
-| 1.1 | goal-score gate and versioned local refresh persistence are implemented | finish browser, keyboard, and mobile acceptance verification |
-| 1.2 | full-score, Composite-only low-confidence, and never-tested branches plus optional Science are implemented and manually exercised | add automated browser coverage and preview acceptance proof |
-| 1.3 | quick/custom dates, past-date rejection, and routing to plan or diagnostic setup are implemented | capture timezone and add browser coverage |
-| 2.2 | typed public/secure diagnostic contracts cover version, choices, skill, difficulty, key, rationale, and stimulus text | add Zod schemas, status/license/review metadata, stimulus groups, and importer validation |
-| 2.4 | 12 original starter questions cover two skills in each core section | complete independent content review and expand supported skills/sequences |
-| 3.1 | the starter form freezes IDs, versions, order, and form version | move session ownership and frozen form state to persistent server storage |
-| 3.2 | the working runner shows section/progress, hides correctness, autosaves, exits, and resumes | add automated keyboard/focus coverage and server-backed cross-device resume |
-| 3.3 | server-side deterministic scoring creates section ranges, skill signals, baseline evidence, and planner handoff | make database finalization atomic and duplicate submission idempotent |
-| 4.1 | English/Math/Reading round-half-up Composite logic and Science-exclusion unit tests exist | keep this covered in the integrated placement and diagnostic paths |
-| 4.2 | a wide, smoothed starter calibration returns bounded section and Composite practice ranges | calibrate against larger reviewed forms and version lookup tables |
-| 5.1 | deterministic feasible target-vector selection and unit tests exist | expose/verify edge-case rationale in the integrated plan flow |
-| 5.3 | runway modes and weekly intensity are implemented | generate and persist actual dated tasks within capacity |
-| 6.1 | Today/Plan/Progress dashboard shell, assignment reasons, and provisional confidence are implemented | connect persisted baseline ranges, real tasks, and completion/adaptation state |
+| Backlog item | Local evidence                                                                                                                                                    | Remaining before done                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 0.1          | pnpm workspace, Next.js/Tailwind/shadcn Base UI app, `packages/core`, `packages/content`, `packages/server`, lint/typecheck/build scripts, and Vitest are present | add Playwright, `packages/ai`, `.env.example`, and clean-checkout CI proof                 |
+| 1.1          | goal-score gate and versioned local refresh persistence are implemented                                                                                           | finish browser, keyboard, and mobile acceptance verification                               |
+| 1.2          | full-score, Composite-only low-confidence, and never-tested branches plus optional Science are implemented and manually exercised                                 | add automated browser coverage and preview acceptance proof                                |
+| 1.3          | quick/custom dates, past-date rejection, and routing to plan or diagnostic setup are implemented                                                                  | capture timezone and add browser coverage                                                  |
+| 2.2          | Zod-backed secure/public contracts cover version, choices, skills, difficulty, key, rationale, status/license/review metadata, and stimulus text                  | add stimulus groups, lesson schemas, distractor misconceptions, and importer tooling       |
+| 2.4          | 24 original reviewed rapid questions cover 12 skills across the three core sections and pass blueprint validation                                                 | deepen lesson sequences and complete independent editorial/psychometric review             |
+| 3.1          | cookie-bound server sessions freeze form ID/version/order and survive process restarts through an atomic local-file repository                                    | replace the single-node file store with Supabase ownership, RLS, and cross-device identity |
+| 3.2          | the runner shows section/progress, hides correctness, autosaves to the server, exits, and resumes                                                                 | add automated keyboard/focus coverage and authenticated cross-device resume                |
+| 3.3          | deterministic scoring creates section ranges, 12 skill signals, baseline evidence, and planner handoff; duplicate finalization is idempotent                      | make scoring, mastery, baseline, and completion one Postgres transaction                   |
+| 4.1          | English/Math/Reading round-half-up Composite logic and Science-exclusion unit tests exist                                                                         | keep this covered in the integrated placement and diagnostic paths                         |
+| 4.2          | a wide, smoothed rapid calibration returns bounded section and Composite practice ranges                                                                          | calibrate against larger reviewed forms and empirical version lookup tables                |
+| 5.1          | deterministic feasible target-vector selection and unit tests exist                                                                                               | expose/verify edge-case rationale in the integrated plan flow                              |
+| 5.3          | runway modes and weekly intensity are implemented                                                                                                                 | generate and persist actual dated tasks within capacity                                    |
+| 6.1          | Today/Plan/Progress dashboard shell, assignment reasons, and provisional confidence are implemented                                                               | connect persisted baseline ranges, real tasks, and completion/adaptation state             |
 
-The starter diagnostic is a real end-to-end slice, not the finished assessment system. The complete half-length and rapid forms, durable sessions, atomic database finalization, calibrated score tables, and longitudinal mastery remain open work.
+The rapid diagnostic is a real end-to-end slice, not the finished assessment system. The complete half-length form, production database sessions, transactional mastery/baseline finalization, empirical calibration, and longitudinal mastery remain open work. The current file repository is durable for a local single-node demo, but it is not a substitute for multi-instance database transactions.
 
 ## Epic 0 — Foundation
 

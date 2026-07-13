@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type {
   CoreSection,
   DiagnosticAnswer,
   DiagnosticFormPublic,
   DiagnosticQuestionPublic,
   DiagnosticResult,
+  DiagnosticSessionPayload,
 } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
@@ -24,8 +25,6 @@ import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
-const STORAGE_KEY = "ai-act-tutor-diagnostic-v1"
-
 interface DiagnosticRunnerProps {
   onBack: () => void
   onComplete: (result: DiagnosticResult) => void
@@ -33,70 +32,12 @@ interface DiagnosticRunnerProps {
 
 type RunnerPhase = "questions" | "review" | "results"
 type RunnerStatus = "loading" | "ready" | "submitting" | "error"
-
-interface SavedDiagnostic {
-  version: 1
-  formId: string
-  formVersion: string
-  answers: Record<string, string>
-  currentIndex: number
-  phase: "questions" | "review"
-}
+type SaveStatus = "saved" | "saving" | "error"
 
 const SECTION_LABELS: Record<CoreSection, string> = {
   english: "English",
   math: "Math",
   reading: "Reading",
-}
-
-function readSavedDiagnostic(
-  form: DiagnosticFormPublic
-): SavedDiagnostic | null {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (!stored) return null
-    const candidate = JSON.parse(stored) as Partial<SavedDiagnostic>
-    if (
-      candidate.version !== 1 ||
-      candidate.formId !== form.id ||
-      candidate.formVersion !== form.version ||
-      !candidate.answers ||
-      typeof candidate.answers !== "object" ||
-      !Number.isInteger(candidate.currentIndex) ||
-      candidate.currentIndex === undefined ||
-      candidate.currentIndex < 0 ||
-      candidate.currentIndex >= form.questions.length ||
-      (candidate.phase !== "questions" && candidate.phase !== "review")
-    ) {
-      return null
-    }
-
-    const questionsById = new Map(
-      form.questions.map((question) => [question.id, question])
-    )
-    const answers = Object.fromEntries(
-      Object.entries(candidate.answers).filter(([questionId, choiceId]) => {
-        const question = questionsById.get(questionId)
-        return (
-          question !== undefined &&
-          typeof choiceId === "string" &&
-          question.choices.some((choice) => choice.id === choiceId)
-        )
-      })
-    )
-
-    return {
-      version: 1,
-      formId: form.id,
-      formVersion: form.version,
-      answers,
-      currentIndex: candidate.currentIndex,
-      phase: candidate.phase,
-    }
-  } catch {
-    window.localStorage.removeItem(STORAGE_KEY)
-    return null
-  }
 }
 
 function SectionProgress({
@@ -155,7 +96,7 @@ function SectionProgress({
       <p className="mt-8 hidden text-sm leading-6 text-muted-foreground lg:block">
         {submitted
           ? "Your diagnostic is submitted. The planner now uses this baseline and its direct skill evidence."
-          : "Your answers are saved on this device. Correctness stays hidden until you submit the complete form."}
+          : "Your answers are saved to this anonymous session. Correctness stays hidden until you submit the complete form."}
       </p>
     </aside>
   )
@@ -346,7 +287,7 @@ function ReviewView({
         </Button>
         <p className="text-sm text-muted-foreground">
           {unanswered.length === 0
-            ? "All 12 questions answered."
+            ? `All ${form.questions.length} questions answered.`
             : `${unanswered.length} question${unanswered.length === 1 ? "" : "s"} still unanswered.`}
         </p>
       </div>
@@ -373,7 +314,7 @@ function ResultsView({
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         We&apos;ll plan from a midpoint of {result.compositeRange.estimate}{" "}
-        while continuing to replace this wide starter estimate with practice
+        while continuing to strengthen this rapid estimate with practice
         evidence.
       </p>
 
@@ -440,9 +381,9 @@ function ResultsView({
           Estimated practice range—not an official ACT score
         </AlertTitle>
         <AlertDescription>
-          Twelve questions provide useful direction, not final precision. The
-          planner will keep learning from lessons, focused sets, and
-          checkpoints.
+          Twenty-four questions provide useful direction, not official
+          precision. The planner will keep learning from lessons, focused sets,
+          and checkpoints.
         </AlertDescription>
       </Alert>
 
@@ -465,6 +406,9 @@ export function DiagnosticRunner({
   const [status, setStatus] = useState<RunnerStatus>("loading")
   const [result, setResult] = useState<DiagnosticResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const saveRevision = useRef(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -475,15 +419,17 @@ export function DiagnosticRunner({
     })
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load the diagnostic form.")
-        return (await response.json()) as DiagnosticFormPublic
+        return (await response.json()) as DiagnosticSessionPayload
       })
-      .then((loadedForm) => {
-        const saved = readSavedDiagnostic(loadedForm)
-        setForm(loadedForm)
-        if (saved) {
-          setAnswers(saved.answers)
-          setCurrentIndex(saved.currentIndex)
-          setPhase(saved.phase)
+      .then((session) => {
+        setForm(session.form)
+        setAnswers(session.progress.answers)
+        setCurrentIndex(session.progress.currentIndex)
+        if (session.status === "completed" && session.result) {
+          setResult(session.result)
+          setPhase("results")
+        } else {
+          setPhase(session.progress.phase)
         }
         setStatus("ready")
       })
@@ -505,16 +451,40 @@ export function DiagnosticRunner({
     nextIndex: number,
     nextPhase: "questions" | "review"
   ) {
-    if (!form) return
-    const saved: SavedDiagnostic = {
-      version: 1,
-      formId: form.id,
-      formVersion: form.version,
-      answers: nextAnswers,
-      currentIndex: nextIndex,
-      phase: nextPhase,
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved))
+    if (!form) return Promise.resolve()
+    const revision = ++saveRevision.current
+    setSaveStatus("saving")
+    const operation = saveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const response = await fetch("/api/diagnostic", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            formId: form.id,
+            formVersion: form.version,
+            progress: {
+              answers: nextAnswers,
+              currentIndex: nextIndex,
+              phase: nextPhase,
+            },
+          }),
+        })
+        const body = (await response.json()) as { error?: string }
+        if (!response.ok) {
+          throw new Error(body.error ?? "Could not save diagnostic progress.")
+        }
+      })
+    saveQueue.current = operation
+    operation.then(
+      () => {
+        if (saveRevision.current === revision) setSaveStatus("saved")
+      },
+      () => {
+        if (saveRevision.current === revision) setSaveStatus("error")
+      }
+    )
+    return operation
   }
 
   function moveToQuestion(index: number) {
@@ -529,6 +499,7 @@ export function DiagnosticRunner({
     setError(null)
 
     try {
+      await saveQueue.current
       const diagnosticAnswers: DiagnosticAnswer[] = form.questions.map(
         (question) => ({
           questionId: question.id,
@@ -544,15 +515,15 @@ export function DiagnosticRunner({
           answers: diagnosticAnswers,
         }),
       })
-      const body = (await response.json()) as DiagnosticResult & {
+      const body = (await response.json()) as DiagnosticSessionPayload & {
         error?: string
       }
       if (!response.ok) {
         throw new Error(body.error ?? "The diagnostic could not be scored.")
       }
+      if (!body.result) throw new Error("The diagnostic result is missing.")
 
-      window.localStorage.removeItem(STORAGE_KEY)
-      setResult(body)
+      setResult(body.result)
       setPhase("results")
       setStatus("ready")
     } catch (caught) {
@@ -562,6 +533,15 @@ export function DiagnosticRunner({
           : "The diagnostic could not be scored."
       )
       setStatus("ready")
+    }
+  }
+
+  async function saveAndExit() {
+    try {
+      await saveQueue.current
+      onBack()
+    } catch {
+      setSaveStatus("error")
     }
   }
 
@@ -612,9 +592,39 @@ export function DiagnosticRunner({
           </p>
           <p className="text-sm text-muted-foreground">{form.title}</p>
         </div>
-        <Button type="button" variant="ghost" onClick={onBack}>
-          Save and exit
-        </Button>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span
+            className={cn(
+              "hidden items-center gap-2 text-sm sm:flex",
+              saveStatus === "error"
+                ? "text-destructive"
+                : "text-muted-foreground"
+            )}
+            role="status"
+          >
+            {saveStatus === "saving" ? (
+              <LoaderCircleIcon
+                className="size-4 animate-spin"
+                aria-hidden="true"
+              />
+            ) : saveStatus === "saved" ? (
+              <CheckCircle2Icon
+                className="size-4 text-primary"
+                aria-hidden="true"
+              />
+            ) : (
+              <CircleAlertIcon className="size-4" aria-hidden="true" />
+            )}
+            {saveStatus === "saving"
+              ? "Saving…"
+              : saveStatus === "saved"
+                ? "Saved"
+                : "Save failed"}
+          </span>
+          <Button type="button" variant="ghost" onClick={saveAndExit}>
+            Save and exit
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto grid max-w-6xl gap-10 px-5 py-10 sm:px-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:py-14">

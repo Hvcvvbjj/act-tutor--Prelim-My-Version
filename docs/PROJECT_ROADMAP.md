@@ -50,21 +50,22 @@ This checkpoint records local implementation evidence, not completion of the lat
 
 Working locally or in verification:
 
-- the pnpm workspace, Next.js application, Tailwind/shadcn Base UI primitives, and `packages/core` test package;
+- the pnpm workspace, Next.js application, Tailwind/shadcn Base UI primitives, and tested `packages/core`, `packages/content`, and `packages/server` packages;
 - the responsive three-gate onboarding shell with versioned local draft persistence;
 - full-score, Composite-only, and never-tested branching, optional Science input, custom/quick test dates, and past-date rejection;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section target selection, and runway intensity modes;
 - a generated Today/Plan/Progress dashboard, assignment reasons, and an authored lesson preview;
-- a working 12-question starter diagnostic with original reviewed content, autosave/resume, hidden pre-submit keys, deterministic scoring, baseline results, and planner handoff.
+- a validated 24-question rapid diagnostic with original reviewed content across 12 skills, server autosave/resume, hidden pre-submit keys, deterministic scoring, baseline results, and planner handoff;
+- cookie-bound anonymous diagnostic sessions with frozen form versions, atomic local-file writes, and idempotent finalization.
 
 Not complete yet:
 
-- timezone capture, server persistence, anonymous auth, and RLS;
-- the full 66-question bank, 24-question rapid form, stronger calibration, database-backed atomic finalization, and broader reviewed content;
+- timezone capture, production database persistence, anonymous auth, and RLS;
+- the full 66-question bank, stronger calibration, database-backed multi-instance finalization, and broader reviewed content;
 - skill taxonomy/mastery, focused practice, answer feedback, spaced repetition, and future-plan regeneration;
 - Playwright, CI, hosted deployment, AI adapters, and production resilience/security proof.
 
-The immediate next gate is diagnostic depth and persistence: expand the reviewed bank, add a versioned content validator, persist anonymous sessions server-side, and make finalization idempotent and atomic while preserving the working baseline-to-plan handoff.
+The immediate next gate is the adaptive learning loop: define mastery evidence and misconception contracts, assign lessons and focused practice from the 12 diagnostic skill signals, then visibly regenerate the learner's next task after each answer. In parallel, replace the local session file with Supabase anonymous auth, RLS, and a transactional finalization function before deployment.
 
 ## Operating model
 
@@ -77,12 +78,12 @@ The immediate next gate is diagnostic depth and persistence: expand the reviewed
 
 ### Team ownership
 
-| Workstream | Primary responsibility |
-|---|---|
-| Product/demo | scope, learner journey, copy, prioritization, user testing, pitch |
-| Frontend | onboarding, diagnostic runner, dashboard, lessons, practice, responsive UI |
-| Engine/backend | schema, scoring, mastery, plan generation, persistence, security |
-| Content/AI/QA | taxonomy, original questions, lessons, model prompts/fallbacks, content review, E2E QA |
+| Workstream     | Primary responsibility                                                                 |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Product/demo   | scope, learner journey, copy, prioritization, user testing, pitch                      |
+| Frontend       | onboarding, diagnostic runner, dashboard, lessons, practice, responsive UI             |
+| Engine/backend | schema, scoring, mastery, plan generation, persistence, security                       |
+| Content/AI/QA  | taxonomy, original questions, lessons, model prompts/fallbacks, content review, E2E QA |
 
 For a solo build, follow the milestone order below and avoid working on more than one major feature at a time. For a team, the frontend and engine tracks can run in parallel once the shared schemas are merged; content work should continue throughout the project.
 
@@ -556,19 +557,19 @@ Final gate: the public URL, repository, pitch, backup assets, and seeded demo al
 
 ## Milestone scorecard
 
-| Day | Proof required |
-|---:|---|
-| 3 | clean build, CI, anonymous session, preview deployment |
-| 7 | stable contracts, RLS skeleton, validated content pipeline |
-| 12 | both placement paths produce a trustworthy baseline |
-| 17 | different evidence creates different dated plans |
-| 22 | full adaptive loop works without AI |
-| 25 | optional live re-explanation is bounded and has a fallback |
-| 30 | reviewed content, privacy/security checks, mobile and accessibility pass |
-| 31 | automated critical journeys pass against a deployed environment |
-| 34 | three consecutive clean production demonstrations |
-| 35 | feature-frozen, restorable release candidate |
-| 36 | submitted and verified from a non-team device |
+| Day | Proof required                                                           |
+| --: | ------------------------------------------------------------------------ |
+|   3 | clean build, CI, anonymous session, preview deployment                   |
+|   7 | stable contracts, RLS skeleton, validated content pipeline               |
+|  12 | both placement paths produce a trustworthy baseline                      |
+|  17 | different evidence creates different dated plans                         |
+|  22 | full adaptive loop works without AI                                      |
+|  25 | optional live re-explanation is bounded and has a fallback               |
+|  30 | reviewed content, privacy/security checks, mobile and accessibility pass |
+|  31 | automated critical journeys pass against a deployed environment          |
+|  34 | three consecutive clean production demonstrations                        |
+|  35 | feature-frozen, restorable release candidate                             |
+|  36 | submitted and verified from a non-team device                            |
 
 ## Demo script
 
@@ -590,20 +591,20 @@ Close with:
 
 ## Risk register
 
-| Risk | Early warning | Response |
-|---|---|---|
-| Scope expansion | P0 issues remain open while P2 work starts | pause stretch work and return to the next incomplete phase gate |
-| Content bottleneck | engineering waits for reviewed questions | lock schemas early; ship a smaller, deeper reviewed bank |
-| Incorrect content | reviewers disagree on the answer | remove the item; do not ship ambiguous scored content |
-| Weak personalization | seeded plans look alike | expose weakness, confidence, gap, urgency, and assignment reasons |
-| LLM hallucination | response contradicts the key | canonical rationale, constrained input, schema validation, authored fallback |
-| Provider outage or quota | slow or failed inference | short timeout, rate limit, cached/template response, AI-optional flow |
-| Misleading score claim | UI shows a precise guarantee | use ranges, confidence, calibration version, and estimate disclaimer |
-| Copyright problem | item resembles copied prep material | require original/licensed provenance and content review metadata |
-| Privacy overreach | unnecessary identity data is collected | anonymous-first design, minimal fields, deletion, documented retention |
-| Fragile deployment | behavior only works locally | deploy during the foundation phase and test the hosted path throughout development |
-| Merge conflicts | long-lived branches diverge | merge small contract-first PRs and use scheduled integration days |
-| Last-minute regression | feature work continues after freeze | lock the day-35 release commit and use backup video/assets |
+| Risk                     | Early warning                              | Response                                                                           |
+| ------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Scope expansion          | P0 issues remain open while P2 work starts | pause stretch work and return to the next incomplete phase gate                    |
+| Content bottleneck       | engineering waits for reviewed questions   | lock schemas early; ship a smaller, deeper reviewed bank                           |
+| Incorrect content        | reviewers disagree on the answer           | remove the item; do not ship ambiguous scored content                              |
+| Weak personalization     | seeded plans look alike                    | expose weakness, confidence, gap, urgency, and assignment reasons                  |
+| LLM hallucination        | response contradicts the key               | canonical rationale, constrained input, schema validation, authored fallback       |
+| Provider outage or quota | slow or failed inference                   | short timeout, rate limit, cached/template response, AI-optional flow              |
+| Misleading score claim   | UI shows a precise guarantee               | use ranges, confidence, calibration version, and estimate disclaimer               |
+| Copyright problem        | item resembles copied prep material        | require original/licensed provenance and content review metadata                   |
+| Privacy overreach        | unnecessary identity data is collected     | anonymous-first design, minimal fields, deletion, documented retention             |
+| Fragile deployment       | behavior only works locally                | deploy during the foundation phase and test the hosted path throughout development |
+| Merge conflicts          | long-lived branches diverge                | merge small contract-first PRs and use scheduled integration days                  |
+| Last-minute regression   | feature work continues after freeze        | lock the day-35 release commit and use backup video/assets                         |
 
 ## Scope reduction order
 

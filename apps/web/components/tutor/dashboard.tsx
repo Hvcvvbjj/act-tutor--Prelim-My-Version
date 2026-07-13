@@ -395,7 +395,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
               </h1>
               <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
                 {diagnostic
-                  ? `Your starter diagnostic found direct evidence across ${diagnostic.skillResults.length} skills. The first sessions will deepen that evidence and narrow the estimated range.`
+                  ? `Your rapid diagnostic found direct evidence across ${diagnostic.skillResults.length} skills. The first sessions will deepen that evidence and narrow the estimated range.`
                   : compositeOnly
                     ? "Your Composite sets a rough starting point. The first sessions use skill probes to find whether the real gap is algebra, redundancy, inference, pacing, or something else."
                     : "Your section scores set the broad direction. The first sessions include skill probes so the plan can learn whether the real gap is algebra, redundancy, inference, pacing, or something else."}

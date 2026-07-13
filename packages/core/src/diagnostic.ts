@@ -30,12 +30,18 @@ export interface DiagnosticQuestionPublic {
 export interface DiagnosticQuestionSecure extends DiagnosticQuestionPublic {
   correctChoiceId: string;
   rationale: string;
+  content: {
+    status: "published";
+    license: "original";
+    reviewer: string;
+    reviewedAt: string;
+  };
 }
 
 export interface DiagnosticFormPublic {
   id: string;
   version: string;
-  mode: "starter";
+  mode: "starter" | "rapid";
   title: string;
   estimatedMinutes: number;
   questions: ReadonlyArray<DiagnosticQuestionPublic>;
@@ -87,8 +93,8 @@ export interface DiagnosticQuestionFeedback {
 export interface DiagnosticResult {
   formId: string;
   formVersion: string;
-  source: "starter_diagnostic";
-  calibrationVersion: "starter-v1";
+  source: "starter_diagnostic" | "rapid_diagnostic";
+  calibrationVersion: "starter-v1" | "rapid-v1";
   sectionResults: ReadonlyArray<DiagnosticSectionResult>;
   compositeRange: DiagnosticScoreRange;
   planningBaseline: CoreSectionScores;
@@ -96,6 +102,20 @@ export interface DiagnosticResult {
   strengths: ReadonlyArray<DiagnosticSkillResult>;
   focusSkills: ReadonlyArray<DiagnosticSkillResult>;
   feedback: ReadonlyArray<DiagnosticQuestionFeedback>;
+}
+
+export interface DiagnosticSessionProgress {
+  answers: Record<string, string>;
+  currentIndex: number;
+  phase: "questions" | "review";
+  updatedAt: string;
+}
+
+export interface DiagnosticSessionPayload {
+  form: DiagnosticFormPublic;
+  progress: DiagnosticSessionProgress;
+  status: "in_progress" | "completed";
+  result: DiagnosticResult | null;
 }
 
 export function toPublicDiagnosticForm(
@@ -108,8 +128,12 @@ export function toPublicDiagnosticForm(
     title: form.title,
     estimatedMinutes: form.estimatedMinutes,
     questions: form.questions.map(
-      ({ correctChoiceId: _key, rationale: _rationale, ...question }) =>
-        question,
+      ({
+        correctChoiceId: _key,
+        rationale: _rationale,
+        content: _content,
+        ...question
+      }) => question,
     ),
   };
 }
@@ -117,6 +141,7 @@ export function toPublicDiagnosticForm(
 function estimateSectionRange(
   correct: number,
   total: number,
+  mode: DiagnosticFormSecure["mode"],
 ): DiagnosticScoreRange {
   if (!Number.isInteger(correct) || !Number.isInteger(total) || total <= 0) {
     throw new RangeError(
@@ -127,15 +152,16 @@ function estimateSectionRange(
     throw new RangeError("Correct answers must be between zero and total.");
   }
 
-  // A light Beta(1,1) prior prevents a four-item starter slice from claiming
-  // a floor of 1 or ceiling of 36. The wide band is intentional until the
-  // larger calibrated form exists.
+  // A light Beta(1,1) prior keeps short forms from claiming a floor of 1 or
+  // ceiling of 36. Rapid mode has twice the evidence of the starter slice, so
+  // it earns a narrower (but still intentionally cautious) range.
   const smoothedAccuracy = (correct + 1) / (total + 2);
   const estimate = Math.round(1 + smoothedAccuracy * 35);
+  const margin = mode === "rapid" ? 4 : 6;
 
   return {
-    low: Math.max(1, estimate - 6),
-    high: Math.min(36, estimate + 6),
+    low: Math.max(1, estimate - margin),
+    high: Math.min(36, estimate + margin),
     estimate,
   };
 }
@@ -236,7 +262,7 @@ export function scoreDiagnostic(
     return {
       section,
       ...counts,
-      range: estimateSectionRange(counts.correct, counts.total),
+      range: estimateSectionRange(counts.correct, counts.total, form.mode),
     };
   });
 
@@ -276,8 +302,9 @@ export function scoreDiagnostic(
   return {
     formId: form.id,
     formVersion: form.version,
-    source: "starter_diagnostic",
-    calibrationVersion: "starter-v1",
+    source:
+      form.mode === "rapid" ? "rapid_diagnostic" : "starter_diagnostic",
+    calibrationVersion: form.mode === "rapid" ? "rapid-v1" : "starter-v1",
     sectionResults,
     compositeRange,
     planningBaseline,
@@ -303,7 +330,7 @@ export function diagnosticResultToEvidence(
   result: DiagnosticResult,
 ): NormalizedScoreEvidence {
   return {
-    source: "starter_diagnostic",
+    source: result.source,
     reportedComposite: null,
     calculatedComposite: result.compositeRange.estimate,
     reportedSections: null,

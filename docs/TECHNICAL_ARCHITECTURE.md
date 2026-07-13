@@ -26,28 +26,28 @@ The dependency arrow points from AI to trusted data, never from trusted scoring 
 
 ## 2. Stack
 
-This table describes the target MVP architecture. The first local slice currently implements the Next.js/pnpm/UI/core/Vitest portions; rows that mention Supabase, Playwright, AI, deployment, and monitoring are planned rather than present.
+This table describes the target MVP architecture. The local slice currently implements Next.js/pnpm/UI, core/content/server packages, Zod validation, Vitest, and a file-backed anonymous-session adapter. Rows that mention Supabase, Playwright, AI, deployment, and monitoring are planned rather than present.
 
-| Layer | Current/target choice | Reason |
-|---|---|---|
-| Application | Next.js App Router + TypeScript | One deployable frontend/BFF, fast collaboration, good preview workflow |
-| Package manager | pnpm workspace | Shared pure packages without unnecessary monorepo tooling |
-| UI | Tailwind CSS + shadcn components built on Base UI | Fast, accessible primitives and consistent states |
-| Forms | React state in the current slice; React Hook Form + Zod planned where form complexity requires it | Shared client/server validation for scores, dates, and answers without forcing a second form abstraction prematurely |
-| Database | Supabase Postgres | Hosted relational data, auth, migrations, RPC, and RLS |
-| Authentication | Supabase anonymous auth; link email later | No login wall, but durable server-owned records |
-| DB access | `@supabase/ssr`, `supabase-js`, generated types | Direct JWT/RLS model with minimal ORM overhead |
-| AI | Internal interface + provider adapters | Switch providers without touching learning logic |
-| First AI adapter | Cloudflare Workers AI Qwen | Chinese/open-weight model option with a free allocation and simple hosted inference |
-| Deployment | Vercel + Supabase | Low-friction previews and production deployment |
-| Tests | Vitest + Playwright + Supabase pgTAP | Pure logic, end-to-end journeys, and RLS coverage |
-| Monitoring | Sentry + structured privacy-safe events | Enough visibility for demo and MVP |
+| Layer            | Current/target choice                                                                             | Reason                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Application      | Next.js App Router + TypeScript                                                                   | One deployable frontend/BFF, fast collaboration, good preview workflow                                               |
+| Package manager  | pnpm workspace                                                                                    | Shared pure packages without unnecessary monorepo tooling                                                            |
+| UI               | Tailwind CSS + shadcn components built on Base UI                                                 | Fast, accessible primitives and consistent states                                                                    |
+| Forms            | React state in the current slice; React Hook Form + Zod planned where form complexity requires it | Shared client/server validation for scores, dates, and answers without forcing a second form abstraction prematurely |
+| Database         | Atomic local JSON repository now; Supabase Postgres target                                        | Restart-safe local demo today; hosted relational data, transactions, migrations, RPC, and RLS for production         |
+| Authentication   | Opaque HttpOnly session cookie now; Supabase anonymous auth target                                | No login wall; production records must be durable, server-owned, and user-scoped                                     |
+| DB access        | `@supabase/ssr`, `supabase-js`, generated types                                                   | Direct JWT/RLS model with minimal ORM overhead                                                                       |
+| AI               | Internal interface + provider adapters                                                            | Switch providers without touching learning logic                                                                     |
+| First AI adapter | Cloudflare Workers AI Qwen                                                                        | Chinese/open-weight model option with a free allocation and simple hosted inference                                  |
+| Deployment       | Vercel + Supabase                                                                                 | Low-friction previews and production deployment                                                                      |
+| Tests            | Vitest + Playwright + Supabase pgTAP                                                              | Pure logic, end-to-end journeys, and RLS coverage                                                                    |
+| Monitoring       | Sentry + structured privacy-safe events                                                           | Enough visibility for demo and MVP                                                                                   |
 
 Cloudflare Workers AI currently lists Qwen text-generation models and provides a daily free allocation; treat the quota as a replaceable demo dependency, not a permanent business model. See the [model catalog](https://developers.cloudflare.com/workers-ai/models/) and [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Alibaba Model Studio is a second Qwen option, but its new-user quota is time-limited and region-specific, so enable its “Free Quota Only” control before using it. See [Alibaba's quota rules](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 
 ## 3. Target repository layout
 
-The current repository has a smaller vertical-slice layout: `apps/web` contains one page with onboarding, dashboard, lesson-preview, diagnostic-intro, and resumable diagnostic-runner components plus a server-only diagnostic Route Handler; `packages/core` contains types, scoring, diagnostic range/skill scoring, target selection, runway planning, and unit tests; `docs/design` contains accepted visual concepts. The separate AI/content/database packages, Supabase project, E2E suite, CI workflow, and environment contract below are target additions, not current files.
+The current repository has a vertical-slice layout: `apps/web` contains onboarding, dashboard, lesson preview, diagnostic intro/runner components, and a server-only diagnostic Route Handler; `packages/core` contains trusted types, scoring, range/skill signals, targets, and planning; `packages/content` contains the versioned 24-question rapid form and Zod blueprint validation; `packages/server` contains the atomic file-backed session repository; `docs/design` contains accepted visual concepts. The AI/database packages, Supabase project, E2E suite, CI workflow, and environment contract below remain target additions.
 
 ```text
 /

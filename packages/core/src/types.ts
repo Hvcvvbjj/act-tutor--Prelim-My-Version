@@ -21,7 +21,10 @@ export type CurrentScoreInput =
     };
 
 export interface NormalizedScoreEvidence {
-  source: CurrentScoreInput["kind"] | "starter_diagnostic";
+  source:
+    | CurrentScoreInput["kind"]
+    | "starter_diagnostic"
+    | "rapid_diagnostic";
   reportedComposite: ActScore | null;
   calculatedComposite: ActScore | null;
   reportedSections: CoreSectionScores | null;
