@@ -1,0 +1,270 @@
+import type { DiagnosticSkillResult } from "./diagnostic";
+import type { CoreSection } from "./types";
+
+export type SkillSlug = string;
+export type PracticeDifficulty = "easy" | "medium" | "hard";
+export type MasteryBand = "new" | "building" | "steady" | "secure";
+
+export interface SkillDefinition {
+  slug: SkillSlug;
+  label: string;
+  section: CoreSection;
+  category: string;
+  diagnosticSkill: string;
+}
+
+export interface LessonContent {
+  id: string;
+  skill: SkillSlug;
+  title: string;
+  minutes: number;
+  objective: string;
+  concept: string;
+  steps: ReadonlyArray<string>;
+  workedExample: {
+    prompt: string;
+    answer: string;
+    explanation: ReadonlyArray<string>;
+  };
+  trap: string;
+}
+
+export interface PracticeChoicePublic {
+  id: string;
+  text: string;
+}
+
+export interface PracticeChoiceSecure extends PracticeChoicePublic {
+  misconception?: string;
+}
+
+export interface PracticeQuestionPublic {
+  id: string;
+  version: number;
+  skill: SkillSlug;
+  section: CoreSection;
+  difficulty: PracticeDifficulty;
+  prompt: string;
+  stimulus?: string;
+  choices: ReadonlyArray<PracticeChoicePublic>;
+}
+
+export interface PracticeQuestionSecure extends Omit<PracticeQuestionPublic, "choices"> {
+  choices: ReadonlyArray<PracticeChoiceSecure>;
+  correctChoiceId: string;
+  rationale: string;
+}
+
+export function toPublicPracticeQuestion(
+  question: PracticeQuestionSecure,
+): PracticeQuestionPublic {
+  return {
+    id: question.id,
+    version: question.version,
+    skill: question.skill,
+    section: question.section,
+    difficulty: question.difficulty,
+    prompt: question.prompt,
+    stimulus: question.stimulus,
+    choices: question.choices.map(({ misconception: _misconception, ...choice }) => choice),
+  };
+}
+
+export interface MasteryState {
+  skill: SkillSlug;
+  label: string;
+  section: CoreSection;
+  alpha: number;
+  beta: number;
+  evidence: number;
+  mastery: number;
+  band: MasteryBand;
+  lastPracticedAt: string | null;
+  nextReviewAt: string | null;
+  streak: number;
+  lapses: number;
+}
+
+export interface PracticeAttemptInput {
+  skill: SkillSlug;
+  correct: boolean;
+  difficulty: PracticeDifficulty;
+  answeredAt: string;
+}
+
+export interface ReviewDecision {
+  nextReviewAt: string;
+  intervalDays: number;
+  reason: string;
+}
+
+export interface FutureTaskDecision {
+  todaySkill: SkillSlug;
+  nextSkill: SkillSlug;
+  changed: boolean;
+  reason: string;
+}
+
+export interface PracticeFeedback {
+  questionId: string;
+  selectedChoiceId: string;
+  correctChoiceId: string;
+  correct: boolean;
+  rationale: string;
+  misconception: string | null;
+  mastery: MasteryState;
+  review: ReviewDecision;
+  futureTask: FutureTaskDecision;
+}
+
+export interface LearningSessionPayload {
+  sessionId: string;
+  bankVersion: string;
+  todaySkill: SkillSlug;
+  previousNextSkill: SkillSlug;
+  nextSkill: SkillSlug;
+  lesson: LessonContent;
+  lessonComplete: boolean;
+  questions: ReadonlyArray<PracticeQuestionPublic>;
+  answeredQuestionIds: ReadonlyArray<string>;
+  currentQuestionIndex: number;
+  mastery: MasteryState;
+  futureTask: FutureTaskDecision;
+  status: "lesson" | "practice" | "complete";
+  updatedAt: string;
+  lastFeedback: PracticeFeedback | null;
+}
+
+const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
+  easy: 0.75,
+  medium: 1,
+  hard: 1.25,
+};
+
+function addDays(isoDate: string, days: number) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) throw new RangeError("Invalid ISO date.");
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+}
+
+function bandFor(mastery: number, evidence: number): MasteryBand {
+  if (evidence < 1) return "new";
+  if (mastery >= 0.82 && evidence >= 6) return "secure";
+  if (mastery >= 0.68 && evidence >= 4) return "steady";
+  return "building";
+}
+
+function normalize(state: Omit<MasteryState, "mastery" | "band">): MasteryState {
+  const mastery = state.alpha / (state.alpha + state.beta);
+  return {
+    ...state,
+    mastery,
+    band: bandFor(mastery, state.evidence),
+  };
+}
+
+export function createInitialMastery(
+  skill: SkillDefinition,
+  diagnosticResult?: Pick<DiagnosticSkillResult, "correct" | "total"> | null,
+): MasteryState {
+  const correct = diagnosticResult?.correct ?? 0;
+  const total = diagnosticResult?.total ?? 0;
+  if (correct < 0 || total < 0 || correct > total) {
+    throw new RangeError("Invalid diagnostic skill counts.");
+  }
+
+  return normalize({
+    skill: skill.slug,
+    label: skill.label,
+    section: skill.section,
+    alpha: 1 + correct,
+    beta: 1 + total - correct,
+    evidence: total,
+    lastPracticedAt: null,
+    nextReviewAt: null,
+    streak: 0,
+    lapses: 0,
+  });
+}
+
+export function reviewDecision(
+  state: MasteryState,
+  attempt: PracticeAttemptInput,
+): ReviewDecision {
+  if (!attempt.correct) {
+    return {
+      nextReviewAt: addDays(attempt.answeredAt, 1),
+      intervalDays: 1,
+      reason: "Missed evidence schedules a short repair review.",
+    };
+  }
+
+  const base =
+    state.band === "secure" ? 14 : state.band === "steady" ? 7 : state.streak >= 2 ? 4 : 2;
+  const intervalDays =
+    attempt.difficulty === "hard" ? base + 1 : attempt.difficulty === "easy" ? Math.max(2, base - 1) : base;
+
+  return {
+    nextReviewAt: addDays(attempt.answeredAt, intervalDays),
+    intervalDays,
+    reason: "Correct evidence extends the spacing interval.",
+  };
+}
+
+export function applyPracticeAttempt(
+  state: MasteryState,
+  attempt: PracticeAttemptInput,
+): { mastery: MasteryState; review: ReviewDecision } {
+  if (state.skill !== attempt.skill) {
+    throw new RangeError("Practice attempt belongs to a different skill.");
+  }
+  const weight = DIFFICULTY_WEIGHT[attempt.difficulty];
+  const review = reviewDecision(state, attempt);
+  return {
+    review,
+    mastery: normalize({
+      ...state,
+      alpha: state.alpha + (attempt.correct ? weight : 0),
+      beta: state.beta + (attempt.correct ? 0 : weight),
+      evidence: state.evidence + 1,
+      lastPracticedAt: attempt.answeredAt,
+      nextReviewAt: review.nextReviewAt,
+      streak: attempt.correct ? state.streak + 1 : 0,
+      lapses: attempt.correct ? state.lapses : state.lapses + 1,
+    }),
+  };
+}
+
+function masteryRank(state: MasteryState) {
+  const uncertainty = 1 / Math.max(1, state.evidence + 1);
+  const lapsePressure = state.lapses * 0.08;
+  return state.mastery - uncertainty - lapsePressure;
+}
+
+export function chooseNextSkill(states: ReadonlyArray<MasteryState>): MasteryState {
+  if (states.length === 0) throw new RangeError("At least one mastery state is required.");
+  return [...states].sort((left, right) => {
+    const rank = masteryRank(left) - masteryRank(right);
+    if (rank !== 0) return rank;
+    if (left.evidence !== right.evidence) return left.evidence - right.evidence;
+    return left.label.localeCompare(right.label);
+  })[0];
+}
+
+export function decideFutureTask(
+  todaySkill: SkillSlug,
+  previousNextSkill: SkillSlug,
+  states: ReadonlyArray<MasteryState>,
+): FutureTaskDecision {
+  const next = chooseNextSkill(states);
+  const changed = next.skill !== previousNextSkill;
+  return {
+    todaySkill,
+    nextSkill: next.skill,
+    changed,
+    reason: changed
+      ? `${next.label} now has the weakest evidence after this practice set.`
+      : `${next.label} is still the highest-priority review target.`,
+  };
+}

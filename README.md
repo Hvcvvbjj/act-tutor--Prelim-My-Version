@@ -14,15 +14,16 @@ Working in the current slice:
 - prior-score branches for full section scores or a low-confidence Composite-only starting point, plus a never-tested path;
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
-- a generated Today/Plan/Progress dashboard and an authored lesson preview;
+- a generated Today/Plan/Progress dashboard with a durable adaptive learning session;
 - a no-score path with a validated 24-question rapid diagnostic covering 12 skills, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
+- a versioned 12-skill learning taxonomy, 12 authored micro-lessons, and 60 focused practice questions;
+- lesson completion, five-question focused practice, immediate trusted feedback, mastery updates, spaced review scheduling, and visible next-session regeneration.
 
 Still placeholders or future milestones:
 
 - the complete 66-question half-length bank, stronger empirical calibration, database-backed multi-instance submission, and broader skill coverage;
-- practice answers, mastery updates, spaced repetition, and visible plan regeneration;
 - Supabase authentication/persistence, AI providers, CI, deployment, and production monitoring.
 
 The current rapid diagnostic is intentionally labeled with a wide estimated practice range; it does not claim official ACT precision or pretend that the full half-length bank is finished.
@@ -39,11 +40,18 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The local slice does not require environment variables. Anonymous diagnostic sessions are stored in the ignored `.data` directory unless `DIAGNOSTIC_SESSION_STORE_PATH` is set.
+Anonymous learning sessions are stored beside them unless `LEARNING_SESSION_STORE_PATH` is set.
 
 Run all checks currently wired into the workspace with:
 
 ```bash
 pnpm check
+```
+
+Useful local reset while testing:
+
+```bash
+rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json
 ```
 
 ## Core experience
@@ -89,7 +97,7 @@ A judge should be able to watch this complete loop in under four minutes:
 3. Open today's assigned lesson.
 4. Answer one practice question incorrectly.
 5. See a trusted explanation and the exact skill involved.
-6. Return to the dashboard and see mastery and the next review update.
+6. Return to the dashboard and see mastery, review spacing, and the next-session update.
 
 For presentation speed, the current demo can use the working 24-question rapid diagnostic. It contains eight questions per core section and two items for each of 12 skills. The intended no-score product path remains the full half-length diagnostic; its content bank and calibration are not complete yet.
 
