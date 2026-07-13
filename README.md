@@ -28,6 +28,7 @@ Working in the current slice:
 - an 8–12 item adaptive **Precision Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual readiness projections;
+- a one-click judge demo that lands on the last Quick Check question and turns one answer into a plain-English proof replay: practice level, exact skill estimate, and next lesson before/after;
 - a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
@@ -230,6 +231,8 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 - Required throughout: static authored explanations as the guaranteed fallback.
 
 The three layers have deliberately different jobs: **IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.** Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because both probabilistic models and reviewed lessons run locally.
+
+For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the level estimate, matching skill estimate, and next lesson decision update together. The seven preloaded answers are clearly labeled examples.
 
 ## Planning documents
 

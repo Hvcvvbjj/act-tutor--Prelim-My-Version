@@ -93,6 +93,7 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
 
 export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
+  const representativeDemo = diagnostic?.formId === "scout-judge-demo"
   const startingSkill =
     diagnostic?.focusSkills[0]?.skill ??
     SECTION_FALLBACK_SKILLS[plan.weakestSection]
@@ -102,18 +103,23 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   const [activeSection, setActiveSection] = useState(0)
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState("today")
+  const [activeTab, setActiveTab] = useState(
+    representativeDemo ? "calibrate" : "today"
+  )
 
   const refreshLearningSession = useCallback(async () => {
     try {
-      setLearning(await loadLearningSession())
+      const payload = await loadLearningSession()
+      setLearning(payload)
       setLearningError(null)
+      return payload
     } catch (error) {
       setLearningError(
         error instanceof Error
           ? error.message
           : "Your latest skill results could not load."
       )
+      return null
     }
   }, [])
 
@@ -363,11 +369,11 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       <TabsContent value="calibrate">
         {learning ? (
           <AdaptiveCalibrationLab
-            representativeDemo={
-              plan.diagnosticResult?.formId === "scout-judge-demo"
-            }
+            representativeDemo={representativeDemo}
+            learning={learning}
             onLearningTwinUpdated={refreshLearningSession}
             onInspectLearningTwin={() => setActiveTab("progress")}
+            onReturnToToday={() => setActiveTab("today")}
           />
         ) : (
           <main className="mx-auto max-w-3xl px-5 py-20">

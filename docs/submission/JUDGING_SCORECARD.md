@@ -34,6 +34,7 @@ The team should avoid claiming measured score improvement without a longitudinal
 - The public interface exposes ability, uncertainty, an 80% interval, item parameters, top candidate scores, and the stop policy.
 - Every calibration response crosses a tested server boundary into BKT; calibration never awards practice XP.
 - Every server-scored response updates P(Learned), P(Correct next), uncertainty, and the public evidence ledger.
+- The judge path turns one real answer into a single proof replay showing the IRT level change, exact BKT skill change, and lesson recommendation change or honest hold.
 - The next-skill decision is driven by explicit knowledge-gap, uncertainty, evidence-scarcity, and lapse contributions.
 - Twelve skill models expose guess, slip, and transition parameters.
 - The counterfactual lab projects readiness under additional evidence cycles.
@@ -42,7 +43,7 @@ The team should avoid claiming measured score improvement without a longitudinal
 
 ### Proof to show judges
 
-- One response changing theta and uncertainty live, then appearing in BKT.
+- One response changing the practice level and exact skill estimate in the same screen, then appearing in the evidence history.
 - The recommendation changing or remaining stable for an inspectable reason.
 - The AI-personalized or reviewed-fallback generation stamp.
 - Architecture diagram separating trusted scoring, BKT, planner, and generative teaching.
@@ -81,6 +82,7 @@ File storage is appropriate for a runnable hackathon demo but not horizontal pro
 - One-sentence differentiator: “IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.”
 - Closing line: “Every question earns its place; every answer teaches the plan.”
 - One-click representative judge profile.
+- The one-click profile lands directly on the final Quick Check question; judges do not need to hunt through tabs before the main proof.
 - A 1:52–1:57 script centered on the visible evidence update.
 - Competition-specific Devpost story and technical architecture.
 - Honest language for model limits and fallback behavior.

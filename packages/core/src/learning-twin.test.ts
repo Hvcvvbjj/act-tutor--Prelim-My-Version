@@ -4,6 +4,7 @@ import {
   applyKnowledgeObservation,
   buildLearningTwinForecast,
   buildLearningTwinSnapshot,
+  compareLearningTwinSnapshots,
   createInitialKnowledgeState,
   recommendKnowledgeState,
 } from "./learning-twin";
@@ -161,5 +162,66 @@ describe("Bayesian learning twin", () => {
       practice: 7,
       calibration: 8,
     });
+  });
+
+  it("explains one answer using the exact BKT event and recommendation change", () => {
+    const beforeState = createInitialKnowledgeState(skill, {
+      correct: 1,
+      total: 2,
+    });
+    const otherSkill = createInitialKnowledgeState(
+      {
+        ...skill,
+        slug: "linear-equations",
+        label: "Linear equations",
+        section: "math" as const,
+      },
+      { correct: 0, total: 2 },
+    );
+    const before = buildLearningTwinSnapshot({
+      states: [beforeState, otherSkill],
+      preferredSkill: skill.slug,
+    });
+    const update = applyKnowledgeObservation(beforeState, {
+      questionId: "proof-question",
+      correct: false,
+      difficulty: "hard",
+      observedAt: "2026-07-13T12:00:00.000Z",
+      source: "calibration",
+    });
+    const after = buildLearningTwinSnapshot({
+      states: [update.state, otherSkill],
+      events: [update.event],
+    });
+
+    const comparison = compareLearningTwinSnapshots({
+      before,
+      after,
+      skill: skill.slug,
+      questionId: "proof-question",
+    });
+
+    expect(comparison).not.toBeNull();
+    expect(comparison?.learnedBefore).toBe(update.event.learnedBefore);
+    expect(comparison?.learnedAfter).toBe(update.event.learnedAfter);
+    expect(comparison?.predictedCorrectAfter).toBe(
+      update.event.predictedCorrectAfter,
+    );
+    expect(comparison?.recommendationBefore.label).toBeTruthy();
+    expect(comparison?.recommendationAfter.label).toBeTruthy();
+  });
+
+  it("returns null when a snapshot does not contain the answered skill", () => {
+    const snapshot = buildLearningTwinSnapshot({
+      states: [createInitialKnowledgeState(skill, { correct: 1, total: 2 })],
+    });
+
+    expect(
+      compareLearningTwinSnapshots({
+        before: snapshot,
+        after: snapshot,
+        skill: "linear-equations",
+      }),
+    ).toBeNull();
   });
 });

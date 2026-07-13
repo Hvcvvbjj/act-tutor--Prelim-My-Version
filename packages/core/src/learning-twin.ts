@@ -118,6 +118,18 @@ export interface LearningTwinSnapshot {
   };
 }
 
+export interface LearningTwinImpactComparison {
+  skill: SkillSlug;
+  skillLabel: string;
+  learnedBefore: number;
+  learnedAfter: number;
+  predictedCorrectBefore: number;
+  predictedCorrectAfter: number;
+  recommendationBefore: LearningTwinRecommendation;
+  recommendationAfter: LearningTwinRecommendation;
+  recommendationChanged: boolean;
+}
+
 const PARAMETERS_BY_DIFFICULTY: Record<
   PracticeDifficulty,
   KnowledgeModelParameters
@@ -497,5 +509,46 @@ export function buildLearningTwinSnapshot(input: {
       calibration: calibrationEvidence,
       lastUpdatedAt: events[0]?.observedAt ?? null,
     },
+  };
+}
+
+/**
+ * Builds the public, student-facing explanation for one trusted answer.
+ * This deliberately compares snapshots instead of recalculating BKT in the UI.
+ */
+export function compareLearningTwinSnapshots(input: {
+  before: LearningTwinSnapshot;
+  after: LearningTwinSnapshot;
+  skill: SkillSlug;
+  questionId?: string;
+}): LearningTwinImpactComparison | null {
+  const beforeState = input.before.skills.find(
+    (state) => state.skill === input.skill,
+  );
+  const afterState = input.after.skills.find(
+    (state) => state.skill === input.skill,
+  );
+  if (!beforeState || !afterState) return null;
+
+  const exactEvent = input.questionId
+    ? input.after.events.find(
+        (event) =>
+          event.questionId === input.questionId && event.skill === input.skill,
+      )
+    : undefined;
+
+  return {
+    skill: input.skill,
+    skillLabel: afterState.label,
+    learnedBefore: exactEvent?.learnedBefore ?? beforeState.learnedProbability,
+    learnedAfter: exactEvent?.learnedAfter ?? afterState.learnedProbability,
+    predictedCorrectBefore: beforeState.predictedCorrectProbability,
+    predictedCorrectAfter:
+      exactEvent?.predictedCorrectAfter ??
+      afterState.predictedCorrectProbability,
+    recommendationBefore: input.before.recommendation,
+    recommendationAfter: input.after.recommendation,
+    recommendationChanged:
+      input.before.recommendation.skill !== input.after.recommendation.skill,
   };
 }

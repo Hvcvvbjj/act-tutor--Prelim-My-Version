@@ -6,7 +6,7 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 - Run the app from the fork and open a clean browser window.
 - Use a 1440 × 900 or similar desktop viewport at 100% zoom.
-- Begin on the onboarding screen with **Preview the adaptive demo** visible.
+- Begin on the onboarding screen with **See one answer change the plan** visible.
 - Confirm the console is clean and the generative lesson stamp honestly shows either AI-personalized or reviewed fallback.
 - Practice the lesson-stage clicks and one answer before recording.
 - Record only the app window. Do not show API keys, terminals, DevTools, local data files, or browser bookmarks.
@@ -23,43 +23,43 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 **Say:** “Scout starts with a score or a half-length diagnostic, a goal, and a test date. I’ll load a representative diagnostic profile.”
 
-**Do:** Click **Preview the adaptive demo**.
+**Do:** Click **See one answer change the plan**. The app opens directly on the last Quick Check question.
 
-### 0:18–0:31 — Daily mission
+### 0:18–0:43 — One answer, three visible changes
 
-**Say:** “It turns that evidence into today’s mission: one targeted lesson, ACT-shaped practice, mistake repair, and a mixed checkpoint.”
+**Say:** “Seven example answers are already loaded and labeled. Scout picked this last question because it matches the student’s current level and will teach the model something useful.”
 
-**Show:** The Sentence Boundaries mission and the 0% diagnostic-evidence explanation. Briefly point to the four mission stages and Scout.
+**Show:** The ACT-shaped ratio question, current practice level, margin of error, and the plain-English “Why this question?” panel. Select B, 12, and submit.
 
-### 0:31–1:01 — The first adaptive decision
+**Say:** “One scored answer now changes three things in the same screen: the overall practice estimate, the exact Ratios and percent skill estimate, and the next lesson choice.”
 
-**Do:** Open **Calibrate**. The judge path preloads seven visibly labeled representative responses. Answer the eighth question.
+**Show:** Pause on the proof replay: 52 to 54, 50% to 83%, and Punctuation and commas held steady.
 
-**Say:** “Scout’s first model decides what to ask. This two-parameter IRT check scores every unanswered item by Fisher information plus coverage. I’ll submit one real, server-scored answer.”
+**Say:** “The lesson stayed put because punctuation still needs more work. A trustworthy tutor should not reshuffle the plan just to look dramatic.”
 
-**Show:** The selected ACT-shaped item, Why this item panel, theta and uncertainty band. Submit the answer and pause on the before/after strip and precision stop reason.
+### 0:43–1:08 — Inspect the decision
 
-**Say:** “The estimate and uncertainty move live. Scout stops only after eight items, evidence from every core section, and the precision target—or at twelve. This is readiness evidence, not an official ACT score.”
+**Do:** Click **Open My Skills**.
 
-### 1:01–1:27 — The second adaptive decision
+**Say:** “The numbers are not decoration. Every scored answer is saved in the evidence history. The skill model ranks what to teach from the size of the gap, how unsure it is, how much evidence it has, and whether the student just missed one.”
 
-**Do:** Open **Progress**.
+**Show:** Ratios and percent, the newest Quick Check event, P(Learned), predicted next-answer chance, and the Punctuation and commas recommendation.
 
-**Say:** “That same trusted response enters a different model: twelve-skill Bayesian Knowledge Tracing. IRT chooses what to ask; BKT chooses what to teach. The ledger proves the handoff.”
+**Say:** “Under the hood, IRT chooses what to ask and Bayesian Knowledge Tracing chooses what to teach. Judges can inspect the handoff instead of trusting an AI claim.”
 
-**Show:** Calibration count, newest IRT calibration event, selected skill’s P(Learned), P(Correct next), uncertainty, and priority contributions.
+### 1:08–1:40 — Personalized teaching
 
-**Say:** “The next skill is ranked from knowledge gap, uncertainty, evidence scarcity, and recent lapses—every contribution is inspectable.”
+**Do:** Open **Today**, then open the targeted lesson.
 
-### 1:27–1:49 — Personalized teaching
+**Say:** “Scout turns that decision into a full lesson, a worked example, a rule to remember, and ACT-shaped practice. The explanation can be assembled by a local Qwen model, while reviewed content keeps the app working without an AI connection.”
 
-**Do:** Return to **Today**, open the targeted lesson, and show the worked example, decision rule, and generation stamp.
+**Show:** The lesson stages, Scout’s teaching prompt, diagnostic reason, and the honest AI-personalized or reviewed-fallback label.
 
-**Say:** “The learner model chooses what to teach. An LLM can then assemble the lesson from reviewed content at the right depth. It never controls answer keys or scoring, and a reviewed fallback keeps the product fully runnable without a key.”
+**Say:** “The language model never controls answer keys, scores, or the skill model. It only helps explain reviewed material at the right level.”
 
-### 1:49–1:57 — Close
+### 1:40–1:57 — Close
 
-**Say:** “Scout is ACT prep where every question earns its place, every answer teaches the plan, and every decision can be inspected.”
+**Say:** “Scout is an ACT tutor that can show why it asked the question, what it learned from the answer, and why that changed—or did not change—the next lesson.”
 
 **Show:** The lesson and Scout ACT mark.
 

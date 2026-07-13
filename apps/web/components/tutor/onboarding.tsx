@@ -471,7 +471,7 @@ export function Onboarding({
                   className="h-auto px-0 font-bold"
                 >
                   <PlayCircleIcon data-icon="inline-start" />
-                  Try the one-minute demo
+                  See one answer change the plan
                 </Button>
               </div>
             ) : null}

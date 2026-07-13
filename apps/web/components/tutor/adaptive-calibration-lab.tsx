@@ -5,7 +5,11 @@ import type {
   AdaptiveCalibrationPayload,
   CalibrationCandidateScore,
   CoreSection,
+  LearningSessionPayload,
+  LearningTwinImpactComparison,
+  SkillSlug,
 } from "@act-tutor/core"
+import { compareLearningTwinSnapshots } from "@act-tutor/core"
 import {
   ArrowRightIcon,
   BrainCircuitIcon,
@@ -26,8 +30,19 @@ import { cn } from "@/lib/utils"
 
 interface AdaptiveCalibrationLabProps {
   representativeDemo: boolean
-  onLearningTwinUpdated: () => Promise<void>
+  learning: LearningSessionPayload
+  onLearningTwinUpdated: () => Promise<LearningSessionPayload | null>
   onInspectLearningTwin: () => void
+  onReturnToToday: () => void
+}
+
+interface AdaptiveProof {
+  correct: boolean
+  readinessBefore: number
+  readinessAfter: number
+  marginBefore: number
+  marginAfter: number
+  learning: LearningTwinImpactComparison
 }
 
 const SECTION_LABELS: Record<CoreSection, string> = {
@@ -142,6 +157,130 @@ function CandidateRow({
   )
 }
 
+function percentage(value: number) {
+  return `${Math.round(value * 100)}%`
+}
+
+function ChangeValue({ before, after }: { before: string; after: string }) {
+  return (
+    <p className="mt-4 flex flex-wrap items-baseline gap-2 font-heading text-4xl leading-none font-black tabular-nums sm:text-5xl">
+      <span className="text-muted-foreground line-through decoration-2">
+        {before}
+      </span>
+      <ArrowRightIcon className="size-6 text-primary" aria-hidden="true" />
+      <span className="text-primary">{after}</span>
+    </p>
+  )
+}
+
+function AdaptiveProofReplay({
+  proof,
+  onInspectLearningTwin,
+  onReturnToToday,
+}: {
+  proof: AdaptiveProof
+  onInspectLearningTwin: () => void
+  onReturnToToday: () => void
+}) {
+  const nextLesson = proof.learning.recommendationAfter
+  const previousLesson = proof.learning.recommendationBefore
+
+  return (
+    <section
+      className="mt-8 border-y-2 border-foreground"
+      aria-labelledby="adaptive-proof-heading"
+    >
+      <div className="grid gap-8 py-9 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)] lg:items-end">
+        <div>
+          <div className="flex items-center gap-3 text-primary">
+            <CheckCircle2Icon className="size-5" aria-hidden="true" />
+            <p className="ink-label">Live proof · answer recorded</p>
+          </div>
+          <h2
+            id="adaptive-proof-heading"
+            className="mt-3 max-w-4xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl"
+          >
+            One answer changed what Scout knows about you.
+          </h2>
+        </div>
+        <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
+          {proof.correct
+            ? "You got it right. Here is exactly what moved."
+            : "You missed it. Scout used the mistake to choose better practice."}
+        </p>
+      </div>
+
+      <div className="grid border-t-2 border-foreground lg:grid-cols-3 lg:divide-x-2 lg:divide-foreground">
+        <article className="py-7 lg:pr-7">
+          <p className="ink-label text-muted-foreground">1 · Practice level</p>
+          <ChangeValue
+            before={`${proof.readinessBefore}/100`}
+            after={`${proof.readinessAfter}/100`}
+          />
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+            Scout&apos;s overall estimate moved. Its margin of error tightened from
+            ±{proof.marginBefore.toFixed(2)} to ±{proof.marginAfter.toFixed(2)}.
+          </p>
+        </article>
+
+        <article className="border-t-2 border-foreground py-7 lg:border-t-0 lg:px-7">
+          <p className="ink-label text-muted-foreground">
+            2 · {proof.learning.skillLabel}
+          </p>
+          <ChangeValue
+            before={percentage(proof.learning.learnedBefore)}
+            after={percentage(proof.learning.learnedAfter)}
+          />
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+            This is Scout&apos;s estimate that you know this skill. It comes only
+            from your scored answers.
+          </p>
+        </article>
+
+        <article className="border-t-2 border-foreground py-7 lg:border-t-0 lg:pl-7">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="ink-label text-muted-foreground">3 · Next lesson</p>
+            <span className="bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black text-background uppercase">
+              {proof.learning.recommendationChanged ? "Changed" : "Held steady"}
+            </span>
+          </div>
+          <p className="mt-4 font-heading text-4xl leading-none font-black text-primary sm:text-5xl">
+            {nextLesson.label}
+          </p>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+            {proof.learning.recommendationChanged
+              ? `${nextLesson.label} moved ahead of ${previousLesson.label} because it now needs the most attention.`
+              : `${previousLesson.label} stayed first because it still needs more work than ${proof.learning.skillLabel}. One answer should not make your plan jump around for no reason.`}
+          </p>
+        </article>
+      </div>
+
+      <div className="grid gap-6 border-t-2 border-foreground py-7 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div>
+          <p className="font-heading text-2xl font-black">
+            Scout chose a question at your level. Your answer updated the skill.
+            The skill ranking chose the next lesson.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Open My Skills to inspect every number and every answer behind this
+            decision.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button type="button" variant="outline" onClick={onReturnToToday}>
+            Back to today&apos;s work
+          </Button>
+          <Button type="button" onClick={onInspectLearningTwin}>
+            <BrainCircuitIcon />
+            Open My Skills
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
   const estimate = payload.estimate
   const previous = payload.lastFeedback?.event
@@ -246,8 +385,10 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
 
 export function AdaptiveCalibrationLab({
   representativeDemo,
+  learning,
   onLearningTwinUpdated,
   onInspectLearningTwin,
+  onReturnToToday,
 }: AdaptiveCalibrationLabProps) {
   const [payload, setPayload] = useState<AdaptiveCalibrationPayload | null>(
     null
@@ -255,6 +396,8 @@ export function AdaptiveCalibrationLab({
   const [selectedChoice, setSelectedChoice] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showLatestAnswer, setShowLatestAnswer] = useState(false)
+  const [proof, setProof] = useState<AdaptiveProof | null>(null)
   const initialLoad = useRef<Promise<AdaptiveCalibrationPayload> | null>(null)
 
   useEffect(() => {
@@ -291,6 +434,7 @@ export function AdaptiveCalibrationLab({
   async function submitAnswer() {
     const question = payload?.currentQuestion
     if (!question || !selectedChoice) return
+    const learningBefore = learning.learningTwin
     setBusy(true)
     try {
       const next = await calibrationRequest("POST", {
@@ -301,7 +445,29 @@ export function AdaptiveCalibrationLab({
       setPayload(next)
       setSelectedChoice("")
       setError(null)
-      if (next.learningTwinUpdated) await onLearningTwinUpdated()
+      setShowLatestAnswer(true)
+      if (next.learningTwinUpdated) {
+        const learningAfter = await onLearningTwinUpdated()
+        const event = next.lastFeedback?.event
+        const comparison = learningAfter
+          ? compareLearningTwinSnapshots({
+              before: learningBefore,
+              after: learningAfter.learningTwin,
+              skill: question.primarySkill as SkillSlug,
+              questionId: question.id,
+            })
+          : null
+        if (event && comparison) {
+          setProof({
+            correct: event.correct,
+            readinessBefore: Math.round(((event.thetaBefore + 3) / 6) * 100),
+            readinessAfter: Math.round(((event.thetaAfter + 3) / 6) * 100),
+            marginBefore: event.standardErrorBefore,
+            marginAfter: event.standardErrorAfter,
+            learning: comparison,
+          })
+        }
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -370,15 +536,16 @@ export function AdaptiveCalibrationLab({
       {payload.representativeDemo ? (
         <Alert className="mt-6 border-2 border-primary bg-secondary">
           <ScanSearchIcon />
-          <AlertTitle>Seven demo answers are already loaded</AlertTitle>
+          <AlertTitle>Seven example answers are ready</AlertTitle>
           <AlertDescription>
-            Answer one question to see Scout update the study plan. The first
-            seven answers are examples, not a real student&apos;s work.
+            Answer this last question. Scout will show what changed in your
+            level estimate, this skill, and your next lesson. The first seven
+            answers are examples, not a real student&apos;s work.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      {latestEvent ? (
+      {latestEvent && showLatestAnswer && payload.status !== "complete" ? (
         <div
           className={cn(
             "mt-6 grid gap-3 border-l-4 px-5 py-4 sm:grid-cols-[auto_1fr_auto] sm:items-center",
@@ -394,9 +561,7 @@ export function AdaptiveCalibrationLab({
             <CircleAlertIcon className="text-destructive" />
           )}
           <div>
-            <p className="font-bold">
-              {latestEvent.correct ? "Answer recorded" : "Answer recorded"}
-            </p>
+            <p className="font-bold">Answer recorded</p>
             <p className="text-sm text-muted-foreground">
               Starting level{" "}
               {Math.round(((latestEvent.thetaBefore + 3) / 6) * 100)} →{" "}
@@ -407,13 +572,19 @@ export function AdaptiveCalibrationLab({
           </div>
           {payload.learningTwinUpdated ? (
             <span className="font-mono text-xs font-black text-primary uppercase">
-              Study plan updated
+              Skill model updated
             </span>
           ) : null}
         </div>
       ) : null}
 
-      {payload.status === "complete" || !question ? (
+      {payload.status === "complete" && proof ? (
+        <AdaptiveProofReplay
+          proof={proof}
+          onInspectLearningTwin={onInspectLearningTwin}
+          onReturnToToday={onReturnToToday}
+        />
+      ) : payload.status === "complete" || !question ? (
         <section className="mt-8 grid gap-8 border-y-2 border-foreground py-10 lg:grid-cols-[1fr_0.8fr]">
           <div>
             <p className="ink-label text-primary">Quick Check complete</p>
@@ -422,8 +593,8 @@ export function AdaptiveCalibrationLab({
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
               You answered {payload.responseCount} questions, including English,
-              math, and reading. Your answers have already changed which skill
-              Scout recommends next.
+              math, and reading. Scout used them to choose the skill that needs
+              the most work next.
             </p>
           </div>
           <div className="border-l-2 border-primary pl-6">
