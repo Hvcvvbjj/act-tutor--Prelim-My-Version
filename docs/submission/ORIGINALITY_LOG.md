@@ -10,11 +10,12 @@ The competition rules require original core application logic during the eligibl
 
 ## Local commit evidence already present
 
-The local history records the product build on July 12, 2026, including the initial vertical slice, resumable diagnostic, adaptive learning loop, setup documentation, and Scout experience restructure. Before submission, append the final pushed commit below.
+The local history records the product build on July 12–13, 2026, including the initial vertical slice, resumable diagnostic, adaptive learning loop, setup documentation, Scout experience restructure, and competition-ready Learning Twin expansion. Before submission, append the final pushed commit below.
 
 ```text
-Final commit: PENDING
-Final commit timestamp: PENDING
+Competition build commit: 31baecf4ef78dd6bebbd6688974972b95eafdeaa
+Competition build timestamp: 2026-07-13T16:23:06-05:00
+Final pushed commit: PENDING
 Final pushed branch: PENDING
 ```
 
