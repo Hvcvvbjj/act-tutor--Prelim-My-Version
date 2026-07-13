@@ -5,6 +5,7 @@ import type {
   KnowledgeState,
   LearningSessionPayload,
   LearningTwinForecast,
+  RecommendationContribution,
 } from "@act-tutor/core"
 import {
   ActivityIcon,
@@ -39,9 +40,28 @@ const SECTION_LABELS = {
 } as const
 
 const PRIOR_LABELS = {
-  diagnostic: "Direct diagnostic",
-  "score-estimate": "Score prior",
-  "neutral-prior": "Neutral prior",
+  diagnostic: "Based on your diagnostic",
+  "score-estimate": "Based on your score",
+  "neutral-prior": "Needs more answers",
+} as const
+
+const CONTRIBUTION_COPY = {
+  "knowledge-gap": {
+    label: "Needs work",
+    explanation: "Scout thinks this is one of your weaker skills right now.",
+  },
+  uncertainty: {
+    label: "Needs a clearer answer",
+    explanation: "Scout is not fully sure about this skill yet.",
+  },
+  "evidence-scarcity": {
+    label: "Not many questions answered",
+    explanation: "You have answered fewer questions for this skill.",
+  },
+  "recent-lapse": {
+    label: "Recent miss",
+    explanation: "A recent wrong answer moved this skill up the list.",
+  },
 } as const
 
 function percent(value: number) {
@@ -54,9 +74,9 @@ function signedPoints(value: number) {
 }
 
 function confidenceLabel(state: KnowledgeState) {
-  if (state.confidence === "stable") return "Stable signal"
-  if (state.confidence === "forming") return "Signal forming"
-  return "Still exploring"
+  if (state.confidence === "stable") return "Good estimate"
+  if (state.confidence === "forming") return "Getting clearer"
+  return "Needs more answers"
 }
 
 function ProbabilityMetric({
@@ -113,7 +133,8 @@ function SkillModelRow({
           ) : null}
         </span>
         <span className="mt-1 block text-xs text-muted-foreground">
-          {SECTION_LABELS[state.section]} · {state.evidenceCount} evidence ·{" "}
+          {SECTION_LABELS[state.section]} · {state.evidenceCount}{" "}
+          {state.evidenceCount === 1 ? "answer" : "answers"} used ·{" "}
           {confidenceLabel(state)}
         </span>
         <span
@@ -135,7 +156,7 @@ function SkillModelRow({
             {percent(state.predictedCorrectProbability)}
           </span>
           <span className="mt-1 block text-[0.65rem] text-muted-foreground">
-            P(correct)
+            next question
           </span>
         </span>
         <ArrowRightIcon
@@ -159,34 +180,33 @@ function ContributionInspector({
 }) {
   const recommendation = learning.learningTwin.recommendation
   const isRecommended = recommendation.skill === selected.skill
-  const contributions = isRecommended
+  const contributions: ReadonlyArray<RecommendationContribution> = isRecommended
     ? recommendation.contributions
     : [
         {
           id: "knowledge-gap",
-          label: "Knowledge gap",
+          label: "Needs work",
           points: Math.round((1 - selected.predictedCorrectProbability) * 52),
-          explanation: "Lower predicted next-answer accuracy raises priority.",
+          explanation:
+            "Scout thinks this is one of your weaker skills right now.",
         },
         {
           id: "uncertainty",
-          label: "Model uncertainty",
+          label: "Needs a clearer answer",
           points: Math.round(selected.uncertainty * 24),
-          explanation:
-            "Uncertain skills receive probes that teach the model faster.",
+          explanation: "Scout is not fully sure about this skill yet.",
         },
         {
           id: "evidence-scarcity",
-          label: "Evidence scarcity",
+          label: "Not many questions answered",
           points: Math.round((1 / (selected.evidenceCount + 1)) * 14),
-          explanation:
-            "Thin evidence is sampled before the route becomes overconfident.",
+          explanation: "You have answered fewer questions for this skill.",
         },
         {
           id: "recent-lapse",
-          label: "Recent lapse",
+          label: "Recent miss",
           points: selected.lastUpdate && !selected.lastUpdate.correct ? 10 : 0,
-          explanation: "A recent miss creates short-term repair pressure.",
+          explanation: "A recent wrong answer moved this skill up the list.",
         },
       ]
   const total = Math.min(
@@ -201,7 +221,7 @@ function ContributionInspector({
     >
       <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-foreground pb-5">
         <div>
-          <p className="ink-label text-primary">Selected skill model</p>
+          <p className="ink-label text-primary">Why this skill?</p>
           <h2
             id="model-inspector-title"
             className="mt-2 font-heading text-4xl leading-none font-black"
@@ -214,7 +234,7 @@ function ContributionInspector({
           </p>
         </div>
         <div className="text-right">
-          <p className="ink-label text-muted-foreground">Priority</p>
+          <p className="ink-label text-muted-foreground">Practice soon</p>
           <p className="mt-1 font-heading text-5xl leading-none font-black text-[var(--scout-coral)] tabular-nums">
             {total}
           </p>
@@ -224,19 +244,19 @@ function ContributionInspector({
 
       <div className="mt-6 grid gap-6 sm:grid-cols-3">
         <ProbabilityMetric
-          label="P(Learned)"
+          label="How well you know it"
           value={selected.learnedProbability}
-          detail="The model’s latent estimate that this skill is acquired."
+          detail="Scout's estimate of how well you know this skill."
         />
         <ProbabilityMetric
-          label="P(Correct next)"
+          label="Chance on the next question"
           value={selected.predictedCorrectProbability}
-          detail="Expected correctness on a fresh medium-difficulty item."
+          detail="Your estimated chance on another medium question."
         />
         <ProbabilityMetric
-          label="Uncertainty"
+          label="How unsure Scout is"
           value={selected.uncertainty}
-          detail="Binary entropy: higher values mean Scout needs more evidence."
+          detail="Higher means Scout needs more answers before it can be sure."
         />
       </div>
 
@@ -257,30 +277,30 @@ function ContributionInspector({
           )}
           <div>
             <p className="font-bold">
-              Latest evidence moved P(Learned){" "}
+              Your last answer changed this estimate by{" "}
               {signedPoints(selected.lastUpdate.delta)}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {selected.lastUpdate.correct ? "Correct" : "Missed"} ·{" "}
-              {selected.lastUpdate.difficulty} item · transition applied after
-              the evidence update
+              {selected.lastUpdate.difficulty} question · the skill estimate was
+              updated
             </p>
           </div>
         </div>
       ) : (
         <div className="mt-6 border-y py-4 text-sm text-muted-foreground">
-          No direct practice update yet. The first server-scored answer will
-          replace part of this prior with observed evidence.
+          You have not answered a practice or Quick Check question for this
+          skill yet. Your first one will make this estimate more personal.
         </div>
       )}
 
       <div className="mt-6">
         <div className="flex items-center justify-between gap-4">
           <h3 className="font-heading text-2xl font-bold">
-            Why this priority score?
+            Why did Scout pick this?
           </h3>
           <span className="font-mono text-[0.62rem] font-bold text-muted-foreground uppercase">
-            Interpretable features
+            Plain-English reasons
           </span>
         </div>
         <ol className="mt-4 divide-y border-y">
@@ -290,9 +310,11 @@ function ContributionInspector({
               className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3"
             >
               <div>
-                <p className="text-sm font-bold">{contribution.label}</p>
+                <p className="text-sm font-bold">
+                  {CONTRIBUTION_COPY[contribution.id].label}
+                </p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {contribution.explanation}
+                  {CONTRIBUTION_COPY[contribution.id].explanation}
                 </p>
               </div>
               <span className="font-heading text-3xl font-black tabular-nums">
@@ -303,20 +325,29 @@ function ContributionInspector({
         </ol>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3 border-t-2 border-foreground pt-4 text-center">
-        {[
-          ["P(Guess)", selected.parameters.guess],
-          ["P(Slip)", selected.parameters.slip],
-          ["P(Transition)", selected.parameters.transition],
-        ].map(([label, value]) => (
-          <div key={String(label)}>
-            <p className="ink-label text-muted-foreground">{label}</p>
-            <p className="mt-1 font-heading text-2xl font-black tabular-nums">
-              {percent(Number(value))}
-            </p>
-          </div>
-        ))}
-      </div>
+      <details className="mt-6 border-t-2 border-foreground pt-4 text-sm text-muted-foreground">
+        <summary className="cursor-pointer font-bold text-foreground">
+          Technical details for judges
+        </summary>
+        <p className="mt-3 leading-6">
+          Scout uses Bayesian Knowledge Tracing. Guess, slip, and learning rates
+          update the skill after every scored answer.
+        </p>
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+          {[
+            ["Lucky guess", selected.parameters.guess],
+            ["Careless miss", selected.parameters.slip],
+            ["Learning step", selected.parameters.transition],
+          ].map(([label, value]) => (
+            <div key={String(label)}>
+              <p className="ink-label text-muted-foreground">{label}</p>
+              <p className="mt-1 font-heading text-2xl font-black tabular-nums">
+                {percent(Number(value))}
+              </p>
+            </div>
+          ))}
+        </div>
+      </details>
     </section>
   )
 }
@@ -341,22 +372,22 @@ function ForecastLab({
     >
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)] lg:items-end">
         <div>
-          <p className="ink-label text-primary">Counterfactual lab</p>
+          <p className="ink-label text-primary">Practice preview</p>
           <h2
             id="forecast-title"
             className="mt-2 max-w-3xl font-heading text-4xl leading-[0.98] font-black sm:text-5xl"
           >
-            What if you add more evidence-rich sessions?
+            What could more practice change?
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-            This projects model readiness—not an ACT score—by applying each
-            skill’s learning transition. It makes the planner’s assumption
-            inspectable before it changes your route.
+            Pick a number of future practice rounds to see how your skill
+            estimates could improve. This is only a preview, not an ACT score
+            promise.
           </p>
           <div
             className="mt-6 flex flex-wrap gap-2"
             role="group"
-            aria-label="Projected evidence sessions"
+            aria-label="Future practice rounds"
           >
             {forecast.map((item) => (
               <Button
@@ -371,31 +402,35 @@ function ForecastLab({
                 onClick={() => setSelectedSessions(item.additionalSessions)}
                 aria-pressed={item.additionalSessions === selectedSessions}
               >
-                {item.label}
+                {item.additionalSessions === 0
+                  ? "Today"
+                  : `+${item.additionalSessions} practice rounds`}
               </Button>
             ))}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-5 shadow-[4px_4px_0_var(--coach-shadow)]">
           <div>
-            <p className="ink-label text-muted-foreground">Avg. readiness</p>
+            <p className="ink-label text-muted-foreground">
+              Average chance on the next question
+            </p>
             <p className="mt-2 font-heading text-5xl leading-none font-black tabular-nums">
               {percent(selected.averageReadiness)}
             </p>
           </div>
           <div>
-            <p className="ink-label text-muted-foreground">Secure models</p>
+            <p className="ink-label text-muted-foreground">Strong skills</p>
             <p className="mt-2 font-heading text-5xl leading-none font-black tabular-nums">
               {selected.projectedSecureSkills}/{skillCount}
             </p>
           </div>
           <div className="col-span-2 border-t border-foreground/20 pt-4">
             <p className="text-sm font-semibold">
-              Average uncertainty {percent(selected.averageUncertainty)}
+              More answers still needed: {percent(selected.averageUncertainty)}
             </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Actual updates still depend on the learner’s answers. This is a
-              counterfactual, not a promise.
+              Your real results will depend on how you answer. This is a
+              preview, not a promise.
             </p>
           </div>
         </div>
@@ -416,12 +451,12 @@ function EvidenceLedger({
     <section className="mt-12" aria-labelledby="ledger-title">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
         <div>
-          <p className="ink-label text-primary">Audit trail</p>
+          <p className="ink-label text-primary">What changed your plan</p>
           <h2
             id="ledger-title"
             className="mt-2 font-heading text-4xl font-black"
           >
-            Evidence ledger
+            Recent answers
           </h2>
         </div>
         <div className="flex gap-5 text-right">
@@ -438,7 +473,7 @@ function EvidenceLedger({
             </p>
           </div>
           <div>
-            <p className="ink-label text-muted-foreground">Calibration</p>
+            <p className="ink-label text-muted-foreground">Quick Check</p>
             <p className="font-heading text-2xl font-black tabular-nums">
               {twin.evidence.calibration}
             </p>
@@ -470,17 +505,15 @@ function EvidenceLedger({
               <div>
                 <p className="text-sm font-bold">{event.skillLabel}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {event.source === "calibration"
-                    ? "IRT calibration"
-                    : "Practice"}
+                  {event.source === "calibration" ? "Quick Check" : "Practice"}
                   {" · "}
                   {event.correct ? "Correct" : "Missed"} · {event.difficulty}
-                  {" item · "}P(L) {percent(event.learnedBefore)} →{" "}
-                  {percent(event.learnedAfter)}
+                  {" question · skill estimate "}
+                  {percent(event.learnedBefore)} → {percent(event.learnedAfter)}
                 </p>
               </div>
               <span className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                P(C) {percent(event.predictedCorrectAfter)}
+                Next question {percent(event.predictedCorrectAfter)}
               </span>
             </li>
           ))}
@@ -489,8 +522,8 @@ function EvidenceLedger({
         <div className="mt-6 max-w-3xl">
           <ScoutCoach
             mood="thinking"
-            message="The twin has a prior, but no practice update yet. Answer one server-scored question and this ledger will show the probability change."
-            detail="Diagnostic evidence seeds individual skills. Submitted scores create a cautious prior until direct skill evidence replaces it."
+            message="Scout needs one practice answer before it can update this skill."
+            detail="Your diagnostic or submitted score gives Scout a rough starting point. Practice answers make it more accurate."
           />
           <Button
             type="button"
@@ -499,7 +532,7 @@ function EvidenceLedger({
             onClick={onOpenLesson}
           >
             <GaugeIcon data-icon="inline-start" />
-            Run a live model update
+            Answer a practice question
           </Button>
         </div>
       )}
@@ -528,7 +561,7 @@ export function LearningTwinLab({
       <main className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8">
         <ScoutCoach
           mood="thinking"
-          message="Scout is assembling the learner model from your trusted score evidence."
+          message="Scout is turning your scores into a simple skill map."
         />
       </main>
     )
@@ -550,24 +583,25 @@ export function LearningTwinLab({
               className="size-6 text-primary"
               aria-hidden="true"
             />
-            <p className="ink-label text-primary">Scout Learning Twin</p>
+            <p className="ink-label text-primary">Your skill map</p>
           </div>
           <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl">
-            {recommendation.label} is the next best bet.
+            Work on {recommendation.label} next.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            {recommendation.reason} The recommendation updates only from
-            server-scored diagnostic, calibration, and practice evidence.
+            Scout picked this because it looks like one of your weaker skills
+            and still needs more practice. Only your scored answers can change
+            this choice.
           </p>
         </div>
         <aside className="border-l-4 border-[var(--scout-coral)] bg-background px-5 py-5 shadow-[5px_5px_0_rgb(20_35_58_/_0.12)]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="ink-label text-muted-foreground">
-                Model in control
+                How Scout decided
               </p>
               <p className="mt-2 font-heading text-3xl font-black">
-                {learning.learningTwin.model.shortName} v1
+                How soon to practice it
               </p>
             </div>
             <p className="font-heading text-6xl leading-none font-black text-[var(--scout-coral)] tabular-nums">
@@ -575,9 +609,8 @@ export function LearningTwinLab({
             </p>
           </div>
           <p className="mt-4 border-t pt-4 text-sm leading-6 text-muted-foreground">
-            Bayesian Knowledge Tracing estimates latent skill acquisition. The
-            LLM writes the lesson around this decision; it does not invent the
-            score or answer key.
+            A higher number means Scout thinks this skill should come sooner.
+            Your answers—not the lesson-writing AI—control this score.
           </p>
         </aside>
       </section>
@@ -587,20 +620,20 @@ export function LearningTwinLab({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="ink-label text-muted-foreground">
-                Twelve live models
+                12 skills tracked
               </p>
               <h2
                 id="skill-models-title"
                 className="mt-2 font-heading text-3xl font-black"
               >
-                Skill probability map
+                What Scout knows so far
               </h2>
             </div>
             <CircleDotDashedIcon className="text-primary" aria-hidden="true" />
           </div>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Select any row to inspect the exact probability, uncertainty, and
-            feature contributions behind its route priority.
+            Choose a skill to see its current estimate and why Scout placed it
+            where it did.
           </p>
           <div className="mt-5">
             {skills.map((state) => (
@@ -627,23 +660,23 @@ export function LearningTwinLab({
         {[
           {
             icon: DatabaseZapIcon,
-            title: "Trusted input",
-            text: "Only server-scored answers become model evidence.",
+            title: "Your answer",
+            text: "Scout checks it against the real answer key.",
           },
           {
             icon: ActivityIcon,
-            title: "BKT update",
-            text: "Guess, slip, and transition update P(Learned).",
+            title: "Skill update",
+            text: "The estimate goes up or down based on that answer.",
           },
           {
             icon: RouteIcon,
-            title: "Planner decision",
-            text: "Gap, uncertainty, scarcity, and lapse rank the next skill.",
+            title: "Next lesson",
+            text: "Scout chooses the skill that needs the most attention.",
           },
           {
             icon: FlaskConicalIcon,
-            title: "AI lesson",
-            text: "The lesson composer teaches the selected decision at the right depth.",
+            title: "Personalized lesson",
+            text: "AI explains that skill using your level and study plan.",
           },
         ].map(({ icon: Icon, title, text }) => (
           <div key={title} className="border-t pt-4">
@@ -658,11 +691,11 @@ export function LearningTwinLab({
 
       <Alert className="mt-10 bg-[var(--info-surface)]">
         <ShieldCheckIcon />
-        <AlertTitle>Transparent by design</AlertTitle>
+        <AlertTitle>You can check Scout&apos;s work</AlertTitle>
         <AlertDescription>
-          This model estimates practice readiness, not an official ACT score.
-          Current route: {plan.currentComposite} → {plan.draft.goal}; every
-          recommendation remains inspectable and reversible.
+          These percentages guide practice; they are not official ACT scores.
+          You are working from {plan.currentComposite} toward {plan.draft.goal},
+          and every recommendation can change as you answer more questions.
         </AlertDescription>
       </Alert>
     </main>

@@ -197,7 +197,7 @@ describe("adaptive study plans", () => {
     ).toBe("complete");
     expect(rebalanced.forecast.weeklyCapacity).toBe(150);
     expect(rebalanced.revision).toBe(initial.revision + 2);
-    expect(rebalanced.revisionReason).toContain("stayed frozen");
+    expect(rebalanced.revisionReason).toContain("did not change");
   });
 
   it("records task completion idempotently without inventing score gains", () => {
@@ -239,7 +239,7 @@ describe("adaptive study plans", () => {
         (task) => task.date > "2026-07-16" && task.status === "scheduled",
       ),
     ).toBe(true);
-    expect(caughtUp.revisionReason).toContain("redistributed");
+    expect(caughtUp.revisionReason).toContain("moved it into future");
   });
 
   it("groups and shifts Monday-based study weeks", () => {

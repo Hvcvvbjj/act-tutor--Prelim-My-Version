@@ -333,24 +333,24 @@ export function buildAuthoredExamDebrief(
   const focus = result.focusSkills[0];
   const pacingCopy =
     result.pacing.diagnosis === "rushing"
-      ? "Your misses cluster around decisions made much faster than their expected pace."
+      ? "Most of your misses came on questions you answered too quickly."
       : result.pacing.diagnosis === "overinvesting"
-        ? "A meaningful share of questions absorbed more time than the target pace allows."
+        ? "You spent too long on several questions."
         : result.pacing.diagnosis === "balanced"
-          ? "Your overall pacing stayed near the expected decision window."
-          : "Answer more questions before treating the pacing signal as stable.";
+          ? "Your overall pace was close to the target."
+          : "Answer more questions before Scout judges your pacing.";
   return {
-    headline: focus ? `Turn ${focus.label.toLowerCase()} into the next score lever.` : "Bank more evidence before changing the route.",
-    summary: `${result.correct} of ${result.total} decisions were correct. ${pacingCopy}`,
+    headline: focus ? `Work on ${focus.label.toLowerCase()} next.` : "Take another practice test before changing the plan.",
+    summary: `${result.correct} of ${result.total} answers were correct. ${pacingCopy}`,
     wins: [
-      topSection ? `${topSection.section} produced the strongest section evidence at ${Math.round(topSection.accuracy * 100)}%.` : "The simulation established a first timing baseline.",
-      result.overconfidentMisses === 0 ? "No confident wrong answers appeared in this run." : `${result.luckyGuesses} low-confidence answers were still correct; those rules need consolidation.`,
+      topSection ? `Your strongest section was ${topSection.section} at ${Math.round(topSection.accuracy * 100)}%.` : "This was your first timing check.",
+      result.overconfidentMisses === 0 ? "You had no wrong answers that you felt sure about." : `${result.luckyGuesses} answers you guessed on were right. Review those rules so you can answer them on purpose next time.`,
     ],
     priorities: [
-      focus ? `${focus.label}: ${focus.correct}/${focus.total} correct with ${Math.round(focus.averageSeconds)} seconds per decision.` : "Complete a larger simulation for skill-level priorities.",
-      result.pacing.diagnosis === "overinvesting" ? "Use a two-pass rule: bank reachable questions before returning to time sinks." : "Keep labeling confidence so Scout can separate knowledge gaps from execution errors.",
+      focus ? `${focus.label}: ${focus.correct} of ${focus.total} right, with about ${Math.round(focus.averageSeconds)} seconds per question.` : "Take a longer practice test so Scout can find the exact skills to work on.",
+      result.pacing.diagnosis === "overinvesting" ? "Use two passes: answer the easier questions first, then return to the slow ones." : "Keep marking how sure you feel so Scout can tell the difference between a guess and a skill gap.",
     ],
-    nextAction: focus ? `Assign a focused lesson and five-question set for ${focus.label}.` : "Run a 12-skill sprint next.",
+    nextAction: focus ? `Start a short ${focus.label} lesson, then answer five practice questions.` : "Try the 12-skill practice set next.",
     generation: { mode: "authored-fallback", provider: "Reviewed debrief engine", model: null, generatedAt },
   };
 }

@@ -77,6 +77,7 @@ export interface StudyPlanForecast {
 
 export interface AdaptiveStudyPlan {
   version: 1;
+  copyVersion: 2;
   today: string;
   testDate: string;
   current: CoreSectionScores;
@@ -360,41 +361,40 @@ function taskCopy(
 ) {
   if (kind === "checkpoint") {
     return {
-      title: "3-skill checkpoint",
+      title: "3-skill progress check",
       reason:
-        "Collects fresh evidence across sections so the next week can change before weak assumptions harden.",
+        "Checks three skills so Scout can adjust next week’s work if needed.",
     };
   }
   if (kind === "rehearsal") {
     return {
-      title: "Core rehearsal",
+      title: "Full practice test",
       reason:
-        "Rehearses English, Math, and Reading in test order while there is still time to repair pacing.",
+        "Practices English, Math, and Reading in test order while there is still time to fix pacing.",
     };
   }
   if (!skill) throw new RangeError("A skill task requires a skill signal.");
   if (kind === "lesson") {
     return {
       title: `${skill.label} lesson`,
-      reason: `Builds the decision rule before pressure; current mastery is ${Math.round(skill.mastery * 100)}% from ${Math.round(skill.evidence)} evidence points.`,
+      reason: `Learn the rule before adding a timer. Your current skill level is ${Math.round(skill.mastery * 100)}% from ${Math.round(skill.evidence)} scored answers.`,
     };
   }
   if (kind === "review") {
     return {
-      title: `${skill.label} spaced review`,
-      reason:
-        "Refreshes this decision in a new context before the retrieval interval becomes fragile.",
+      title: `${skill.label} review`,
+      reason: "Review this skill before it starts to fade.",
     };
   }
   if (kind === "timed") {
     return {
-      title: `${sectionLabel(skill.section ?? fallbackSection)} timed transfer`,
-      reason: `Converts ${skill.label.toLowerCase()} knowledge into paced ACT-format decisions.`,
+      title: `${sectionLabel(skill.section ?? fallbackSection)} timed practice`,
+      reason: `Practice ${skill.label.toLowerCase()} with a timer and ACT-style wording.`,
     };
   }
   return {
     title: `${skill.label} focused set`,
-    reason: `Targets one of the highest-value gaps between the current ${sectionLabel(skill.section)} evidence and the section goal.`,
+    reason: `This is one of the biggest gaps between your current ${sectionLabel(skill.section)} score and your goal.`,
   };
 }
 
@@ -538,19 +538,19 @@ function buildMilestones(
   return [
     {
       id: "first-checkpoint",
-      label: "First checkpoint",
+      label: "First progress check",
       date: firstCheckpointDate,
       status: milestoneStatus(firstCheckpointDate, today, firstCheckpoint),
     },
     {
       id: "halfway-proof",
-      label: "Halfway proof",
+      label: "Halfway progress check",
       date: halfwayDate,
       status: milestoneStatus(halfwayDate, today, halfwayTask),
     },
     {
       id: "core-rehearsal",
-      label: "Core rehearsal",
+      label: "Final practice test",
       date: rehearsalDate,
       status: milestoneStatus(rehearsalDate, today, rehearsal),
     },
@@ -619,10 +619,10 @@ function buildForecast(
   );
   const message =
     health === "on-track"
-      ? "The scheduled capacity covers the current evidence-based workload. Checkpoints may still redirect time."
+      ? "You have enough study time scheduled for the current plan. Quick quizzes may still change what comes next."
       : health === "tight"
-        ? "The route is possible, but missed sessions will matter. Add one short block or use catch-up quickly."
-        : "The current availability does not cover the evidence-based workload. Increase capacity or lower the planned movement.";
+        ? "The plan can work, but missed sessions will matter. Add one short study block or use catch-up soon."
+        : "Your current schedule does not have enough study time for this goal. Add more time or lower the goal for now.";
   return {
     health,
     weeklyCapacity: weeklyCapacity(plan.availability),
@@ -676,13 +676,14 @@ export function generateStudyPlan(
   const tasks = buildTasks(shell);
   const plan: AdaptiveStudyPlan = {
     version: 1,
+    copyVersion: 2,
     ...shell,
     tasks,
     milestones: buildMilestones(input.today, input.testDate, tasks),
     forecast: {} as StudyPlanForecast,
     revision: 1,
     revisionReason:
-      "Initial route built from baseline, section goals, available time, and skill evidence.",
+      "Scout built this plan from your starting scores, goal scores, study time, and skill results.",
     generatedAt,
     updatedAt: generatedAt,
   };
@@ -745,7 +746,7 @@ export function rebalanceStudyPlan(
     revision: existing.revision + 1,
     revisionReason:
       input.reason ??
-      "Future work was rebalanced from updated availability and mastery evidence; today and completed work stayed frozen.",
+      "Scout updated your future work from your new schedule and recent answers. Today’s work and finished tasks did not change.",
     updatedAt,
   };
   return { ...plan, forecast: buildForecast(plan) };
@@ -778,8 +779,8 @@ export function setStudyPlanTaskStatus(
     revision: existing.revision + 1,
     revisionReason:
       status === "complete"
-        ? "Completion evidence was recorded without moving the rest of today."
-        : "Task status changed; future work remains available for rebalancing.",
+        ? "Scout marked this task complete without moving the rest of today’s work."
+        : "You changed a task. Scout can still move future work if needed.",
     updatedAt,
   };
   return { ...plan, forecast: buildForecast(plan) };
@@ -802,7 +803,7 @@ export function catchUpStudyPlan(
     today,
     updatedAt,
     reason:
-      "Missed work was marked for the record and redistributed across future available sessions.",
+      "Scout marked the missed work and moved it into future study sessions.",
   });
 }
 

@@ -32,20 +32,31 @@ interface LessonWorkspaceProps {
   onClose: () => void
 }
 
-const SECTION_SHORT_LABELS = ["Model", "Example", "Rule", "Transfer"] as const
+const SECTION_SHORT_LABELS = ["Learn", "Example", "Rule", "Try it"] as const
+
+const SKILL_LEVEL_LABEL = {
+  new: "Just starting",
+  building: "Learning",
+  steady: "Getting there",
+  secure: "Strong",
+} as const
 
 function GenerationStamp({ learning }: { learning: LearningSessionPayload }) {
   const ai = learning.lesson.generation.mode === "ai"
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-        {ai ? <SparklesIcon aria-hidden="true" /> : <CheckCircle2Icon aria-hidden="true" />}
-        {ai ? "AI-personalized lesson" : "Reviewed personalized fallback"}
+        {ai ? (
+          <SparklesIcon aria-hidden="true" />
+        ) : (
+          <CheckCircle2Icon aria-hidden="true" />
+        )}
+        {ai ? "Personalized with AI" : "Reviewed lesson"}
       </span>
       <span>
         {ai
           ? `${learning.lesson.generation.provider} · ${learning.lesson.generation.model}`
-          : "Runs without an AI key"}
+          : "Works without an AI connection"}
       </span>
     </div>
   )
@@ -59,7 +70,11 @@ function LessonStage({
   onCompleteLesson,
 }: Pick<
   LessonWorkspaceProps,
-  "learning" | "activeSection" | "submitting" | "onSectionChange" | "onCompleteLesson"
+  | "learning"
+  | "activeSection"
+  | "submitting"
+  | "onSectionChange"
+  | "onCompleteLesson"
 >) {
   const section = learning.lesson.sections[activeSection]
   const isLast = activeSection === learning.lesson.sections.length - 1
@@ -69,7 +84,7 @@ function LessonStage({
       <section className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
         <div className="flex flex-wrap items-center gap-3">
           <span className="ink-label text-primary">
-            Stage {activeSection + 1} / {learning.lesson.sections.length}
+            Part {activeSection + 1} of {learning.lesson.sections.length}
           </span>
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             <Clock3Icon aria-hidden="true" />
@@ -85,14 +100,16 @@ function LessonStage({
 
         {section.id === "guided-example" ? (
           <div className="paper-panel mt-7 border-2 border-foreground px-5 py-5 sm:px-6">
-            <p className="ink-label text-muted-foreground">Reviewed worked example</p>
-            <p className="mt-3 text-lg font-semibold leading-7">
+            <p className="ink-label text-muted-foreground">Worked example</p>
+            <p className="mt-3 text-lg leading-7 font-semibold">
               {learning.lesson.workedExample.prompt}
             </p>
             <p className="mt-4 border-l-4 border-[var(--scout-sun)] pl-4 text-sm leading-7 text-muted-foreground">
               {learning.lesson.workedExample.explanation.join(" ")}
             </p>
-            <p className="mt-4 font-semibold">Answer: {learning.lesson.workedExample.answer}</p>
+            <p className="mt-4 font-semibold">
+              Answer: {learning.lesson.workedExample.answer}
+            </p>
           </div>
         ) : null}
 
@@ -103,7 +120,9 @@ function LessonStage({
                 key={step}
                 className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-start border-b border-border py-4 last:border-0"
               >
-                <span className="font-mono text-sm font-bold text-primary">0{index + 1}</span>
+                <span className="font-mono text-sm font-bold text-primary">
+                  0{index + 1}
+                </span>
                 <span className="text-sm leading-6 sm:text-base">{step}</span>
               </li>
             ))}
@@ -112,7 +131,7 @@ function LessonStage({
 
         {section.id === "transfer" ? (
           <div className="mt-7 border-2 border-dashed border-foreground p-5">
-            <p className="ink-label">Transfer cue</p>
+            <p className="ink-label">Try it yourself</p>
             <p className="mt-3 text-lg leading-7 font-semibold">
               {learning.lesson.transferPrompt}
             </p>
@@ -135,16 +154,25 @@ function LessonStage({
             onClick={() => onSectionChange(activeSection - 1)}
           >
             <ArrowLeftIcon data-icon="inline-start" />
-            Previous stage
+            Previous
           </Button>
           {isLast ? (
-            <Button type="button" size="lg" onClick={onCompleteLesson} disabled={submitting}>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onCompleteLesson}
+              disabled={submitting}
+            >
               <CheckCircle2Icon data-icon="inline-start" />
               {submitting ? "Saving lesson…" : "Start focused practice"}
             </Button>
           ) : (
-            <Button type="button" size="lg" onClick={() => onSectionChange(activeSection + 1)}>
-              Next stage
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => onSectionChange(activeSection + 1)}
+            >
+              Next
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
           )}
@@ -155,12 +183,12 @@ function LessonStage({
         <p className="ink-label text-muted-foreground">Why this lesson</p>
         <p className="mt-3 text-sm leading-6">{learning.lesson.whyAssigned}</p>
         <div className="mt-6 border-y py-5">
-          <p className="ink-label text-muted-foreground">Lesson depth</p>
+          <p className="ink-label text-muted-foreground">Lesson level</p>
           <p className="mt-2 font-heading text-2xl font-bold capitalize">
             {learning.lesson.depth}
           </p>
         </div>
-        <p className="mt-6 ink-label text-muted-foreground">Common trap</p>
+        <p className="ink-label mt-6 text-muted-foreground">Common trap</p>
         <p className="mt-3 text-sm leading-6">{learning.lesson.trap}</p>
         <div className="mt-6">
           <GenerationStamp learning={learning} />
@@ -178,7 +206,11 @@ function PracticeStage({
   onSubmitAnswer,
 }: Pick<
   LessonWorkspaceProps,
-  "learning" | "selectedChoice" | "submitting" | "onChoiceChange" | "onSubmitAnswer"
+  | "learning"
+  | "selectedChoice"
+  | "submitting"
+  | "onChoiceChange"
+  | "onSubmitAnswer"
 >) {
   const answered = learning.answeredQuestionIds.length
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
@@ -186,10 +218,10 @@ function PracticeStage({
   const feedback = learning.lastFeedback
   const practiceLabel =
     learning.mode === "repair"
-      ? "Mistake replay"
+      ? "Retry"
       : learning.mode === "checkpoint"
-        ? "Mixed checkpoint"
-        : "Focus set"
+        ? "Mixed quiz"
+        : "Practice"
   const mood: ScoutMood = feedback
     ? feedback.correct
       ? "correct"
@@ -203,23 +235,32 @@ function PracticeStage({
           mood="correct"
           message={
             learning.mode === "repair"
-              ? "Repair complete. That mistake is closed, but its skill stays on the spacing clock."
+              ? "Nice fix. Scout will bring this skill back later so it sticks."
               : learning.mode === "checkpoint"
-                ? "Checkpoint complete. Three skill models just received fresh evidence."
-                : "Focused set complete. The next session has already changed from this evidence."
+                ? "Quiz complete. Scout updated all three skills from your answers."
+                : "Practice complete. Your next study session has already been updated."
           }
           detail={learning.futureTask.reason}
         />
         <h2 className="mt-8 font-heading text-5xl leading-none font-black tracking-[-0.03em]">
-          {learning.mode === "repair" ? "Mistake repaired." : learning.mode === "checkpoint" ? "Checkpoint banked." : "Evidence banked."}
+          {learning.mode === "repair"
+            ? "Mistake fixed."
+            : learning.mode === "checkpoint"
+              ? "Quiz complete."
+              : "Practice complete."}
         </h2>
         <p className="mt-5 max-w-2xl text-lg leading-8">
-          {learning.mastery.label} is now at {Math.round(learning.mastery.mastery * 100)}% modeled mastery from {learning.mastery.evidence} evidence {learning.mastery.evidence === 1 ? "point" : "points"}.
+          Scout now estimates your {learning.mastery.label} skill at{" "}
+          {Math.round(learning.mastery.mastery * 100)}%, based on{" "}
+          {learning.mastery.evidence} scored{" "}
+          {learning.mastery.evidence === 1 ? "answer" : "answers"}.
         </p>
         <dl className="mt-8 grid max-w-3xl border-y-2 border-foreground sm:grid-cols-3 sm:divide-x-2 sm:divide-foreground">
           <div className="px-4 py-5 first:pl-0">
-            <dt className="ink-label text-muted-foreground">Mastery band</dt>
-            <dd className="mt-2 font-heading text-3xl font-bold capitalize">{learning.mastery.band}</dd>
+            <dt className="ink-label text-muted-foreground">Skill level</dt>
+            <dd className="mt-2 font-heading text-3xl font-bold capitalize">
+              {SKILL_LEVEL_LABEL[learning.mastery.band]}
+            </dd>
           </div>
           <div className="px-4 py-5">
             <dt className="ink-label text-muted-foreground">Next review</dt>
@@ -230,8 +271,10 @@ function PracticeStage({
             </dd>
           </div>
           <div className="px-4 py-5 last:pr-0">
-            <dt className="ink-label text-muted-foreground">Next priority</dt>
-            <dd className="mt-2 text-sm leading-6 font-semibold">{learning.futureTask.reason}</dd>
+            <dt className="ink-label text-muted-foreground">What comes next</dt>
+            <dd className="mt-2 text-sm leading-6 font-semibold">
+              {learning.futureTask.reason}
+            </dd>
           </div>
         </dl>
       </section>
@@ -243,12 +286,15 @@ function PracticeStage({
       <div className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
         <div className="flex items-center justify-between gap-4">
           <p className="ink-label text-primary">
-            {practiceLabel} · Question {learning.currentQuestionIndex + 1} of {learning.questions.length}
+            {practiceLabel} · Question {learning.currentQuestionIndex + 1} of{" "}
+            {learning.questions.length}
           </p>
           <span className="font-mono text-sm font-bold">{progress}%</span>
         </div>
         <Progress value={progress} className="mt-3">
-          <ProgressLabel className="sr-only">Focused practice progress</ProgressLabel>
+          <ProgressLabel className="sr-only">
+            Focused practice progress
+          </ProgressLabel>
         </Progress>
 
         {currentQuestion?.stimulus ? (
@@ -275,8 +321,12 @@ function PracticeStage({
                 )}
               >
                 <RadioGroupItem value={choice.id} className="sr-only" />
-                <span className="col-start-1 row-start-1 font-mono font-bold text-primary">{String.fromCharCode(65 + index)}</span>
-                <span className="col-start-2 row-start-1 min-w-0">{choice.text}</span>
+                <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
+                  {String.fromCharCode(65 + index)}
+                </span>
+                <span className="col-start-2 row-start-1 min-w-0">
+                  {choice.text}
+                </span>
               </label>
             ))}
           </RadioGroup>
@@ -289,7 +339,7 @@ function PracticeStage({
           disabled={!selectedChoice || submitting}
         >
           <BrainCircuitIcon data-icon="inline-start" />
-          {submitting ? "Checking evidence…" : "Check the reasoning"}
+          {submitting ? "Checking your answer…" : "Check my answer"}
         </Button>
       </div>
 
@@ -299,8 +349,8 @@ function PracticeStage({
           message={
             feedback
               ? feedback.correct
-                ? "Correct. Now make the rule explicit so it transfers."
-                : "Good miss. Repair the decision before moving on."
+                ? "Correct. Say the rule in your own words before moving on."
+                : "Not quite. Read the explanation, then try the next one."
               : undefined
           }
           detail={feedback?.rationale ?? learning.lesson.transferPrompt}
@@ -308,7 +358,9 @@ function PracticeStage({
         {feedback ? (
           <Alert className="mt-7 bg-background">
             {feedback.correct ? <CheckCircle2Icon /> : <CircleAlertIcon />}
-            <AlertTitle>{feedback.correct ? "Evidence confirmed" : "Repair note"}</AlertTitle>
+            <AlertTitle>
+              {feedback.correct ? "Correct" : "Here&apos;s what went wrong"}
+            </AlertTitle>
             <AlertDescription>
               {feedback.rationale}
               {feedback.misconception ? ` ${feedback.misconception}` : ""}
@@ -316,12 +368,15 @@ function PracticeStage({
           </Alert>
         ) : null}
         <div className="mt-7 border-t pt-5">
-          <p className="ink-label text-muted-foreground">Current model</p>
+          <p className="ink-label text-muted-foreground">
+            Current skill estimate
+          </p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums">
             {Math.round(learning.mastery.mastery * 100)}%
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {learning.mastery.label} · {learning.mastery.band}
+            {learning.mastery.label} ·{" "}
+            {SKILL_LEVEL_LABEL[learning.mastery.band]}
           </p>
         </div>
       </aside>
@@ -336,21 +391,24 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
         <div className="min-w-0 flex-1">
           <p className="ink-label text-[var(--scout-mint)]">
             {props.learning.mode === "repair"
-              ? "Mistake repair workspace"
+              ? "Retry a missed question"
               : props.learning.mode === "checkpoint"
-                ? "Mixed checkpoint workspace"
-                : "Today’s teaching workspace"}
+                ? "Mixed quiz"
+                : "Today’s lesson"}
           </p>
           <p className="mt-1 truncate font-heading text-xl font-bold sm:text-2xl">
             {props.learning.mode === "repair"
-              ? `Replay: ${props.learning.mastery.label}`
+              ? `Try again: ${props.learning.mastery.label}`
               : props.learning.mode === "checkpoint"
-                ? "Three-skill evidence check"
+                ? "Three-skill check"
                 : props.learning.lesson.title}
           </p>
         </div>
         {!props.learning.lessonComplete ? (
-          <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto" aria-label="Lesson stages">
+          <nav
+            className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
+            aria-label="Lesson stages"
+          >
             {SECTION_SHORT_LABELS.map((label, index) => (
               <Button
                 key={label}
@@ -369,10 +427,20 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
           </nav>
         ) : (
           <span className="ink-label text-[var(--scout-mint)]">
-            {props.learning.mode === "repair" ? "1 replay" : props.learning.mode === "checkpoint" ? "3 mixed questions" : "Focused practice"}
+            {props.learning.mode === "repair"
+              ? "1 replay"
+              : props.learning.mode === "checkpoint"
+                ? "3 mixed questions"
+                : "Focused practice"}
           </span>
         )}
-        <Button type="button" variant="ghost" size="icon" onClick={props.onClose} aria-label="Close lesson workspace">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={props.onClose}
+          aria-label="Close lesson workspace"
+        >
           <XIcon />
         </Button>
       </header>

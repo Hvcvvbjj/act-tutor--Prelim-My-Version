@@ -28,7 +28,7 @@ function errorResponse(error: unknown) {
       error:
         error instanceof Error
           ? error.message
-          : "The precision check could not be completed.",
+          : "The Quick Check could not be completed.",
     },
     { status: 400 }
   )

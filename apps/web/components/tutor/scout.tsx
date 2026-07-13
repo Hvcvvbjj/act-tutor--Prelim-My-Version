@@ -9,13 +9,19 @@ import { cn } from "@/lib/utils"
 export type ScoutMood = "ready" | "thinking" | "correct" | "repair"
 
 const MOOD_COPY: Record<ScoutMood, string> = {
-  ready: "I’ll teach the decision, then you’ll prove you can spot it under new wording.",
-  thinking: "Don’t hunt for a familiar phrase. Name the tested decision first.",
-  correct: "Good evidence. Now explain why the nearest distractor fails.",
-  repair: "That miss is useful. Point to the exact step where the choice stopped being supported.",
+  ready: "I’ll show you the rule, then you’ll try it on a new question.",
+  thinking: "Slow down and ask what the question is really testing.",
+  correct: "Correct. Now explain why the other close answer is wrong.",
+  repair: "Not quite. Find the first step where your reasoning went off track.",
 }
 
-export function ScoutMark({ mood = "ready", className }: { mood?: ScoutMood; className?: string }) {
+export function ScoutMark({
+  mood = "ready",
+  className,
+}: {
+  mood?: ScoutMood
+  className?: string
+}) {
   return (
     <div
       className={cn(
@@ -27,14 +33,24 @@ export function ScoutMark({ mood = "ready", className }: { mood?: ScoutMood; cla
       role="img"
       aria-label={`Scout tutor is ${mood}`}
     >
-      <svg viewBox="0 0 120 120" className="size-full drop-shadow-sm" aria-hidden="true">
+      <svg
+        viewBox="0 0 120 120"
+        className="size-full drop-shadow-sm"
+        aria-hidden="true"
+      >
         <path d="M15 27 43 39 31 67Z" fill="var(--scout-coral)" />
         <path d="m105 27-28 12 12 28Z" fill="var(--scout-coral)" />
         <path d="m15 27 22 5 6 7Z" fill="var(--scout-sun)" />
         <path d="m105 27-22 5-6 7Z" fill="var(--scout-sun)" />
         <path d="m60 24 35 23-8 45-27 18-27-18-8-45Z" fill="var(--primary)" />
-        <path d="m25 47 35 12-27 33Z" fill="color-mix(in srgb, var(--primary), #ffffff 18%)" />
-        <path d="m95 47-35 12 27 33Z" fill="color-mix(in srgb, var(--primary), #000000 12%)" />
+        <path
+          d="m25 47 35 12-27 33Z"
+          fill="color-mix(in srgb, var(--primary), #ffffff 18%)"
+        />
+        <path
+          d="m95 47-35 12 27 33Z"
+          fill="color-mix(in srgb, var(--primary), #000000 12%)"
+        />
         <path d="m60 59 27 33-27 18-27-18Z" fill="var(--scout-paper)" />
         <path d="m51 66 9 8-9 5-7-6Z" fill="var(--foreground)" />
         <path d="m69 66-9 8 9 5 7-6Z" fill="var(--foreground)" />
@@ -45,7 +61,10 @@ export function ScoutMark({ mood = "ready", className }: { mood?: ScoutMood; cla
         <path d="m88 11 2-5 5 2-2 5Z" fill="var(--foreground)" />
       </svg>
       {mood === "correct" ? (
-        <SparklesIcon className="absolute -top-1 -right-1 text-[var(--scout-sun)]" aria-hidden="true" />
+        <SparklesIcon
+          className="absolute -top-1 -right-1 text-[var(--scout-sun)]"
+          aria-hidden="true"
+        />
       ) : null}
     </div>
   )
@@ -64,11 +83,20 @@ export function ScoutCoach({
 }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <aside className={cn("scout-coach grid grid-cols-[auto_minmax(0,1fr)] gap-4", className)}>
+    <aside
+      className={cn(
+        "scout-coach grid grid-cols-[auto_minmax(0,1fr)] gap-4",
+        className
+      )}
+    >
       <ScoutMark mood={mood} />
       <div className="relative border-l-4 border-primary bg-[var(--coach-surface)] px-5 py-4 shadow-[4px_4px_0_var(--coach-shadow)]">
-        <p className="font-heading text-sm font-black tracking-[0.08em] uppercase">Scout says</p>
-        <p className="mt-2 text-sm leading-6 sm:text-base">{message ?? MOOD_COPY[mood]}</p>
+        <p className="font-heading text-sm font-black tracking-[0.08em] uppercase">
+          Scout says
+        </p>
+        <p className="mt-2 text-sm leading-6 sm:text-base">
+          {message ?? MOOD_COPY[mood]}
+        </p>
         {detail ? (
           <>
             <Button

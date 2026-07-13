@@ -51,7 +51,7 @@ describe("lesson composition", () => {
   it("builds an extensive evidence-aware authored fallback", () => {
     const lesson = buildAuthoredPersonalizedLesson(input, "2026-07-12T00:00:00.000Z");
     expect(lesson.depth).toBe("foundation");
-    expect(lesson.whyAssigned).toContain("25% accuracy");
+    expect(lesson.whyAssigned).toContain("1 of 4");
     expect(lesson.sections).toHaveLength(4);
     expect(lesson.strategyChecklist.length).toBeGreaterThanOrEqual(4);
     expect(lesson.generation.mode).toBe("authored-fallback");

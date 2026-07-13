@@ -169,11 +169,11 @@ export function Onboarding({
         <section className="px-5 py-8 sm:px-10 sm:py-10 lg:px-[max(4rem,10vw)] lg:py-12">
           <div className="mx-auto max-w-3xl">
             <h1 className="max-w-3xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-              Build the plan that reacts to you.
+              Tell us your goal. We’ll build your study plan.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Three quick answers. Then we&apos;ll map the work between today
-              and test day.
+              Answer three quick questions. Then Scout will show you what to
+              study.
             </p>
 
             <div className="mt-8 sm:mt-10">
@@ -333,9 +333,9 @@ export function Onboarding({
                         </>
                       ) : (
                         <p className="border-b py-4 text-sm leading-6 text-muted-foreground">
-                          We&apos;ll use your Composite as a low-confidence
-                          starting point, then replace that estimate with early
-                          skill probes.
+                          We&apos;ll use your Composite as a rough starting
+                          point, then ask a few questions to learn which skills
+                          need the most work.
                         </p>
                       )}
                       <Field orientation="horizontal" className="py-4">
@@ -370,7 +370,7 @@ export function Onboarding({
                     <ScoutCoach
                       className="mt-6 max-w-2xl"
                       mood="ready"
-                      message="No score is fine. I’ll establish one from a 66-question half-length baseline: 25 English, 23 Math, and 18 Reading."
+                      message="No score is fine. You'll take a 66-question half-length diagnostic: 25 English, 23 Math, and 18 Reading."
                       detail="It autosaves, uses original ACT-style passage and four-choice questions, and produces an estimated practice range rather than an official score."
                     />
                   )}
@@ -471,7 +471,7 @@ export function Onboarding({
                   className="h-auto px-0 font-bold"
                 >
                   <PlayCircleIcon data-icon="inline-start" />
-                  Preview the adaptive demo
+                  Try the one-minute demo
                 </Button>
               </div>
             ) : null}

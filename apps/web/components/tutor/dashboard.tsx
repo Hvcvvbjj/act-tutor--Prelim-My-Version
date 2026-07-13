@@ -64,7 +64,7 @@ function Brand() {
           SCOUT ACT
         </p>
         <p className="font-mono text-[0.58rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-          Every answer teaches the plan
+          Every answer shapes your plan
         </p>
       </div>
     </div>
@@ -112,7 +112,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       setLearningError(
         error instanceof Error
           ? error.message
-          : "The updated learner model could not load."
+          : "Your latest skill results could not load."
       )
     }
   }, [])
@@ -216,7 +216,9 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       setLearningError(null)
     } catch (error) {
       setLearningError(
-        error instanceof Error ? error.message : "Could not start that mission."
+        error instanceof Error
+          ? error.message
+          : "Could not start that study task."
       )
     } finally {
       setSubmitting(false)
@@ -236,7 +238,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
         return
       }
       setLearningError(
-        "Finish the current mission before switching to a different planned assignment."
+        "Finish your current task before starting a different one."
       )
       setActiveTab("today")
       return
@@ -271,8 +273,8 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           >
             <TabsTrigger value="today">Today</TabsTrigger>
             <TabsTrigger value="plan">Plan</TabsTrigger>
-            <TabsTrigger value="calibrate">Calibrate</TabsTrigger>
-            <TabsTrigger value="progress">Progress</TabsTrigger>
+            <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
+            <TabsTrigger value="progress">My Skills</TabsTrigger>
             <TabsTrigger value="lab">Test Lab</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-3 justify-self-end">
@@ -327,12 +329,12 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
             <div className="mx-auto max-w-2xl py-20">
               <ScoutCoach
                 mood="thinking"
-                message="Scout is building today’s adaptive mission…"
+                message="Scout is choosing the best work for today…"
               />
               {learningError ? (
                 <Alert className="mt-7 bg-background">
                   <InfoIcon />
-                  <AlertTitle>Mission engine issue</AlertTitle>
+                  <AlertTitle>Could not load today’s work</AlertTitle>
                   <AlertDescription>{learningError}</AlertDescription>
                 </Alert>
               ) : null}
@@ -353,7 +355,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           <main className="mx-auto max-w-3xl px-5 py-20">
             <ScoutCoach
               mood="thinking"
-              message="Scout is collecting the evidence needed to date your plan."
+              message="Scout is matching your study days to your test date."
             />
           </main>
         )}
@@ -371,7 +373,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           <main className="mx-auto max-w-3xl px-5 py-20">
             <ScoutCoach
               mood="thinking"
-              message="Scout is connecting the precision model to your Learning Twin."
+              message="Scout is getting your Quick Check ready."
             />
           </main>
         )}

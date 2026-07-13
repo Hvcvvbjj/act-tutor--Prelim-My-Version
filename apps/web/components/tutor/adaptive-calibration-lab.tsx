@@ -53,7 +53,7 @@ async function calibrationRequest(
     AdaptiveCalibrationPayload | { error: string }
   if (!response.ok || "error" in payload) {
     throw new Error(
-      "error" in payload ? payload.error : "Precision Check request failed."
+      "error" in payload ? payload.error : "Quick Check request failed."
     )
   }
   return payload
@@ -116,11 +116,10 @@ function CandidateRow({
       <span className="font-mono text-xs font-black">{rank}</span>
       <div className="min-w-0">
         <p className="truncate text-sm font-bold">
-          {selected ? "This item" : candidate.skillLabel}
+          {selected ? "Current question" : candidate.skillLabel}
         </p>
         <p className="mt-0.5 truncate font-mono text-[0.62rem] text-muted-foreground uppercase">
-          {SECTION_LABELS[candidate.section]} · {candidate.difficulty} · info{" "}
-          {candidate.itemInformation.toFixed(2)}
+          {SECTION_LABELS[candidate.section]} · {candidate.difficulty} question
         </p>
         <div className="mt-1 h-1.5 bg-muted">
           <div
@@ -131,8 +130,13 @@ function CandidateRow({
           />
         </div>
       </div>
-      <span className="font-mono text-xs font-black tabular-nums">
-        {candidate.selectionScore.toFixed(2)}
+      <span className="text-right">
+        <span className="block font-mono text-[0.55rem] font-bold text-muted-foreground uppercase">
+          Usefulness
+        </span>
+        <span className="font-mono text-xs font-black tabular-nums">
+          {candidate.selectionScore.toFixed(2)}
+        </span>
       </span>
     </li>
   )
@@ -155,20 +159,17 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
     <section aria-labelledby="ability-estimate-heading">
       <div className="grid grid-cols-2 divide-x-2 divide-foreground border-y-2 border-foreground">
         <div className="px-4 py-5 sm:px-6">
-          <p className="ink-label text-muted-foreground">Ability estimate</p>
+          <p className="ink-label text-muted-foreground">Starting level</p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums sm:text-5xl">
-            {signed(estimate.theta)}
-            <span className="ml-2 font-mono text-xs text-muted-foreground">
-              logit
-            </span>
+            {estimate.readinessIndex}/100
           </p>
         </div>
         <div className="px-4 py-5 sm:px-6">
-          <p className="ink-label text-muted-foreground">Uncertainty band</p>
+          <p className="ink-label text-muted-foreground">Margin of error</p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums sm:text-5xl">
             ±{estimate.standardError.toFixed(2)}
             <span className="ml-2 font-mono text-xs text-muted-foreground">
-              SE
+              smaller is better
             </span>
           </p>
         </div>
@@ -177,17 +178,19 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
       <div className="mt-8 border-y-2 border-foreground py-8">
         <div className="relative h-44 overflow-hidden bg-[var(--rail)]">
           <div className="absolute inset-x-0 top-1/2 h-px bg-foreground" />
-          {[0, 25, 50, 75, 100].map((position, index) => (
-            <div
-              key={position}
-              className="absolute inset-y-0 border-l border-border"
-              style={{ left: `${position}%` }}
-            >
-              <span className="absolute top-1 font-mono text-[0.62rem] text-muted-foreground">
-                {index * 1.5 - 3}
-              </span>
-            </div>
-          ))}
+          {["Low", "Below average", "Middle", "Above average", "High"].map(
+            (label, index) => (
+              <div
+                key={label}
+                className="absolute inset-y-0 border-l border-border"
+                style={{ left: `${index * 25}%` }}
+              >
+                <span className="absolute top-1 font-mono text-[0.62rem] text-muted-foreground">
+                  {label}
+                </span>
+              </div>
+            )
+          )}
           {previous ? (
             <div
               className="absolute top-7 h-10 border-2 border-dashed border-muted-foreground/50 bg-background/50"
@@ -209,7 +212,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             }}
           >
             <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 font-mono text-[0.62rem] font-black whitespace-nowrap text-primary uppercase">
-              80% model interval
+              Likely range
             </span>
           </div>
           <div
@@ -217,7 +220,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             style={{ left: thetaPosition(estimate.theta) }}
           >
             <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black whitespace-nowrap text-background">
-              θ {signed(estimate.theta)}
+              Level {estimate.readinessIndex}
             </span>
           </div>
         </div>
@@ -226,10 +229,14 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             id="ability-estimate-heading"
             className="text-sm text-muted-foreground"
           >
-            Bayesian MAP estimate · 80% interval · normal prior
+            Smaller margin = Scout is more sure
           </p>
           <p className="font-mono text-xs font-black text-primary uppercase">
-            {estimate.precision} precision
+            {estimate.precision === "precise"
+              ? "Enough information"
+              : estimate.precision === "stabilizing"
+                ? "Getting clearer"
+                : "Still learning"}
           </p>
         </div>
       </div>
@@ -271,7 +278,7 @@ export function AdaptiveCalibrationLab({
         setError(
           caught instanceof Error
             ? caught.message
-            : "Precision Check could not load."
+            : "Quick Check could not load."
         )
       }
     }
@@ -299,7 +306,7 @@ export function AdaptiveCalibrationLab({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The trusted answer could not be scored."
+          : "Scout could not check that answer."
       )
     } finally {
       setBusy(false)
@@ -313,14 +320,14 @@ export function AdaptiveCalibrationLab({
           mood={error ? "repair" : "thinking"}
           message={
             error
-              ? "The precision model hit a snag before selecting the next probe."
-              : "Scout is ranking the item bank by information gain…"
+              ? "Scout could not load your quick check."
+              : "Scout is choosing your next question…"
           }
         />
         {error ? (
           <Alert variant="destructive" className="mt-6 bg-background">
             <CircleAlertIcon />
-            <AlertTitle>Precision Check unavailable</AlertTitle>
+            <AlertTitle>Quick Check unavailable</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
@@ -343,18 +350,19 @@ export function AdaptiveCalibrationLab({
         <div>
           <div className="flex items-center gap-3 text-primary">
             <CrosshairIcon className="size-5" aria-hidden="true" />
-            <p className="ink-label">Precision Check</p>
+            <p className="ink-label">Quick Check</p>
           </div>
           <h1 className="mt-3 font-heading text-5xl leading-[0.9] font-black tracking-[-0.035em] sm:text-6xl">
-            The next question earns its place.
+            Let’s get a clearer starting point.
           </h1>
         </div>
         <div className="min-w-64 border-l-2 border-foreground pl-5">
-          <p className="ink-label text-muted-foreground">Model in control</p>
-          <p className="mt-1 font-heading text-3xl font-black">2PL IRT</p>
+          <p className="ink-label text-muted-foreground">How it works</p>
+          <p className="mt-1 font-heading text-3xl font-black">
+            Questions adjust to you
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {payload.responseCount} trusted responses · {payload.maximumItems}{" "}
-            max
+            {payload.responseCount} answered · {payload.maximumItems} at most
           </p>
         </div>
       </div>
@@ -362,11 +370,10 @@ export function AdaptiveCalibrationLab({
       {payload.representativeDemo ? (
         <Alert className="mt-6 border-2 border-primary bg-secondary">
           <ScanSearchIcon />
-          <AlertTitle>Representative calibration evidence</AlertTitle>
+          <AlertTitle>Seven demo answers are already loaded</AlertTitle>
           <AlertDescription>
-            This judge path uses seven clearly labeled sample responses so one
-            live answer can demonstrate the adaptive update. It is not a real
-            student record.
+            Answer one question to see Scout update the study plan. The first
+            seven answers are examples, not a real student&apos;s work.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -388,20 +395,19 @@ export function AdaptiveCalibrationLab({
           )}
           <div>
             <p className="font-bold">
-              {latestEvent.correct
-                ? "Evidence confirmed"
-                : "Misconception exposed"}
+              {latestEvent.correct ? "Answer recorded" : "Answer recorded"}
             </p>
             <p className="text-sm text-muted-foreground">
-              θ {signed(latestEvent.thetaBefore)} →{" "}
-              {signed(latestEvent.thetaAfter)} · uncertainty{" "}
-              {latestEvent.standardErrorBefore.toFixed(2)} →{" "}
+              Starting level{" "}
+              {Math.round(((latestEvent.thetaBefore + 3) / 6) * 100)} →{" "}
+              {Math.round(((latestEvent.thetaAfter + 3) / 6) * 100)} · margin ±
+              {latestEvent.standardErrorBefore.toFixed(2)} → ±
               {latestEvent.standardErrorAfter.toFixed(2)}
             </p>
           </div>
           {payload.learningTwinUpdated ? (
             <span className="font-mono text-xs font-black text-primary uppercase">
-              Sent to BKT
+              Study plan updated
             </span>
           ) : null}
         </div>
@@ -410,23 +416,26 @@ export function AdaptiveCalibrationLab({
       {payload.status === "complete" || !question ? (
         <section className="mt-8 grid gap-8 border-y-2 border-foreground py-10 lg:grid-cols-[1fr_0.8fr]">
           <div>
-            <p className="ink-label text-primary">Precision target reached</p>
+            <p className="ink-label text-primary">Quick Check complete</p>
             <h2 className="mt-3 font-heading text-5xl font-black sm:text-6xl">
-              The baseline knows what it knows.
+              Scout has enough to choose what comes next.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              {payload.stopReason} Every response has already updated the
-              Learning Twin and can change the next study decision.
+              You answered {payload.responseCount} questions, including English,
+              math, and reading. Your answers have already changed which skill
+              Scout recommends next.
             </p>
           </div>
           <div className="border-l-2 border-primary pl-6">
-            <p className="ink-label text-muted-foreground">Final ability</p>
+            <p className="ink-label text-muted-foreground">
+              Practice starting level
+            </p>
             <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
-              {signed(payload.estimate.theta)}
+              {payload.estimate.readinessIndex}/100
             </p>
             <p className="mt-4 font-mono text-xs font-bold text-muted-foreground uppercase">
-              ±{payload.estimate.standardError.toFixed(2)} standard error ·
-              readiness index {payload.estimate.readinessIndex}/100
+              Not an ACT score · margin ±
+              {payload.estimate.standardError.toFixed(2)}
             </p>
             <Button
               type="button"
@@ -435,7 +444,7 @@ export function AdaptiveCalibrationLab({
               onClick={onInspectLearningTwin}
             >
               <BrainCircuitIcon />
-              Inspect BKT handoff
+              See what Scout recommends
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
           </div>
@@ -452,7 +461,7 @@ export function AdaptiveCalibrationLab({
               </p>
             </div>
             <h2 className="mt-4 font-heading text-4xl leading-none font-black sm:text-5xl">
-              Next best probe
+              Your next question
             </h2>
             {question.stimulus ? (
               <article className="mt-6 max-h-72 overflow-y-auto border-y-2 border-foreground bg-[var(--rail)] px-5 py-5 text-sm leading-7">
@@ -475,7 +484,7 @@ export function AdaptiveCalibrationLab({
             <RadioGroup
               value={selectedChoice}
               onValueChange={setSelectedChoice}
-              aria-label={`Answer choices for calibration question ${payload.responseCount + 1}`}
+              aria-label={`Answer choices for Quick Check question ${payload.responseCount + 1}`}
               className="mt-6 gap-3"
             >
               {question.choices.map((choice, index) => (
@@ -514,31 +523,35 @@ export function AdaptiveCalibrationLab({
               ) : (
                 <ShieldCheckIcon />
               )}
-              {busy ? "Updating both models…" : "Submit trusted answer"}
+              {busy ? "Updating your plan…" : "Check my answer"}
               {!busy ? <ArrowRightIcon data-icon="inline-end" /> : null}
             </Button>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              ACT-aligned practice—not an official ACT score
+              ACT-style practice · not an official ACT score
             </p>
           </section>
 
           <div className="py-8 lg:px-7">
             <div className="flex items-center gap-3 text-primary">
               <BrainCircuitIcon className="size-5" />
-              <p className="ink-label">2PL IRT</p>
+              <p className="ink-label">Your starting estimate</p>
             </div>
             <div className="mt-5">
               <ModelBand payload={payload} />
             </div>
             <section className="mt-8 border-t-2 border-foreground pt-6">
               <p className="ink-label text-muted-foreground">
-                Adaptive pipeline
+                What happens after you answer
               </p>
               <ol className="mt-5 grid gap-4 sm:grid-cols-3">
                 {[
-                  ["1", "IRT probe", "Select most informative item"],
-                  ["2", "BKT update", "Update the tested skill"],
-                  ["3", "Adaptive plan", "Re-rank the next lesson"],
+                  [
+                    "1",
+                    "Pick a question",
+                    "Choose what will tell Scout the most",
+                  ],
+                  ["2", "Update the skill", "Use your scored answer"],
+                  ["3", "Change the plan", "Choose your next lesson"],
                 ].map(([number, title, detail]) => (
                   <li key={number} className="border-l-2 border-primary pl-3">
                     <span className="font-mono text-xs font-black">
@@ -559,18 +572,24 @@ export function AdaptiveCalibrationLab({
           <aside className="py-8 lg:border-l-2 lg:border-foreground lg:pl-7">
             <div className="flex items-center gap-3 text-primary">
               <GaugeIcon className="size-5" />
-              <p className="ink-label">Why this item</p>
+              <p className="ink-label">Why this question?</p>
             </div>
             <div className="mt-5">
               <MetricRow
-                label="Item information"
-                detail={`Fisher information at θ = ${signed(payload.estimate.theta)}`}
-                value={selectedCandidate?.itemInformation.toFixed(2) ?? "—"}
+                label="How useful it is"
+                detail="How much this answer can teach Scout about your level"
+                value={
+                  selectedCandidate
+                    ? selectedCandidate.itemInformation >= 0.9
+                      ? "High"
+                      : "Medium"
+                    : "—"
+                }
                 accent
               />
               <MetricRow
-                label="Expected success"
-                detail="P(correct) at the current ability estimate"
+                label="Your chance of getting it right"
+                detail="Scout's best guess before you answer"
                 value={
                   selectedCandidate
                     ? `${Math.round(selectedCandidate.probabilityCorrect * 100)}%`
@@ -579,40 +598,27 @@ export function AdaptiveCalibrationLab({
               />
               <MetricRow
                 label="Difficulty"
-                detail="Item difficulty (b)"
-                value={
-                  selectedCandidate
-                    ? signed(selectedCandidate.parameters.difficulty)
-                    : "—"
-                }
+                detail="Based on the reviewed question bank"
+                value={question.difficulty}
               />
               <MetricRow
-                label="Discrimination"
-                detail="How sharply this item separates nearby ability"
-                value={
-                  selectedCandidate?.parameters.discrimination.toFixed(2) ?? "—"
-                }
+                label="Matches your level"
+                detail="This question is close to your current estimate"
+                value="Yes"
               />
               <MetricRow
-                label="Coverage bonus"
+                label="Balances your check"
                 detail={`${SECTION_LABELS[question.section]} · ${question.skillLabel}`}
-                value={`+${
-                  selectedCandidate
-                    ? (
-                        selectedCandidate.sectionCoverageBoost +
-                        selectedCandidate.skillCoverageBoost
-                      ).toFixed(2)
-                    : "0.00"
-                }`}
+                value={SECTION_LABELS[question.section]}
               />
             </div>
             <div className="mt-7 border-t-2 border-foreground pt-6">
               <h3 className="font-heading text-2xl font-black">
-                Top candidate ranking
+                Other questions Scout considered
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Information plus section and skill coverage—not answer-key
-                content—controls selection.
+                Scout compares useful questions, then makes sure English, math,
+                and reading all get checked.
               </p>
               <ol className="mt-4">
                 {payload.selection?.candidates.map((candidate, index) => (
@@ -633,14 +639,27 @@ export function AdaptiveCalibrationLab({
 
       <div className="mt-8 grid gap-5 border-t-2 border-foreground pt-6 text-sm text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-center">
         <p>
-          Calibration stops only after at least {payload.minimumItems} items,
-          every core section has evidence, and the uncertainty target is met—or
-          at the {payload.maximumItems}-item cap.
+          Scout asks at least {payload.minimumItems} questions and no more than{" "}
+          {payload.maximumItems}. It checks English, math, and reading before
+          stopping.
         </p>
         <p className="font-mono text-xs font-black uppercase">
-          {payload.model.version} · {payload.responseCount} evidence events
+          {payload.responseCount} answers used
         </p>
       </div>
+
+      <details className="mt-6 border-t pt-5 text-sm text-muted-foreground">
+        <summary className="cursor-pointer font-bold text-foreground">
+          Technical details for judges
+        </summary>
+        <p className="mt-3 max-w-3xl leading-6">
+          Scout uses a two-parameter Item Response Theory model (2PL IRT). It
+          estimates a level called theta, measures its margin of error, and
+          chooses the unanswered question expected to reduce that margin the
+          most. Current theta: {signed(payload.estimate.theta)}. Model version:{" "}
+          {payload.model.version}.
+        </p>
+      </details>
     </main>
   )
 }

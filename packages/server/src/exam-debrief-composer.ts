@@ -95,18 +95,18 @@ export class OpenAICompatibleExamDebriefComposer implements ExamDebriefComposer 
           messages: [
             {
               role: "system",
-              content: "You are Scout, an expert ACT tutor. Analyze only the supplied aggregate practice evidence. Never invent official scores, guarantees, answer keys, question text, or student facts. Return only JSON.",
+              content: "You are Scout, a friendly ACT tutor speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Do not use the words evidence, model, calibrate, optimize, route, score lever, mastery, or priority. Use only the supplied practice results. Never invent official scores, guarantees, answer keys, question text, or student facts. Return only JSON.",
             },
             {
               role: "user",
               content: JSON.stringify({
-                task: "Write a concise, evidence-specific ACT practice debrief.",
+                task: "Explain these ACT practice results in plain English.",
                 evidence: aggregateForModel(result),
                 requiredJson: {
-                  headline: "one direct score-lever headline",
-                  summary: "2-3 sentences connecting accuracy, pacing, and confidence",
-                  wins: ["exactly two evidence-grounded wins"],
-                  priorities: ["exactly two evidence-grounded priorities"],
+                  headline: "one short headline saying what to work on next",
+                  summary: "2-3 simple sentences about correct answers, pacing, and how sure the student felt",
+                  wins: ["exactly two specific things that went well"],
+                  priorities: ["exactly two specific things to improve"],
                   nextAction: "one concrete lesson, practice, or pacing action",
                 },
               }),

@@ -43,9 +43,9 @@ function depthFor(input: LessonCompositionInput): LessonDepth {
 function evidenceSummary(input: LessonCompositionInput) {
   const evidence = diagnosticEvidence(input);
   if (!evidence || evidence.total === 0) {
-    return `No direct ${input.skill.label.toLowerCase()} evidence is available yet, so this lesson begins with a short model and an early check.`;
+    return `You have not answered a ${input.skill.label.toLowerCase()} question yet, so Scout will teach the rule first and then give you a quick check.`;
   }
-  return `${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} diagnostic questions were correct (${Math.round(evidence.accuracy * 100)}%).`;
+  return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on the diagnostic (${Math.round(evidence.accuracy * 100)}%).`;
 }
 
 export function buildAuthoredPersonalizedLesson(
@@ -56,55 +56,55 @@ export function buildAuthoredPersonalizedLesson(
   const evidence = diagnosticEvidence(input);
   const urgency =
     input.plan.daysUntilTest <= 14
-      ? "Because test day is close, the lesson uses a compact rule-first approach."
-      : "There is enough runway to build the reasoning before adding time pressure.";
-  const accuracyPhrase = evidence
-    ? `${Math.round(evidence.accuracy * 100)}% accuracy in the diagnostic evidence`
-    : "limited direct diagnostic evidence";
+      ? "Your test is close, so this lesson starts with the fastest useful rule."
+      : "You have time to learn the rule before adding a timer.";
+  const assignmentReason = evidence
+    ? `Scout picked it because you got ${evidence.correct} of ${evidence.total} matching diagnostic questions right.`
+    : "Scout picked it because it still needs a clear starting score.";
 
   return {
     ...input.baseLesson,
     minutes: Math.max(10, Math.min(18, input.plan.minutesPerSession - 8)),
     depth,
-    whyAssigned: `${input.skill.label} is a priority because the planner found ${accuracyPhrase}. ${urgency}`,
+    whyAssigned: `${assignmentReason} ${urgency}`,
     evidenceSummary: evidenceSummary(input),
     tutorOpening:
       depth === "foundation"
-        ? `Let’s slow this down and make ${input.skill.label.toLowerCase()} predictable before we race the clock.`
+        ? `Let’s make ${input.skill.label.toLowerCase()} easier to spot, one step at a time.`
         : depth === "stretch"
-          ? `You have the base pattern. Now we’ll attack the harder versions that separate strong scores from a ${input.plan.goalScore}.`
-          : `We’ll turn what you partly know about ${input.skill.label.toLowerCase()} into a repeatable decision.` ,
+          ? `You know the basic rule. Now let’s try the harder versions you may see near a ${input.plan.goalScore}.`
+          : `You know part of this. Let’s turn it into a rule you can use every time.`,
     sections: [
       {
         id: "mental-model",
-        title: "Build the mental model",
+        title: "Learn the main idea",
         explanation: input.baseLesson.concept,
         coachPrompt: `In your own words, what must you notice first in a ${input.skill.label.toLowerCase()} question?`,
       },
       {
         id: "guided-example",
-        title: "Work one with Scout",
+        title: "See one worked out",
         explanation: `${input.baseLesson.workedExample.prompt} ${input.baseLesson.workedExample.explanation.join(" ")}`,
         coachPrompt: `Before revealing the answer, name the first step. Then compare it with: ${input.baseLesson.workedExample.answer}.`,
       },
       {
         id: "decision-rule",
-        title: "Use the decision rule",
+        title: "Use the rule",
         explanation: input.baseLesson.steps.join(" "),
         coachPrompt: `Which step would prevent the common trap: ${input.baseLesson.trap}`,
       },
       {
         id: "transfer",
-        title: "Transfer it to test conditions",
-        explanation: `Your next five questions move from ${depth === "foundation" ? "clean examples to mixed wording" : "mixed wording to time-pressure traps"}. The rule stays the same even when the surface changes.`,
-        coachPrompt: "Say the rule once without looking, then start the focused set.",
+        title: "Try ACT-style wording",
+        explanation: `Your next five questions start ${depth === "foundation" ? "with clear examples and then get harder" : "with harder wording and add time pressure"}. Use the same rule even when the question looks different.`,
+        coachPrompt: "Say the rule once without looking, then try the questions.",
       },
     ],
     strategyChecklist: [
       ...input.baseLesson.steps,
-      `Budget the final 10 seconds to eliminate choices that trigger: ${input.baseLesson.trap}`,
+      `Use the last 10 seconds to cross out choices that make this mistake: ${input.baseLesson.trap}`,
     ],
-    transferPrompt: `When the wording changes, identify the tested ${input.skill.label.toLowerCase()} decision before calculating or editing anything.`,
+    transferPrompt: `Before solving, name the ${input.skill.label.toLowerCase()} rule the question is testing.`,
     generation: {
       mode: "authored-fallback",
       provider: "Reviewed lesson engine",
@@ -224,28 +224,28 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
               {
                 role: "system",
                 content:
-                  "You are Scout, an expert ACT tutor. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or factual claims beyond the supplied reviewed lesson. Return only valid JSON.",
+                  "You are Scout, a friendly ACT tutor speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Do not use the words evidence, model, latent, calibrated, probe, optimize, route, decision rule, transfer, mastery, readiness, priority, or confidence unless one is a necessary subject term in the reviewed lesson. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or facts beyond the supplied reviewed lesson. Return only valid JSON.",
               },
               {
                 role: "user",
                 content: JSON.stringify({
-                  task: "Rewrite the reviewed lesson into a student-specific four-stage teaching sequence.",
+                  task: "Turn the reviewed lesson into four plain-English parts for this student.",
                   student: input.plan,
                   diagnosticEvidence: diagnosticEvidence(input) ?? null,
                   skill: input.skill,
                   reviewedLesson: input.baseLesson,
                   requiredJson: {
                     minutes: "integer from 10 to 20",
-                    whyAssigned: "specific explanation tied to supplied evidence",
-                    tutorOpening: "warm direct opening from Scout",
+                    whyAssigned: "one short sentence saying what the student got right or wrong and why this skill is next",
+                    tutorOpening: "a warm, direct opening from Scout using everyday words",
                     sections: SECTION_IDS.map((id) => ({
                       id,
-                      title: "specific stage title",
-                      explanation: "at least three useful sentences",
-                      coachPrompt: "one active-recall prompt",
+                      title: "a short student-friendly title",
+                      explanation: "at least three useful sentences written for a teenager",
+                      coachPrompt: "one simple question that makes the student recall the rule",
                     })),
                     strategyChecklist: ["at least four concise steps"],
-                    transferPrompt: "how to recognize this skill under changed wording",
+                    transferPrompt: "how to spot this skill when the wording looks different",
                   },
                 }),
               },

@@ -243,7 +243,7 @@ export function reviewDecision(
     return {
       nextReviewAt: addDays(attempt.answeredAt, 1),
       intervalDays: 1,
-      reason: "Missed evidence schedules a short repair review.",
+      reason: "You missed this question, so Scout scheduled a short review.",
     };
   }
 
@@ -265,7 +265,7 @@ export function reviewDecision(
   return {
     nextReviewAt: addDays(attempt.answeredAt, intervalDays),
     intervalDays,
-    reason: "Correct evidence extends the spacing interval.",
+    reason: "You got this right, so Scout moved the review farther out.",
   };
 }
 
@@ -324,7 +324,7 @@ export function decideFutureTask(
     nextSkill: next.skill,
     changed,
     reason: changed
-      ? `${next.label} now has the weakest evidence after this practice set.`
-      : `${next.label} is still the highest-priority review target.`,
+      ? `${next.label} needs the most work after this practice set.`
+      : `${next.label} still needs the most attention.`,
   };
 }

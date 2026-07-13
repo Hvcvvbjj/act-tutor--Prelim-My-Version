@@ -207,38 +207,37 @@ function fallbackLesson(
   return {
     ...baseLesson,
     depth: "foundation",
-    whyAssigned: `${baseLesson.title} is the current assigned focus.`,
-    evidenceSummary:
-      "This session uses the reviewed personalized teaching shell.",
-    tutorOpening: `Let’s make ${baseLesson.title.toLowerCase()} predictable.`,
+    whyAssigned: `Scout picked ${baseLesson.title.toLowerCase()} as the best skill to work on next.`,
+    evidenceSummary: "Scout will use your answers to decide what comes next.",
+    tutorOpening: `Let’s make ${baseLesson.title.toLowerCase()} easier, one step at a time.`,
     sections: [
       {
         id: "mental-model",
-        title: "Build the mental model",
+        title: "Learn the main idea",
         explanation: baseLesson.concept,
         coachPrompt: "What do you need to notice first?",
       },
       {
         id: "guided-example",
-        title: "Work one with Scout",
+        title: "See one worked out",
         explanation: `${baseLesson.workedExample.prompt} ${baseLesson.workedExample.explanation.join(" ")}`,
         coachPrompt: `Compare your first step with the answer: ${baseLesson.workedExample.answer}.`,
       },
       {
         id: "decision-rule",
-        title: "Use the decision rule",
+        title: "Use the rule",
         explanation: baseLesson.steps.join(" "),
         coachPrompt: "Which step prevents the common trap?",
       },
       {
         id: "transfer",
-        title: "Transfer it",
-        explanation: baseLesson.trap,
-        coachPrompt: "Say the rule once without looking.",
+        title: "Try it yourself",
+        explanation: `Watch out for this common mistake: ${baseLesson.trap}`,
+        coachPrompt: "Say the rule once without looking, then try the question.",
       },
     ],
     strategyChecklist: baseLesson.steps,
-    transferPrompt: `Identify the ${baseLesson.title.toLowerCase()} decision before choosing an answer.`,
+    transferPrompt: `Name the ${baseLesson.title.toLowerCase()} rule before choosing an answer.`,
     generation: {
       mode: "authored-fallback",
       provider: "Reviewed lesson engine",
@@ -311,28 +310,28 @@ function missionSummary(
   const steps: DailyMissionSummary["steps"] = [
     {
       id: "learn",
-      label: "Learn the decision",
+      label: "Learn the rule",
       state: learnDone ? "done" : "current",
       progress: learnDone ? 1 : 0,
       total: 1,
     },
     {
       id: "practice",
-      label: "Prove it under pressure",
+      label: "Practice the rule",
       state: practiceDone ? "done" : learnDone ? "current" : "queued",
       progress: session.mode === "focus" ? session.answers.length : 5,
       total: 5,
     },
     {
       id: "repair",
-      label: "Replay a mistake",
+      label: "Fix one missed question",
       state: repairDone ? "done" : practiceDone ? "current" : "queued",
       progress: repairDone ? 1 : 0,
       total: 1,
     },
     {
       id: "checkpoint",
-      label: "Mixed checkpoint",
+      label: "Take a 3-question quiz",
       state:
         session.mode === "checkpoint"
           ? complete
@@ -734,7 +733,7 @@ export class FileLearningSessionRepository {
         todaySkill: skillSlug,
         nextSkill: skillSlug,
         changed: false,
-        reason: `${skill.label} is the next evidence target.`,
+        reason: `${skill.label} needs the next practice round.`,
       };
       session.updatedAt = new Date().toISOString();
       await this.writeStore(store);
@@ -753,7 +752,7 @@ export class FileLearningSessionRepository {
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
         throw new RangeError(
-          "Finish the current mission before repairing a mistake.",
+          "Finish your current task before retrying a missed question.",
         );
       const profile = ensureProfile(session);
       const mistake = profile.mistakes.find(
@@ -761,7 +760,7 @@ export class FileLearningSessionRepository {
       );
       if (!mistake)
         throw new RangeError(
-          "That mistake is already repaired or unavailable.",
+          "That missed question was already fixed or is no longer available.",
         );
       getSkill(bank, mistake.skill);
       const question = bank.practice.find(
@@ -790,7 +789,7 @@ export class FileLearningSessionRepository {
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
         throw new RangeError(
-          "Finish the current mission before starting a checkpoint.",
+          "Finish your current task before starting a progress check.",
         );
       const ranked = rankKnowledgeStates(
         Object.values(ensureLearningTwin(session, bank)),
@@ -798,7 +797,7 @@ export class FileLearningSessionRepository {
       ).slice(0, 3);
       if (ranked.length < 3)
         throw new RangeError(
-          "At least three skills are required for a checkpoint.",
+          "At least three skills are needed for a progress check.",
         );
       const questionIds = ranked.map((mastery, index) => {
         const questions = getQuestions(bank, mastery.skill);

@@ -89,12 +89,12 @@ const TASK_META: Record<
     tone: "border-[var(--scout-sun)] bg-[var(--coach-surface)]",
   },
   checkpoint: {
-    label: "Checkpoint",
+    label: "Progress check",
     icon: GaugeIcon,
     tone: "border-foreground bg-secondary",
   },
   rehearsal: {
-    label: "Rehearsal",
+    label: "Practice test",
     icon: TimerResetIcon,
     tone: "border-[var(--scout-coral)] bg-[var(--scout-coral)]/10",
   },
@@ -102,7 +102,10 @@ const TASK_META: Record<
 
 const HEALTH_COPY = {
   "on-track": { label: "On track", className: "text-primary" },
-  tight: { label: "Tight route", className: "text-[var(--scout-coral)]" },
+  tight: {
+    label: "Little room to miss",
+    className: "text-[var(--scout-coral)]",
+  },
   "under-capacity": {
     label: "Needs more time",
     className: "text-destructive",
@@ -205,8 +208,8 @@ function AvailabilityEditor({
       {open ? (
         <div className="mt-5">
           <p className="text-sm leading-6 text-muted-foreground">
-            Choose the days Scout may use. Rebalancing preserves today and every
-            completed assignment.
+            Choose your study days. Scout can move future work, but it will not
+            change today’s work or anything you already finished.
           </p>
           <div
             className="mt-4 divide-y border-y"
@@ -275,7 +278,7 @@ function AvailabilityEditor({
               ) : (
                 <SaveIcon data-icon="inline-start" />
               )}
-              Save and rebalance
+              Save schedule
             </Button>
           </div>
           {entries.length === 0 ? (
@@ -473,7 +476,7 @@ function WeekPlanner({
               </div>
             ) : (
               <p className="py-6 text-sm leading-6 text-muted-foreground xl:py-5">
-                {afterTest ? "After test day" : "Recovery / schoolwork buffer"}
+                {afterTest ? "After test day" : "No study scheduled"}
               </p>
             )}
           </section>
@@ -498,7 +501,7 @@ function TaskInspector({
     return (
       <ScoutCoach
         mood="thinking"
-        message="Select an assignment to see why it is here and what evidence will move next."
+        message="Choose an assignment to see why Scout scheduled it and what to do next."
       />
     )
   }
@@ -511,12 +514,12 @@ function TaskInspector({
     task.kind === "rehearsal"
       ? "Open Test Day Lab"
       : !canSwitch
-        ? "Finish current mission first"
+        ? "Finish your current task first"
         : sameMission && learning.status !== "complete"
-          ? "Continue this mission"
+          ? "Continue this task"
           : task.kind === "checkpoint"
-            ? "Start checkpoint"
-            : "Start this mission"
+            ? "Start progress check"
+            : "Start this task"
   return (
     <section aria-labelledby="task-inspector-title">
       <div className="flex items-center gap-3">
@@ -548,23 +551,19 @@ function TaskInspector({
       </p>
 
       <div className="mt-6 border-y-2 border-foreground py-5">
-        <p className="ink-label text-primary">Evidence contract</p>
+        <p className="ink-label text-primary">How to finish this assignment</p>
         <ol className="mt-4 space-y-3 text-sm leading-6">
           <li className="flex gap-3">
             <span className="font-mono font-bold">01</span>
-            <span>Complete the decision under ACT-shaped wording.</span>
+            <span>Answer the ACT-style questions on your own.</span>
           </li>
           <li className="flex gap-3">
             <span className="font-mono font-bold">02</span>
-            <span>
-              Use the explanation or repair loop when a distractor wins.
-            </span>
+            <span>If you miss one, read the explanation and try it again.</span>
           </li>
           <li className="flex gap-3">
             <span className="font-mono font-bold">03</span>
-            <span>
-              Let server-scored evidence—not AI confidence—change mastery.
-            </span>
+            <span>Only your scored answers change your skill progress.</span>
           </li>
         </ol>
       </div>
@@ -586,8 +585,7 @@ function TaskInspector({
         {launchLabel}
       </Button>
       <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        Targets and readiness are planning estimates, not official ACT scores or
-        guarantees.
+        This plan is an estimate, not an official score prediction or guarantee.
       </p>
     </section>
   )
@@ -682,7 +680,9 @@ export function AdaptivePlanStudio({
       .catch((caught: unknown) => {
         if (!active) return
         setError(
-          caught instanceof Error ? caught.message : "The route could not load."
+          caught instanceof Error
+            ? caught.message
+            : "The study plan could not load."
         )
       })
       .finally(() => {
@@ -774,9 +774,9 @@ export function AdaptivePlanStudio({
       <main className="mx-auto w-full max-w-3xl px-5 py-16">
         <Alert>
           <AlertTriangleIcon />
-          <AlertTitle>Section baseline required</AlertTitle>
+          <AlertTitle>Finish setup first</AlertTitle>
           <AlertDescription>
-            Finish placement before generating a dated study route.
+            Scout needs your starting scores before it can build a dated plan.
           </AlertDescription>
         </Alert>
       </main>
@@ -788,7 +788,7 @@ export function AdaptivePlanStudio({
       <main className="mx-auto w-full max-w-3xl px-5 py-20">
         <ScoutCoach
           mood="thinking"
-          message="Scout is laying every available study block against your test date and weakest evidence."
+          message="Scout is fitting the most useful lessons into the time before your test."
         />
         {error ? (
           <Alert className="mt-7" variant="destructive">
@@ -815,7 +815,7 @@ export function AdaptivePlanStudio({
       <section className="grid gap-7 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <p className="ink-label text-primary">Adaptive Plan Studio</p>
+            <p className="ink-label text-primary">Your study plan</p>
             <span
               className={cn(
                 "font-mono text-xs font-bold uppercase",
@@ -826,7 +826,7 @@ export function AdaptivePlanStudio({
             </span>
           </div>
           <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl">
-            The route from {plan.currentComposite} to {plan.draft.goal}.
+            From {plan.currentComposite} toward {plan.draft.goal}.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
             {adaptivePlan.forecast.message}
@@ -846,7 +846,7 @@ export function AdaptivePlanStudio({
             </dd>
           </div>
           <div className="px-3">
-            <dt className="ink-label text-muted-foreground">Readiness</dt>
+            <dt className="ink-label text-muted-foreground">Plan progress</dt>
             <dd className="mt-2 font-heading text-4xl font-black text-primary tabular-nums">
               {adaptivePlan.forecast.readiness}%
             </dd>
@@ -868,7 +868,7 @@ export function AdaptivePlanStudio({
         <section className="min-w-0" aria-labelledby="weekly-plan-title">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="ink-label text-muted-foreground">Week workspace</p>
+              <p className="ink-label text-muted-foreground">Study week</p>
               <h2
                 id="weekly-plan-title"
                 className="mt-2 font-heading text-4xl font-bold"
@@ -917,7 +917,7 @@ export function AdaptivePlanStudio({
           />
           <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-b pb-5">
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Revision {adaptivePlan.revision}: {adaptivePlan.revisionReason}
+              Plan update {adaptivePlan.revision}: {adaptivePlan.revisionReason}
             </p>
             <Button
               type="button"
@@ -926,7 +926,7 @@ export function AdaptivePlanStudio({
               disabled={busy}
             >
               <RefreshCwIcon data-icon="inline-start" />
-              Catch up and rebalance
+              Move missed work
             </Button>
           </div>
         </section>
@@ -981,14 +981,14 @@ export function AdaptivePlanStudio({
               {Math.round(adaptivePlan.forecast.evidenceCoverage * 100)}% of
               skills
             </strong>{" "}
-            have direct baseline evidence.
+            have at least one scored answer.
           </p>
         </div>
         <div className="flex gap-3">
           <LockKeyholeIcon className="mt-1 shrink-0" aria-hidden="true" />
           <p className="text-sm leading-6">
-            AI may explain the route; server-owned scoring decides what actually
-            moves.
+            AI may explain a lesson, but your scored answers decide how the plan
+            changes.
           </p>
         </div>
       </footer>

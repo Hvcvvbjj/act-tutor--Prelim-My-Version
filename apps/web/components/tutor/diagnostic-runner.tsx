@@ -66,7 +66,9 @@ function SectionProgress({
             (question) => answers[question.id]
           ).length
           const active = currentSection === section
-          const blueprint = form.blueprint.find((item) => item.section === section)
+          const blueprint = form.blueprint.find(
+            (item) => item.section === section
+          )
           return (
             <li
               key={section}
@@ -87,11 +89,20 @@ function SectionProgress({
                         : "border-border bg-background"
                   )}
                 />
-                <span className={cn("truncate font-heading text-xl font-bold sm:text-2xl", active && "text-primary")}>{label}</span>
+                <span
+                  className={cn(
+                    "truncate font-heading text-xl font-bold sm:text-2xl",
+                    active && "text-primary"
+                  )}
+                >
+                  {label}
+                </span>
               </div>
               <p className="mt-1 pl-5 font-mono text-xs text-muted-foreground tabular-nums">
                 {answered}/{sectionQuestions.length}
-                {blueprint ? ` · ${blueprint.diagnosticMinutes} min target` : ""}
+                {blueprint
+                  ? ` · ${blueprint.diagnosticMinutes} min target`
+                  : ""}
               </p>
             </li>
           )
@@ -120,14 +131,19 @@ function QuestionView({
 }) {
   const isLast = currentIndex === form.questions.length - 1
   const progress = ((currentIndex + 1) / form.questions.length) * 100
-  const sectionQuestions = form.questions.filter((item) => item.section === question.section)
-  const sectionIndex = sectionQuestions.findIndex((item) => item.id === question.id)
+  const sectionQuestions = form.questions.filter(
+    (item) => item.section === question.section
+  )
+  const sectionIndex = sectionQuestions.findIndex(
+    (item) => item.id === question.id
+  )
 
   const answerPanel = (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="ink-label text-primary">
-          {SECTION_LABELS[question.section]} · {sectionIndex + 1}/{sectionQuestions.length}
+          {SECTION_LABELS[question.section]} · {sectionIndex + 1}/
+          {sectionQuestions.length}
         </p>
         <p className="font-mono text-xs font-bold text-muted-foreground tabular-nums">
           Overall {currentIndex + 1}/{form.questions.length}
@@ -153,22 +169,39 @@ function QuestionView({
             key={choice.id}
             className={cn(
               "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground sm:text-base",
-              answers[question.id] === choice.id && "border-primary bg-secondary"
+              answers[question.id] === choice.id &&
+                "border-primary bg-secondary"
             )}
           >
             <RadioGroupItem value={choice.id} className="sr-only" />
-            <strong className="col-start-1 row-start-1 font-mono text-primary">{String.fromCharCode(65 + index)}</strong>
-            <span className="col-start-2 row-start-1 min-w-0">{choice.text}</span>
+            <strong className="col-start-1 row-start-1 font-mono text-primary">
+              {String.fromCharCode(65 + index)}
+            </strong>
+            <span className="col-start-2 row-start-1 min-w-0">
+              {choice.text}
+            </span>
           </label>
         ))}
       </RadioGroup>
 
       <div className="mt-8 flex gap-3 border-t-2 border-foreground pt-6">
-        <Button type="button" variant="outline" size="xl" onClick={onPrevious} disabled={currentIndex === 0}>
+        <Button
+          type="button"
+          variant="outline"
+          size="xl"
+          onClick={onPrevious}
+          disabled={currentIndex === 0}
+        >
           <ArrowLeftIcon data-icon="inline-start" />
           Previous
         </Button>
-        <Button type="button" size="xl" className="flex-1" onClick={onNext} disabled={!answers[question.id]}>
+        <Button
+          type="button"
+          size="xl"
+          className="flex-1"
+          onClick={onNext}
+          disabled={!answers[question.id]}
+        >
           {isLast ? "Review answers" : "Next question"}
           <ArrowRightIcon data-icon="inline-end" />
         </Button>
@@ -177,21 +210,33 @@ function QuestionView({
   )
 
   return (
-    <section key={question.id} className="animate-in duration-200 fade-in motion-reduce:animate-none">
-      <Progress value={progress} aria-label={`Diagnostic question ${currentIndex + 1} of ${form.questions.length}`} />
+    <section
+      key={question.id}
+      className="animate-in duration-200 fade-in motion-reduce:animate-none"
+    >
+      <Progress
+        value={progress}
+        aria-label={`Diagnostic question ${currentIndex + 1} of ${form.questions.length}`}
+      />
       {question.format === "passage" && question.stimulus ? (
         <div className="paper-panel mt-6 grid overflow-hidden border-2 border-foreground bg-background lg:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
           <article className="max-h-[70svh] overflow-y-auto border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:border-r-2 lg:border-b-0 lg:px-8">
-            <p className="ink-label text-primary">{question.section === "english" ? "Passage to revise" : "Passage"}</p>
-            <h2 className="mt-2 font-heading text-3xl font-bold">{question.passageTitle}</h2>
-            <div className="mt-6 whitespace-pre-line text-[0.98rem] leading-8 sm:text-base">
+            <p className="ink-label text-primary">
+              {question.section === "english" ? "Passage to revise" : "Passage"}
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-bold">
+              {question.passageTitle}
+            </h2>
+            <div className="mt-6 text-[0.98rem] leading-8 whitespace-pre-line sm:text-base">
               {question.stimulus}
             </div>
           </article>
           <div className="px-5 py-7 lg:px-8">{answerPanel}</div>
         </div>
       ) : (
-        <div className="mx-auto mt-8 max-w-4xl border-y-2 border-foreground py-8">{answerPanel}</div>
+        <div className="mx-auto mt-8 max-w-4xl border-y-2 border-foreground py-8">
+          {answerPanel}
+        </div>
       )}
     </section>
   )
@@ -295,15 +340,14 @@ function ResultsView({
 
   return (
     <section>
-      <p className="text-sm font-semibold text-primary">Baseline complete</p>
+      <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
       <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
         Your estimated range is {result.compositeRange.low}–
         {result.compositeRange.high}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        We&apos;ll plan from a midpoint of {result.compositeRange.estimate}{" "}
-        while continuing to strengthen this half-length estimate with practice
-        evidence.
+        Scout will use {result.compositeRange.estimate} as your starting point.
+        Your estimate will get more accurate as you answer practice questions.
       </p>
 
       <dl className="mt-10 grid grid-cols-3 divide-x border-y py-6 text-center">
@@ -325,7 +369,7 @@ function ResultsView({
       <div className="mt-10 grid gap-8 sm:grid-cols-2">
         <div>
           <h2 className="text-xl font-bold">
-            {hasStrengths ? "Early strengths" : "Best current signals"}
+            {hasStrengths ? "Strongest skills so far" : "What looks strongest"}
           </h2>
           <ul className="mt-4 flex flex-col gap-3">
             {(hasStrengths
@@ -371,7 +415,8 @@ function ResultsView({
         <AlertDescription>
           This original 66-question half-length form follows the enhanced ACT
           section proportions, but it is not an official ACT administration.
-          The planner will keep calibrating from lessons, focused sets, and checkpoints.
+          Scout will keep adjusting your plan as you finish lessons, practice
+          sets, and check-ins.
         </AlertDescription>
       </Alert>
 
@@ -577,10 +622,10 @@ export function DiagnosticRunner({
         <div className="flex items-center gap-3">
           <ScoutMark className="size-11" />
           <div>
-          <p className="font-heading text-xl font-black tracking-tight sm:text-2xl">
-            SCOUT ACT
-          </p>
-          <p className="text-sm text-muted-foreground">{form.title}</p>
+            <p className="font-heading text-xl font-black tracking-tight sm:text-2xl">
+              SCOUT ACT
+            </p>
+            <p className="text-sm text-muted-foreground">{form.title}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">

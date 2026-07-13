@@ -26,23 +26,26 @@ interface ExamLabSetupProps {
 const MODES = [
   {
     id: "sprint",
-    title: "Pressure sprint",
+    title: "Quick 12-question quiz",
     meta: "12 questions · 15 minutes",
-    description: "One question from every tracked skill. Best for a fast readiness check.",
+    description:
+      "One question from every tracked skill. Best for a quick check.",
     icon: GaugeIcon,
   },
   {
     id: "section",
-    title: "Section simulation",
-    meta: "18–25 questions · authentic half-length clock",
-    description: "Stay inside one section and diagnose pace, confidence, and skill drift.",
+    title: "One-section practice",
+    meta: "18–25 questions · half-length ACT timing",
+    description:
+      "Practice one section and see where time or confidence hurts you.",
     icon: BookOpenCheckIcon,
   },
   {
     id: "core",
-    title: "Core rehearsal",
+    title: "Half-length practice test",
     meta: "66 questions · 63 minutes",
-    description: "English, Math, and Reading with section handoffs and a complete debrief.",
+    description:
+      "English, Math, and Reading in test order, followed by your full results.",
     icon: Layers3Icon,
   },
 ] as const
@@ -63,13 +66,19 @@ export function ExamLabSetup({
         <section>
           <p className="ink-label text-primary">Test Day Lab</p>
           <h1 className="mt-3 max-w-4xl font-heading text-6xl leading-[0.9] font-black tracking-[-0.04em] sm:text-8xl">
-            Pressure reveals the next lesson.
+            Practice the test before test day.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            Run original ACT-shaped questions under a real clock. Scout measures correctness, pace, confidence, flags, and omissions before changing your route.
+            Answer original ACT-style questions with a real timer. Scout checks
+            your score, pace, confidence, flags, and blank answers before
+            changing your plan.
           </p>
 
-          <div className="mt-10 border-t-2 border-foreground" role="radiogroup" aria-label="Simulation type">
+          <div
+            className="mt-10 border-t-2 border-foreground"
+            role="radiogroup"
+            aria-label="Simulation type"
+          >
             {MODES.map((option) => {
               const Icon = option.icon
               const selected = mode === option.id
@@ -85,15 +94,32 @@ export function ExamLabSetup({
                   )}
                   onClick={() => onModeChange(option.id)}
                 >
-                  <span className={cn("flex size-11 items-center justify-center border-2 border-foreground bg-background", selected && "bg-primary text-primary-foreground")}>
+                  <span
+                    className={cn(
+                      "flex size-11 items-center justify-center border-2 border-foreground bg-background",
+                      selected && "bg-primary text-primary-foreground"
+                    )}
+                  >
                     <Icon aria-hidden="true" />
                   </span>
                   <span>
-                    <span className="font-heading text-3xl font-bold">{option.title}</span>
-                    <span className="mt-1 block font-mono text-xs font-bold text-primary uppercase">{option.meta}</span>
-                    <span className="mt-2 block max-w-xl text-sm leading-6 text-muted-foreground">{option.description}</span>
+                    <span className="font-heading text-3xl font-bold">
+                      {option.title}
+                    </span>
+                    <span className="mt-1 block font-mono text-xs font-bold text-primary uppercase">
+                      {option.meta}
+                    </span>
+                    <span className="mt-2 block max-w-xl text-sm leading-6 text-muted-foreground">
+                      {option.description}
+                    </span>
                   </span>
-                  <span className={cn("mt-2 size-5 border-2 border-foreground", selected && "border-[6px] border-primary bg-background")} aria-hidden="true" />
+                  <span
+                    className={cn(
+                      "mt-2 size-5 border-2 border-foreground",
+                      selected && "border-[6px] border-primary bg-background"
+                    )}
+                    aria-hidden="true"
+                  />
                 </button>
               )
             })}
@@ -101,7 +127,9 @@ export function ExamLabSetup({
 
           {mode === "section" ? (
             <fieldset className="mt-8">
-              <legend className="ink-label text-muted-foreground">Choose a section</legend>
+              <legend className="ink-label text-muted-foreground">
+                Choose a section
+              </legend>
               <div className="mt-3 flex flex-wrap gap-3">
                 {SECTIONS.map((value) => (
                   <Button
@@ -119,7 +147,13 @@ export function ExamLabSetup({
             </fieldset>
           ) : null}
 
-          <Button type="button" size="xl" className="mt-9" onClick={onStart} disabled={busy}>
+          <Button
+            type="button"
+            size="xl"
+            className="mt-9"
+            onClick={onStart}
+            disabled={busy}
+          >
             <TimerResetIcon data-icon="inline-start" />
             {busy ? "Preparing secure form…" : "Enter the Test Day Lab"}
           </Button>
@@ -128,26 +162,45 @@ export function ExamLabSetup({
         <aside className="lg:pt-8">
           <ScoutCoach
             mood="ready"
-            message="Treat this like rehearsal, not judgment. The useful signal is where your decisions change under pressure."
-            detail="Questions and answer keys stay server-owned. The AI debrief receives aggregate evidence only."
+            message="Treat this as practice, not a final judgment. Notice where the timer changes how you answer."
+            detail="Answer keys stay hidden until you submit. AI sees only your overall results, not the answer key or question text."
           />
           <section className="mt-8 border-y-2 border-foreground py-6">
-            <h2 className="font-heading text-3xl font-bold">Lab protocol</h2>
+            <h2 className="font-heading text-3xl font-bold">
+              Before you start
+            </h2>
             <ol className="mt-5 space-y-4">
               {[
-                [Clock3Icon, "The section clock keeps running while you navigate."],
-                [GaugeIcon, "Mark confidence honestly: Guess, Unsure, or Sure."],
-                [ShieldCheckIcon, "Review flags before submission; correctness stays hidden."],
+                [
+                  Clock3Icon,
+                  "The section clock keeps running while you navigate.",
+                ],
+                [
+                  GaugeIcon,
+                  "Mark confidence honestly: Guess, Unsure, or Sure.",
+                ],
+                [
+                  ShieldCheckIcon,
+                  "Review flags before submission; correctness stays hidden.",
+                ],
               ].map(([Icon, text], index) => (
-                <li key={text as string} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 text-sm leading-6">
+                <li
+                  key={text as string}
+                  className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 text-sm leading-6"
+                >
                   <Icon className="mt-0.5 text-primary" aria-hidden="true" />
-                  <span><strong className="font-mono text-xs">0{index + 1}</strong><br />{text as string}</span>
+                  <span>
+                    <strong className="font-mono text-xs">0{index + 1}</strong>
+                    <br />
+                    {text as string}
+                  </span>
                 </li>
               ))}
             </ol>
           </section>
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            This uses original practice content and produces an estimated practice range—not an official ACT score.
+            This uses original practice content and produces an estimated
+            practice range—not an official ACT score.
           </p>
         </aside>
       </div>

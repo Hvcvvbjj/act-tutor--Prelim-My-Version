@@ -50,7 +50,7 @@ describe("Exam Lab scoring", () => {
     const result = scoreExamLab("sprint", form.questions, {});
     const debrief = buildAuthoredExamDebrief(result, "2026-07-12T12:00:00.000Z");
     expect(debrief.priorities).toHaveLength(2);
-    expect(debrief.nextAction).toContain("Assign");
+    expect(debrief.nextAction).toContain("Start a short");
     expect(debrief.generation.mode).toBe("authored-fallback");
   });
 });

@@ -115,7 +115,7 @@ describe("FileStudyPlanRepository", () => {
     expect(updated.tasks.filter((task) => task.date === INPUT.today)).toEqual(
       todayTasks,
     );
-    expect(updated.revisionReason).toContain("Availability changed");
+    expect(updated.revisionReason).toContain("schedule changed");
   });
 
   it("idempotently records completion", async () => {
@@ -159,7 +159,7 @@ describe("FileStudyPlanRepository", () => {
       .map((task) => task.skill);
 
     expect(after).not.toEqual(before);
-    expect(synced.revisionReason).toContain("mastery evidence");
+    expect(synced.revisionReason).toContain("recent answers");
   });
 
   it("replaces a stale plan when baseline identity changes", async () => {

@@ -133,6 +133,7 @@ export class FileStudyPlanRepository {
       const existing = sessionId ? store.sessions[sessionId] : undefined;
       if (
         existing &&
+        existing.plan.copyVersion === 2 &&
         existing.plan.today === input.today &&
         existing.plan.testDate === input.testDate &&
         sameScores(existing.plan.current, input.current) &&
@@ -166,7 +167,7 @@ export class FileStudyPlanRepository {
         availability,
         updatedAt: now,
         reason:
-          "Availability changed. Future work was redistributed while today and completed work stayed frozen.",
+          "Your schedule changed, so Scout moved future work. Today’s work and finished tasks did not change.",
       });
       session.updatedAt = now;
       await this.writeStore(store);
@@ -187,7 +188,7 @@ export class FileStudyPlanRepository {
         skills,
         updatedAt: now,
         reason:
-          "New mastery evidence changed future priorities; today and completed work stayed frozen.",
+          "Your recent answers changed what comes next. Today’s work and finished tasks did not change.",
       });
       session.updatedAt = now;
       await this.writeStore(store);
