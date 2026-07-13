@@ -4,14 +4,18 @@ import { useEffect, useState } from "react"
 import {
   buildPlanIntensity,
   calendarDaysUntil,
+  diagnosticResultToEvidence,
   normalizeCurrentScore,
   selectTargetVector,
   type CoreSection,
   type CoreSectionScores,
+  type DiagnosticResult,
+  type NormalizedScoreEvidence,
 } from "@act-tutor/core"
 
 import { Dashboard } from "@/components/tutor/dashboard"
 import { DiagnosticIntro } from "@/components/tutor/diagnostic-intro"
+import { DiagnosticRunner } from "@/components/tutor/diagnostic-runner"
 import { Onboarding } from "@/components/tutor/onboarding"
 import type { GeneratedPlan, PlacementDraft } from "@/components/tutor/types"
 
@@ -97,7 +101,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   )
   const [step, setStep] = useState(1)
   const [surface, setSurface] = useState<
-    "onboarding" | "dashboard" | "diagnostic"
+    "onboarding" | "dashboard" | "diagnostic" | "diagnostic-runner"
   >("onboarding")
   const [plan, setPlan] = useState<GeneratedPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -139,6 +143,45 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     setError(null)
   }
 
+  function buildPlanFromEvidence(
+    evidence: NormalizedScoreEvidence,
+    baseline: CoreSectionScores,
+    currentComposite: number,
+    diagnosticResult?: DiagnosticResult
+  ) {
+    const daysUntilTest = calendarDaysUntil(today, draft.testDate)
+    if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
+      throw new RangeError("Choose a test date after today.")
+    }
+
+    const target = selectTargetVector({
+      current: baseline,
+      goalComposite: draft.goal,
+      opportunityWeights: {
+        english: 36 - baseline.english,
+        math: 36 - baseline.math,
+        reading: 36 - baseline.reading,
+      },
+    })
+    const intensity = buildPlanIntensity({
+      daysUntilTest,
+      current: baseline,
+      target: target.scores,
+    })
+
+    setPlan({
+      draft,
+      evidence,
+      target,
+      intensity,
+      currentComposite,
+      weakestSection: weakestSection(baseline),
+      ...(diagnosticResult ? { diagnosticResult } : {}),
+    })
+    setSurface("dashboard")
+    setError(null)
+  }
+
   function createPlan() {
     try {
       const daysUntilTest = calendarDaysUntil(today, draft.testDate)
@@ -170,32 +213,11 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
       const baseline = evidence.planningBaseline
       if (!baseline)
         throw new Error("Section scores are required for this path.")
-
-      const target = selectTargetVector({
-        current: baseline,
-        goalComposite: draft.goal,
-        opportunityWeights: {
-          english: 36 - baseline.english,
-          math: 36 - baseline.math,
-          reading: 36 - baseline.reading,
-        },
-      })
-      const intensity = buildPlanIntensity({
-        daysUntilTest,
-        current: baseline,
-        target: target.scores,
-      })
-
-      setPlan({
-        draft,
+      buildPlanFromEvidence(
         evidence,
-        target,
-        intensity,
-        currentComposite: evidence.calculatedComposite ?? draft.composite,
-        weakestSection: weakestSection(baseline),
-      })
-      setSurface("dashboard")
-      setError(null)
+        baseline,
+        evidence.calculatedComposite ?? draft.composite
+      )
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -222,6 +244,33 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         goal={draft.goal}
         testDate={draft.testDate}
         onBack={startOver}
+        onStart={() => setSurface("diagnostic-runner")}
+      />
+    )
+  }
+
+  if (surface === "diagnostic-runner") {
+    return (
+      <DiagnosticRunner
+        onBack={() => setSurface("diagnostic")}
+        onComplete={(result) => {
+          try {
+            const evidence = diagnosticResultToEvidence(result)
+            buildPlanFromEvidence(
+              evidence,
+              result.planningBaseline,
+              result.compositeRange.estimate,
+              result
+            )
+          } catch (caught) {
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "We could not build the plan from this baseline."
+            )
+            setSurface("diagnostic")
+          }
+        }}
       />
     )
   }

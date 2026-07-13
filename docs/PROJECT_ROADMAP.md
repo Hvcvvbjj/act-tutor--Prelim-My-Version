@@ -1,6 +1,6 @@
-# AI ACT Tutor — 36-Day Build Roadmap
+# AI ACT Tutor — Build Roadmap
 
-## Outcome for day 36
+## Target outcome
 
 The goal is a deployed, credible MVP that proves one complete adaptive learning loop:
 
@@ -13,7 +13,7 @@ The goal is a deployed, credible MVP that proves one complete adaptive learning 
 
 The central proof is not a generic chatbot. Two students with different evidence must receive different work, and a new answer must visibly change the next learning action. AI-generated re-explanations make the product friendlier, but deterministic code owns scoring, answer keys, mastery, schedules, and question selection.
 
-This roadmap assumes 36 calendar days before the event. It works for a solo builder, but the workstreams can be divided among a small team. If available time is limited, complete every P0 gate before taking on P1 depth or P2 polish.
+This roadmap is milestone-based rather than calendar-based. It works for a solo builder, but the workstreams can be divided among a small team. Complete every P0 gate before taking on P1 depth or P2 polish, regardless of how much time remains before the event.
 
 ## What ships in the MVP
 
@@ -55,25 +55,25 @@ Working locally or in verification:
 - full-score, Composite-only, and never-tested branching, optional Science input, custom/quick test dates, and past-date rejection;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section target selection, and runway intensity modes;
 - a generated Today/Plan/Progress dashboard, assignment reasons, and an authored lesson preview;
-- a diagnostic setup screen with half-length as the intended path and rapid mode as a fallback.
+- a working 12-question starter diagnostic with original reviewed content, autosave/resume, hidden pre-submit keys, deterministic scoring, baseline results, and planner handoff.
 
 Not complete yet:
 
 - timezone capture, server persistence, anonymous auth, and RLS;
-- the diagnostic runner, original reviewed question bank, score-range calibration, and baseline results;
+- the full 66-question bank, 24-question rapid form, stronger calibration, database-backed atomic finalization, and broader reviewed content;
 - skill taxonomy/mastery, focused practice, answer feedback, spaced repetition, and future-plan regeneration;
 - Playwright, CI, hosted deployment, AI adapters, and production resilience/security proof.
 
-The immediate next gate is a real diagnostic slice: shared content contracts, a small reviewed original question set, a resumable runner, deterministic submission/scoring, and an estimated baseline that feeds the same plan engine.
+The immediate next gate is diagnostic depth and persistence: expand the reviewed bank, add a versioned content validator, persist anonymous sessions server-side, and make finalization idempotent and atomic while preserving the working baseline-to-plan handoff.
 
 ## Operating model
 
-### Suggested daily capacity
+### Execution rhythm
 
-- Plan for one focused build block on weekdays and a longer integration block on weekends.
-- End each day with a runnable main branch, a short progress note, and the next day's first task already chosen.
-- Reserve days 7, 17, 22, 30, and 34 for integration or recovery. Do not pre-spend those buffers on stretch work.
-- Treat day 35 as a hard feature freeze and day 36 as final verification, not development time.
+- Work one milestone at a time and keep the current branch runnable after each completed slice.
+- End each build block with a short progress note and the next concrete task already chosen.
+- Keep explicit integration and recovery checkpoints between major product phases.
+- Enter feature freeze only after every P0 gate passes; use the final stage for verification rather than feature development.
 
 ### Team ownership
 
@@ -84,7 +84,7 @@ The immediate next gate is a real diagnostic slice: shared content contracts, a 
 | Engine/backend | schema, scoring, mastery, plan generation, persistence, security |
 | Content/AI/QA | taxonomy, original questions, lessons, model prompts/fallbacks, content review, E2E QA |
 
-For a solo build, follow the day order below and avoid working on more than one major feature at a time. For a team, the frontend and engine tracks can run in parallel once the shared schemas are merged; content work should continue throughout the 36-day runway.
+For a solo build, follow the milestone order below and avoid working on more than one major feature at a time. For a team, the frontend and engine tracks can run in parallel once the shared schemas are merged; content work should continue throughout the project.
 
 ### GitHub workflow
 
@@ -106,9 +106,9 @@ An item is complete only when:
 - user-facing claims and content have been reviewed;
 - setup or architecture documentation is updated when behavior changes.
 
-## Phase 1 — Foundation and contracts, days 1–7
+## Phase 1 — Foundation and contracts
 
-### Day 1 — Freeze the MVP and organize execution
+### Milestone 1 — Freeze the MVP and organize execution
 
 Goals:
 
@@ -127,7 +127,7 @@ Deliverables:
 
 Gate: everyone can explain the same seven-step learner journey and name the features that will be cut first.
 
-### Day 2 — Initialize the application and continuous integration
+### Milestone 2 — Initialize the application and continuous integration
 
 Backlog: 0.1 and the CI portion of 0.3.
 
@@ -139,7 +139,7 @@ Backlog: 0.1 and the CI portion of 0.3.
 
 Gate: a minimal page builds locally and in CI from a clean checkout.
 
-### Day 3 — Establish database and deployment foundations
+### Milestone 3 — Establish database and deployment foundations
 
 Backlog: 0.2 and 0.3.
 
@@ -151,7 +151,7 @@ Backlog: 0.2 and 0.3.
 
 Gate: an incognito visitor can open the deployment and create an anonymous session; another session cannot read its profile.
 
-### Day 4 — Define domain contracts before feature code
+### Milestone 4 — Define domain contracts before feature code
 
 Backlog: 2.1 and 2.2.
 
@@ -163,7 +163,7 @@ Backlog: 2.1 and 2.2.
 
 Gate: both UI and server code can import the same validated contracts, and answer keys have no public type or endpoint.
 
-### Day 5 — Build the application shell and route map
+### Milestone 5 — Build the application shell and route map
 
 - Create routes for onboarding, diagnostic, results, dashboard, lesson, and practice.
 - Build shared score/date fields, progress stepper, question card, task card, mastery badge, and feedback panel.
@@ -172,7 +172,7 @@ Gate: both UI and server code can import the same validated contracts, and answe
 
 Gate: a mobile-sized browser and desktop browser can click through the entire static happy path with a keyboard.
 
-### Day 6 — Create the content pipeline and first trusted content
+### Milestone 6 — Create the content pipeline and first trusted content
 
 Backlog: 2.3 and the first slice of 2.4.
 
@@ -183,7 +183,7 @@ Backlog: 2.3 and the first slice of 2.4.
 
 Gate: only published content imports; intentionally malformed or unreviewed fixtures fail validation.
 
-### Day 7 — Foundation integration checkpoint
+### Milestone 7 — Foundation integration checkpoint
 
 - Merge the week's P0 work and remove temporary contract inconsistencies.
 - Run the clean-checkout setup and deploy from `main`.
@@ -198,9 +198,9 @@ Phase gate:
 - Anonymous auth and RLS have a working proof.
 - Original content can be validated and seeded.
 
-## Phase 2 — Placement and diagnostic, days 8–12
+## Phase 2 — Placement and diagnostic
 
-### Day 8 — Implement the three-gate onboarding UI
+### Milestone 8 — Implement the three-gate onboarding UI
 
 Backlog: 1.1, 1.2, and 1.3.
 
@@ -213,7 +213,7 @@ Backlog: 1.1, 1.2, and 1.3.
 
 Gate: both branches are usable by keyboard and screen-reader labels clearly describe every score.
 
-### Day 9 — Persist onboarding and create placement sessions
+### Milestone 9 — Persist onboarding and create placement sessions
 
 Backlog: 1.4 and 3.1.
 
@@ -225,7 +225,7 @@ Backlog: 1.4 and 3.1.
 
 Gate: a returning anonymous session resumes correctly, while a separate browser session is denied access.
 
-### Day 10 — Build the diagnostic runner
+### Milestone 10 — Build the diagnostic runner
 
 Backlog: 3.2.
 
@@ -238,7 +238,7 @@ Backlog: 3.2.
 
 Gate: a student can refresh mid-assessment, resume at the same point, and finish without losing answers.
 
-### Day 11 — Implement scoring and atomic finalization
+### Milestone 11 — Implement scoring and atomic finalization
 
 Backlog: 3.3, 4.1, and the first slice of 4.2.
 
@@ -250,7 +250,7 @@ Backlog: 3.3, 4.1, and the first slice of 4.2.
 
 Gate: known response fixtures return expected section ranges, and optional Science cannot change the Composite.
 
-### Day 12 — Build baseline results and test both placement paths
+### Milestone 12 — Build baseline results and test both placement paths
 
 - Show estimated score ranges, confidence, strengths, weaknesses, and goal gap.
 - Label shortened-diagnostic results as estimated practice ranges, never official or guaranteed scores.
@@ -263,9 +263,9 @@ Phase gate:
 - A completed diagnostic deterministically produces a baseline and skill evidence.
 - Answer keys remain server-only.
 
-## Phase 3 — Adaptive engine and plan generation, days 13–17
+## Phase 3 — Adaptive engine and plan generation
 
-### Day 13 — Implement skill mastery and evidence confidence
+### Milestone 13 — Implement skill mastery and evidence confidence
 
 Backlog: 4.3.
 
@@ -277,7 +277,7 @@ Backlog: 4.3.
 
 Gate: the same answer evidence always produces the same mastery profile, and sparse evidence cannot masquerade as confidence.
 
-### Day 14 — Convert submitted scores into useful provisional priors
+### Milestone 14 — Convert submitted scores into useful provisional priors
 
 - Map section scores to broad category priors without pretending to know exact skill weaknesses.
 - Make confidence visibly lower than diagnostic-derived evidence.
@@ -286,7 +286,7 @@ Gate: the same answer evidence always produces the same mastery profile, and spa
 
 Gate: a score-only learner receives a useful initial plan that openly distinguishes known facts from inferred weaknesses.
 
-### Day 15 — Generate goal-aligned targets and rank skills
+### Milestone 15 — Generate goal-aligned targets and rank skills
 
 Backlog: 5.1 and 5.2.
 
@@ -298,7 +298,7 @@ Backlog: 5.1 and 5.2.
 
 Gate: two seeded learners with different evidence receive materially different ranked skill lists.
 
-### Day 16 — Build the dated scheduler
+### Milestone 16 — Build the learner scheduler
 
 Backlog: 5.3.
 
@@ -310,7 +310,7 @@ Backlog: 5.3.
 
 Gate: tests cover a near test date, six-week date, long runway, oversized goal gap, no available content, and timezone boundary.
 
-### Day 17 — Plan engine integration checkpoint
+### Milestone 17 — Plan engine integration checkpoint
 
 - Connect both placement paths to mastery, target selection, prioritization, and scheduling.
 - Build the plan summary and a simple weekly list or calendar.
@@ -325,9 +325,9 @@ Phase gate:
 - No task is scheduled after the test date.
 - Plan generation remains deterministic with AI disabled.
 
-## Phase 4 — Daily learning and adaptation, days 18–22
+## Phase 4 — Daily learning and adaptation
 
-### Day 18 — Build the dashboard and today's path
+### Milestone 18 — Build the dashboard and today’s path
 
 Backlog: 6.1.
 
@@ -338,7 +338,7 @@ Backlog: 6.1.
 
 Gate: a first-time student can understand what to do next without reading an algorithm explanation.
 
-### Day 19 — Build trusted micro-lessons
+### Milestone 19 — Build trusted micro-lessons
 
 Backlog: 6.2.
 
@@ -349,7 +349,7 @@ Backlog: 6.2.
 
 Gate: all core lesson content works offline from the model provider and contains no copied ACT material.
 
-### Day 20 — Build focused practice and feedback
+### Milestone 20 — Build focused practice and feedback
 
 Backlog: 6.3.
 
@@ -360,7 +360,7 @@ Backlog: 6.3.
 
 Gate: one intentional English and one Math mistake reliably surface the expected skill and corrective explanation.
 
-### Day 21 — Add spaced repetition and future-plan regeneration
+### Milestone 21 — Add spaced repetition and future-plan regeneration
 
 Backlog: 6.4 and 6.5.
 
@@ -372,7 +372,7 @@ Backlog: 6.4 and 6.5.
 
 Gate: a fixture learner's wrong answer visibly changes mastery, review timing, and a future task.
 
-### Day 22 — Complete adaptive-loop integration checkpoint
+### Milestone 22 — Complete adaptive-loop integration checkpoint
 
 - Run Onboarding → Baseline → Plan → Lesson → Practice → Feedback → Updated Plan in production.
 - Run the path for both submitted-score and diagnostic students.
@@ -386,9 +386,9 @@ Phase gate:
 - A judge can see why work was assigned and how an answer changed future work.
 - Refreshes and duplicate actions do not corrupt progress.
 
-## Phase 5 — AI layer, content depth, and product polish, days 23–30
+## Phase 5 — AI layer, content depth, and product polish
 
-### Day 23 — Create the bounded tutor interface and template provider
+### Milestone 23 — Create the bounded tutor interface and template provider
 
 Backlog: 7.1 and 7.3.
 
@@ -400,7 +400,7 @@ Backlog: 7.1 and 7.3.
 
 Gate: every AI-enabled surface still produces a trusted response when no model is configured.
 
-### Day 24 — Integrate one live model provider
+### Milestone 24 — Integrate one live model provider
 
 Backlog: 7.2.
 
@@ -412,7 +412,7 @@ Backlog: 7.2.
 
 Gate: a provider outage or malformed response cannot block, rescore, or contradict the canonical learning flow.
 
-### Day 25 — Add “Explain another way” and prompt evaluation
+### Milestone 25 — Add “Explain another way” and prompt evaluation
 
 Backlog: 7.4.
 
@@ -423,7 +423,7 @@ Backlog: 7.4.
 
 Gate: evaluation fixtures pass and the fallback is visibly graceful on timeout.
 
-### Day 26 — Add high-value P1 usability improvements
+### Milestone 26 — Add high-value P1 usability improvements
 
 Backlog: 5.4 and, only if core stability permits, 6.6.
 
@@ -434,7 +434,7 @@ Backlog: 5.4 and, only if core stability permits, 6.6.
 
 Gate: availability changes preserve history and never move tasks beyond the test date.
 
-### Day 27 — Expand reviewed diagnostic and practice content
+### Milestone 27 — Expand reviewed diagnostic and practice content
 
 Backlog: 2.4 and 2.5.
 
@@ -445,7 +445,7 @@ Backlog: 2.4 and 2.5.
 
 Gate: the content report shows coverage, review state, license, and available variants by skill.
 
-### Day 28 — Content, calibration, and copyright audit
+### Milestone 28 — Content, calibration, and copyright audit
 
 - Independently solve every item visible in the demo.
 - Review canonical rationales, distractor misconceptions, difficulty, timing, skill tags, and prerequisite links.
@@ -455,7 +455,7 @@ Gate: the content report shows coverage, review state, license, and available va
 
 Gate: no demo-critical question has a disputed key, missing review, or unclear provenance.
 
-### Day 29 — Security and privacy hardening
+### Milestone 29 — Security and privacy hardening
 
 Backlog: 8.1 and 8.2.
 
@@ -467,7 +467,7 @@ Backlog: 8.1 and 8.2.
 
 Gate: security tests pass from two isolated users and no privileged credential is present client-side.
 
-### Day 30 — Accessibility, mobile, resilience, and performance checkpoint
+### Milestone 30 — Accessibility, mobile, resilience, and performance checkpoint
 
 Backlog: 8.3.
 
@@ -482,9 +482,9 @@ Phase gate:
 - The MVP is content-trustworthy, secure at its main boundaries, mobile usable, and resilient to an AI outage.
 - P1 work has not destabilized the deterministic adaptive loop.
 
-## Phase 6 — Validation, presentation, and freeze, days 31–36
+## Phase 6 — Validation, presentation, and freeze
 
-### Day 31 — Complete automated critical journeys
+### Milestone 31 — Complete automated critical journeys
 
 Backlog: 9.1 and 9.2.
 
@@ -495,7 +495,7 @@ Backlog: 9.1 and 9.2.
 
 Gate: all P0 checks pass from a clean database seed and a clean browser context.
 
-### Day 32 — Conduct learner usability tests
+### Milestone 32 — Conduct learner usability tests
 
 - Recruit three to five people who did not build the product.
 - Give them a goal, prior-score/no-score scenario, and no navigation coaching.
@@ -505,7 +505,7 @@ Gate: all P0 checks pass from a clean database seed and a clean browser context.
 
 Gate: most testers complete onboarding and find today's task without help; they can explain that the plan adapts from evidence.
 
-### Day 33 — Build the pitch and evidence package
+### Milestone 33 — Build the pitch and evidence package
 
 Backlog: 9.4.
 
@@ -522,7 +522,7 @@ Create one architecture visual, one baseline-to-plan example, current-versus-goa
 
 Gate: the primary and backup presenter can finish under time twice without rushing.
 
-### Day 34 — Run adversarial production testing
+### Milestone 34 — Run adversarial production testing
 
 Backlog: 9.3.
 
@@ -532,7 +532,7 @@ Fix only demonstrated demo-breaking or trust-breaking failures. Do not start an 
 
 Gate: three clean runs from reset to visible adaptation, including one AI-disabled run.
 
-### Day 35 — Feature freeze and submission preparation
+### Milestone 35 — Feature freeze and submission preparation
 
 - Stop feature development.
 - Update README, setup steps, architecture notes, screenshots, and team contributions.
@@ -544,7 +544,7 @@ Gate: three clean runs from reset to visible adaptation, including one AI-disabl
 
 Gate: the release candidate can be rebuilt or restored by someone other than its primary developer.
 
-### Day 36 — Final verification and event readiness
+### Milestone 36 — Final verification and event readiness
 
 - Open every submitted link from a non-team device and account.
 - Confirm production environment variables, database health, rate limits, and reset behavior.
@@ -574,7 +574,7 @@ Final gate: the public URL, repository, pitch, backup assets, and seeded demo al
 
 Use a seeded student so the live presentation does not spend its limited time completing a long diagnostic.
 
-> “Meet Maya. She wants a 30, currently has a 24, and takes the ACT in 36 days.”
+> “Meet Maya. She wants a 30, currently has a 24, and has an upcoming ACT date.”
 
 1. Show Maya's section scores and the target date.
 2. Point out the weak section and the provisional confidence.
@@ -601,7 +601,7 @@ Close with:
 | Misleading score claim | UI shows a precise guarantee | use ranges, confidence, calibration version, and estimate disclaimer |
 | Copyright problem | item resembles copied prep material | require original/licensed provenance and content review metadata |
 | Privacy overreach | unnecessary identity data is collected | anonymous-first design, minimal fields, deletion, documented retention |
-| Fragile deployment | behavior only works locally | deploy by day 3 and test the hosted path throughout development |
+| Fragile deployment | behavior only works locally | deploy during the foundation phase and test the hosted path throughout development |
 | Merge conflicts | long-lived branches diverge | merge small contract-first PRs and use scheduled integration days |
 | Last-minute regression | feature work continues after freeze | lock the day-35 release commit and use backup video/assets |
 

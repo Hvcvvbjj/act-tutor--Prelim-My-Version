@@ -1,4 +1,5 @@
 import type {
+  DiagnosticResult,
   NormalizedScoreEvidence,
   PlanIntensity,
   TargetVector,
@@ -26,4 +27,5 @@ export interface GeneratedPlan {
   intensity: PlanIntensity
   currentComposite: number
   weakestSection: "english" | "math" | "reading"
+  diagnosticResult?: DiagnosticResult
 }

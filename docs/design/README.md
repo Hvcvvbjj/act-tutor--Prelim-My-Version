@@ -85,8 +85,21 @@ Compared at the concept's native desktop viewport (`1487 × 1058`) and the mobil
 3. **Visual system — matched.** White canvas, deep navy type, cobalt actions/path, cool gray rules, flat surfaces, and restrained radii all carry through to code.
 4. **Dashboard structure — matched.** The Today path, vertical progression line, three task rows, and right-side provisional score panel use the accepted concept's geometry.
 5. **Responsive behavior — matched.** Mobile checks at `390 × 844` and `853 × 1844` showed no horizontal overflow, retained large targets, and kept the primary action visible.
-6. **Interaction — expanded faithfully.** The coded version adds full-score, Composite-only, and never-tested branches, inline validation, plan/progress tabs, lesson completion, and mode-specific diagnostic setup without changing the visual thesis.
+6. **Interaction — expanded faithfully.** The coded version adds full-score, Composite-only, and never-tested branches, inline validation, plan/progress tabs, lesson completion, and the diagnostic runner without changing the visual thesis.
 7. **Intentional deviation — honest time allocation.** The concept's task times totaled 23 minutes; implementation uses 8 + 12 + 10 minutes so the visible work matches the promised 30-minute session.
 8. **Intentional deviation — dynamic scheduling.** “Tomorrow” and “Friday checkpoint” became “Next session” and a computed checkpoint cadence so the interface does not make a false calendar promise.
 
 Temporary implementation captures used for this review were kept outside the repository so dev-browser chrome is not shipped as a product asset.
+
+## Diagnostic-runner extension ledger
+
+The runner extends `dashboard-desktop-concept.png` rather than introducing a new visual direction. It was compared at `1487 × 1058` desktop and `390 × 844` mobile:
+
+1. **Palette — matched.** True white, deep navy, cobalt progress/action color, cool rules, and the existing information surface are unchanged.
+2. **Container model — matched.** The runner uses an open workspace with a narrow evidence/progress rail, not a new card shell or marketing wrapper.
+3. **Typography — matched.** Brand, utility labels, question display type, body copy, and control text keep the existing Geist hierarchy and weights.
+4. **Progress motif — matched.** Section dots and the cobalt question bar reuse the dashboard path and onboarding progress language.
+5. **Interaction rows — matched.** Answer choices use the same flat bordered-row family as dashboard tasks and score-choice fields, with code-native labels and focusable radio controls.
+6. **Responsive behavior — matched.** Desktop keeps the rail beside the question; mobile compresses section progress to one row and retains zero horizontal overflow.
+7. **Above-the-fold copy — intentional extension.** Only workflow-required diagnostic copy was added: form title, save/exit, section progress, question count, skill label, stimulus, prompt, choices, and navigation. No decorative badge, hero kicker, fake metric, or unrelated product claim was introduced.
+8. **Intentional deviation — no score rail during testing.** Scores remain hidden before submission, so the dashboard score panel becomes section completion; estimated ranges appear only on the result surface.

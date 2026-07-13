@@ -20,12 +20,18 @@ This table records local evidence only. It does not mark an issue `done` before 
 | 1.1 | goal-score gate and versioned local refresh persistence are implemented | finish browser, keyboard, and mobile acceptance verification |
 | 1.2 | full-score, Composite-only low-confidence, and never-tested branches plus optional Science are implemented and manually exercised | add automated browser coverage and preview acceptance proof |
 | 1.3 | quick/custom dates, past-date rejection, and routing to plan or diagnostic setup are implemented | capture timezone and add browser coverage |
+| 2.2 | typed public/secure diagnostic contracts cover version, choices, skill, difficulty, key, rationale, and stimulus text | add Zod schemas, status/license/review metadata, stimulus groups, and importer validation |
+| 2.4 | 12 original starter questions cover two skills in each core section | complete independent content review and expand supported skills/sequences |
+| 3.1 | the starter form freezes IDs, versions, order, and form version | move session ownership and frozen form state to persistent server storage |
+| 3.2 | the working runner shows section/progress, hides correctness, autosaves, exits, and resumes | add automated keyboard/focus coverage and server-backed cross-device resume |
+| 3.3 | server-side deterministic scoring creates section ranges, skill signals, baseline evidence, and planner handoff | make database finalization atomic and duplicate submission idempotent |
 | 4.1 | English/Math/Reading round-half-up Composite logic and Science-exclusion unit tests exist | keep this covered in the integrated placement and diagnostic paths |
+| 4.2 | a wide, smoothed starter calibration returns bounded section and Composite practice ranges | calibrate against larger reviewed forms and version lookup tables |
 | 5.1 | deterministic feasible target-vector selection and unit tests exist | expose/verify edge-case rationale in the integrated plan flow |
 | 5.3 | runway modes and weekly intensity are implemented | generate and persist actual dated tasks within capacity |
 | 6.1 | Today/Plan/Progress dashboard shell, assignment reasons, and provisional confidence are implemented | connect persisted baseline ranges, real tasks, and completion/adaptation state |
 
-The diagnostic setup screen is not a diagnostic runner. Diagnostic content, answering, submission, score ranges, mastery evidence, and baseline results remain open work.
+The starter diagnostic is a real end-to-end slice, not the finished assessment system. The complete half-length and rapid forms, durable sessions, atomic database finalization, calibrated score tables, and longitudinal mastery remain open work.
 
 ## Epic 0 — Foundation
 
@@ -296,7 +302,7 @@ Acceptance criteria:
 
 ### 9.1 Create seeded demo learner and reset — P0
 
-- Maya fixture has a goal of 30, current 24, a 36-day runway, and intended English/Math weakness.
+- Maya fixture has a goal of 30, current 24, an upcoming ACT date, and intended English/Math weakness.
 - Reset is one protected action or script.
 - Seed contains no real student information.
 

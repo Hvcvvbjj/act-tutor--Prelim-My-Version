@@ -139,7 +139,7 @@ function ScoreStrip({ plan }: { plan: GeneratedPlan }) {
   const sections =
     plan.evidence.reportedSections ?? plan.evidence.planningBaseline
   if (!sections) return null
-  const estimated = plan.evidence.source === "composite_only"
+  const estimated = plan.evidence.reportedSections === null
 
   return (
     <dl className="grid grid-cols-4 divide-x">
@@ -164,6 +164,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   const [lessonOpen, setLessonOpen] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
   const compositeOnly = plan.evidence.source === "composite_only"
+  const diagnostic = plan.diagnosticResult
   const sectionFocus = FOCUS_CONTENT[plan.weakestSection]
   const focus = compositeOnly
     ? {
@@ -393,9 +394,11 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
                 Progress starts with evidence
               </h1>
               <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-                {compositeOnly
-                  ? "Your Composite sets a rough starting point. The first sessions use skill probes to find whether the real gap is algebra, redundancy, inference, pacing, or something else."
-                  : "Your section scores set the broad direction. The first sessions include skill probes so the plan can learn whether the real gap is algebra, redundancy, inference, pacing, or something else."}
+                {diagnostic
+                  ? `Your starter diagnostic found direct evidence across ${diagnostic.skillResults.length} skills. The first sessions will deepen that evidence and narrow the estimated range.`
+                  : compositeOnly
+                    ? "Your Composite sets a rough starting point. The first sessions use skill probes to find whether the real gap is algebra, redundancy, inference, pacing, or something else."
+                    : "Your section scores set the broad direction. The first sessions include skill probes so the plan can learn whether the real gap is algebra, redundancy, inference, pacing, or something else."}
               </p>
               <div className="mt-10 max-w-2xl">
                 <ScoreStrip plan={plan} />
@@ -404,8 +407,9 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
                 <InfoIcon />
                 <AlertTitle>Provisional skill map</AlertTitle>
                 <AlertDescription>
-                  Complete the first three sessions to replace section-level
-                  assumptions with direct skill evidence.
+                  {diagnostic
+                    ? `First focus: ${diagnostic.focusSkills[0]?.label ?? "mixed skill practice"}. Complete the next sessions to confirm or revise this signal.`
+                    : "Complete the first three sessions to replace section-level assumptions with direct skill evidence."}
                 </AlertDescription>
               </Alert>
             </div>
@@ -416,13 +420,19 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           <div className="lg:sticky lg:top-10">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-                Scores (provisional)
+                {diagnostic ? "Estimated baseline" : "Scores (provisional)"}
               </p>
               <InfoIcon className="text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="mt-8">
               <ScoreStrip plan={plan} />
             </div>
+            {diagnostic ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Composite practice range: {diagnostic.compositeRange.low}–
+                {diagnostic.compositeRange.high}
+              </p>
+            ) : null}
             <Separator className="my-10" />
             <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
               This week
@@ -457,11 +467,17 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
             <Separator className="my-10" />
             <Alert className="bg-[var(--info-surface)]">
               <InfoIcon />
-              <AlertTitle>Skill map is still learning about you</AlertTitle>
+              <AlertTitle>
+                {diagnostic
+                  ? "Starter diagnostic complete"
+                  : "Skill map is still learning about you"}
+              </AlertTitle>
               <AlertDescription>
-                {compositeOnly
-                  ? "Your section estimates are provisional. Early skill probes will replace them with direct evidence."
-                  : "Your section scores are provisional. Keep practicing—your plan will get more accurate with time."}
+                {diagnostic
+                  ? "This plan uses direct answers, but the range remains wide until more evidence arrives."
+                  : compositeOnly
+                    ? "Your section estimates are provisional. Early skill probes will replace them with direct evidence."
+                    : "Your section scores are provisional. Keep practicing—your plan will get more accurate with time."}
               </AlertDescription>
             </Alert>
             <p className="mt-8 text-sm leading-6 text-muted-foreground">

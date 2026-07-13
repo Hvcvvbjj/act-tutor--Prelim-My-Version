@@ -47,7 +47,7 @@ Cloudflare Workers AI currently lists Qwen text-generation models and provides a
 
 ## 3. Target repository layout
 
-The current repository has a smaller vertical-slice layout: `apps/web` contains one page with onboarding, dashboard, lesson-preview, and diagnostic-setup components; `packages/core` contains types, scoring, target selection, runway planning, and unit tests; `docs/design` contains accepted visual concepts. The separate route folders, AI/content/database packages, Supabase project, E2E suite, CI workflow, and environment contract below are target additions, not current files.
+The current repository has a smaller vertical-slice layout: `apps/web` contains one page with onboarding, dashboard, lesson-preview, diagnostic-intro, and resumable diagnostic-runner components plus a server-only diagnostic Route Handler; `packages/core` contains types, scoring, diagnostic range/skill scoring, target selection, runway planning, and unit tests; `docs/design` contains accepted visual concepts. The separate AI/content/database packages, Supabase project, E2E suite, CI workflow, and environment contract below are target additions, not current files.
 
 ```text
 /

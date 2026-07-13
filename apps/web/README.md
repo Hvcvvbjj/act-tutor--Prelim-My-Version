@@ -1,6 +1,6 @@
 # AI ACT Tutor web app
 
-This is the Next.js frontend for the AI ACT Tutor workspace. It currently contains the three-gate onboarding flow, the score-based deterministic plan reveal, the dashboard shell, and the diagnostic setup screen.
+This is the Next.js frontend for the AI ACT Tutor workspace. It currently contains the three-gate onboarding flow, the deterministic plan reveal, the dashboard shell, and a working starter diagnostic.
 
 Run it from the repository root so the local `@act-tutor/core` workspace package resolves correctly.
 
@@ -21,9 +21,9 @@ pnpm check
 
 ## Current boundary
 
-The prior-score path produces a deterministic local plan. The no-score path currently configures a half-length or rapid diagnostic, but it does not yet contain the question runner or score a baseline. Supabase persistence, practice/adaptation, AI, and deployment are later milestones.
+The prior-score path produces a deterministic local plan. The no-score path loads 12 original reviewed questions from a Route Handler, autosaves and resumes answers locally, withholds keys until submission, scores a wide estimated range on the server, and feeds the result into the same planner. The full half-length bank, Supabase persistence, practice/adaptation, AI, and deployment are later milestones.
 
-Shared UI primitives live in `components/ui`, tutor surfaces live in `components/tutor`, and trusted score/planning logic lives in the root `packages/core` workspace package. See the root [README](../../README.md), [36-day roadmap](../../docs/36_DAY_ROADMAP.md), and [technical architecture](../../docs/TECHNICAL_ARCHITECTURE.md) for the product plan.
+Shared UI primitives live in `components/ui`, tutor surfaces live in `components/tutor`, and trusted score/planning logic lives in the root `packages/core` workspace package. See the root [README](../../README.md), [milestone roadmap](../../docs/PROJECT_ROADMAP.md), and [technical architecture](../../docs/TECHNICAL_ARCHITECTURE.md) for the product plan.
 
 To add another shadcn component, run from `apps/web`:
 

@@ -363,8 +363,9 @@ export function Onboarding({
                     </FieldGroup>
                   ) : (
                     <p className="mt-6 max-w-xl border-l-2 border-primary pl-4 text-sm leading-6 text-muted-foreground">
-                      We&apos;ll use a half-length baseline diagnostic, then
-                      build your plan from the skills you show us.
+                      We&apos;ll start with a reviewed diagnostic slice, then
+                      build your plan from the skills you show us. The item bank
+                      will expand toward the full half-length form.
                     </p>
                   )}
                 </FieldSet>
