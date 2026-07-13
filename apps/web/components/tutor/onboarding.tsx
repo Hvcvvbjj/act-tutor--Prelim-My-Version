@@ -5,6 +5,7 @@ import {
   ArrowRightIcon,
   LockKeyholeIcon,
   MinusIcon,
+  PlayCircleIcon,
   PlusIcon,
 } from "lucide-react"
 
@@ -35,6 +36,7 @@ interface OnboardingProps {
   today: string
   onBack: () => void
   onContinue: () => void
+  onJudgeDemo: () => void
   onUpdate: (update: Partial<PlacementDraft>) => void
 }
 
@@ -149,6 +151,7 @@ export function Onboarding({
   today,
   onBack,
   onContinue,
+  onJudgeDemo,
   onUpdate,
 }: OnboardingProps) {
   const progress = (step / 3) * 100
@@ -157,7 +160,9 @@ export function Onboarding({
     <div className="min-h-svh bg-background text-foreground">
       <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
         <ScoutMark className="size-11" />
-        <p className="font-heading text-2xl font-black tracking-tight">SCOUT ACT</p>
+        <p className="font-heading text-2xl font-black tracking-tight">
+          SCOUT ACT
+        </p>
       </header>
 
       <main className="grid min-h-[calc(100svh-5rem)] lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
@@ -453,10 +458,22 @@ export function Onboarding({
               </Button>
             </div>
             {step === 1 ? (
-              <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-                <LockKeyholeIcon aria-hidden="true" />
-                No account needed to begin.
-              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <LockKeyholeIcon aria-hidden="true" />
+                  No account needed to begin.
+                </p>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="lg"
+                  onClick={onJudgeDemo}
+                  className="h-auto px-0 font-bold"
+                >
+                  <PlayCircleIcon data-icon="inline-start" />
+                  Preview the adaptive demo
+                </Button>
+              </div>
             ) : null}
           </div>
         </section>

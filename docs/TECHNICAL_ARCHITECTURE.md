@@ -12,17 +12,17 @@ flowchart LR
     C -->|No prior score| E[Diagnostic assessment]
     D --> F[Early skill probes]
     E --> G[Deterministic score estimate]
-    F --> H[Skill mastery state]
+    F --> H[Beta progress plus Bayesian Learning Twin]
     G --> H
-    H --> I[Deterministic plan engine]
+    H --> I[Interpretable next-skill ranking]
     I --> J[Today's lessons and practice]
     J --> K[Attempts and misconceptions]
     K --> H
-    I --> L[Optional AI narration]
+    I --> L[Optional generative lesson composition]
     J --> M[Optional AI hint or re-explanation]
 ```
 
-The dependency arrow points from AI to trusted data, never from trusted scoring to AI output.
+The trusted loop is response scoring → BKT update → next-skill ranking → plan/lesson. Generative AI consumes the selected skill and reviewed content; it never writes answer keys, scores responses, or mutates the Bayesian state.
 
 ## 2. Stack
 
@@ -37,8 +37,8 @@ This table describes the target MVP architecture. The local slice currently impl
 | Database         | Atomic local JSON repository now; Supabase Postgres target                                        | Restart-safe local demo today; hosted relational data, transactions, migrations, RPC, and RLS for production         |
 | Authentication   | Opaque HttpOnly session cookie now; Supabase anonymous auth target                                | No login wall; production records must be durable, server-owned, and user-scoped                                     |
 | DB access        | `@supabase/ssr`, `supabase-js`, generated types                                                   | Direct JWT/RLS model with minimal ORM overhead                                                                       |
-| AI               | Internal interface + provider adapters                                                            | Switch providers without touching learning logic                                                                     |
-| First AI adapter | Cloudflare Workers AI Qwen                                                                        | Chinese/open-weight model option with a free allocation and simple hosted inference                                  |
+| ML student model | Bayesian Knowledge Tracing in `packages/core`                                                     | Persistent, interpretable skill acquisition estimates that run without an external provider                          |
+| Generative AI    | Validated OpenAI-compatible lesson/debrief composers with reviewed fallbacks                      | Switch hosted or local providers without touching scoring or the learner model                                       |
 | Deployment       | Vercel + Supabase                                                                                 | Low-friction previews and production deployment                                                                      |
 | Tests            | Vitest + Playwright + Supabase pgTAP                                                              | Pure logic, end-to-end journeys, and RLS coverage                                                                    |
 | Monitoring       | Sentry + structured privacy-safe events                                                           | Enough visibility for demo and MVP                                                                                   |
@@ -47,7 +47,7 @@ Cloudflare Workers AI currently lists Qwen text-generation models and provides a
 
 ## 3. Target repository layout
 
-The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the mission-path dashboard, interactive Scout tutor, four-stage lesson workspace, the 66-question diagnostic runner, and server-only Route Handlers; `packages/core` contains trusted types, scoring, range/skill signals, targets, mastery, spacing, and planning; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed sessions and the validated OpenAI-compatible lesson composer. Supabase, browser E2E automation, CI, empirical calibration, and production monitoring remain target additions.
+The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, twelve-skill mastery map, Learning Twin inspector, review queue, mistake notebook, interactive Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question diagnostic runner, and the Test Day Lab setup/runner/review/report surfaces; `packages/core` contains trusted types, scoring, range/skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, simulation selection, pacing, confidence-calibration, and planning logic; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed learner, study-plan, and simulation sessions plus validated OpenAI-compatible lesson and debrief composers. Supabase, automated browser E2E, CI, empirical calibration, and production monitoring remain target additions.
 
 ```text
 /
@@ -235,8 +235,10 @@ Suggested Route Handlers:
 - `POST /api/practice/:id/complete`
 - `PATCH /api/tasks/:id`
 - `POST /api/plans/regenerate`
+- `GET|POST|DELETE /api/study-plan`
 - `POST /api/tutor/explain`
 - `POST /api/tutor/hint`
+- `GET|POST|PATCH|DELETE /api/exam-lab`
 - `POST /api/account/link`
 
 Rules for every handler:
@@ -292,6 +294,14 @@ Statuses:
 - Mastered: at least `0.80`, at least five effective observations, and evidence on two days.
 - Review Due: a mastered/practicing skill whose interval elapsed.
 
+The Beta state remains useful for XP-facing progress bands and spaced-review intervals. It is not the only adaptive signal.
+
+### Bayesian Learning Twin
+
+Each of the twelve skills also owns a Bayesian Knowledge Tracing state with P(Learned), P(Guess), P(Slip), and P(Transition). Diagnostic results create smoothed skill priors; submitted scores create cautious priors until direct evidence arrives. Every server-scored practice response performs an observation update followed by a learning transition and stores a public before/after event.
+
+The next-skill policy ranks four explicit features: 52% knowledge gap, 24% model uncertainty, 14% evidence scarcity, and 10% recent lapse pressure. This BKT recommendation controls future skill selection and mixed-checkpoint composition. The UI exposes every feature contribution and labels its readiness forecast as a counterfactual rather than an ACT-score prediction.
+
 ### Planning
 
 1. Enumerate feasible English/Math/Reading target vectors whose rounded mean reaches the goal.
@@ -299,6 +309,8 @@ Statuses:
 3. Rank skills by gap, blueprint importance, weakness, confidence, prerequisites, and review state.
 4. Generate work only within weekly capacity.
 5. Regenerate upcoming future tasks after meaningful new evidence; freeze today's tasks.
+
+The current Plan Studio implements this boundary as a pure `generateStudyPlan`/`rebalanceStudyPlan` engine plus a cookie-bound atomic repository. It supports per-weekday minutes, deterministic task IDs, dated lesson/focus/review/timed/checkpoint/rehearsal work, milestone status, capacity/readiness estimates, idempotent completion, catch-up, and live mastery sync. Rebalancing preserves every task dated today or earlier and every completed task; it only regenerates future unlocked dates.
 
 ### Question selection
 
@@ -434,6 +446,16 @@ pnpm build
 - unseen is never mastered;
 - mastery requires multi-day evidence;
 - due-review ordering and lapse reset;
+- XP level boundaries and daily streak continuity;
+- a missed answer persists into the mistake notebook and a correct replay resolves it;
+- mixed checkpoints contain three server-selected skills and never expose answer keys;
+- Test Day Lab sprint/section/core selection is deterministic and version-frozen;
+- timed responses persist choice, confidence, flag state, elapsed time, and current index;
+- simulation reports score omissions as incorrect and calculate pacing plus confidence calibration;
+- AI debrief prompts contain aggregate evidence only and fall back on validation/provider failure;
+- dated plan tasks occur only on selected availability days and never on/after test day;
+- availability and mastery updates preserve today plus completed work while re-ranking future tasks;
+- task completion is idempotent and catch-up records skipped history before redistribution;
 - prerequisite ordering;
 - plan fits between today and target date;
 - nearer date increases urgency without exceeding capacity;

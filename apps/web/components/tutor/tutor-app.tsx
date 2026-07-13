@@ -10,6 +10,7 @@ import {
   type CoreSection,
   type CoreSectionScores,
   type DiagnosticResult,
+  type DiagnosticSkillResult,
   type NormalizedScoreEvidence,
 } from "@act-tutor/core"
 
@@ -18,6 +19,7 @@ import { DiagnosticIntro } from "@/components/tutor/diagnostic-intro"
 import { DiagnosticRunner } from "@/components/tutor/diagnostic-runner"
 import { Onboarding } from "@/components/tutor/onboarding"
 import type { GeneratedPlan, PlacementDraft } from "@/components/tutor/types"
+import { addCalendarDaysFrom } from "@/lib/dates"
 
 const STORAGE_KEY = "ai-act-tutor-placement-v1"
 
@@ -95,6 +97,135 @@ function weakestSection(scores: CoreSectionScores): CoreSection {
   )[0]
 }
 
+const JUDGE_DEMO_SKILLS: ReadonlyArray<DiagnosticSkillResult> = [
+  {
+    skill: "sentence-boundaries",
+    label: "Sentence boundaries",
+    section: "english",
+    correct: 0,
+    total: 2,
+    accuracy: 0,
+    signal: "focus",
+  },
+  {
+    skill: "concision-and-redundancy",
+    label: "Concision and redundancy",
+    section: "english",
+    correct: 1,
+    total: 2,
+    accuracy: 0.5,
+    signal: "focus",
+  },
+  {
+    skill: "logical-transitions",
+    label: "Logical transitions",
+    section: "english",
+    correct: 2,
+    total: 2,
+    accuracy: 1,
+    signal: "strength",
+  },
+  {
+    skill: "linear-equations",
+    label: "Linear equations",
+    section: "math",
+    correct: 2,
+    total: 2,
+    accuracy: 1,
+    signal: "strength",
+  },
+  {
+    skill: "ratios-and-percent",
+    label: "Ratios and percent",
+    section: "math",
+    correct: 1,
+    total: 2,
+    accuracy: 0.5,
+    signal: "focus",
+  },
+  {
+    skill: "functions-and-modeling",
+    label: "Functions and modeling",
+    section: "math",
+    correct: 1,
+    total: 2,
+    accuracy: 0.5,
+    signal: "focus",
+  },
+  {
+    skill: "supported-inference",
+    label: "Supported inference",
+    section: "reading",
+    correct: 0,
+    total: 2,
+    accuracy: 0,
+    signal: "focus",
+  },
+  {
+    skill: "central-ideas-and-details",
+    label: "Central ideas and details",
+    section: "reading",
+    correct: 2,
+    total: 2,
+    accuracy: 1,
+    signal: "strength",
+  },
+  {
+    skill: "author-purpose-and-structure",
+    label: "Author purpose and structure",
+    section: "reading",
+    correct: 1,
+    total: 2,
+    accuracy: 0.5,
+    signal: "focus",
+  },
+]
+
+function judgeDemoDiagnostic(): DiagnosticResult {
+  const strengths = JUDGE_DEMO_SKILLS.filter(
+    (skill) => skill.signal === "strength"
+  ).slice(0, 2)
+  const focusSkills = JUDGE_DEMO_SKILLS.filter(
+    (skill) => skill.signal === "focus"
+  ).filter(
+    (skill) =>
+      skill.skill === "sentence-boundaries" ||
+      skill.skill === "supported-inference"
+  )
+  return {
+    formId: "scout-judge-demo",
+    formVersion: "judge-demo-v1",
+    source: "rapid_diagnostic",
+    calibrationVersion: "rapid-v1",
+    sectionResults: [
+      {
+        section: "english",
+        correct: 3,
+        total: 6,
+        range: { low: 20, high: 24, estimate: 22 },
+      },
+      {
+        section: "math",
+        correct: 4,
+        total: 6,
+        range: { low: 23, high: 27, estimate: 25 },
+      },
+      {
+        section: "reading",
+        correct: 4,
+        total: 6,
+        range: { low: 22, high: 26, estimate: 24 },
+      },
+    ],
+    compositeRange: { low: 22, high: 26, estimate: 24 },
+    planningBaseline: { english: 22, math: 25, reading: 24 },
+    skillResults: JUDGE_DEMO_SKILLS,
+    strengths,
+    focusSkills,
+    feedback: [],
+  }
+}
+
 export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   const [draft, setDraft] = useState<PlacementDraft>(() =>
     initialDraft(initialTestDate)
@@ -147,16 +278,17 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     evidence: NormalizedScoreEvidence,
     baseline: CoreSectionScores,
     currentComposite: number,
-    diagnosticResult?: DiagnosticResult
+    diagnosticResult?: DiagnosticResult,
+    placementDraft: PlacementDraft = draft
   ) {
-    const daysUntilTest = calendarDaysUntil(today, draft.testDate)
+    const daysUntilTest = calendarDaysUntil(today, placementDraft.testDate)
     if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
       throw new RangeError("Choose a test date after today.")
     }
 
     const target = selectTargetVector({
       current: baseline,
-      goalComposite: draft.goal,
+      goalComposite: placementDraft.goal,
       opportunityWeights: {
         english: 36 - baseline.english,
         math: 36 - baseline.math,
@@ -170,7 +302,8 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     })
 
     setPlan({
-      draft,
+      today,
+      draft: placementDraft,
       evidence,
       target,
       intensity,
@@ -232,6 +365,40 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     setSurface("onboarding")
     setPlan(null)
     setError(null)
+  }
+
+  async function launchJudgeDemo() {
+    try {
+      const response = await fetch("/api/learning", { method: "DELETE" })
+      if (!response.ok) throw new Error("Could not reset the demo learner.")
+      const demoDraft: PlacementDraft = {
+        goal: 31,
+        priorScoreChoice: "scores",
+        composite: 24,
+        english: 22,
+        math: 25,
+        reading: 24,
+        scienceEnabled: false,
+        science: 24,
+        testDate: addCalendarDaysFrom(today, 36),
+      }
+      const diagnosticResult = judgeDemoDiagnostic()
+      const evidence = diagnosticResultToEvidence(diagnosticResult)
+      setDraft(demoDraft)
+      buildPlanFromEvidence(
+        evidence,
+        diagnosticResult.planningBaseline,
+        diagnosticResult.compositeRange.estimate,
+        diagnosticResult,
+        demoDraft
+      )
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not load the adaptive demo."
+      )
+    }
   }
 
   if (surface === "dashboard" && plan) {
@@ -297,6 +464,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         }
         createPlan()
       }}
+      onJudgeDemo={() => void launchJudgeDemo()}
       onUpdate={updateDraft}
     />
   )

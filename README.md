@@ -14,12 +14,21 @@ Working in the current slice:
 - prior-score branches for full section scores or a low-confidence Composite-only starting point, plus a never-tested path;
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
-- a generated Today/Plan/Progress dashboard with a durable adaptive learning session;
+- a generated Today/Plan/Progress dashboard with a durable adaptive learner profile;
+- an Adaptive Plan Studio that turns availability into dated lesson, focus, review, timed-transfer, checkpoint, and rehearsal assignments through test day;
+- editable per-day study minutes, week navigation, milestone tracking, task completion, catch-up, capacity/readiness estimates, and future-only rebalancing that freezes today and completed history;
 - a no-score path with a validated 66-question half-length diagnostic covering 12 skills, grouped ACT-style passages, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
 - a versioned 12-skill learning taxonomy, 12 reviewed lesson foundations, AI-generated personalized four-stage teaching sequences, and 60 focused practice questions;
-- lesson completion, five-question focused practice, immediate trusted feedback, mastery updates, spaced review scheduling, and visible next-session regeneration.
+- a four-stage Daily Mission loop: personalized lesson, five-question focused set, replayable mistake repair, and a three-skill mixed checkpoint;
+- server-earned XP, levels, daily/longest streaks, twelve-skill mastery map, due-review queue, and a persistent mistake notebook;
+- lesson completion, immediate trusted feedback, mastery updates, spaced review scheduling, direct skill selection, and visible next-session regeneration.
+- a persistent 12-skill Bayesian Learning Twin that updates P(Learned), predicted next-answer accuracy, uncertainty, and the next-skill recommendation after every server-scored response;
+- an interpretable model inspector with feature contributions, public evidence history, and counterfactual readiness projections;
+- a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
+- timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
+- score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 
 Still placeholders or future milestones:
@@ -38,6 +47,26 @@ The half-length diagnostic is original and proportioned to the enhanced ACT core
 - pnpm `11.7.0`
 
 Node.js `22.12.0` is recommended and pinned in [.nvmrc](.nvmrc). If you use [nvm](https://github.com/nvm-sh/nvm), it can install and select that version automatically.
+
+### Windows PowerShell quick start
+
+```powershell
+git clone https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version.git
+Set-Location act-tutor--Prelim-My-Version
+corepack enable
+corepack prepare pnpm@11.7.0 --activate
+pnpm install
+pnpm dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000). If PowerShell still says `pnpm` is not recognized, close and reopen PowerShell. If Corepack is unavailable or cannot write its shim, install the pinned package manager directly and retry:
+
+```powershell
+npm install --global pnpm@11.7.0
+pnpm --version
+pnpm install
+pnpm dev
+```
 
 ### 1. Clone the fork
 
@@ -91,12 +120,14 @@ To store session data somewhere else, set either or both variables before starti
 ```bash
 export DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
 export LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
+export EXAM_LAB_STORE_PATH=/absolute/path/exam-lab-sessions.json
+export STUDY_PLAN_STORE_PATH=/absolute/path/study-plan-sessions.json
 pnpm dev
 ```
 
 ### Optional live AI lesson generation
 
-The app has a real provider-neutral lesson composer. It calls any OpenAI-compatible `/chat/completions` endpoint, validates the model's JSON against the lesson contract, persists the generated lesson, and falls back to reviewed authored teaching if the request fails. The model never receives practice answer keys and cannot change scoring or mastery calculations.
+The app has a real provider-neutral lesson composer. It calls any OpenAI-compatible `/chat/completions` endpoint, validates the model's JSON against the lesson contract, persists the generated lesson, and falls back to reviewed authored teaching if the request fails. The generative model never receives practice answer keys and cannot change scoring or Bayesian learner-model calculations.
 
 For a free local Qwen setup with [Ollama](https://ollama.com/):
 
@@ -132,7 +163,7 @@ Restart `pnpm dev` after changing environment variables. A generated lesson is l
 To erase local demo progress and start onboarding again:
 
 ```bash
-rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json
+rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/learning-sessions.json apps/web/.data/exam-lab-sessions.json apps/web/.data/study-plan-sessions.json
 ```
 
 You may also need to clear cookies for `localhost:3000` if you want a completely new anonymous session.
@@ -165,7 +196,7 @@ pnpm --filter web start
 - `pnpm: command not found`: rerun `corepack enable` and `corepack prepare pnpm@11.7.0 --activate`.
 - Unsupported Node.js version: run `nvm install && nvm use`, or install Node.js `22.12.0` manually.
 - Port `3000` is already in use: stop the other process or run `pnpm --filter web dev -- -p 3001`, then open [http://localhost:3001](http://localhost:3001).
-- Stale local progress: delete the two files in `apps/web/.data/` and clear the localhost cookie as described above.
+- Stale local progress: delete the four session files in `apps/web/.data/` and clear the localhost cookies as described above.
 
 ## Core experience
 
@@ -180,6 +211,7 @@ The intended complete experience gives students with prior scores a provisional 
 - an estimated baseline and confidence range;
 - strengths and weaknesses at the skill level;
 - a dated study plan leading to the test date;
+- editable study days/minutes with future assignments rebalanced around real mastery evidence;
 - daily micro-lessons, focused questions, mixed review, and timed checkpoints;
 - automatic plan updates as new evidence arrives.
 
@@ -188,11 +220,12 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 ## MVP stack
 
 - Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, pure TypeScript core/content/server packages, Zod content validation, durable anonymous local sessions, and Vitest.
-- Planned next: Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
-- Planned after the trusted loop: a provider-agnostic tutor interface with Cloudflare Workers AI/Qwen as an optional first live adapter.
+- Planned next: automated Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
+- Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with validated output and reviewed fallbacks.
+- Implemented ML control loop: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from trusted evidence and expose their probabilities, uncertainty, parameters, and recommendation features in the Learning Twin.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
-The LLM is a presentation layer, not the source of truth. Code owns answer keys, scoring, mastery, dates, question selection, and spaced repetition. The product must remain fully usable with AI disabled.
+The LLM is the personalized teaching layer, not the source of truth. The Bayesian learner model is the adaptive ML layer. Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because BKT and reviewed lessons run locally.
 
 ## Planning documents
 
@@ -201,19 +234,19 @@ The LLM is a presentation layer, not the source of truth. Code owns answer keys,
 - [Enhanced ACT blueprint](docs/ACT_BLUEPRINT.md)
 - [Milestone roadmap](docs/PROJECT_ROADMAP.md)
 - [Prioritized implementation backlog](docs/BACKLOG.md)
+- [Hackathon submission kit](docs/submission/README.md)
 
 ## Hackathon demo target
 
-A judge should be able to watch this complete loop in under four minutes:
+The first onboarding screen includes **Preview the adaptive demo**, which loads a clearly labeled representative diagnostic profile without an account or API key. The competition-facing two-minute path is:
 
-1. Enter a student's goal, current scores, and test date.
-2. See the generated baseline and study plan.
-3. Open today's assigned lesson.
-4. Answer one practice question incorrectly.
-5. See a trusted explanation and the exact skill involved.
-6. Return to the dashboard and see mastery, review spacing, and the next-session update.
+1. Show the diagnostic-driven Daily Mission.
+2. Open **Progress** and explain the twelve-skill Bayesian Learning Twin.
+3. Inspect P(Learned), P(Correct next), uncertainty, and the exact next-skill feature contributions.
+4. Preview a counterfactual evidence scenario.
+5. Open the personalized lesson, answer one server-scored question, and return to the evidence ledger to show the probability update.
 
-The no-score demo now uses the working 66-question half-length diagnostic: 25 English, 23 Math, and 18 Reading questions across 12 skill signals. Progress autosaves, so a presenter can seed or resume a session instead of completing the entire form on stage. The content is original and blueprint-validated; independent psychometric calibration remains future work.
+Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Test Day Lab, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
 
 ## Content and score disclaimer
 

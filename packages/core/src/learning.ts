@@ -1,5 +1,7 @@
 import type { DiagnosticSkillResult } from "./diagnostic";
 import type { CoreSection } from "./types";
+import type { DailyMissionSummary, LearningSessionMode } from "./mission";
+import type { LearningTwinSnapshot } from "./learning-twin";
 
 export type SkillSlug = string;
 export type PracticeDifficulty = "easy" | "medium" | "hard";
@@ -84,7 +86,10 @@ export interface PracticeQuestionPublic {
   choices: ReadonlyArray<PracticeChoicePublic>;
 }
 
-export interface PracticeQuestionSecure extends Omit<PracticeQuestionPublic, "choices"> {
+export interface PracticeQuestionSecure extends Omit<
+  PracticeQuestionPublic,
+  "choices"
+> {
   choices: ReadonlyArray<PracticeChoiceSecure>;
   correctChoiceId: string;
   rationale: string;
@@ -101,7 +106,9 @@ export function toPublicPracticeQuestion(
     difficulty: question.difficulty,
     prompt: question.prompt,
     stimulus: question.stimulus,
-    choices: question.choices.map(({ misconception: _misconception, ...choice }) => choice),
+    choices: question.choices.map(
+      ({ misconception: _misconception, ...choice }) => choice,
+    ),
   };
 }
 
@@ -168,6 +175,9 @@ export interface LearningSessionPayload {
   status: "lesson" | "practice" | "complete";
   updatedAt: string;
   lastFeedback: PracticeFeedback | null;
+  mode: LearningSessionMode;
+  mission: DailyMissionSummary;
+  learningTwin: LearningTwinSnapshot;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
@@ -190,7 +200,9 @@ function bandFor(mastery: number, evidence: number): MasteryBand {
   return "building";
 }
 
-function normalize(state: Omit<MasteryState, "mastery" | "band">): MasteryState {
+function normalize(
+  state: Omit<MasteryState, "mastery" | "band">,
+): MasteryState {
   const mastery = state.alpha / (state.alpha + state.beta);
   return {
     ...state,
@@ -236,9 +248,19 @@ export function reviewDecision(
   }
 
   const base =
-    state.band === "secure" ? 14 : state.band === "steady" ? 7 : state.streak >= 2 ? 4 : 2;
+    state.band === "secure"
+      ? 14
+      : state.band === "steady"
+        ? 7
+        : state.streak >= 2
+          ? 4
+          : 2;
   const intervalDays =
-    attempt.difficulty === "hard" ? base + 1 : attempt.difficulty === "easy" ? Math.max(2, base - 1) : base;
+    attempt.difficulty === "hard"
+      ? base + 1
+      : attempt.difficulty === "easy"
+        ? Math.max(2, base - 1)
+        : base;
 
   return {
     nextReviewAt: addDays(attempt.answeredAt, intervalDays),
@@ -277,8 +299,11 @@ function masteryRank(state: MasteryState) {
   return state.mastery - uncertainty - lapsePressure;
 }
 
-export function chooseNextSkill(states: ReadonlyArray<MasteryState>): MasteryState {
-  if (states.length === 0) throw new RangeError("At least one mastery state is required.");
+export function chooseNextSkill(
+  states: ReadonlyArray<MasteryState>,
+): MasteryState {
+  if (states.length === 0)
+    throw new RangeError("At least one mastery state is required.");
   return [...states].sort((left, right) => {
     const rank = masteryRank(left) - masteryRank(right);
     if (rank !== 0) return rank;

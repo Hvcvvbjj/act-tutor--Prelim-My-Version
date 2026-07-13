@@ -1,3 +1,6 @@
+export * from "./exam-debrief-composer";
+export * from "./exam-lab-repository";
 export * from "./learning-session-repository";
 export * from "./lesson-composer";
 export * from "./session-repository";
+export * from "./study-plan-repository";

@@ -140,6 +140,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(payload)
     }
 
+    if (action === "start_next" || action === "start_skill") {
+      const payload = await learningSessions.beginFocus(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          skill:
+            action === "start_skill" && typeof body.skill === "string"
+              ? body.skill
+              : undefined,
+          plan: parsePlanContext(body),
+        },
+        lessonComposer
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "start_repair") {
+      if (typeof body.mistakeId !== "string") {
+        throw new RangeError("A mistakeId is required.")
+      }
+      const payload = await learningSessions.beginRepair(
+        requireSessionId(request),
+        LEARNING_BANK,
+        body.mistakeId
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "start_checkpoint") {
+      const payload = await learningSessions.beginCheckpoint(
+        requireSessionId(request),
+        LEARNING_BANK
+      )
+      return NextResponse.json(payload)
+    }
+
     if (action === "answer") {
       if (typeof body.questionId !== "string" || typeof body.choiceId !== "string") {
         throw new RangeError("A questionId and choiceId are required.")

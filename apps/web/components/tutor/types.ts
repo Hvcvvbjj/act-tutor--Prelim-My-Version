@@ -21,6 +21,7 @@ export interface PlacementDraft {
 }
 
 export interface GeneratedPlan {
+  today: string
   draft: PlacementDraft
   evidence: NormalizedScoreEvidence
   target: TargetVector

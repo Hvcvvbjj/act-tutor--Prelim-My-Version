@@ -184,6 +184,12 @@ function PracticeStage({
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
   const progress = Math.round((answered / learning.questions.length) * 100)
   const feedback = learning.lastFeedback
+  const practiceLabel =
+    learning.mode === "repair"
+      ? "Mistake replay"
+      : learning.mode === "checkpoint"
+        ? "Mixed checkpoint"
+        : "Focus set"
   const mood: ScoutMood = feedback
     ? feedback.correct
       ? "correct"
@@ -195,14 +201,20 @@ function PracticeStage({
       <section className="px-5 py-10 sm:px-8 sm:py-12">
         <ScoutCoach
           mood="correct"
-          message="Focused set complete. The next session has already changed from this evidence."
+          message={
+            learning.mode === "repair"
+              ? "Repair complete. That mistake is closed, but its skill stays on the spacing clock."
+              : learning.mode === "checkpoint"
+                ? "Checkpoint complete. Three skill models just received fresh evidence."
+                : "Focused set complete. The next session has already changed from this evidence."
+          }
           detail={learning.futureTask.reason}
         />
         <h2 className="mt-8 font-heading text-5xl leading-none font-black tracking-[-0.03em]">
-          Evidence banked.
+          {learning.mode === "repair" ? "Mistake repaired." : learning.mode === "checkpoint" ? "Checkpoint banked." : "Evidence banked."}
         </h2>
         <p className="mt-5 max-w-2xl text-lg leading-8">
-          {learning.mastery.label} is now at {Math.round(learning.mastery.mastery * 100)}% modeled mastery from {learning.mastery.evidence} evidence points.
+          {learning.mastery.label} is now at {Math.round(learning.mastery.mastery * 100)}% modeled mastery from {learning.mastery.evidence} evidence {learning.mastery.evidence === 1 ? "point" : "points"}.
         </p>
         <dl className="mt-8 grid max-w-3xl border-y-2 border-foreground sm:grid-cols-3 sm:divide-x-2 sm:divide-foreground">
           <div className="px-4 py-5 first:pl-0">
@@ -231,7 +243,7 @@ function PracticeStage({
       <div className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
         <div className="flex items-center justify-between gap-4">
           <p className="ink-label text-primary">
-            Focus set · Question {learning.currentQuestionIndex + 1} of {learning.questions.length}
+            {practiceLabel} · Question {learning.currentQuestionIndex + 1} of {learning.questions.length}
           </p>
           <span className="font-mono text-sm font-bold">{progress}%</span>
         </div>
@@ -322,9 +334,19 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
     <div className="paper-panel overflow-hidden border-2 border-foreground bg-background">
       <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-3 border-b-2 border-foreground bg-foreground px-4 py-3 text-background sm:px-6">
         <div className="min-w-0 flex-1">
-          <p className="ink-label text-[var(--scout-mint)]">Today’s teaching workspace</p>
+          <p className="ink-label text-[var(--scout-mint)]">
+            {props.learning.mode === "repair"
+              ? "Mistake repair workspace"
+              : props.learning.mode === "checkpoint"
+                ? "Mixed checkpoint workspace"
+                : "Today’s teaching workspace"}
+          </p>
           <p className="mt-1 truncate font-heading text-xl font-bold sm:text-2xl">
-            {props.learning.lesson.title}
+            {props.learning.mode === "repair"
+              ? `Replay: ${props.learning.mastery.label}`
+              : props.learning.mode === "checkpoint"
+                ? "Three-skill evidence check"
+                : props.learning.lesson.title}
           </p>
         </div>
         {!props.learning.lessonComplete ? (
@@ -346,7 +368,9 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
             ))}
           </nav>
         ) : (
-          <span className="ink-label text-[var(--scout-mint)]">Focused practice</span>
+          <span className="ink-label text-[var(--scout-mint)]">
+            {props.learning.mode === "repair" ? "1 replay" : props.learning.mode === "checkpoint" ? "3 mixed questions" : "Focused practice"}
+          </span>
         )}
         <Button type="button" variant="ghost" size="icon" onClick={props.onClose} aria-label="Close lesson workspace">
           <XIcon />

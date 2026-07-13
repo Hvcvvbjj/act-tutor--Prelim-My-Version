@@ -21,15 +21,18 @@ This table records local evidence only. It does not mark an issue `done` before 
 | 1.2          | full-score, Composite-only low-confidence, and never-tested branches plus optional Science are implemented and manually exercised                                 | add automated browser coverage and preview acceptance proof                                |
 | 1.3          | quick/custom dates, past-date rejection, and routing to plan or diagnostic setup are implemented                                                                  | capture timezone and add browser coverage                                                  |
 | 2.2          | Zod-backed secure/public contracts cover version, choices, skills, difficulty, key, rationale, status/license/review metadata, and stimulus text                  | add stimulus groups, lesson schemas, distractor misconceptions, and importer tooling       |
-| 2.4          | 66 original half-length questions cover 12 skills across the three core sections, use passage grouping, and pass blueprint validation                              | complete independent editorial/psychometric review and empirical calibration               |
+| 2.4          | 66 original half-length questions cover 12 skills across the three core sections, use passage grouping, and pass blueprint validation                             | complete independent editorial/psychometric review and empirical calibration               |
 | 3.1          | cookie-bound server sessions freeze form ID/version/order and survive process restarts through an atomic local-file repository                                    | replace the single-node file store with Supabase ownership, RLS, and cross-device identity |
 | 3.2          | the runner shows section/progress, hides correctness, autosaves to the server, exits, and resumes                                                                 | add automated keyboard/focus coverage and authenticated cross-device resume                |
 | 3.3          | deterministic scoring creates section ranges, 12 skill signals, baseline evidence, and planner handoff; duplicate finalization is idempotent                      | make scoring, mastery, baseline, and completion one Postgres transaction                   |
 | 4.1          | English/Math/Reading round-half-up Composite logic and Science-exclusion unit tests exist                                                                         | keep this covered in the integrated placement and diagnostic paths                         |
 | 4.2          | a wide, smoothed rapid calibration returns bounded section and Composite practice ranges                                                                          | calibrate against larger reviewed forms and empirical version lookup tables                |
+| 4.5          | twelve persistent Bayesian Knowledge Tracing models update from trusted diagnostic/practice evidence and drive an inspectable next-skill recommendation           | calibrate guess/slip/transition parameters from consented longitudinal response data       |
 | 5.1          | deterministic feasible target-vector selection and unit tests exist                                                                                               | expose/verify edge-case rationale in the integrated plan flow                              |
-| 5.3          | runway modes and weekly intensity are implemented                                                                                                                 | generate and persist actual dated tasks within capacity                                    |
-| 6.1          | Today/Plan/Progress dashboard shell, assignment reasons, and provisional confidence are implemented                                                               | connect persisted baseline ranges, real tasks, and completion/adaptation state             |
+| 5.3          | deterministic dated tasks, checkpoints, rehearsal, milestones, capacity/health, and durable server persistence are implemented                                    | add prerequisite graph and production database transactions                                |
+| 5.4          | per-day availability editing, capacity preview, completion history, catch-up, and future-only rebalance are implemented                                           | add timezone-aware reminders and production cross-device persistence                       |
+| 6.1          | Today/Plan/Progress dashboard, real dated tasks, assignment reasons, completion state, and provisional confidence are implemented                                 | connect hosted baseline history and notification delivery                                  |
+| 6.5          | live mastery signals re-rank future plan tasks while today and completed work stay frozen; deterministic fixtures cover the behavior                              | connect Test Lab results and multi-day hosted evidence transactions                        |
 
 The half-length diagnostic is a real end-to-end slice, not a psychometrically finished assessment system. Production database sessions, transactional mastery/baseline finalization, empirical calibration, independent review, and broader longitudinal mastery remain open work. The current file repository is durable for a local single-node demo, but it is not a substitute for multi-instance database transactions.
 
@@ -184,6 +187,15 @@ Acceptance criteria:
 - Slow correct answers can be marked fragile without becoming incorrect.
 - Behavior signals remain separate from academic mastery.
 
+### 4.5 Add an interpretable Bayesian Learning Twin — P0
+
+- Maintain P(Learned), P(Correct next), uncertainty, and evidence counts for every supported skill.
+- Update only from server-scored diagnostic and practice responses.
+- Make guess, slip, transition, and next-skill feature contributions inspectable.
+- Persist a public before/after evidence ledger without exposing answer keys.
+- Use the model to choose future skill work and mixed checkpoints.
+- **Implemented locally:** twelve BKT models, difficulty-aware observation updates, four-feature recommendation scoring, persistent evidence events, counterfactual readiness projections, core/server tests, and the Learning Twin UI are complete.
+
 ## Epic 5 — Plan generator and scheduler
 
 ### 5.1 Generate feasible section target vector — P0
@@ -204,11 +216,13 @@ Acceptance criteria:
 - Tasks never fall after the test date.
 - Close-date and long-runway modes behave differently.
 - Today's task list remains stable after regeneration.
+- **Implemented locally:** the deterministic scheduler fills only selected days before test day, varies work by runway, inserts checkpoints/rehearsal, and persists the frozen route in a cookie-bound atomic repository.
 
 ### 5.4 Add editable study availability — P1
 
 - User can edit days and minutes after plan creation.
 - Future tasks rebalance without losing completion history.
+- **Implemented locally:** students can toggle weekdays, choose 15–120 minutes per day, preview capacity, save/rebalance, mark assignments complete, and run catch-up without moving today or completed work.
 
 ## Epic 6 — Daily learning loop
 
@@ -217,6 +231,7 @@ Acceptance criteria:
 - Shows days remaining, baseline range, goal, minutes, streak, and task path.
 - First task explains why it was assigned.
 - Provisional skill confidence is visible for score-only users.
+- **Implemented locally:** four-stage mission trail, level/XP rail, due reviews, twelve-skill map, and adaptive next action.
 
 ### 6.2 Build micro-lesson view — P0
 
@@ -230,6 +245,7 @@ Acceptance criteria:
 - Correctness uses server-owned keys.
 - Trusted explanation and misconception appear.
 - Task completion updates XP and mastery.
+- **Implemented locally:** XP is awarded only after server-verified lesson and question events; completion bonuses are idempotent.
 
 ### 6.4 Implement spaced repetition — P0
 
@@ -237,17 +253,27 @@ Acceptance criteria:
 - Correct intervals follow 2/4/7/14/30 days.
 - Lapse resets to one day.
 - Different-context sibling is preferred to exact repeat.
+- **Implemented locally:** Beta mastery schedules due reviews and the UI orders overdue/today/upcoming work; sibling-question selection remains future work.
 
 ### 6.5 Regenerate future plan after practice — P0
 
 - Future tasks change after meaningful evidence.
 - Today stays frozen.
 - Demo fixtures visibly show the adaptation.
+- **Implemented locally:** the Plan Studio syncs the twelve live Beta-mastery signals, keeps the current Daily Mission aligned, and re-ranks future skill tasks through an idempotent server action.
 
 ### 6.6 Add polished gamification — P2
 
 - Completion XP, weekly goal, streak grace, and mastery celebrations.
 - Mistakes never lock the learner out.
+- **Implemented locally:** XP/levels, current and longest streaks, durable mistake notebook, exact-question repair, mastery bars, and mixed checkpoints. Weekly goals and streak grace remain future work.
+
+### 6.7 Build Test Day Lab — P1
+
+- **Implemented locally:** 12-skill sprint, English/Math/Reading half-length section simulations, and full 66-question core rehearsal.
+- **Implemented locally:** section deadlines, passage-aware runner, confidence/flag/time capture, autosave, review, omissions, and idempotent server scoring.
+- **Implemented locally:** practice score ranges, section/skill evidence, pacing diagnosis, confidence calibration, aggregate-only AI debrief with fallback, and question review.
+- Future work: additional independently reviewed forms, empirical timing/score calibration, pause accommodations, and production database persistence.
 
 ## Epic 7 — AI tutor layer
 
