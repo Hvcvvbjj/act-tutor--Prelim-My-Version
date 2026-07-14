@@ -206,7 +206,10 @@ export interface LessonTrustReceipt {
   approvedRule: string;
   evidenceQuestionIds: ReadonlyArray<string>;
   generatorStatus: string;
-  validationResult: "passed" | "human-reviewed" | "reviewed-fallback";
+  validationResult:
+    | "automated-checks-passed"
+    | "human-reviewed"
+    | "reviewed-fallback";
   validationChecks: ReadonlyArray<string>;
   deliveredAs: "generated" | "human-reviewed" | "reviewed-fallback";
 }
@@ -232,6 +235,7 @@ export interface LearnerModelCorrection {
   note: string;
   before: number;
   after: number;
+  modelVersion: string;
 }
 
 export interface TeachBackResult {
@@ -246,15 +250,6 @@ export interface TeachBackResult {
     met: boolean;
   }>;
   feedback: string;
-}
-
-export interface TutorOverrideRecord {
-  id: string;
-  occurredAt: string;
-  previousSkill: SkillSlug;
-  selectedSkill: SkillSlug;
-  selectedSkillLabel: string;
-  reason: string;
 }
 
 export interface MisconceptionFingerprint {
@@ -354,7 +349,6 @@ export interface LearningSessionPayload {
   learnerModel: LearnerModelReport;
   trustReport: LearningTrustReport;
   teachBack: TeachBackResult | null;
-  tutorOverrides: ReadonlyArray<TutorOverrideRecord>;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {

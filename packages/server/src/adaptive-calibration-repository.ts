@@ -363,6 +363,18 @@ export class FileAdaptiveCalibrationRepository {
     });
   }
 
+  async get(
+    sessionId: string,
+    bank: CalibrationBankInput,
+  ): Promise<AdaptiveCalibrationPayload> {
+    return this.transact((store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Calibration session not found.");
+      assertSessionMatchesBank(session, bank);
+      return toPayload(session, bank);
+    });
+  }
+
   async answer(
     sessionId: string,
     bank: CalibrationBankInput,

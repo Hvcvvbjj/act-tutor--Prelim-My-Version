@@ -26,7 +26,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Self-correction | Practice records the first choice and whether the learner changed it before scoring. |
 | Response-time interpretation | Median time feeds pacing advice and is explicitly excluded from mastery penalties, including accommodation use. |
 | Cross-skill/prerequisite confusion | Scout checks a defined prerequisite graph and recommends prerequisite repair before returning to the target skill. |
-| Transfer detection | Consecutive correct evidence across different skills produces a transfer signal; otherwise Scout abstains. |
+| Cross-skill activity | Consecutive correct answers across different skills are labeled only as a cross-skill activity signal—not proof that learning transferred. |
 | Knowledge decay | Due reviews expose time since practice and the predicted forgetting window. |
 | Learner correction | “Scout got this wrong about me” records a bounded correction, preserves original evidence, reruns the next-skill policy, and keeps an audit trail. |
 | Mastery versus certainty | Scout Lab displays the skill estimate and certainty as separate values with plain-language meaning. |
@@ -58,11 +58,10 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Section strategy trainer | Interactive answer/skip/flag/return choices teach no-penalty guessing and time protection. |
 | Target-score simulator | English, Math, and Reading scenarios recalculate the current three-section Composite. |
 | Test-date planner | The adaptive plan moves from instruction to timed work based on the selected test date. |
-| Readiness gate | Full timed work is recommended only when the score scenario and evidence certainty both clear their gates. |
+| Timed-practice guidance | Scout explains when a reviewed timed form is more useful than another short skill set; it does not turn skill estimates into a readiness gate. |
 | Parallel-form assessment | Repair, retention, challenge, and recovery choose the least-exposed reviewed item form; Scout says when the local bank cannot provide a truly unseen item. |
 | Exposure protection | Per-question attempts are tracked; high-exposure items are held back when an alternate exists. |
-| Predicted versus actual | Learners enter a timed result and Scout explains whether the skill estimate or pacing is miscalibrated. |
-| Composite scenarios | Scenario controls show how section changes alter the Composite and whether the goal is reached. |
+| Manual Composite scenarios | Learners enter hypothetical English, Math, and Reading scores and see only the resulting rounded average. The control explicitly does not predict future performance. |
 | ACT blueprint | Scout Lab shows current questions, minutes, average pace, optional Science, and official reporting-category percentages. |
 
 ## Planning and motivation
@@ -78,18 +77,12 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Goal tradeoffs | Plan explains capacity, score movement, preferred section, and what cannot fit. |
 | Recovery sessions | A two-question, two-priority-skill reset restores momentum without breaking progress. |
 
-## Teacher, tutor, and parent tools
+## Read-only human handoff
 
 | Feature | Product behavior |
 | --- | --- |
-| Intervention queue | Skills are sorted by readiness and certainty with the evidence count visible. |
-| Tutor override | A human can choose the next skill only with a saved reason; the current unfinished mission remains protected. |
-| AI-content approval | A teacher can review and edit the main explanation, save the edited version with a human-review receipt, approve it, or reject it into reviewed fallback content. |
-| Cohort heatmap | A teacher can import multiple consented Scout JSON exports; aggregation happens locally in the browser. With no files, Scout makes no cohort claim. |
-| Assignment builder | Selected skills produce a lesson, guided practice, exit ticket, and retention assignment pattern. |
-| Student conference | A concise ask/listen/try/do-not-assume script uses the learner's actual brief. |
-| Parent digest | A plain-language digest can be copied without exposing a giant analytics dashboard. |
-| Human handoff | Coach brief, misconceptions, teach-back, evidence IDs, and unknowns export as a tutor handoff. |
+| Coach Brief | A read-only learner summary names the strongest demonstrated skill, main misconception, evidence level, current and next missions, an offline teaching prompt, and what Scout still does not know. There is no unauthenticated teacher-edit surface. |
+| Human handoff | The Coach Brief can be copied or printed, and the learner can export their own session data. Adults receive no write controls in guest mode. |
 
 ## Trust, governance, and data
 
@@ -101,7 +94,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Item health | Repeated exposure and misses produce healthy/watch/not-enough-data states. |
 | Bad-question detection | Consented cohort imports flag an item when at least three high-readiness learners independently choose the same wrong idea; it never auto-declares an item bad from one response. |
 | Model abstention | Unsupported fairness, item-quality, and misconception claims visibly return “not enough evidence.” |
-| Policy benchmark | Adaptive, weakest-only, uncertainty exploration, and random policies show next-skill tradeoffs and can run a seeded 100-learner, 20-session synthetic comparison. |
+| Policy decision comparison | Adaptive, weakest-only, uncertainty exploration, and random rules show what each would choose for the current state. The UI explicitly says this is not an experiment or performance benchmark. |
 | Private guest mode | No account is required; session data uses private cookies and local preferences. |
 | Data export/delete | A JSON export is downloadable and all session/local Scout data can be permanently deleted. |
 | Weak-connection sync | The latest lesson is cached locally; a scored answer that loses connection is queued on-device and replayed in order when online. The UI states that new grading and AI generation still require a connection. |
@@ -112,7 +105,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 - Persistent labeled **Ask Scout** launcher; side panel on desktop and bottom sheet on mobile.
 - Screen-aware prompts, multi-turn history, progressive response structure, action chips, read-aloud, and technical receipts.
 - Highlight any page text to reveal **Explain selection**.
-- Explicit `TEST_MODE`, `CAN_HINT`, `CAN_REPHRASE`, and `CAN_EXPLAIN_AFTER_ATTEMPT` permissions are sent with each request.
+- The client sends only a question, page, optional question ID, and selected text. The server derives test mode, attempt state, reviewed content, accommodations, and allowed help from cookie-bound sessions.
 - Timed testing blocks content help and answer leakage; pre-attempt practice blocks direct answers while allowing a small hint.
 - Responses carry source, question ID, skill ID, delivery mode, permissions, and validation checks.
 - Explanation length, reading level, example style, fewer technical terms, and accommodations persist across the product.

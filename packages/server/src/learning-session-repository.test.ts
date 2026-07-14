@@ -208,6 +208,78 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
+  it("transactionally rebases a temporary no-score session from calibration", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan: { ...plan, currentScore: 18 },
+      });
+      const diagnosticSkillResults = [
+        {
+          skill: "sentence-boundaries",
+          label: "Sentence boundaries",
+          section: "english" as const,
+          correct: 2,
+          total: 2,
+          accuracy: 1,
+          signal: "strength" as const,
+        },
+        {
+          skill: "linear-equations",
+          label: "Linear equations",
+          section: "math" as const,
+          correct: 0,
+          total: 2,
+          accuracy: 0,
+          signal: "focus" as const,
+        },
+        {
+          skill: "supported-inference",
+          label: "Supported inference",
+          section: "reading" as const,
+          correct: 1,
+          total: 2,
+          accuracy: 0.5,
+          signal: "developing" as const,
+        },
+      ];
+
+      const rebased = await repo.rebaseAfterCalibration(
+        started.sessionId,
+        bank,
+        {
+          calibrationKey: "calibration-1:bank-1",
+          diagnosticSkillResults,
+          plan: { ...plan, currentScore: 21 },
+        },
+      );
+
+      expect(rebased.todaySkill).toBe("linear-equations");
+      expect(rebased.nextSkill).toBe("linear-equations");
+      expect(rebased.lesson.skill).toBe("linear-equations");
+      expect(rebased.questions.every((question) => question.skill === "linear-equations")).toBe(true);
+      expect(rebased.status).toBe("lesson");
+      expect(rebased.mission.progress.totalAnswered).toBe(0);
+      expect(
+        rebased.learningTwin.skills.find(
+          (skill) => skill.skill === "linear-equations",
+        )?.priorSource,
+      ).toBe("diagnostic");
+      expect(rebased.futureTask.reason).toContain("replaced the temporary baseline");
+
+      const duplicate = await repo.rebaseAfterCalibration(
+        started.sessionId,
+        bank,
+        {
+          calibrationKey: "calibration-1:bank-1",
+          diagnosticSkillResults,
+          plan: { ...plan, currentScore: 21 },
+        },
+      );
+      expect(duplicate).toEqual(rebased);
+    });
+  });
+
   it("persists lesson completion and answer feedback across repository instances", async () => {
     await withRepository(async (repo, filePath) => {
       const started = await repo.getOrCreate(null, bank, {
@@ -250,6 +322,61 @@ describe("FileLearningSessionRepository", () => {
 
       expect(duplicate.lastFeedback).toEqual(first.lastFeedback);
       expect(duplicate.answeredQuestionIds).toHaveLength(1);
+    });
+  });
+
+  it("applies a versioned answer command once and rejects stale replay", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      await repo.completeLesson(started.sessionId, bank);
+      const command = {
+        schemaVersion: 2 as const,
+        idempotencyKey: "answer-command-0001",
+        learnerSessionId: started.sessionId,
+        bankVersion: bank.version,
+        questionVersion: 1,
+        sequence: 0,
+        answerRevision: 1 as const,
+        issuedAt: "2026-07-14T12:00:00.000Z",
+      };
+      const first = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: "sentence-boundaries-practice-1",
+        choiceId: "A",
+        command,
+      });
+      const retry = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: "sentence-boundaries-practice-1",
+        choiceId: "A",
+        command,
+      });
+      expect(retry.answeredQuestionIds).toEqual(first.answeredQuestionIds);
+
+      await expect(
+        repo.answerQuestion(started.sessionId, bank, {
+          questionId: "sentence-boundaries-practice-2",
+          choiceId: "A",
+          command: {
+            ...command,
+            idempotencyKey: "answer-command-stale",
+            sequence: 0,
+          },
+        }),
+      ).rejects.toThrow("out of order");
+      await expect(
+        repo.answerQuestion(started.sessionId, bank, {
+          questionId: "sentence-boundaries-practice-2",
+          choiceId: "A",
+          command: {
+            ...command,
+            idempotencyKey: "answer-command-old-content",
+            sequence: 1,
+            questionVersion: 99,
+          },
+        }),
+      ).rejects.toThrow("outdated question version");
     });
   });
 
@@ -389,6 +516,14 @@ describe("FileLearningSessionRepository", () => {
       expect(repair.mode).toBe("repair");
       expect(repair.questions).toHaveLength(1);
       expect(repair.questions[0].id).not.toBe(mistake.questionId);
+      expect(repair.mission.steps).toEqual([
+        expect.objectContaining({
+          id: "repair",
+          state: "current",
+          progress: 0,
+          total: 1,
+        }),
+      ]);
       const repaired = await repo.answerQuestion(started.sessionId, bank, {
         questionId: repair.questions[0].id,
         choiceId: "A",
@@ -398,6 +533,40 @@ describe("FileLearningSessionRepository", () => {
       expect(repaired.mission.progress.xp).toBeGreaterThan(
         payload.mission.progress.xp,
       );
+    });
+  });
+
+  it("attributes a missed alternate repair back to the original mistake", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      await repo.completeLesson(started.sessionId, bank);
+      let payload = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: "sentence-boundaries-practice-1",
+        choiceId: "B",
+      });
+      for (let index = 2; index <= 5; index += 1) {
+        payload = await repo.answerQuestion(started.sessionId, bank, {
+          questionId: `sentence-boundaries-practice-${index}`,
+          choiceId: "A",
+        });
+      }
+      const original = payload.mission.mistakes[0];
+      const repair = await repo.beginRepair(started.sessionId, bank, original.id);
+      const missedAgain = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: repair.questions[0].id,
+        choiceId: "B",
+      });
+
+      expect(missedAgain.mission.mistakes).toHaveLength(1);
+      expect(missedAgain.mission.mistakes[0]).toMatchObject({
+        id: original.id,
+        questionId: original.questionId,
+        attempts: 2,
+        resolvedAt: null,
+      });
     });
   });
 
@@ -422,12 +591,25 @@ describe("FileLearningSessionRepository", () => {
       );
       expect(retention.mode).toBe("retention");
       expect(retention.questions).toHaveLength(2);
+      expect(retention.mission.steps).toEqual([
+        expect.objectContaining({
+          state: "current",
+          progress: 0,
+          total: 2,
+        }),
+      ]);
+      let retentionResult = retention;
       for (const question of retention.questions) {
-        await repo.answerQuestion(started.sessionId, bank, {
+        retentionResult = await repo.answerQuestion(started.sessionId, bank, {
           questionId: question.id,
           choiceId: "A",
         });
       }
+      expect(retentionResult.mission.steps[0]).toMatchObject({
+        state: "done",
+        progress: 2,
+        total: 2,
+      });
 
       const challenge = await repo.beginChallenge(
         started.sessionId,
@@ -438,10 +620,146 @@ describe("FileLearningSessionRepository", () => {
       expect(challenge.questions).toHaveLength(3);
       expect(challenge.questions.some((question) => question.difficulty === "hard"))
         .toBe(true);
+      expect(challenge.mission.steps).toEqual([
+        expect.objectContaining({
+          state: "current",
+          progress: 0,
+          total: 3,
+        }),
+      ]);
+      for (const question of challenge.questions) {
+        await repo.answerQuestion(started.sessionId, bank, {
+          questionId: question.id,
+          choiceId: "A",
+        });
+      }
+
+      const micro = await repo.beginMicro(started.sessionId, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      expect(micro).toMatchObject({
+        mode: "micro",
+        lesson: { minutes: 3 },
+      });
+      expect(micro.lesson.sections).toHaveLength(1);
+      expect(micro.questions).toHaveLength(1);
+      expect(micro.mission.steps).toEqual([
+        expect.objectContaining({ id: "learn", state: "current", total: 1 }),
+        expect.objectContaining({ id: "practice", state: "queued", total: 1 }),
+      ]);
     });
   });
 
-  it("scores teach-back, audits learner correction, and protects tutor override", async () => {
+  it("routes through a weak prerequisite and then returns to the target skill", async () => {
+    await withRepository(async (repo) => {
+      const prerequisiteBank: LearningBankInput = {
+        ...bank,
+        skills: [
+          ...bank.skills,
+          {
+            slug: "ratios-and-percent",
+            label: "Ratios and percent",
+            section: "math",
+            category: "Algebra",
+            diagnosticSkill: "ratios-and-percent",
+          },
+        ],
+        lessons: [
+          ...bank.lessons,
+          {
+            id: "ratios-and-percent-lesson-v1",
+            skill: "ratios-and-percent",
+            title: "Ratios and percent",
+            minutes: 7,
+            objective: "Translate ratios and percents.",
+            concept: "Keep the compared quantities in the same order.",
+            steps: ["Name the quantities.", "Match their order.", "Scale."],
+            workedExample: {
+              prompt: "2 out of 5",
+              answer: "40%",
+              explanation: ["Divide 2 by 5."],
+            },
+            trap: "Do not reverse the ratio.",
+          },
+        ],
+        practice: [
+          ...bank.practice,
+          ...Array.from({ length: 5 }, (_, index) => ({
+            id: `ratios-and-percent-practice-${index + 1}`,
+            version: 1,
+            skill: "ratios-and-percent",
+            section: "math" as const,
+            difficulty: "medium" as const,
+            prompt: `Ratio practice ${index + 1}`,
+            choices: [
+              { id: "A", text: "Correct" },
+              { id: "B", text: "Distractor" },
+              { id: "C", text: "Distractor two" },
+              { id: "D", text: "Distractor three" },
+            ],
+            correctChoiceId: "A",
+            rationale: "Keep the ratio in order.",
+          })),
+        ],
+      };
+      const started = await repo.getOrCreate(null, prerequisiteBank, {
+        skill: "linear-equations",
+        diagnosticSkillResults: [
+          {
+            skill: "linear-equations",
+            label: "Linear equations",
+            section: "math",
+            correct: 0,
+            total: 2,
+            accuracy: 0,
+            signal: "focus",
+          },
+          {
+            skill: "ratios-and-percent",
+            label: "Ratios and percent",
+            section: "math",
+            correct: 0,
+            total: 2,
+            accuracy: 0,
+            signal: "focus",
+          },
+        ],
+        plan,
+      });
+      await repo.completeLesson(started.sessionId, prerequisiteBank);
+      let target = started.payload;
+      for (let index = 1; index <= 5; index += 1) {
+        target = await repo.answerQuestion(started.sessionId, prerequisiteBank, {
+          questionId: `linear-equations-practice-${index}`,
+          choiceId: "B",
+        });
+      }
+      expect(target.nextSkill).toBe("ratios-and-percent");
+      expect(target.futureTask.reason).toContain("weak prerequisite");
+
+      let prerequisite = await repo.beginFocus(
+        started.sessionId,
+        prerequisiteBank,
+        { skill: "ratios-and-percent", plan },
+      );
+      await repo.completeLesson(started.sessionId, prerequisiteBank);
+      for (let index = 1; index <= 5; index += 1) {
+        prerequisite = await repo.answerQuestion(
+          started.sessionId,
+          prerequisiteBank,
+          {
+            questionId: `ratios-and-percent-practice-${index}`,
+            choiceId: "A",
+          },
+        );
+      }
+      expect(prerequisite.nextSkill).toBe("linear-equations");
+      expect(prerequisite.futureTask.reason).toContain("Return to Linear equations");
+    });
+  });
+
+  it("scores teach-back and caps learner correction by model version", async () => {
     await withRepository(async (repo) => {
       const started = await repo.getOrCreate(null, bank, {
         skill: "sentence-boundaries",
@@ -473,60 +791,15 @@ describe("FileLearningSessionRepository", () => {
         before?.learnedProbability ?? 0,
       );
       expect(corrected.learnerModel.corrections).toHaveLength(1);
-
-      const overridden = await repo.recordTutorOverride(
-        started.sessionId,
-        bank,
-        {
-          skill: "linear-equations",
-          reason: "The class is starting linear equations tomorrow.",
-        },
-      );
-      expect(overridden.nextSkill).toBe("linear-equations");
-      expect(overridden.tutorOverrides[0]).toMatchObject({
-        previousSkill: corrected.nextSkill,
-        selectedSkill: "linear-equations",
-      });
-      expect(overridden.todaySkill).toBe("sentence-boundaries");
-    });
-  });
-
-  it("saves a teacher-edited lesson with a receipt and rejects unsafe edits", async () => {
-    await withRepository(async (repo) => {
-      const started = await repo.getOrCreate(null, bank, {
-        skill: "sentence-boundaries",
-        plan,
-      });
-      const explanation =
-        "A complete sentence needs a subject, a verb, and a finished thought. Test it by reading the words alone and asking whether the idea is complete.";
-      const reviewed = await repo.reviewLessonContent(
-        started.sessionId,
-        bank,
-        { approved: true, editedExplanation: explanation },
-      );
-
-      expect(reviewed.lesson.concept).toBe(explanation);
-      expect(reviewed.lesson.sections[0].explanation).toBe(explanation);
-      expect(reviewed.lessonReceipt).toMatchObject({
-        deliveredAs: "human-reviewed",
-        validationResult: "human-reviewed",
-      });
-
+      expect(corrected.learnerModel.corrections[0].modelVersion).toBe("bkt-1.0");
       await expect(
-        repo.reviewLessonContent(started.sessionId, bank, {
-          approved: true,
-          editedExplanation:
-            "This leaked answer is an official ACT question and guarantees a score.",
+        repo.correctLearnerModel(started.sessionId, bank, {
+          skill: "sentence-boundaries",
+          kind: "too-low",
+          note: "Trying to move the same estimate again.",
         }),
-      ).rejects.toThrow("unsafe or unsupported claim");
+      ).rejects.toThrow("already recorded a correction");
 
-      const rejected = await repo.reviewLessonContent(
-        started.sessionId,
-        bank,
-        { approved: false },
-      );
-      expect(rejected.lessonReceipt.deliveredAs).toBe("reviewed-fallback");
-      expect(rejected.lesson.concept).toBe(bank.lessons[0].concept);
     });
   });
 
@@ -546,6 +819,14 @@ describe("FileLearningSessionRepository", () => {
       const checkpoint = await repo.beginCheckpoint(started.sessionId, bank);
       expect(checkpoint.mode).toBe("checkpoint");
       expect(checkpoint.questions).toHaveLength(3);
+      expect(checkpoint.mission.steps).toEqual([
+        expect.objectContaining({
+          id: "checkpoint",
+          state: "current",
+          progress: 0,
+          total: 3,
+        }),
+      ]);
       expect(
         new Set(checkpoint.questions.map((question) => question.skill)).size,
       ).toBe(3);

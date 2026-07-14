@@ -5,6 +5,8 @@ export * from "./learning";
 export * from "./learning-twin";
 export * from "./mission";
 export * from "./planning";
+export * from "./scout";
+export * from "./learning-actions";
 export * from "./scoring";
 export * from "./study-plan";
 export * from "./types";

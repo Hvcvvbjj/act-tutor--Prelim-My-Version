@@ -846,7 +846,9 @@ export function AdaptivePlanStudio({
             </span>
           </div>
           <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl">
-            From {plan.currentComposite} toward {plan.draft.goal}.
+            {plan.evidence.source === "rapid_diagnostic"
+              ? `Planning from a provisional baseline toward ${plan.draft.goal}.`
+              : `From ${plan.currentComposite} toward ${plan.draft.goal}.`}
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
             {adaptivePlan.forecast.message}

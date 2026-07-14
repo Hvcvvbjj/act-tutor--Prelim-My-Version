@@ -103,6 +103,7 @@
   body {
     @apply bg-background text-foreground;
     min-width: 320px;
+    overflow-x: clip;
     background-image:
       linear-gradient(rgb(20 35 58 / 0.025) 1px, transparent 1px),
       linear-gradient(90deg, rgb(20 35 58 / 0.025) 1px, transparent 1px);
@@ -117,6 +118,14 @@
   ::selection {
     color: var(--primary-foreground);
     background: var(--primary);
+  }
+}
+
+@media (max-width: 767px) {
+  button,
+  [role="button"],
+  [role="tab"] {
+    min-height: 44px;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { AnswerConfidence, LearningSessionPayload } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
@@ -32,7 +32,7 @@ interface LessonWorkspaceProps {
   onChoiceChange: (choice: string) => void
   onCompleteLesson: () => void
   onTeachBack: (response: string) => void
-  onLessonFeedback: (helpful: boolean, style: string) => void
+  onLessonFeedback: (helpful: boolean, style: string) => Promise<boolean>
   onSubmitAnswer: (metadata: {
     confidence: AnswerConfidence
     selfCorrected: boolean
@@ -96,6 +96,15 @@ function LessonStage({
     "standard" | "short" | "analogy" | "visual"
   >(explanationPreferences.depth === "quick" ? "short" : "standard")
   const [teachBack, setTeachBack] = useState(learning.teachBack?.response ?? "")
+  const [feedbackState, setFeedbackState] = useState<
+    "idle" | "pending" | "saved" | "failed"
+  >("idle")
+  async function saveFeedback(helpful: boolean) {
+    setFeedbackState("pending")
+    setFeedbackState(
+      (await onLessonFeedback(helpful, explanationMode)) ? "saved" : "failed"
+    )
+  }
   const displayExplanation =
     explanationMode === "short"
       ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
@@ -306,7 +315,11 @@ function LessonStage({
               disabled={submitting}
             >
               <CheckCircle2Icon data-icon="inline-start" />
-              {submitting ? "Saving lesson…" : "Start focused practice"}
+              {submitting
+                ? "Saving lesson…"
+                : learning.mode === "micro"
+                  ? "Start one-question practice"
+                  : "Start focused practice"}
             </Button>
           ) : (
             <Button
@@ -373,8 +386,9 @@ function LessonStage({
             <div>
               <dt className="ink-label text-muted-foreground">Content check</dt>
               <dd className="mt-1 font-semibold">
-                {learning.lessonReceipt.validationResult === "passed"
-                  ? "Passed"
+                {learning.lessonReceipt.validationResult ===
+                "automated-checks-passed"
+                  ? "Automated checks passed"
                   : learning.lessonReceipt.validationResult === "human-reviewed"
                     ? "Teacher review saved"
                     : "Reviewed fallback used"}
@@ -391,7 +405,8 @@ function LessonStage({
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => onLessonFeedback(true, explanationMode)}
+              disabled={feedbackState === "pending"}
+              onClick={() => void saveFeedback(true)}
             >
               This explanation helped
             </Button>
@@ -399,11 +414,24 @@ function LessonStage({
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => onLessonFeedback(false, explanationMode)}
+              disabled={feedbackState === "pending"}
+              onClick={() => void saveFeedback(false)}
             >
               Still confusing
             </Button>
           </div>
+          {feedbackState !== "idle" ? (
+            <p
+              className="mt-2 text-xs font-semibold"
+              role={feedbackState === "failed" ? "alert" : "status"}
+            >
+              {feedbackState === "pending"
+                ? "Saving feedback…"
+                : feedbackState === "saved"
+                  ? "Feedback saved."
+                  : "Feedback was not saved. Try again."}
+            </p>
+          ) : null}
         </details>
       </aside>
     </div>
@@ -458,6 +486,10 @@ function PracticeStage({
     "step-by-step" | "compare" | "simple" | "analogy" | "visual"
   >("step-by-step")
   const startedAt = useRef<number | null>(null)
+
+  useEffect(() => {
+    startedAt.current = window.performance.now()
+  }, [currentQuestion?.id])
 
   if (learning.status === "complete") {
     return (
@@ -561,7 +593,6 @@ function PracticeStage({
           <RadioGroup
             value={selectedChoice}
             onValueChange={(choice) => {
-              startedAt.current ??= window.performance.now()
               onChoiceChange(choice)
             }}
             className="mt-7 grid gap-3"
@@ -807,7 +838,10 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
             className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
             aria-label="Lesson stages"
           >
-            {SECTION_SHORT_LABELS.map((label, index) => (
+            {SECTION_SHORT_LABELS.slice(
+              0,
+              props.learning.lesson.sections.length
+            ).map((label, index) => (
               <Button
                 key={label}
                 type="button"

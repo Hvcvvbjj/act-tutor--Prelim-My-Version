@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CALIBRATION_MAX_ITEMS,
+  buildCalibrationLearningBaseline,
   calibrationStopDecision,
   estimateAbility,
   irtItemInformation,
@@ -10,6 +11,7 @@ import {
   selectNextCalibrationItem,
   type CalibrationItemDescriptor,
   type CalibrationObservation,
+  type AdaptiveCalibrationPayload,
 } from "./calibration";
 
 const sections = ["english", "math", "reading"] as const;
@@ -123,5 +125,45 @@ describe("2PL adaptive calibration", () => {
       complete: true,
       reason: expect.stringContaining("evidence cap"),
     });
+  });
+
+  it("builds a section and skill baseline from completed scored evidence", () => {
+    const history = [
+      { questionId: "e1", section: "english", skill: "punctuation", skillLabel: "Punctuation", correct: false },
+      { questionId: "e2", section: "english", skill: "punctuation", skillLabel: "Punctuation", correct: true },
+      { questionId: "m1", section: "math", skill: "linear-equations", skillLabel: "Linear equations", correct: true },
+      { questionId: "m2", section: "math", skill: "linear-equations", skillLabel: "Linear equations", correct: true },
+      { questionId: "r1", section: "reading", skill: "inference", skillLabel: "Inference", correct: false },
+      { questionId: "r2", section: "reading", skill: "inference", skillLabel: "Inference", correct: false },
+      { questionId: "r3", section: "reading", skill: "inference", skillLabel: "Inference", correct: false },
+      { questionId: "e3", section: "english", skill: "boundaries", skillLabel: "Boundaries", correct: true },
+    ].map((event, index) => ({
+      ...event,
+      difficulty: "medium" as const,
+      thetaBefore: 0,
+      thetaAfter: 0,
+      standardErrorBefore: 1,
+      standardErrorAfter: 0.9,
+      information: 1,
+      answeredAt: `2026-07-14T12:0${index}:00.000Z`,
+    }));
+    const payload = {
+      sessionId: "calibration-1",
+      bankVersion: "bank-1",
+      status: "complete",
+      history,
+    } as unknown as AdaptiveCalibrationPayload;
+
+    const baseline = buildCalibrationLearningBaseline(payload);
+
+    expect(baseline.sections.math).toBeGreaterThan(baseline.sections.reading);
+    expect(baseline.skillResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ skill: "linear-equations", signal: "strength" }),
+        expect.objectContaining({ skill: "inference", signal: "focus" }),
+      ]),
+    );
+    expect(baseline.composite).toBeGreaterThanOrEqual(1);
+    expect(baseline.composite).toBeLessThanOrEqual(36);
   });
 });

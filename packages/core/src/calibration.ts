@@ -1,8 +1,14 @@
 import type {
   DiagnosticDifficulty,
   DiagnosticQuestionPublic,
+  DiagnosticSkillResult,
 } from "./diagnostic";
-import type { CoreSection } from "./types";
+import { calculateEmrComposite } from "./scoring";
+import {
+  CORE_SECTIONS,
+  type CoreSection,
+  type CoreSectionScores,
+} from "./types";
 import type { AnswerConfidence } from "./learning";
 
 export const ADAPTIVE_CALIBRATION_MODEL = {
@@ -108,6 +114,95 @@ export interface AdaptiveCalibrationPayload {
   representativeDemo: boolean;
   learningTwinUpdated: boolean;
   updatedAt: string;
+}
+
+export interface CalibrationLearningBaseline {
+  calibrationSessionId: string;
+  calibrationBankVersion: string;
+  /** Internal 1-36 planning proxy required by the scheduler; never an ACT estimate. */
+  composite: number;
+  sections: CoreSectionScores;
+  skillResults: ReadonlyArray<DiagnosticSkillResult>;
+}
+
+function planningLevel(correct: number, total: number) {
+  const smoothedAccuracy = (correct + 1) / (total + 2);
+  return Math.max(1, Math.min(36, Math.round(1 + smoothedAccuracy * 35)));
+}
+
+export function buildCalibrationLearningBaseline(
+  payload: AdaptiveCalibrationPayload,
+): CalibrationLearningBaseline {
+  if (payload.status !== "complete" || payload.history.length === 0) {
+    throw new RangeError("The adaptive check must be complete before rebasing.");
+  }
+
+  const overallCorrect = payload.history.filter((event) => event.correct).length;
+  const sectionCounts = new Map<CoreSection, { correct: number; total: number }>();
+  const skillCounts = new Map<
+    string,
+    {
+      label: string;
+      section: CoreSection;
+      correct: number;
+      total: number;
+    }
+  >();
+
+  for (const event of payload.history) {
+    const section = sectionCounts.get(event.section) ?? { correct: 0, total: 0 };
+    section.total += 1;
+    if (event.correct) section.correct += 1;
+    sectionCounts.set(event.section, section);
+
+    const skill = skillCounts.get(event.skill) ?? {
+      label: event.skillLabel,
+      section: event.section,
+      correct: 0,
+      total: 0,
+    };
+    skill.total += 1;
+    if (event.correct) skill.correct += 1;
+    skillCounts.set(event.skill, skill);
+  }
+
+  const overall = planningLevel(overallCorrect, payload.history.length);
+  const sections = Object.fromEntries(
+    CORE_SECTIONS.map((section) => {
+      const counts = sectionCounts.get(section);
+      return [
+        section,
+        counts ? planningLevel(counts.correct, counts.total) : overall,
+      ];
+    }),
+  ) as unknown as CoreSectionScores;
+  const skillResults = [...skillCounts.entries()].map(
+    ([skill, counts]): DiagnosticSkillResult => {
+      const accuracy = counts.correct / counts.total;
+      return {
+        skill,
+        label: counts.label,
+        section: counts.section,
+        correct: counts.correct,
+        total: counts.total,
+        accuracy,
+        signal:
+          accuracy >= 0.75
+            ? "strength"
+            : accuracy >= 0.5
+              ? "developing"
+              : "focus",
+      };
+    },
+  );
+
+  return {
+    calibrationSessionId: payload.sessionId,
+    calibrationBankVersion: payload.bankVersion,
+    composite: calculateEmrComposite(sections),
+    sections,
+    skillResults,
+  };
 }
 
 const LOGISTIC_SCALE = 1.7;

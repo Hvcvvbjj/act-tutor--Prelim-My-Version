@@ -12,7 +12,9 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --if-present test",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "test:e2e": "pnpm --filter web test:e2e",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "check:release": "pnpm check && pnpm test:e2e"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

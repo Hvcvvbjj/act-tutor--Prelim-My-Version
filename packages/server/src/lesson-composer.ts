@@ -60,7 +60,7 @@ export function buildAuthoredPersonalizedLesson(
       : "You have time to learn the rule before adding a timer.";
   const assignmentReason = evidence
     ? `Scout picked it because you got ${evidence.correct} of ${evidence.total} matching diagnostic questions right.`
-    : "Scout picked it because it still needs a clear starting score.";
+    : "Scout picked it because you have not answered a scored question for this skill yet.";
 
   return {
     ...input.baseLesson,

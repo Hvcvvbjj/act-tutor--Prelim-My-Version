@@ -1,13 +1,25 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import type {
-  AdaptiveCalibrationPayload,
   AnswerConfidence,
+  CalibrationLearningBaseline,
+  LearningActionRequest,
+  LearningAnswerRequest,
   LearningSessionPayload,
+  LessonPlanContext,
   StudyPlanTask,
 } from "@act-tutor/core"
-import { ArrowRightIcon, InfoIcon, PencilLineIcon } from "lucide-react"
+import {
+  ArrowRightIcon,
+  EllipsisIcon,
+  FlaskConicalIcon,
+  InfoIcon,
+  PencilLineIcon,
+  Settings2Icon,
+  ShieldCheckIcon,
+} from "lucide-react"
 
 import { AdaptivePlanStudio } from "@/components/tutor/adaptive-plan-studio"
 import { AdaptiveCalibrationLab } from "@/components/tutor/adaptive-calibration-lab"
@@ -15,7 +27,6 @@ import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
 import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
 import { LearningTwinLab } from "@/components/tutor/learning-twin-lab"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
-import { ScoutOperationsLab } from "@/components/tutor/scout-operations-lab"
 import {
   ScoutProvider,
   useScoutContext,
@@ -25,13 +36,50 @@ import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  cacheLearningSession,
+  deleteRemoteScoutData,
+  flushOfflineAnswerQueue,
+  learningRequest,
+  loadLearningSession,
+  readCachedLearningSession,
+} from "@/lib/learning-client"
+
+const ScoutOperationsLab = dynamic(
+  () =>
+    import("@/components/tutor/scout-operations-lab").then(
+      (module) => module.ScoutOperationsLab
+    ),
+  {
+    loading: () => (
+      <main className="mx-auto max-w-3xl px-5 py-20">
+        <ScoutCoach mood="thinking" message="Opening your evidence and data tools…" />
+      </main>
+    ),
+  }
+)
 
 interface DashboardProps {
   plan: GeneratedPlan
   onEditPlan: () => void
   onStartFullDiagnostic: () => void
-  onUseAdaptiveBaseline: (payload: AdaptiveCalibrationPayload) => void
+  onUseAdaptiveBaseline: (payload: CalibrationLearningBaseline) => void
 }
+
+interface CalibrationRebaseResponse {
+  learning: LearningSessionPayload
+  baseline: CalibrationLearningBaseline
+}
+
+type MissionStartAction =
+  | { action: "start_next" }
+  | { action: "start_skill"; skill: string }
+  | { action: "start_repair"; mistakeId: string }
+  | { action: "start_checkpoint" }
+  | { action: "start_retention"; skill: string }
+  | { action: "start_challenge"; skill?: string }
+  | { action: "start_micro"; skill?: string }
+  | { action: "start_recovery" }
 
 const SECTION_FALLBACK_SKILLS = {
   english: "sentence-boundaries",
@@ -39,72 +87,20 @@ const SECTION_FALLBACK_SKILLS = {
   reading: "supported-inference",
 } as const
 
-const OFFLINE_QUEUE_KEY = "scout-offline-answer-queue-v1"
-const OFFLINE_LESSON_KEY = "scout-offline-learning-session-v1"
-
-function readOfflineQueue() {
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(OFFLINE_QUEUE_KEY) ?? "[]"
-    ) as unknown
-    return Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : []
-  } catch {
-    return []
-  }
-}
-
-function readCachedLearningSession() {
-  try {
-    return JSON.parse(
-      window.localStorage.getItem(OFFLINE_LESSON_KEY) ?? "null"
-    ) as LearningSessionPayload | null
-  } catch {
-    return null
-  }
-}
-
-function queueOfflineAnswer(body: Record<string, unknown>) {
-  const current = readOfflineQueue()
-  if (!current.some((item) => item.questionId === body.questionId)) {
-    current.push(body)
-    window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(current))
-  }
-}
-
-async function learningRequest(body: Record<string, unknown>) {
-  let response: Response
-  try {
-    response = await fetch("/api/learning", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-  } catch (error) {
-    if (body.action === "answer" && typeof window !== "undefined") {
-      queueOfflineAnswer(body)
-      throw new Error(
-        "You are offline. This answer is saved on this device and will be scored when the connection returns."
-      )
-    }
-    throw error
-  }
+async function rebaseLearningSession(
+  body: Omit<LessonPlanContext, "currentScore">
+) {
+  const response = await fetch("/api/learning", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "rebase_after_calibration", ...body }),
+  })
   const payload = (await response.json()) as
-    LearningSessionPayload | { error: string }
+    | CalibrationRebaseResponse
+    | { error: string }
   if (!response.ok || "error" in payload) {
     throw new Error(
-      "error" in payload ? payload.error : "Learning request failed."
-    )
-  }
-  return payload
-}
-
-async function loadLearningSession() {
-  const response = await fetch("/api/learning", { cache: "no-store" })
-  const payload = (await response.json()) as
-    LearningSessionPayload | { error: string }
-  if (!response.ok || "error" in payload) {
-    throw new Error(
-      "error" in payload ? payload.error : "Learning session refresh failed."
+      "error" in payload ? payload.error : "The Quick Check plan could not be saved."
     )
   }
   return payload
@@ -127,10 +123,26 @@ function Brand() {
 }
 
 function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
+  const provisional = plan.evidence.source === "rapid_diagnostic"
+  if (provisional) {
+    return (
+      <div className="border-l-2 border-foreground pl-4">
+        <p className="ink-label text-muted-foreground">Quick Check plan</p>
+        <p className="mt-1 font-heading text-xl leading-none font-black">
+          Goal: ACT {plan.draft.goal}
+        </p>
+        <p className="mt-1 text-[0.65rem] font-semibold text-muted-foreground">
+          No predicted ACT score
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="flex items-center gap-3 border-l-2 border-foreground pl-4">
       <div>
-        <p className="ink-label text-muted-foreground">Now</p>
+        <p className="ink-label text-muted-foreground">
+          Now
+        </p>
         <p className="font-heading text-3xl leading-none font-black tabular-nums">
           {plan.currentComposite}
         </p>
@@ -151,6 +163,60 @@ function AccessibleTestDayLab() {
   return <TestDayLab extendedTime={accommodations.extendedTime} />
 }
 
+function MobileOverflow({
+  open,
+  onNavigate,
+  onClose,
+}: {
+  open: boolean
+  onNavigate: (tab: string) => void
+  onClose: () => void
+}) {
+  const { openSettings } = useScoutContext()
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] border-2 border-foreground bg-background p-3 shadow-[5px_5px_0_var(--foreground)] md:hidden"
+      role="menu"
+      aria-label="More destinations"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onClick={() => {
+          onNavigate("lab")
+          onClose()
+        }}
+      >
+        <FlaskConicalIcon /> Test Lab
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onClick={() => {
+          onNavigate("control")
+          onClose()
+        }}
+      >
+        <ShieldCheckIcon /> Evidence & data
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onClick={() => {
+          openSettings()
+          onClose()
+        }}
+      >
+        <Settings2Icon /> Learning settings
+      </Button>
+    </div>
+  )
+}
+
 export function Dashboard({
   plan,
   onEditPlan,
@@ -168,6 +234,7 @@ export function Dashboard({
   const [activeSection, setActiveSection] = useState(0)
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(
     representativeDemo || plan.adaptiveBaselineRequired ? "calibrate" : "today"
   )
@@ -194,21 +261,13 @@ export function Dashboard({
 
   useEffect(() => {
     async function flushOfflineAnswers() {
-      const queued = readOfflineQueue()
-      if (!queued.length) return
-      for (let index = 0; index < queued.length; index += 1) {
-        try {
-          await learningRequest(queued[index])
-          const remaining = queued.slice(index + 1)
-          window.localStorage.setItem(
-            OFFLINE_QUEUE_KEY,
-            JSON.stringify(remaining)
-          )
-        } catch {
-          return
-        }
+      const result = await flushOfflineAnswerQueue()
+      if (result.lastQuarantineReason) {
+        setLearningError(
+          `A saved answer was not applied: ${result.lastQuarantineReason} It is quarantined in Evidence & data for review.`
+        )
       }
-      await refreshLearningSession()
+      if (result.applied > 0) await refreshLearningSession()
     }
     window.addEventListener("online", flushOfflineAnswers)
     if (navigator.onLine) void flushOfflineAnswers()
@@ -217,7 +276,7 @@ export function Dashboard({
 
   useEffect(() => {
     if (learning) {
-      window.localStorage.setItem(OFFLINE_LESSON_KEY, JSON.stringify(learning))
+      cacheLearningSession(learning)
     }
   }, [learning])
 
@@ -302,10 +361,12 @@ export function Dashboard({
         await learningRequest({ action: "lesson_feedback", helpful, style })
       )
       setLearningError(null)
+      return true
     } catch (error) {
       setLearningError(
         error instanceof Error ? error.message : "Could not save lesson feedback."
       )
+      return false
     }
   }
 
@@ -329,57 +390,25 @@ export function Dashboard({
     }
   }
 
-  async function saveTutorOverride(input: {
-    skill: string
-    reason: string
-  }) {
+  async function deleteLearnerData() {
     setSubmitting(true)
+    setLearningError(null)
     try {
-      setLearning(
-        await learningRequest({ action: "tutor_override", ...input })
-      )
-      setLearningError(null)
-    } catch (error) {
-      setLearningError(
-        error instanceof Error ? error.message : "Could not save the override."
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function decideLessonContent(input: {
-    approved: boolean
-    editedExplanation?: string
-  }) {
-    setSubmitting(true)
-    try {
-      const payload = await learningRequest({ action: "review_lesson", ...input })
-      setLearning(payload)
-      setLearningError(null)
+      await deleteRemoteScoutData()
+      for (const key of Object.keys(window.localStorage)) {
+        if (key.startsWith("scout-") || key.startsWith("ai-act-")) {
+          window.localStorage.removeItem(key)
+        }
+      }
+      window.location.reload()
     } catch (error) {
       setLearningError(
         error instanceof Error
           ? error.message
-          : "Could not save the lesson decision."
+          : "Deletion was not confirmed. No local data was cleared."
       )
-    } finally {
       setSubmitting(false)
     }
-  }
-
-  async function deleteLearnerData() {
-    await Promise.allSettled(
-      ["/api/learning", "/api/calibration", "/api/diagnostic", "/api/exam-lab", "/api/study-plan"].map(
-        (url) => fetch(url, { method: "DELETE" })
-      )
-    )
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith("scout-") || key.startsWith("ai-act-")) {
-        window.localStorage.removeItem(key)
-      }
-    }
-    window.location.reload()
   }
 
   async function submitAnswer(metadata: {
@@ -397,7 +426,17 @@ export function Dashboard({
           questionId: question.id,
           choiceId: selectedChoice,
           ...metadata,
-        })
+          command: {
+            schemaVersion: 2,
+            idempotencyKey: window.crypto.randomUUID(),
+            learnerSessionId: learning.sessionId,
+            bankVersion: learning.bankVersion,
+            questionVersion: question.version,
+            sequence: learning.currentQuestionIndex,
+            answerRevision: 1,
+            issuedAt: new Date().toISOString(),
+          },
+        } satisfies LearningAnswerRequest)
       )
       setSelectedChoice("")
       setLearningError(null)
@@ -421,24 +460,57 @@ export function Dashboard({
     }
   }
 
+  async function applyAdaptiveBaseline() {
+    setSubmitting(true)
+    try {
+      const planFields = planRequestFields()
+      const rebased = await rebaseLearningSession({
+        goalScore: planFields.goalScore,
+        daysUntilTest: planFields.daysUntilTest,
+        minutesPerSession: planFields.minutesPerSession,
+        studyDaysPerWeek: planFields.studyDaysPerWeek,
+        preferredSection: planFields.preferredSection,
+      })
+      setLearning(rebased.learning)
+      setSelectedChoice("")
+      setActiveSection(0)
+      setWorkspaceOpen(false)
+      onUseAdaptiveBaseline(rebased.baseline)
+      setActiveTab("today")
+      setLearningError(null)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The Quick Check plan could not be saved."
+      setLearningError(message)
+      throw error
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function startMissionAction(
-    body: Record<string, unknown>,
+    body: MissionStartAction,
     openWorkspace = false
   ) {
     setSubmitting(true)
     try {
-      const payload = await learningRequest({ ...body, ...planRequestFields() })
+      const request: LearningActionRequest = { ...planRequestFields(), ...body }
+      const payload = await learningRequest(request)
       setLearning(payload)
       setSelectedChoice("")
       setActiveSection(0)
       setWorkspaceOpen(openWorkspace)
       setLearningError(null)
+      return true
     } catch (error) {
       setLearningError(
         error instanceof Error
           ? error.message
           : "Could not start that study task."
       )
+      return false
     } finally {
       setSubmitting(false)
     }
@@ -463,32 +535,37 @@ export function Dashboard({
       return
     }
     if (task.kind === "checkpoint") {
-      await startMissionAction({ action: "start_checkpoint" }, true)
-      setActiveTab("today")
+      if (await startMissionAction({ action: "start_checkpoint" }, true)) {
+        setActiveTab("today")
+      }
       return
     }
     if (task.skill) {
-      await startMissionAction(
+      if (await startMissionAction(
         { action: "start_skill", skill: task.skill },
         true
-      )
-      setActiveTab("today")
+      )) {
+        setActiveTab("today")
+      }
     }
   }
 
   return (
-    <ScoutProvider activeTab={activeTab} plan={plan} learning={learning}>
+    <ScoutProvider activeTab={activeTab} learning={learning}>
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
-        className="min-h-svh gap-0 bg-transparent"
+        onValueChange={(value) => {
+          setActiveTab(value)
+          setMoreOpen(false)
+        }}
+        className="min-h-svh gap-0 bg-transparent pb-24 md:pb-0"
       >
         <header className="sticky top-0 z-20 border-b-2 border-foreground bg-background">
           <div className="mx-auto grid min-h-20 max-w-[96rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
             <Brand />
             <TabsList
               variant="line"
-              className="order-3 col-span-2 justify-self-center lg:order-none lg:col-span-1"
+              className="order-3 col-span-2 hidden justify-self-center md:flex lg:order-none lg:col-span-1"
               aria-label="Study navigation"
             >
               <TabsTrigger value="today">Today</TabsTrigger>
@@ -496,7 +573,7 @@ export function Dashboard({
               <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
               <TabsTrigger value="progress">My Skills</TabsTrigger>
               <TabsTrigger value="lab">Test Lab</TabsTrigger>
-              <TabsTrigger value="control">Scout Lab</TabsTrigger>
+              <TabsTrigger value="control">Evidence & data</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-3 justify-self-end">
               <div className="hidden sm:block">
@@ -514,6 +591,43 @@ export function Dashboard({
             </div>
           </div>
         </header>
+
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          aria-label="Primary study navigation"
+        >
+          <TabsList className="grid h-auto w-full grid-cols-5 rounded-none bg-transparent p-0">
+            <TabsTrigger value="today" className="min-h-14 px-1 text-[0.68rem]">Today</TabsTrigger>
+            <TabsTrigger value="plan" className="min-h-14 px-1 text-[0.68rem]">Plan</TabsTrigger>
+            <TabsTrigger value="calibrate" className="min-h-14 px-1 text-[0.68rem]">Quick Check</TabsTrigger>
+            <TabsTrigger value="progress" className="min-h-14 px-1 text-[0.68rem]">My Skills</TabsTrigger>
+            <Button
+              type="button"
+              variant={moreOpen ? "secondary" : "ghost"}
+              className="min-h-14 rounded-none px-1 text-[0.68rem]"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreOpen((current) => !current)}
+            >
+              <EllipsisIcon /> More
+            </Button>
+          </TabsList>
+        </nav>
+        <MobileOverflow
+          open={moreOpen}
+          onNavigate={setActiveTab}
+          onClose={() => setMoreOpen(false)}
+        />
+
+        {learningError ? (
+          <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
+            <Alert className="bg-background" role="alert">
+              <InfoIcon />
+              <AlertTitle>Scout could not finish that change</AlertTitle>
+              <AlertDescription>{learningError}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
 
         <TabsContent value="today">
           <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
@@ -614,7 +728,7 @@ export function Dashboard({
               onReturnToToday={() => setActiveTab("today")}
               onStartFullDiagnostic={onStartFullDiagnostic}
               adaptiveBaselineRequired={plan.adaptiveBaselineRequired === true}
-              onUseAdaptiveBaseline={onUseAdaptiveBaseline}
+              onUseAdaptiveBaseline={applyAdaptiveBaseline}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
@@ -645,20 +759,22 @@ export function Dashboard({
               learning={learning}
               busy={submitting}
               onCorrectModel={correctLearnerModel}
-              onTutorOverride={saveTutorOverride}
               onStartChallenge={(skill) =>
                 startMissionAction(
                   { action: "start_challenge", skill },
                   true
-                ).then(() => setActiveTab("today"))
+                ).then((started) => {
+                  if (started) setActiveTab("today")
+                })
               }
               onStartRecovery={() =>
                 startMissionAction({ action: "start_recovery" }, true).then(
-                  () => setActiveTab("today")
+                  (started) => {
+                    if (started) setActiveTab("today")
+                  }
                 )
               }
               onDeleteData={deleteLearnerData}
-              onContentDecision={decideLessonContent}
             />
           ) : null}
         </TabsContent>

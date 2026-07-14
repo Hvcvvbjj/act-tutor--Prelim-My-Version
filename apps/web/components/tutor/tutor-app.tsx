@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import {
   buildPlanIntensity,
   calendarDaysUntil,
-  calculateEmrComposite,
   diagnosticResultToEvidence,
   normalizeCurrentScore,
   selectTargetVector,
@@ -13,7 +12,7 @@ import {
   type DiagnosticResult,
   type DiagnosticSkillResult,
   type NormalizedScoreEvidence,
-  type AdaptiveCalibrationPayload,
+  type CalibrationLearningBaseline,
 } from "@act-tutor/core"
 
 import { Dashboard } from "@/components/tutor/dashboard"
@@ -388,34 +387,9 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     setError(null)
   }
 
-  function useAdaptiveBaseline(payload: AdaptiveCalibrationPayload) {
-    const overallScore = Math.max(
-      1,
-      Math.min(36, Math.round(18.5 + payload.estimate.theta * (35 / 6)))
-    )
-    const overallAccuracy = payload.history.length
-      ? payload.history.filter((event) => event.correct).length /
-        payload.history.length
-      : 0.5
-    const baseline = Object.fromEntries(
-      (["english", "math", "reading"] as const).map((section) => {
-        const evidence = payload.history.filter(
-          (event) => event.section === section
-        )
-        const sectionAccuracy = evidence.length
-          ? evidence.filter((event) => event.correct).length / evidence.length
-          : overallAccuracy
-        const adjusted = Math.max(
-          1,
-          Math.min(
-            36,
-            Math.round(overallScore + (sectionAccuracy - overallAccuracy) * 8)
-          )
-        )
-        return [section, adjusted]
-      })
-    ) as unknown as CoreSectionScores
-    const composite = calculateEmrComposite(baseline)
+  function useAdaptiveBaseline(payload: CalibrationLearningBaseline) {
+    const baseline = payload.sections
+    const composite = payload.composite
     const evidence: NormalizedScoreEvidence = {
       source: "rapid_diagnostic",
       reportedComposite: null,

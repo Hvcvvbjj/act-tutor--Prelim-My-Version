@@ -2,7 +2,7 @@
 
 An adaptive, Duolingo-style ACT study product that turns a student's score history and every practice answer into the next best learning action.
 
-> Product promise: **Every answer changes what you study next.**
+> Product promise: **Every answer becomes evidence. Scout changes the plan only when that evidence is strong enough.**
 
 ## Repository status
 
@@ -15,9 +15,9 @@ Working in the current slice:
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
 - a generated Today/Plan/Progress dashboard with a durable adaptive learner profile;
-- an Adaptive Plan Studio that turns availability into dated lesson, focus, review, timed-transfer, checkpoint, and rehearsal assignments through test day;
-- editable per-day study minutes, week navigation, milestone tracking, task completion, catch-up, capacity/readiness estimates, and future-only rebalancing that freezes today and completed history;
-- a no-score path that starts with an 8–12 question information-gain Quick Check, rebuilds the real plan from that baseline, and keeps a validated 66-question half-length diagnostic available for a narrower range;
+- an Adaptive Plan Studio that turns availability into dated lesson, focus, review, mixed timed practice, checkpoint, and rehearsal assignments through test day;
+- editable per-day study minutes, week navigation, milestone tracking, task completion, catch-up, capacity estimates, and future-only rebalancing that freezes today and completed history;
+- a no-score path that starts with an 8–12 question information-gain Quick Check, atomically rebuilds the server-owned lesson, skill estimates, plan, and Today mission, and keeps an original reviewed 66-question half-length diagnostic available for more evidence;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
 - a versioned 12-skill learning taxonomy, 12 reviewed lesson foundations, AI-generated personalized four-stage teaching sequences, and 60 focused practice questions;
@@ -27,15 +27,15 @@ Working in the current slice:
 - a persistent 12-skill Bayesian Learning Twin that updates P(Learned), predicted next-answer accuracy, uncertainty, and the next-skill recommendation after every server-scored response;
 - an 8–12 item adaptive **Precision Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
-- an interpretable model inspector with feature contributions, public evidence history, and counterfactual readiness projections;
-- a one-click judge demo that lands on the last Quick Check question and turns one answer into a plain-English proof replay: practice level, exact skill estimate, and next lesson before/after;
+- an interpretable model inspector with feature contributions, public evidence history, and counterfactual planning projections;
+- a one-click judge demo that lands on the last Quick Check question and shows—in plain English—what one answer changed and what Scout deliberately held steady;
 - a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 - a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
 - exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, teach-back scoring, alternate teaching styles, and question-exposure protection;
-- a Scout Lab for learner-model correction, ACT pacing and score scenarios, coach workflows, imported cohort heatmaps, content approval, model/policy comparison, fairness abstention, item health, data export/delete, and weak-connection answer sync.
+- an Evidence & Data workspace for bounded learner-model corrections, ACT pacing and manual score scenarios, model-choice explanations, fairness abstention, item health, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
 
 Still placeholders or future milestones:
 
@@ -192,6 +192,15 @@ pnpm test
 pnpm build
 ```
 
+Browser release journeys use Playwright. Install Chromium once, then run the release gate:
+
+```bash
+pnpm --filter web exec playwright install chromium
+pnpm check:release
+```
+
+The browser suite covers transactional Quick Check rebasing, the persisted Today lesson, mobile overflow at 320/375/390 pixels, Scout's bottom-sheet layout, plain-English margin-of-error routing, focus trapping, Escape close, and focus return.
+
 To run the production build locally after `pnpm build`:
 
 ```bash
@@ -227,15 +236,16 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 ## MVP stack
 
 - Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, pure TypeScript core/content/server packages, Zod content validation, durable anonymous local sessions, and Vitest.
-- Planned next: automated Playwright journeys, Supabase Postgres with anonymous auth and Row Level Security, and Vercel previews.
-- Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with validated output and reviewed fallbacks.
+- Implemented verification: Vitest unit/route contracts plus Playwright release journeys for Quick Check rebasing and mobile Scout behavior.
+- Planned next: Supabase Postgres with anonymous auth and Row Level Security, Vercel previews, and broader browser coverage.
+- Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with schema and grounding checks plus reviewed fallbacks.
 - Implemented evidence-acquisition model: a Bayesian 2PL IRT Precision Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.
 - Implemented learning model: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from diagnostic, calibration, and practice evidence and expose their probabilities, uncertainty, parameters, and recommendation features in the Learning Twin.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
 The three layers have deliberately different jobs: **IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.** Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because both probabilistic models and reviewed lessons run locally.
 
-For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the level estimate, matching skill estimate, and next lesson decision update together. The seven preloaded answers are clearly labeled examples.
+For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the internal planning index, matching skill estimate, and next-lesson decision together—including when Scout holds the plan steady instead of overreacting. The seven preloaded answers are clearly labeled examples.
 
 ## Planning documents
 

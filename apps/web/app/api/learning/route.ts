@@ -1,6 +1,12 @@
-import type { DiagnosticSkillResult, LessonPlanContext } from "@act-tutor/core"
+import {
+  buildCalibrationLearningBaseline,
+  type DiagnosticSkillResult,
+  type LearningAnswerCommand,
+  type LessonPlanContext,
+} from "@act-tutor/core"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { lessonComposer } from "@/lib/lesson-composer.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -9,6 +15,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const SESSION_COOKIE = "ai_act_learning_session"
+const CALIBRATION_COOKIE = "ai_act_calibration_session"
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
   response.cookies.set(SESSION_COOKIE, sessionId, {
@@ -75,6 +82,39 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
   })
 }
 
+function parseAnswerCommand(value: unknown): LearningAnswerCommand {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new RangeError("A versioned answer command is required.")
+  }
+  const command = value as Record<string, unknown>
+  const issuedAt = typeof command.issuedAt === "string" ? command.issuedAt : ""
+  if (
+    command.schemaVersion !== 2 ||
+    typeof command.idempotencyKey !== "string" ||
+    command.idempotencyKey.length < 8 ||
+    typeof command.learnerSessionId !== "string" ||
+    typeof command.bankVersion !== "string" ||
+    !Number.isInteger(command.questionVersion) ||
+    !Number.isInteger(command.sequence) ||
+    Number(command.sequence) < 0 ||
+    command.answerRevision !== 1 ||
+    !issuedAt ||
+    Number.isNaN(new Date(issuedAt).getTime())
+  ) {
+    throw new RangeError("The saved answer command is malformed.")
+  }
+  return {
+    schemaVersion: 2,
+    idempotencyKey: command.idempotencyKey,
+    learnerSessionId: command.learnerSessionId,
+    bankVersion: command.bankVersion,
+    questionVersion: Number(command.questionVersion),
+    sequence: Number(command.sequence),
+    answerRevision: 1,
+    issuedAt,
+  }
+}
+
 function parsePlanContext(body: Record<string, unknown>) {
   const goalScore = Number(body.goalScore)
   const currentScore = Number(body.currentScore)
@@ -133,6 +173,35 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
     const action = body.action
+
+    if (action === "rebase_after_calibration") {
+      const calibrationSessionId = request.cookies.get(CALIBRATION_COOKIE)?.value
+      if (!calibrationSessionId) {
+        throw new RangeError("Complete Quick Check before rebuilding the plan.")
+      }
+      const calibration = await calibrationSessions.get(
+        calibrationSessionId,
+        CALIBRATION_BANK
+      )
+      const baseline = buildCalibrationLearningBaseline(calibration)
+      const plan = parsePlanContext({
+        ...body,
+        currentScore: baseline.composite,
+      })
+      const learning = await learningSessions.rebaseAfterCalibration(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          calibrationKey: `${baseline.calibrationSessionId}:${baseline.calibrationBankVersion}`,
+          diagnosticSkillResults: baseline.skillResults,
+          plan,
+        },
+        lessonComposer
+      )
+      const response = NextResponse.json({ learning, baseline })
+      response.headers.set("Cache-Control", "no-store")
+      return response
+    }
 
     if (action === "start") {
       if (typeof body.skill !== "string")
@@ -272,17 +341,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(payload)
     }
 
-    if (action === "tutor_override") {
-      if (typeof body.skill !== "string" || typeof body.reason !== "string")
-        throw new RangeError("A tutor override skill and reason are required.")
-      const payload = await learningSessions.recordTutorOverride(
-        requireSessionId(request),
-        LEARNING_BANK,
-        { skill: body.skill, reason: body.reason }
-      )
-      return NextResponse.json(payload)
-    }
-
     if (action === "lesson_feedback") {
       const payload = await learningSessions.recordLessonFeedback(
         requireSessionId(request),
@@ -290,21 +348,6 @@ export async function POST(request: NextRequest) {
         {
           helpful: body.helpful === true,
           style: typeof body.style === "string" ? body.style : "standard",
-        }
-      )
-      return NextResponse.json(payload)
-    }
-
-    if (action === "review_lesson") {
-      const payload = await learningSessions.reviewLessonContent(
-        requireSessionId(request),
-        LEARNING_BANK,
-        {
-          approved: body.approved === true,
-          editedExplanation:
-            typeof body.editedExplanation === "string"
-              ? body.editedExplanation
-              : undefined,
         }
       )
       return NextResponse.json(payload)
@@ -332,6 +375,7 @@ export async function POST(request: NextRequest) {
             typeof body.responseSeconds === "number"
               ? Math.max(0, Math.min(3600, body.responseSeconds))
               : undefined,
+          command: parseAnswerCommand(body.command),
         }
       )
       return NextResponse.json(payload)

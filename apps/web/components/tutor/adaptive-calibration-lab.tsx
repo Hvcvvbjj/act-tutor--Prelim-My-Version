@@ -37,7 +37,7 @@ interface AdaptiveCalibrationLabProps {
   onReturnToToday: () => void
   onStartFullDiagnostic: () => void
   adaptiveBaselineRequired: boolean
-  onUseAdaptiveBaseline: (payload: AdaptiveCalibrationPayload) => void
+  onUseAdaptiveBaseline: () => Promise<void>
 }
 
 interface AdaptiveProof {
@@ -216,7 +216,7 @@ function AdaptiveProofReplay({
 
       <div className="grid border-t-2 border-foreground lg:grid-cols-3 lg:divide-x-2 lg:divide-foreground">
         <article className="py-7 lg:pr-7">
-          <p className="ink-label text-muted-foreground">1 · Practice level</p>
+          <p className="ink-label text-muted-foreground">1 · Planning index</p>
           <ChangeValue
             before={`${proof.readinessBefore}/100`}
             after={`${proof.readinessAfter}/100`}
@@ -303,7 +303,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
     <section aria-labelledby="ability-estimate-heading">
       <div className="grid grid-cols-2 divide-x-2 divide-foreground border-y-2 border-foreground">
         <div className="px-4 py-5 sm:px-6">
-          <p className="ink-label text-muted-foreground">Starting level</p>
+          <p className="ink-label text-muted-foreground">Planning index</p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums sm:text-5xl">
             {estimate.readinessIndex}/100
           </p>
@@ -364,7 +364,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             style={{ left: thetaPosition(estimate.theta) }}
           >
             <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black whitespace-nowrap text-background">
-              Level {estimate.readinessIndex}
+              Index {estimate.readinessIndex}
             </span>
           </div>
         </div>
@@ -490,6 +490,22 @@ export function AdaptiveCalibrationLab({
     }
   }
 
+  async function applyAdaptiveBaseline() {
+    setBusy(true)
+    try {
+      await onUseAdaptiveBaseline()
+      setError(null)
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Scout could not save the Quick Check plan."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!payload) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-20">
@@ -600,10 +616,10 @@ export function AdaptiveCalibrationLab({
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
               <div>
                 <p className="font-heading text-2xl font-black">Use this as my starting point</p>
-                <p className="mt-1 text-sm text-muted-foreground">This replaces the temporary starting score and rebuilds the study plan from your own Quick Check.</p>
+                <p className="mt-1 text-sm text-muted-foreground">This replaces the temporary planning placeholder and rebuilds the study plan from your own Quick Check. It does not create an ACT score.</p>
               </div>
-              <Button type="button" onClick={() => onUseAdaptiveBaseline(payload)}>
-                Build my real plan
+              <Button type="button" disabled={busy} onClick={() => void applyAdaptiveBaseline()}>
+                {busy ? "Saving your plan…" : "Build my study plan"}
               </Button>
             </div>
           ) : null}
@@ -628,32 +644,21 @@ export function AdaptiveCalibrationLab({
                   "The estimate was stable enough to make the next study decision."}
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                The full diagnostic is still available if you want a narrower
-                score range before planning.
+                The full diagnostic is still available if you want a stronger
+                practice baseline before planning.
               </p>
             </div>
           </div>
           <div className="border-l-2 border-primary pl-6">
             <p className="ink-label text-muted-foreground">
-              Estimated ACT range
+              Quick Check result
             </p>
             <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
-              {Math.max(
-                1,
-                Math.round(
-                  1 + (payload.estimate.interval80.low / 6) * 35 + 17.5
-                )
-              )}
-              –
-              {Math.min(
-                36,
-                Math.round(
-                  1 + (payload.estimate.interval80.high / 6) * 35 + 17.5
-                )
-              )}
+              {payload.estimate.readinessIndex}
+              <span className="text-3xl text-muted-foreground">/100</span>
             </p>
-            <p className="mt-4 font-mono text-xs font-bold text-muted-foreground uppercase">
-              Practice estimate · not an official ACT score
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              This is a provisional planning index from a short check. Scout does not convert it into an ACT score. Use the full diagnostic for a stronger practice baseline.
             </p>
             <Button
               type="button"
@@ -670,10 +675,16 @@ export function AdaptiveCalibrationLab({
                 type="button"
                 size="lg"
                 className="mt-3 w-full"
-                onClick={() => onUseAdaptiveBaseline(payload)}
+                disabled={busy}
+                onClick={() => void applyAdaptiveBaseline()}
               >
-                Build my plan from this baseline
+                {busy ? "Saving baseline…" : "Use as my provisional baseline"}
               </Button>
+            ) : null}
+            {error ? (
+              <p className="mt-3 text-sm font-semibold text-destructive" role="alert">
+                {error}
+              </p>
             ) : null}
             <Button
               type="button"

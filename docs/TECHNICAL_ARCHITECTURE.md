@@ -27,7 +27,7 @@ The trusted loop is IRT next-item selection → response scoring → BKT update 
 
 ## 2. Stack
 
-This table describes the target MVP architecture. The local slice currently implements Next.js/pnpm/UI, core/content/server packages, Zod validation, Vitest, and a file-backed anonymous-session adapter. Rows that mention Supabase, Playwright, AI, deployment, and monitoring are planned rather than present.
+This table separates the local MVP from the production target. The local slice implements Next.js/pnpm/UI, core/content/server packages, Zod validation, Vitest, two Playwright release journeys, optional OpenAI-compatible generation, and file-backed anonymous sessions. Supabase, hosted deployment, CI, production monitoring, and broader browser coverage remain planned.
 
 | Layer            | Current/target choice                                                                             | Reason                                                                                                               |
 | ---------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -39,16 +39,16 @@ This table describes the target MVP architecture. The local slice currently impl
 | Authentication   | Opaque HttpOnly session cookie now; Supabase anonymous auth target                                | No login wall; production records must be durable, server-owned, and user-scoped                                     |
 | DB access        | `@supabase/ssr`, `supabase-js`, generated types                                                   | Direct JWT/RLS model with minimal ORM overhead                                                                       |
 | ML student model | 2PL Item Response Theory plus Bayesian Knowledge Tracing in `packages/core`                     | Interpretable evidence acquisition and skill estimates that run without an external provider                         |
-| Generative AI    | Validated OpenAI-compatible lesson/debrief composers with reviewed fallbacks                      | Switch hosted or local providers without touching scoring or the learner model                                       |
+| Generative AI    | Contract-checked OpenAI-compatible lesson/debrief composers with reviewed fallbacks               | Switch hosted or local providers without touching scoring or the learner model                                       |
 | Deployment       | Vercel + Supabase                                                                                 | Low-friction previews and production deployment                                                                      |
-| Tests            | Vitest + Playwright + Supabase pgTAP                                                              | Pure logic, end-to-end journeys, and RLS coverage                                                                    |
+| Tests            | Vitest + Playwright now; Supabase pgTAP targeted                                                  | Pure logic and core release journeys now; RLS coverage after production persistence                                  |
 | Monitoring       | Sentry + structured privacy-safe events                                                           | Enough visibility for demo and MVP                                                                                   |
 
 Cloudflare Workers AI currently lists Qwen text-generation models and provides a daily free allocation; treat the quota as a replaceable demo dependency, not a permanent business model. See the [model catalog](https://developers.cloudflare.com/workers-ai/models/) and [pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Alibaba Model Studio is a second Qwen option, but its new-user quota is time-limited and region-specific, so enable its “Free Quota Only” control before using it. See [Alibaba's quota rules](https://www.alibabacloud.com/help/en/model-studio/new-free-quota).
 
 ## 3. Target repository layout
 
-The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, adaptive Precision Check, twelve-skill mastery map, Learning Twin inspector, review queue, mistake notebook, interactive Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question diagnostic runner, and the Test Day Lab setup/runner/review/report surfaces; `packages/core` contains trusted types, scoring, 2PL IRT estimation/selection/stopping, range/skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, simulation selection, pacing, confidence-calibration, and planning logic; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint validation; `packages/server` contains atomic file-backed calibration, learner, study-plan, and simulation sessions plus validated OpenAI-compatible lesson and debrief composers. Supabase, automated browser E2E, CI, empirical parameter calibration, and production monitoring remain target additions.
+The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, adaptive Precision Check, twelve-skill map, Learning Twin inspector, review queue, mistake notebook, server-contextual Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question practice diagnostic, Test Lab, and focused Playwright release journeys; `packages/core` contains trusted types, scoring, 2PL IRT estimation/selection/stopping, skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, pacing, and typed learning actions; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint checks; `packages/server` contains atomic file-backed calibration, learner, Scout-conversation, study-plan, and simulation sessions plus contract-checked OpenAI-compatible lesson and debrief composers. Supabase, broader browser E2E, CI, empirical parameter calibration, and production monitoring remain target additions.
 
 ```text
 /
@@ -269,12 +269,12 @@ Science must never enter this calculation. If Science is present, calculate its 
 For MVP:
 
 1. Calculate raw accuracy by section and difficulty band.
-2. Map it through a versioned internal calibration table informed by official practice-form conversions.
+2. Map it through a versioned practice-only conversion used for local planning.
 3. Widen the range for short forms and low evidence.
 4. Display at least a ±3 section-point range for the half form and wider for rapid estimates.
-5. Store the calibration version with the baseline.
+5. Store the conversion version with the baseline.
 
-Do not claim official equating, population-calibrated IRT parameters, or official score prediction until enough real response data exists.
+This is not official equating or a population-calibrated ACT prediction. Those claims require real response data, independent review, and a defensible conversion study.
 
 ### Adaptive Precision Check
 

@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 
 import {
   applyLearnerModelCorrection,
@@ -14,6 +12,7 @@ import {
   createInitialKnowledgeState,
   createInitialMastery,
   learnerLevel,
+  LEARNING_TWIN_MODEL,
   rankKnowledgeStates,
   recommendKnowledgeState,
   toPublicPracticeQuestion,
@@ -25,6 +24,7 @@ import {
   type LearningSessionMode,
   type LearningSessionPayload,
   type LearningDecisionEvent,
+  type LearningAnswerCommand,
   type LessonContent,
   type LessonPlanContext,
   type LearningTwinEvent,
@@ -38,11 +38,11 @@ import {
   type SkillDefinition,
   type LearnerModelCorrection,
   type TeachBackResult,
-  type TutorOverrideRecord,
 } from "@act-tutor/core";
 
 import { AuthoredLessonComposer, type LessonComposer } from "./lesson-composer";
 import type { CalibrationKnowledgeEvidence } from "./adaptive-calibration-repository";
+import { AtomicJsonRepository } from "./atomic-json-repository";
 
 export interface LearningBankInput {
   version: string;
@@ -54,6 +54,12 @@ export interface LearningBankInput {
 export interface StartLearningSessionInput {
   skill: string;
   diagnosticSkillResults?: ReadonlyArray<DiagnosticSkillResult>;
+  plan: LessonPlanContext;
+}
+
+export interface RebaseLearningSessionInput {
+  calibrationKey: string;
+  diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
   plan: LessonPlanContext;
 }
 
@@ -88,7 +94,6 @@ interface StoredLearnerProgress {
   completionXpAwarded: boolean;
   exposureByQuestion?: Record<string, number>;
   modelCorrections?: LearnerModelCorrection[];
-  tutorOverrides?: TutorOverrideRecord[];
   teachBackBySkill?: Record<string, TeachBackResult>;
   lessonFeedbackBySkill?: Record<
     string,
@@ -115,6 +120,12 @@ interface StoredLearningSession {
   profile?: StoredLearnerProgress;
   planContext?: LessonPlanContext;
   repairMistakeId?: string | null;
+  returnSkillAfterPrerequisite?: string | null;
+  calibrationRebaseKey?: string;
+  processedAnswerCommands?: Record<
+    string,
+    { questionId: string; choiceId: string }
+  >;
   createdAt: string;
   updatedAt: string;
 }
@@ -125,7 +136,6 @@ interface LearningStoreFile {
 }
 
 const EMPTY_STORE: LearningStoreFile = { version: 1, sessions: {} };
-const queues = new Map<string, Promise<void>>();
 const SECTION_ORDER = { english: 0, math: 1, reading: 2 } as const;
 
 function lessonWithoutMeta<T extends LessonContent>(
@@ -207,13 +217,11 @@ function ensureProfile(session: StoredLearningSession): StoredLearnerProgress {
     completionXpAwarded: session.answers.length === session.questionIds.length,
     exposureByQuestion: {},
     modelCorrections: [],
-    tutorOverrides: [],
     teachBackBySkill: {},
     lessonFeedbackBySkill: {},
   };
   session.profile.exposureByQuestion ??= {};
   session.profile.modelCorrections ??= [];
-  session.profile.tutorOverrides ??= [];
   session.profile.teachBackBySkill ??= {};
   session.profile.lessonFeedbackBySkill ??= {};
   session.decisionHistory ??= [];
@@ -454,14 +462,23 @@ function lessonReceipt(
     validationResult: humanReviewed
       ? ("human-reviewed" as const)
       : generated
-      ? ("passed" as const)
+      ? ("automated-checks-passed" as const)
       : ("reviewed-fallback" as const),
-    validationChecks: [
-      "Matched to the assigned ACT skill",
-      "Built from the reviewed rule and worked example",
-      "No answer key exposed before practice",
-      "Required lesson sections passed schema checks",
-    ],
+    validationChecks: generated
+      ? [
+          "Required lesson fields and section IDs passed schema checks",
+          "Generated wording contained terms from the reviewed rule",
+          "Blocked answer-key and score-guarantee phrases were not found",
+        ]
+      : humanReviewed
+        ? [
+            "A teacher edit was saved with the original reviewed source",
+            "Practice answer keys remain separate from the lesson payload",
+          ]
+        : [
+            "Authored lesson selected from the reviewed skill bank",
+            "Practice answer keys remain separate from the lesson payload",
+          ],
     deliveredAs: humanReviewed
       ? ("human-reviewed" as const)
       : generated
@@ -523,48 +540,95 @@ function missionSummary(
     (mistake) => mistake.resolvedAt === null,
   ).length;
   const complete = session.answers.length === questions.length;
-  const learnDone = session.mode !== "focus" || session.lessonComplete;
-  const practiceDone = session.mode !== "focus" || complete;
-  const repairDone =
-    practiceDone &&
-    (unresolvedMistakes === 0 || (session.mode === "repair" && complete));
-  const steps: DailyMissionSummary["steps"] = [
-    {
-      id: "learn",
-      label: "Learn the rule",
-      state: learnDone ? "done" : "current",
-      progress: learnDone ? 1 : 0,
-      total: 1,
-    },
-    {
-      id: "practice",
-      label: "Practice the rule",
-      state: practiceDone ? "done" : learnDone ? "current" : "queued",
-      progress: session.mode === "focus" ? session.answers.length : 5,
-      total: 5,
-    },
-    {
-      id: "repair",
-      label: "Fix one missed question",
-      state: repairDone ? "done" : practiceDone ? "current" : "queued",
-      progress: repairDone ? 1 : 0,
-      total: 1,
-    },
-    {
-      id: "checkpoint",
-      label: "Take a 3-question quiz",
-      state:
-        session.mode === "checkpoint"
-          ? complete
-            ? "done"
-            : "current"
-          : practiceDone && repairDone
-            ? "current"
-            : "queued",
-      progress: session.mode === "checkpoint" ? session.answers.length : 0,
-      total: 3,
-    },
-  ];
+  const progressStep = (
+    id: "practice" | "repair" | "checkpoint",
+    label: string,
+  ): DailyMissionSummary["steps"][number] => ({
+    id,
+    label,
+    state: complete ? "done" : "current",
+    progress: session.answers.length,
+    total: questions.length,
+  });
+  const steps: DailyMissionSummary["steps"] =
+    session.mode === "repair"
+      ? [progressStep("repair", "Fix the missed idea on a new question")]
+      : session.mode === "checkpoint"
+        ? [progressStep("checkpoint", "Finish the 3-question progress check")]
+        : session.mode === "retention"
+          ? [progressStep("practice", "Finish the 2-question retention check")]
+          : session.mode === "challenge"
+            ? [progressStep("checkpoint", "Finish the 3-question mastery challenge")]
+            : session.mode === "recovery"
+              ? [progressStep("practice", "Finish the 2-question recovery set")]
+              : session.mode === "micro"
+                ? [
+                    {
+                      id: "learn",
+                      label: "Review one rule",
+                      state: session.lessonComplete ? "done" : "current",
+                      progress: session.lessonComplete ? 1 : 0,
+                      total: 1,
+                    },
+                    {
+                      id: "practice",
+                      label: "Answer one question",
+                      state: complete
+                        ? "done"
+                        : session.lessonComplete
+                          ? "current"
+                          : "queued",
+                      progress: session.answers.length,
+                      total: questions.length,
+                    },
+                  ]
+                : (() => {
+                    const learnDone = session.lessonComplete;
+                    const practiceDone = complete;
+                    const repairDone =
+                      practiceDone && unresolvedMistakes === 0;
+                    return [
+                      {
+                        id: "learn" as const,
+                        label: "Learn the rule",
+                        state: learnDone ? ("done" as const) : ("current" as const),
+                        progress: learnDone ? 1 : 0,
+                        total: 1,
+                      },
+                      {
+                        id: "practice" as const,
+                        label: "Practice the rule",
+                        state: practiceDone
+                          ? ("done" as const)
+                          : learnDone
+                            ? ("current" as const)
+                            : ("queued" as const),
+                        progress: session.answers.length,
+                        total: questions.length,
+                      },
+                      {
+                        id: "repair" as const,
+                        label: "Fix one missed question",
+                        state: repairDone
+                          ? ("done" as const)
+                          : practiceDone
+                            ? ("current" as const)
+                            : ("queued" as const),
+                        progress: repairDone ? 1 : 0,
+                        total: 1,
+                      },
+                      {
+                        id: "checkpoint" as const,
+                        label: "Take a 3-question quiz",
+                        state:
+                          practiceDone && repairDone
+                            ? ("current" as const)
+                            : ("queued" as const),
+                        progress: 0,
+                        total: 3,
+                      },
+                    ];
+                  })();
   const skillMap = Object.values(session.masteryBySkill).sort(
     (left, right) =>
       SECTION_ORDER[left.section] - SECTION_ORDER[right.section] ||
@@ -683,8 +747,8 @@ function learnerModelReport(
         ? `${getSkill(bank, prerequisite).label} may be causing trouble with ${getSkill(bank, session.nextSkill).label}. Scout will repair the prerequisite first, then return.`
         : null,
     transferSignal: transferPair
-      ? `You carried a correct method from ${transferPair.skillLabel} into a different skill. Scout marked that as transfer evidence.`
-      : "Scout needs correct answers in two different settings before claiming the skill transfers.",
+      ? `Scout saw consecutive correct answers in ${transferPair.skillLabel} and a different skill. That is a cross-skill activity signal, not proof that learning transferred.`
+      : "Scout has not seen enough cross-skill activity to investigate whether a method holds up in a different setting.",
     decaySignal: due.length
       ? due[0].explanation
       : "No practiced skill is close enough to its forgetting window yet.",
@@ -849,9 +913,6 @@ function toPayload(
     trustReport: learningTrustReport(session, bank, learningTwinBySkill),
     teachBack:
       ensureProfile(session).teachBackBySkill?.[session.todaySkill] ?? null,
-    tutorOverrides: [...(ensureProfile(session).tutorOverrides ?? [])]
-      .reverse()
-      .slice(0, 20),
   };
 }
 
@@ -944,56 +1005,13 @@ function isComplete(session: StoredLearningSession) {
   return session.answers.length === session.questionIds.length;
 }
 
-export class FileLearningSessionRepository {
-  constructor(private readonly filePath: string) {}
-
-  private async readStore(): Promise<LearningStoreFile> {
-    try {
-      const parsed = JSON.parse(
-        await readFile(this.filePath, "utf8"),
-      ) as LearningStoreFile;
-      if (parsed.version !== 1 || !parsed.sessions)
+export class FileLearningSessionRepository extends AtomicJsonRepository<LearningStoreFile> {
+  constructor(filePath: string) {
+    super(filePath, EMPTY_STORE, (store) => {
+      if (store.version !== 1 || !store.sessions) {
         throw new Error("Unsupported learning store format.");
-      return parsed;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return structuredClone(EMPTY_STORE);
-      throw error;
-    }
-  }
-
-  private async writeStore(store: LearningStoreFile) {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await rename(temporaryPath, this.filePath);
-    } catch (error) {
-      await unlink(temporaryPath).catch(() => undefined);
-      throw error;
-    }
-  }
-
-  private async transact<T>(
-    operation: (store: LearningStoreFile) => Promise<T> | T,
-  ): Promise<T> {
-    const previous = queues.get(this.filePath) ?? Promise.resolve();
-    let release: () => void = () => {};
-    const current = new Promise<void>((resolve) => {
-      release = resolve;
+      }
     });
-    const tail = previous.then(() => current);
-    queues.set(this.filePath, tail);
-    await previous;
-    try {
-      return await operation(await this.readStore());
-    } finally {
-      release();
-      if (queues.get(this.filePath) === tail) queues.delete(this.filePath);
-    }
   }
 
   async get(
@@ -1101,6 +1119,102 @@ export class FileLearningSessionRepository {
     });
   }
 
+  async rebaseAfterCalibration(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: RebaseLearningSessionInput,
+    lessonComposer: LessonComposer = new AuthoredLessonComposer(),
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (session.calibrationRebaseKey === input.calibrationKey) {
+        return toPayload(session, bank);
+      }
+      const profile = ensureProfile(session);
+      if (
+        session.answers.length > 0 ||
+        profile.totalAnswered > 0 ||
+        (profile.modelCorrections?.length ?? 0) > 0
+      ) {
+        throw new RangeError(
+          "This learner has already started studying. Start a fresh Quick Check before replacing the baseline.",
+        );
+      }
+      if (input.diagnosticSkillResults.length === 0) {
+        throw new RangeError("Calibration evidence is required to rebuild the plan.");
+      }
+
+      const masteryBySkill = makeInitialMasteries(
+        bank,
+        input.diagnosticSkillResults,
+      );
+      const learningTwinBySkill = makeInitialKnowledgeStates(
+        bank,
+        input.diagnosticSkillResults,
+        input.plan.currentScore,
+      );
+      const anchor = [...input.diagnosticSkillResults].sort(
+        (left, right) =>
+          left.accuracy - right.accuracy || right.total - left.total,
+      )[0]?.skill ?? session.todaySkill;
+      const recommendation = recommendKnowledgeState(
+        Object.values(learningTwinBySkill),
+        anchor,
+      );
+      const nextSkill = recommendation.skill;
+      const previousSkill = session.todaySkill;
+      const lesson = await lessonComposer.compose({
+        baseLesson: getLesson(bank, nextSkill),
+        skill: getSkill(bank, nextSkill),
+        diagnosticSkillResults: input.diagnosticSkillResults,
+        plan: input.plan,
+      });
+      const now = new Date().toISOString();
+
+      session.todaySkill = nextSkill;
+      session.previousNextSkill = previousSkill;
+      session.nextSkill = nextSkill;
+      session.mode = "focus";
+      session.lessonComplete = false;
+      session.questionIds = getQuestions(bank, nextSkill).map(
+        (question) => question.id,
+      );
+      session.answers = [];
+      session.masteryBySkill = masteryBySkill;
+      session.learningTwinBySkill = learningTwinBySkill;
+      session.decisionHistory = [];
+      session.futureTask = {
+        todaySkill: nextSkill,
+        nextSkill,
+        changed: nextSkill !== previousSkill,
+        reason: `Quick Check replaced the temporary baseline. ${recommendation.reason}`,
+      };
+      session.lesson = lesson;
+      session.profile = {
+        xp: 0,
+        activeDates: [],
+        longestStreak: 0,
+        totalCorrect: 0,
+        totalAnswered: 0,
+        completedSets: 0,
+        mistakes: [],
+        diagnosticSkillResults: [...input.diagnosticSkillResults],
+        lessonXpAwarded: false,
+        completionXpAwarded: false,
+        exposureByQuestion: {},
+      };
+      session.planContext = input.plan;
+      session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
+      session.calibrationRebaseKey = input.calibrationKey;
+      session.updatedAt = now;
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
   async completeLesson(
     sessionId: string,
     bank: LearningBankInput,
@@ -1153,6 +1267,13 @@ export class FileLearningSessionRepository {
       session.nextSkill = skillSlug;
       session.mode = "focus";
       session.repairMistakeId = null;
+      const returnTarget = session.returnSkillAfterPrerequisite;
+      if (
+        !returnTarget ||
+        PREREQUISITES[returnTarget] !== skillSlug
+      ) {
+        session.returnSkillAfterPrerequisite = null;
+      }
       session.lessonComplete = false;
       session.questionIds = getQuestions(bank, skillSlug).map(
         (question) => question.id,
@@ -1207,6 +1328,7 @@ export class FileLearningSessionRepository {
       session.todaySkill = mistake.skill;
       session.mode = "repair";
       session.repairMistakeId = mistake.id;
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = [question.id];
       session.answers = [];
@@ -1245,6 +1367,7 @@ export class FileLearningSessionRepository {
       const profile = ensureProfile(session);
       session.todaySkill = ranked[0].skill;
       session.mode = "checkpoint";
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = questionIds;
       session.answers = [];
@@ -1274,6 +1397,7 @@ export class FileLearningSessionRepository {
       session.todaySkill = skillSlug;
       session.mode = "retention";
       session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = questions.map((question) => question.id);
       session.answers = [];
@@ -1305,6 +1429,7 @@ export class FileLearningSessionRepository {
       session.todaySkill = skill.slug;
       session.mode = "challenge";
       session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = questions.map((question) => question.id);
       session.answers = [];
@@ -1340,12 +1465,19 @@ export class FileLearningSessionRepository {
       session.todaySkill = skill.slug;
       session.mode = "micro";
       session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = false;
       session.questionIds = leastExposedQuestions(bank, profile, skill.slug, 1).map(
         (question) => question.id,
       );
       session.answers = [];
-      session.lesson = { ...lesson, minutes: 3 };
+      session.lesson = {
+        ...lesson,
+        minutes: 3,
+        sections: lesson.sections.slice(0, 1),
+        strategyChecklist: lesson.strategyChecklist.slice(0, 2),
+        tutorOpening: "Three minutes: learn one rule, then answer one question.",
+      };
       session.planContext = input.plan;
       profile.lessonXpAwarded = false;
       profile.completionXpAwarded = false;
@@ -1373,6 +1505,7 @@ export class FileLearningSessionRepository {
       session.todaySkill = ranked[0].skill;
       session.mode = "recovery";
       session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = questions.map((question) => question.id);
       session.answers = [];
@@ -1394,6 +1527,7 @@ export class FileLearningSessionRepository {
       confidence?: AnswerConfidence;
       selfCorrected?: boolean;
       responseSeconds?: number;
+      command?: LearningAnswerCommand;
     },
   ): Promise<LearningSessionPayload> {
     return this.transact(async (store) => {
@@ -1402,6 +1536,48 @@ export class FileLearningSessionRepository {
       assertSessionMatchesBank(session, bank);
       if (!session.lessonComplete)
         throw new RangeError("Complete the lesson before practice.");
+      if (answer.command) {
+        const command = answer.command;
+        if (
+          command.schemaVersion !== 2 ||
+          command.learnerSessionId !== session.id ||
+          command.bankVersion !== session.bankVersion ||
+          command.answerRevision !== 1
+        ) {
+          throw new RangeError(
+            "This saved answer belongs to a different learner session or content version.",
+          );
+        }
+        const sourceQuestion = bank.practice.find(
+          (question) => question.id === answer.questionId,
+        );
+        if (!sourceQuestion || sourceQuestion.version !== command.questionVersion) {
+          throw new RangeError(
+            "This saved answer uses an outdated question version.",
+          );
+        }
+        const processed = session.processedAnswerCommands?.[command.idempotencyKey];
+        if (processed) {
+          if (
+            processed.questionId !== answer.questionId ||
+            processed.choiceId !== answer.choiceId
+          ) {
+            throw new RangeError(
+              "That answer command key was already used for different content.",
+            );
+          }
+          const stored = session.answers.find(
+            (item) => item.questionId === processed.questionId,
+          );
+          if (!stored) throw new Error("Processed answer is missing from the session.");
+          return toPayload(session, bank, stored.feedback);
+        }
+        if (command.sequence !== session.answers.length) {
+          throw new RangeError(
+            "This saved answer arrived out of order and was not applied.",
+          );
+        }
+      }
       const previous = session.answers.find(
         (item) => item.questionId === answer.questionId,
       );
@@ -1467,10 +1643,47 @@ export class FileLearningSessionRepository {
         twinUpdate.event,
       ].slice(-100);
       const previousRecommendation = session.nextSkill;
-      const recommendation = recommendKnowledgeState(
+      const rankedRecommendation = recommendKnowledgeState(
         Object.values(learningTwinBySkill),
         session.todaySkill,
       );
+      const completingMission =
+        session.answers.length === questions.length - 1;
+      let recommendation = rankedRecommendation;
+      let recommendationReason = rankedRecommendation.reason;
+      if (
+        session.returnSkillAfterPrerequisite &&
+        session.todaySkill ===
+          PREREQUISITES[session.returnSkillAfterPrerequisite]
+      ) {
+        if (completingMission) {
+          const returnSkill = session.returnSkillAfterPrerequisite;
+          recommendation = recommendKnowledgeState([
+            learningTwinBySkill[returnSkill],
+          ]);
+          recommendationReason = `Prerequisite practice is complete. Return to ${getSkill(bank, returnSkill).label} and apply the repaired foundation.`;
+          session.returnSkillAfterPrerequisite = null;
+        } else {
+          recommendation = recommendKnowledgeState([
+            learningTwinBySkill[session.todaySkill],
+          ]);
+          recommendationReason = `Finish the ${getSkill(bank, session.todaySkill).label} prerequisite mission before returning to ${getSkill(bank, session.returnSkillAfterPrerequisite).label}.`;
+        }
+      } else {
+        const prerequisite = PREREQUISITES[rankedRecommendation.skill];
+        const prerequisiteState = prerequisite
+          ? learningTwinBySkill[prerequisite]
+          : null;
+        if (
+          prerequisiteState &&
+          prerequisite !== session.todaySkill &&
+          prerequisiteState.learnedProbability < 0.55
+        ) {
+          session.returnSkillAfterPrerequisite = rankedRecommendation.skill;
+          recommendation = recommendKnowledgeState([prerequisiteState]);
+          recommendationReason = `${getSkill(bank, prerequisite).label} is a weak prerequisite for ${rankedRecommendation.label}. Repair it first, then return to ${rankedRecommendation.label}.`;
+        }
+      }
       const comparisonRecommendation = chooseNextSkill(
         Object.values(session.masteryBySkill),
       );
@@ -1478,7 +1691,7 @@ export class FileLearningSessionRepository {
         todaySkill: session.todaySkill,
         nextSkill: recommendation.skill,
         changed: recommendation.skill !== previousRecommendation,
-        reason: recommendation.reason,
+        reason: recommendationReason,
       };
       session.previousNextSkill = previousRecommendation;
       session.nextSkill = futureTask.nextSkill;
@@ -1550,6 +1763,13 @@ export class FileLearningSessionRepository {
         selectedChoiceId: answer.choiceId,
         feedback,
       });
+      if (answer.command) {
+        session.processedAnswerCommands ??= {};
+        session.processedAnswerCommands[answer.command.idempotencyKey] = {
+          questionId: answer.questionId,
+          choiceId: answer.choiceId,
+        };
+      }
       profile.totalAnswered += 1;
       if (correct) profile.totalCorrect += 1;
       profile.xp += xpForPractice(correct, expectedQuestion.difficulty);
@@ -1575,6 +1795,8 @@ export class FileLearningSessionRepository {
           openMistake.selectedChoiceId = answer.choiceId;
           openMistake.lastAttemptAt = now;
           openMistake.attempts += 1;
+          openMistake.misconception =
+            selectedChoice?.misconception ?? openMistake.misconception ?? null;
         } else {
           profile.mistakes.push({
             id: randomUUID(),
@@ -1675,6 +1897,18 @@ export class FileLearningSessionRepository {
       assertSessionMatchesBank(session, bank);
       const skill = getSkill(bank, input.skill);
       const states = ensureLearningTwin(session, bank);
+      const profile = ensureProfile(session);
+      const alreadyRecorded = (profile.modelCorrections ?? []).some(
+        (correction) =>
+          correction.skill === skill.slug &&
+          (correction.modelVersion ?? LEARNING_TWIN_MODEL.version) ===
+            LEARNING_TWIN_MODEL.version,
+      );
+      if (alreadyRecorded) {
+        throw new RangeError(
+          "Scout already recorded a correction for this skill and model version. Answer a new question before correcting the estimate again.",
+        );
+      }
       const before = states[skill.slug];
       const after = applyLearnerModelCorrection(before, input.kind);
       states[skill.slug] = after;
@@ -1688,8 +1922,8 @@ export class FileLearningSessionRepository {
         note: note || "Learner corrected Scout’s interpretation.",
         before: before.learnedProbability,
         after: after.learnedProbability,
+        modelVersion: LEARNING_TWIN_MODEL.version,
       };
-      const profile = ensureProfile(session);
       profile.modelCorrections = [...(profile.modelCorrections ?? []), record].slice(-50);
       if (input.kind === "wrong-misconception") {
         const mistake = [...profile.mistakes]
@@ -1705,43 +1939,6 @@ export class FileLearningSessionRepository {
         nextSkill: recommendation.skill,
         changed: recommendation.skill !== session.previousNextSkill,
         reason: `Scout included your correction, then reran the next-mission decision: ${recommendation.reason}`,
-      };
-      session.updatedAt = record.occurredAt;
-      await this.writeStore(store);
-      return toPayload(session, bank);
-    });
-  }
-
-  async recordTutorOverride(
-    sessionId: string,
-    bank: LearningBankInput,
-    input: { skill: string; reason: string },
-  ): Promise<LearningSessionPayload> {
-    return this.transact(async (store) => {
-      const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Learning session not found.");
-      assertSessionMatchesBank(session, bank);
-      const skill = getSkill(bank, input.skill);
-      const reason = input.reason.trim();
-      if (reason.length < 8 || reason.length > 300)
-        throw new RangeError("Tutor override reason must be 8 to 300 characters.");
-      const record: TutorOverrideRecord = {
-        id: randomUUID(),
-        occurredAt: new Date().toISOString(),
-        previousSkill: session.nextSkill,
-        selectedSkill: skill.slug,
-        selectedSkillLabel: skill.label,
-        reason,
-      };
-      const profile = ensureProfile(session);
-      profile.tutorOverrides = [...(profile.tutorOverrides ?? []), record].slice(-50);
-      session.previousNextSkill = session.nextSkill;
-      session.nextSkill = skill.slug;
-      session.futureTask = {
-        todaySkill: session.todaySkill,
-        nextSkill: skill.slug,
-        changed: skill.slug !== record.previousSkill,
-        reason: `Tutor override: ${reason}`,
       };
       session.updatedAt = record.occurredAt;
       await this.writeStore(store);
@@ -1777,60 +1974,6 @@ export class FileLearningSessionRepository {
       ) {
         session.lesson = fallbackLesson(getLesson(bank, session.todaySkill), session);
       }
-      session.updatedAt = new Date().toISOString();
-      await this.writeStore(store);
-      return toPayload(session, bank);
-    });
-  }
-
-  async reviewLessonContent(
-    sessionId: string,
-    bank: LearningBankInput,
-    input: { approved: boolean; editedExplanation?: string },
-  ): Promise<LearningSessionPayload> {
-    return this.transact(async (store) => {
-      const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Learning session not found.");
-      assertSessionMatchesBank(session, bank);
-      const baseLesson = getLesson(bank, session.todaySkill);
-      const current = session.lesson ?? fallbackLesson(baseLesson, session);
-      const editedExplanation = input.editedExplanation?.trim() ?? "";
-
-      if (!input.approved) {
-        session.lesson = fallbackLesson(baseLesson, session);
-      } else if (editedExplanation) {
-        if (editedExplanation.length < 20 || editedExplanation.length > 1200) {
-          throw new RangeError("A reviewed explanation must be 20 to 1,200 characters.");
-        }
-        if (/guaranteed score|official act question|leaked answer/i.test(editedExplanation)) {
-          throw new RangeError("The reviewed edit contains an unsafe or unsupported claim.");
-        }
-        session.lesson = {
-          ...current,
-          concept: editedExplanation,
-          sections: current.sections.map((section, index) =>
-            index === 0 ? { ...section, explanation: editedExplanation } : section,
-          ),
-          generation: {
-            mode: "authored-fallback",
-            provider: "Teacher-reviewed edit",
-            model: null,
-            generatedAt: new Date().toISOString(),
-          },
-        };
-      }
-      const profile = ensureProfile(session);
-      profile.lessonFeedbackBySkill ??= {};
-      const previous = profile.lessonFeedbackBySkill[session.todaySkill] ?? {
-        helpful: 0,
-        unhelpful: 0,
-        preferredStyle: null,
-      };
-      profile.lessonFeedbackBySkill[session.todaySkill] = {
-        helpful: previous.helpful + (input.approved ? 1 : 0),
-        unhelpful: previous.unhelpful + (input.approved ? 0 : 1),
-        preferredStyle: input.approved ? "human-review" : previous.preferredStyle,
-      };
       session.updatedAt = new Date().toISOString();
       await this.writeStore(store);
       return toPayload(session, bank);

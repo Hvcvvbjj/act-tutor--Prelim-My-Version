@@ -54,18 +54,19 @@ Working locally or in verification:
 - the responsive three-gate onboarding shell with versioned local draft persistence;
 - full-score, Composite-only, and never-tested branching, optional Science input, custom/quick test dates, and past-date rejection;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section target selection, and runway intensity modes;
-- a generated Today/Plan/Progress dashboard, assignment reasons, and an authored lesson preview;
-- a validated 24-question rapid diagnostic with original reviewed content across 12 skills, server autosave/resume, hidden pre-submit keys, deterministic scoring, baseline results, and planner handoff;
-- cookie-bound anonymous diagnostic sessions with frozen form versions, atomic local-file writes, and idempotent finalization.
+- a generated Today/Plan/My Skills dashboard, goal-aware scheduling, honest mission progress, and personalized generated-or-reviewed lessons;
+- an 8–12 item adaptive Quick Check plus an original reviewed 66-question practice diagnostic, with server autosave, hidden pre-submit keys, server scoring, and transactional learning-session rebasing;
+- cookie-bound anonymous diagnostic and learning sessions with frozen bank versions, atomic local-file writes, idempotent finalization, versioned offline commands, and quarantined stale work;
+- the complete lesson → guided practice → independent exit ticket → skill update → retention loop, plus decision history, plan counterfactuals, Coach Brief, accommodations, Test Lab, and server-derived Scout guardrails.
 
 Not complete yet:
 
 - timezone capture, production database persistence, anonymous auth, and RLS;
-- the full 66-question bank, stronger calibration, database-backed multi-instance finalization, and broader reviewed content;
-- skill taxonomy/mastery, focused practice, answer feedback, spaced repetition, and future-plan regeneration;
-- Playwright, CI, hosted deployment, AI adapters, and production resilience/security proof.
+- independent psychometric/content review, empirical item calibration, and broader reviewed content;
+- database-backed multi-instance persistence, authenticated roles, hosted deployment, CI, and production monitoring;
+- hosted CI execution for the committed Playwright release journeys, plus broader cross-browser coverage.
 
-The immediate next gate is the adaptive learning loop: define mastery evidence and misconception contracts, assign lessons and focused practice from the 12 diagnostic skill signals, then visibly regenerate the learner's next task after each answer. In parallel, replace the local session file with Supabase anonymous auth, RLS, and a transactional finalization function before deployment.
+The next production gate is durable authenticated persistence and full browser-journey coverage. The local adaptive loop is implemented; empirical score equating and official-ACT precision remain explicitly out of scope until supported by real calibration data and independent review.
 
 ## Operating model
 
@@ -113,7 +114,7 @@ An item is complete only when:
 
 Goals:
 
-- Confirm the product promise: “Every answer changes what you study next.”
+- Confirm the product promise: “Every answer becomes evidence. The plan changes only when the evidence is strong enough.”
 - Turn backlog P0 items into GitHub issues with owners and dependencies.
 - Create a project board with `Ready`, `In progress`, `Review`, and `Done` columns.
 - Mark the deterministic adaptive loop as the cut-resistant core.

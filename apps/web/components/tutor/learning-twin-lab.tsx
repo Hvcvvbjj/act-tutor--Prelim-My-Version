@@ -864,8 +864,10 @@ export function LearningTwinLab({
         <AlertTitle>You can check Scout&apos;s work</AlertTitle>
         <AlertDescription>
           These percentages guide practice; they are not official ACT scores.
-          You are working from {plan.currentComposite} toward {plan.draft.goal},
-          and every recommendation can change as you answer more questions.
+          {plan.evidence.source === "rapid_diagnostic"
+            ? ` You are working toward ACT ${plan.draft.goal} from a Quick Check planning baseline, not a predicted ACT score.`
+            : ` You are working from ${plan.currentComposite} toward ${plan.draft.goal}.`}
+          {" "}Every recommendation can change as you answer more questions.
         </AlertDescription>
       </Alert>
     </main>

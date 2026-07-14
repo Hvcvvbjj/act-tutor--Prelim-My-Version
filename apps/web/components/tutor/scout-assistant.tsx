@@ -5,10 +5,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
-import type { LearningSessionPayload } from "@act-tutor/core"
+import type {
+  LearningSessionPayload,
+  ScoutAskResponse,
+  ScoutExplanationPreferences,
+  ScoutMessage,
+  ScoutStateResponse,
+} from "@act-tutor/core"
 import {
   AccessibilityIcon,
   MessageCircleIcon,
@@ -18,7 +25,6 @@ import {
 } from "lucide-react"
 
 import { ScoutMark } from "@/components/tutor/scout"
-import type { GeneratedPlan } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 
@@ -33,12 +39,7 @@ export interface AccommodationPreferences {
   distractionReduced: boolean
 }
 
-export interface ExplanationPreferences {
-  depth: "quick" | "normal" | "detailed"
-  readingLevel: "plain" | "standard" | "advanced"
-  exampleStyle: "school" | "sports" | "gaming" | "everyday"
-  fewerTechnicalTerms: boolean
-}
+export type ExplanationPreferences = ScoutExplanationPreferences
 
 const DEFAULTS: AccommodationPreferences = {
   reducedMotion: false,
@@ -58,29 +59,6 @@ const EXPLANATION_DEFAULTS: ExplanationPreferences = {
   fewerTechnicalTerms: true,
 }
 
-interface ScoutAnswer {
-  summary: string
-  explanation: string
-  example: string | null
-  technical: string
-  nextAction: string
-  source: string
-  mode: string
-  receipt?: {
-    questionId: string | null
-    skillId: string | null
-    permissions: string[]
-    checks: string[]
-    delivery: string
-  }
-}
-
-interface ScoutMessage {
-  id: string
-  question: string
-  answer: ScoutAnswer
-}
-
 interface ScoutProviderValue {
   accommodations: AccommodationPreferences
   explanationPreferences: ExplanationPreferences
@@ -93,6 +71,7 @@ interface ScoutProviderValue {
     value: ExplanationPreferences[K]
   ) => void
   openScout: (question?: string) => void
+  openSettings: () => void
 }
 
 const ScoutContext = createContext<ScoutProviderValue | null>(null)
@@ -142,12 +121,10 @@ function speak(value: string) {
 export function ScoutProvider({
   children,
   activeTab,
-  plan,
   learning,
 }: {
   children: ReactNode
   activeTab: string
-  plan: GeneratedPlan
   learning: LearningSessionPayload | null
 }) {
   const [accommodations, setAccommodations] =
@@ -161,20 +138,16 @@ export function ScoutProvider({
   const [selectedText, setSelectedText] = useState("")
   const [assistantError, setAssistantError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [scoutHydrated, setScoutHydrated] = useState(false)
+  const scoutDialogRef = useRef<HTMLElement | null>(null)
+  const toolsDialogRef = useRef<HTMLElement | null>(null)
+  const lastFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem("scout-accommodations-v1")
         if (stored) setAccommodations({ ...DEFAULTS, ...JSON.parse(stored) })
-        const explanation = window.localStorage.getItem(
-          "scout-explanation-preferences-v1"
-        )
-        if (explanation)
-          setExplanationPreferences({
-            ...EXPLANATION_DEFAULTS,
-            ...JSON.parse(explanation),
-          })
       } catch {
         window.localStorage.removeItem("scout-accommodations-v1")
       }
@@ -211,11 +184,109 @@ export function ScoutProvider({
   }, [accommodations])
 
   useEffect(() => {
-    window.localStorage.setItem(
-      "scout-explanation-preferences-v1",
-      JSON.stringify(explanationPreferences)
-    )
-  }, [explanationPreferences])
+    let cancelled = false
+    void fetch("/api/scout/ask", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as
+          | ScoutStateResponse
+          | { error: string }
+        if (!response.ok || "error" in payload) {
+          throw new Error(
+            "error" in payload ? payload.error : "Scout could not load."
+          )
+        }
+        if (cancelled) return
+        setMessages([...payload.messages])
+        setExplanationPreferences(payload.preferences)
+        setScoutHydrated(true)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setAssistantError(
+          error instanceof Error ? error.message : "Scout could not load."
+        )
+        setScoutHydrated(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!scoutHydrated) return
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => {
+      void fetch("/api/scout/ask", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferences: explanationPreferences }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload = (await response.json()) as
+            | ScoutStateResponse
+            | { error: string }
+          if (!response.ok || "error" in payload) {
+            throw new Error(
+              "error" in payload
+                ? payload.error
+                : "Scout preferences were not saved."
+            )
+          }
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return
+          setAssistantError(
+            error instanceof Error
+              ? error.message
+              : "Scout preferences were not saved."
+          )
+        })
+    }, 350)
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [explanationPreferences, scoutHydrated])
+
+  useEffect(() => {
+    const panel = scoutOpen
+      ? scoutDialogRef.current
+      : toolsOpen
+        ? toolsDialogRef.current
+        : null
+    if (!panel) return
+    const selector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    const focusable = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(selector))
+    focusable()[0]?.focus()
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        setScoutOpen(false)
+        setToolsOpen(false)
+        return
+      }
+      if (event.key !== "Tab") return
+      const controls = focusable()
+      if (controls.length === 0) return
+      const first = controls[0]
+      const last = controls.at(-1)
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("keydown", onKeyDown)
+      window.setTimeout(() => lastFocusRef.current?.focus(), 0)
+    }
+  }, [scoutOpen, toolsOpen])
 
   const prompts = useMemo(() => {
     if (activeTab === "progress")
@@ -249,67 +320,35 @@ export function ScoutProvider({
     ]
   }, [activeTab])
 
-  async function ask(nextQuestion = question) {
+  async function ask(nextQuestion = question, selection: string | null = null) {
     if (!nextQuestion.trim()) return
     setBusy(true)
     setAssistantError(null)
     try {
-      const selectedState = learning?.learningTwin.skills.find(
-        (skill) => skill.skill === learning.todaySkill
-      )
       const response = await fetch("/api/scout/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: nextQuestion,
           screen: activeTab,
-          mode: activeTab === "lab" ? "test" : "study",
-          simple:
-            accommodations.simplified || explanationPreferences.depth === "quick",
-          preferences: explanationPreferences,
-          permissions:
+          questionId:
             activeTab === "lab"
-              ? ["TEST_MODE"]
-              : ["CAN_HINT", "CAN_REPHRASE", "CAN_EXPLAIN_AFTER_ATTEMPT"],
-          context: {
-            lessonTitle: learning?.lesson.title,
-            objective: learning?.lesson.objective,
-            rule: learning?.lesson.concept,
-            nextSkill: learning?.learningTwin.recommendation.label,
-            planReason: learning?.learningTwin.recommendation.reason,
-            correctOutcome: learning?.planCounterfactual.correctOutcome,
-            incorrectOutcome: learning?.planCounterfactual.incorrectOutcome,
-            skillEstimate: selectedState
-              ? `${Math.round(selectedState.learnedProbability * 100)}%`
-              : undefined,
-            goal: plan.draft.goal,
-            questionId:
-              learning?.questions[learning.currentQuestionIndex]?.id ?? null,
-            skillId: learning?.todaySkill ?? null,
-            misconception: learning?.lastFeedback?.misconception ?? null,
-            attempted:
-              learning?.answeredQuestionIds.includes(
-                learning?.questions[learning.currentQuestionIndex]?.id ?? ""
-              ) ?? false,
-          },
+              ? null
+              : learning?.questions[learning.currentQuestionIndex]?.id ?? null,
+          selectedText: selection,
         }),
       })
-      const payload = (await response.json()) as ScoutAnswer | { error: string }
+      const payload = (await response.json()) as
+        | ScoutAskResponse
+        | { error: string }
       if (!response.ok || "error" in payload)
         throw new Error(
           "error" in payload ? payload.error : "Scout could not answer."
         )
-      setMessages((current) => [
-        ...current,
-        {
-          id: `${Date.now()}-${current.length}`,
-          question: nextQuestion.trim(),
-          answer: payload,
-        },
-      ])
+      setMessages([...payload.messages])
       setQuestion("")
       if (accommodations.readAloud)
-        speak(`${payload.summary} ${payload.explanation}`)
+        speak(`${payload.answer.summary} ${payload.answer.explanation}`)
     } catch (error) {
       setAssistantError(
         error instanceof Error ? error.message : "Scout could not answer."
@@ -331,8 +370,13 @@ export function ScoutProvider({
           [key]: nextValue,
         })),
       openScout: (nextQuestion) => {
+        lastFocusRef.current = document.activeElement as HTMLElement | null
         setScoutOpen(true)
         if (nextQuestion) setQuestion(nextQuestion)
+      },
+      openSettings: () => {
+        lastFocusRef.current = document.activeElement as HTMLElement | null
+        setToolsOpen(true)
       },
     }),
     [accommodations, explanationPreferences]
@@ -341,15 +385,16 @@ export function ScoutProvider({
   return (
     <ScoutContext.Provider value={value}>
       {children}
-      <div className="fixed right-4 bottom-4 z-40 flex items-center gap-2 sm:right-6 sm:bottom-6 print:hidden">
+      <div className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 sm:right-6 sm:bottom-6 print:hidden">
         {selectedText ? (
           <Button
             type="button"
             variant="secondary"
-            className="max-w-52 shadow-[3px_3px_0_var(--foreground)]"
+          className="hidden max-w-52 shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
             onClick={() => {
+              lastFocusRef.current = document.activeElement as HTMLElement | null
               setScoutOpen(true)
-              void ask(`Explain this selected text in plain English: “${selectedText}”`)
+              void ask("Explain the selected text in plain English.", selectedText)
               window.getSelection()?.removeAllRanges()
               setSelectedText("")
             }}
@@ -361,8 +406,11 @@ export function ScoutProvider({
           type="button"
           variant="outline"
           size="icon"
-          className="bg-background shadow-[3px_3px_0_var(--foreground)]"
-          onClick={() => setToolsOpen(true)}
+          className="hidden bg-background shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
+          onClick={() => {
+            lastFocusRef.current = document.activeElement as HTMLElement | null
+            setToolsOpen(true)
+          }}
           aria-label="Open accommodations"
         >
           <AccessibilityIcon />
@@ -370,8 +418,11 @@ export function ScoutProvider({
         <Button
           type="button"
           size="lg"
-          className="shadow-[4px_4px_0_var(--foreground)]"
-          onClick={() => setScoutOpen(true)}
+          className="min-h-11 shadow-[4px_4px_0_var(--foreground)]"
+          onClick={() => {
+            lastFocusRef.current = document.activeElement as HTMLElement | null
+            setScoutOpen(true)
+          }}
         >
           <MessageCircleIcon /> Ask Scout
         </Button>
@@ -384,7 +435,8 @@ export function ScoutProvider({
           onMouseDown={() => setScoutOpen(false)}
         >
           <aside
-            className="absolute right-0 bottom-0 flex max-h-[90svh] w-full flex-col border-2 border-foreground bg-background shadow-[-8px_-8px_0_rgb(20_35_58_/_0.18)] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md"
+            ref={scoutDialogRef}
+            className="absolute right-0 bottom-0 flex max-h-[90svh] w-full flex-col border-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] shadow-[-8px_-8px_0_rgb(20_35_58_/_0.18)] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-0"
             role="dialog"
             aria-modal="true"
             aria-label="Ask Scout"
@@ -550,7 +602,8 @@ export function ScoutProvider({
           onMouseDown={() => setToolsOpen(false)}
         >
           <aside
-            className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background p-5 sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md"
+            ref={toolsDialogRef}
+            className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-5"
             role="dialog"
             aria-modal="true"
             aria-label="Learning accommodations"

@@ -599,13 +599,12 @@ function StudyModeControls(props: DailyMissionHubProps) {
   return (
     <section className="grid border-y-2 border-foreground lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:divide-x-2 lg:divide-foreground">
       <div className="py-6 lg:pr-7">
-        <p className="ink-label text-primary">Set today’s energy</p>
+        <p className="ink-label text-primary">Session preference</p>
         <h2 className="mt-2 font-heading text-3xl font-black">
           Keep the plan honest.
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Low energy shortens the work. Challenge mode raises the difficulty.
-          Neither choice breaks a streak or erases progress.
+          This choice only changes the suggestion on the right. Your mission changes after you select a study option, and unfinished work stays protected.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {(
@@ -662,7 +661,7 @@ function StudyModeControls(props: DailyMissionHubProps) {
           </Button>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Suggested now: {energy === "low" ? "3-minute study" : energy === "challenge" ? "mastery challenge" : "the regular mission"}.
+          Suggested now: {energy === "low" ? "3-minute study" : energy === "challenge" ? "mastery challenge" : "the regular mission"}. Nothing has changed yet.
         </p>
       </div>
     </section>
