@@ -93,6 +93,7 @@ interface StoredLearnerProgress {
   lessonXpAwarded: boolean;
   completionXpAwarded: boolean;
   exposureByQuestion?: Record<string, number>;
+  missesByQuestion?: Record<string, number>;
   modelCorrections?: LearnerModelCorrection[];
   teachBackBySkill?: Record<string, TeachBackResult>;
   lessonFeedbackBySkill?: Record<
@@ -117,6 +118,11 @@ interface StoredLearningSession {
   decisionHistory?: LearningDecisionEvent[];
   futureTask: LearningSessionPayload["futureTask"];
   lesson?: PersonalizedLessonContent;
+  lessonEvidenceSnapshot?: {
+    lessonId: string;
+    capturedAt: string;
+    evidenceQuestionIds: string[];
+  };
   profile?: StoredLearnerProgress;
   planContext?: LessonPlanContext;
   repairMistakeId?: string | null;
@@ -175,8 +181,7 @@ function leastExposedQuestions(
   return getQuestions(bank, skill)
     .filter((question) => question.id !== options.exclude)
     .sort((left, right) => {
-      const exposureGap =
-        (exposure[left.id] ?? 0) - (exposure[right.id] ?? 0);
+      const exposureGap = (exposure[left.id] ?? 0) - (exposure[right.id] ?? 0);
       if (exposureGap !== 0) return exposureGap;
       if (options.preferHard) {
         const rank = { hard: 0, medium: 1, easy: 2 } as const;
@@ -216,11 +221,13 @@ function ensureProfile(session: StoredLearningSession): StoredLearnerProgress {
     lessonXpAwarded: session.lessonComplete,
     completionXpAwarded: session.answers.length === session.questionIds.length,
     exposureByQuestion: {},
+    missesByQuestion: {},
     modelCorrections: [],
     teachBackBySkill: {},
     lessonFeedbackBySkill: {},
   };
   session.profile.exposureByQuestion ??= {};
+  session.profile.missesByQuestion ??= {};
   session.profile.modelCorrections ??= [];
   session.profile.teachBackBySkill ??= {};
   session.profile.lessonFeedbackBySkill ??= {};
@@ -253,7 +260,9 @@ function assertSessionMatchesBank(
     session.mode === "micro" &&
     (questions.length !== 1 || questions[0].skill !== session.todaySkill)
   ) {
-    throw new RangeError("This three-minute session belongs to different content.");
+    throw new RangeError(
+      "This three-minute session belongs to different content.",
+    );
   }
   if (
     session.mode === "repair" &&
@@ -275,7 +284,9 @@ function assertSessionMatchesBank(
     throw new RangeError("This review session belongs to different content.");
   }
   if (session.mode === "challenge" && questions.length !== 3) {
-    throw new RangeError("This mastery challenge belongs to different content.");
+    throw new RangeError(
+      "This mastery challenge belongs to different content.",
+    );
   }
 }
 
@@ -450,20 +461,20 @@ function lessonReceipt(
   return {
     objective: lesson.objective,
     approvedRule: lesson.concept,
-    evidenceQuestionIds: (session.learningTwinEvents ?? [])
-      .filter((event) => event.skill === lesson.skill)
-      .slice(-5)
-      .map((event) => event.questionId),
+    evidenceQuestionIds:
+      session.lesson && session.lessonEvidenceSnapshot?.lessonId === lesson.id
+        ? [...session.lessonEvidenceSnapshot.evidenceQuestionIds]
+        : [],
     generatorStatus: humanReviewed
       ? "Teacher-reviewed edit saved with its original reviewed source"
       : generated
-      ? `${lesson.generation.provider} · ${lesson.generation.model ?? "model recorded"}`
-      : "Reviewed lesson bank used because generated content was unavailable or unnecessary",
+        ? `${lesson.generation.provider} · ${lesson.generation.model ?? "model recorded"}`
+        : "Reviewed lesson bank used because generated content was unavailable or unnecessary",
     validationResult: humanReviewed
       ? ("human-reviewed" as const)
       : generated
-      ? ("automated-checks-passed" as const)
-      : ("reviewed-fallback" as const),
+        ? ("automated-checks-passed" as const)
+        : ("reviewed-fallback" as const),
     validationChecks: generated
       ? [
           "Required lesson fields and section IDs passed schema checks",
@@ -482,8 +493,22 @@ function lessonReceipt(
     deliveredAs: humanReviewed
       ? ("human-reviewed" as const)
       : generated
-      ? ("generated" as const)
-      : ("reviewed-fallback" as const),
+        ? ("generated" as const)
+        : ("reviewed-fallback" as const),
+  };
+}
+
+function captureLessonEvidence(
+  session: StoredLearningSession,
+  lesson: PersonalizedLessonContent,
+) {
+  session.lessonEvidenceSnapshot = {
+    lessonId: lesson.id,
+    capturedAt: new Date().toISOString(),
+    evidenceQuestionIds: (session.learningTwinEvents ?? [])
+      .filter((event) => event.skill === lesson.skill)
+      .slice(-5)
+      .map((event) => event.questionId),
   };
 }
 
@@ -558,7 +583,12 @@ function missionSummary(
         : session.mode === "retention"
           ? [progressStep("practice", "Finish the 2-question retention check")]
           : session.mode === "challenge"
-            ? [progressStep("checkpoint", "Finish the 3-question mastery challenge")]
+            ? [
+                progressStep(
+                  "checkpoint",
+                  "Finish the 3-question mastery challenge",
+                ),
+              ]
             : session.mode === "recovery"
               ? [progressStep("practice", "Finish the 2-question recovery set")]
               : session.mode === "micro"
@@ -585,13 +615,14 @@ function missionSummary(
                 : (() => {
                     const learnDone = session.lessonComplete;
                     const practiceDone = complete;
-                    const repairDone =
-                      practiceDone && unresolvedMistakes === 0;
+                    const repairDone = practiceDone && unresolvedMistakes === 0;
                     return [
                       {
                         id: "learn" as const,
                         label: "Learn the rule",
-                        state: learnDone ? ("done" as const) : ("current" as const),
+                        state: learnDone
+                          ? ("done" as const)
+                          : ("current" as const),
                         progress: learnDone ? 1 : 0,
                         total: 1,
                       },
@@ -715,9 +746,17 @@ function learnerModelReport(
   const prerequisiteState = prerequisite ? states[prerequisite] : null;
   const transferPair = events.find((event, index) => {
     const previous = events[index - 1];
-    return previous && previous.skill !== event.skill && previous.correct && event.correct;
+    return (
+      previous &&
+      previous.skill !== event.skill &&
+      previous.correct &&
+      event.correct
+    );
   });
-  const due = buildDueReviews(Object.values(session.masteryBySkill), session.updatedAt);
+  const due = buildDueReviews(
+    Object.values(session.masteryBySkill),
+    session.updatedAt,
+  );
   const explore = [...Object.values(states)].sort(
     (left, right) => right.uncertainty - left.uncertainty,
   )[0];
@@ -766,6 +805,7 @@ function learningTrustReport(
 ) {
   const profile = ensureProfile(session);
   const exposure = profile.exposureByQuestion ?? {};
+  const misses = profile.missesByQuestion ?? {};
   const exposureRows = Object.entries(exposure)
     .map(([questionId, attempts]) => ({
       questionId,
@@ -774,9 +814,7 @@ function learningTrustReport(
     }))
     .sort((left, right) => right.attempts - left.attempts);
   const itemHealth = exposureRows.map((item) => {
-    const repeatedMisses = profile.mistakes
-      .filter((mistake) => mistake.questionId === item.questionId)
-      .reduce((sum, mistake) => sum + mistake.attempts, 0);
+    const repeatedMisses = misses[item.questionId] ?? 0;
     return {
       questionId: item.questionId,
       status:
@@ -787,10 +825,10 @@ function learningTrustReport(
             : ("not-enough-data" as const),
       reason:
         repeatedMisses >= 3
-          ? "Repeated misses make this item worth a human review; Scout will not treat it as unquestionable."
+          ? "This learner missed this exact item repeatedly, so a human should review the item and the surrounding instruction."
           : item.attempts >= 3
-            ? "No learner-specific warning signal appeared across repeated exposure."
-            : "Scout abstained because one learner has not produced enough evidence to judge this item.",
+            ? "This learner did not show a repeated-miss warning across repeated exposure."
+            : "There is not enough single-learner history to describe this question pattern yet.",
     };
   });
   const bkt = recommendKnowledgeState(Object.values(states), session.nextSkill);
@@ -798,7 +836,8 @@ function learningTrustReport(
   const uncertain = [...Object.values(states)].sort(
     (left, right) => right.uncertainty - left.uncertainty,
   )[0];
-  const random = bank.skills[ensureProfile(session).completedSets % bank.skills.length];
+  const random =
+    bank.skills[ensureProfile(session).completedSets % bank.skills.length];
   return {
     exposure: exposureRows,
     itemHealth,
@@ -815,17 +854,20 @@ function learningTrustReport(
       {
         policy: "Scout adaptive",
         nextSkill: bkt.label,
-        tradeoff: "Balances weakness, certainty, evidence count, and recent misses.",
+        tradeoff:
+          "Balances weakness, certainty, evidence count, and recent misses.",
       },
       {
         policy: "Weakest only",
         nextSkill: legacy.label,
-        tradeoff: "Repairs the lowest estimate but may overreact to thin evidence.",
+        tradeoff:
+          "Repairs the lowest estimate but may overreact to thin evidence.",
       },
       {
         policy: "Explore uncertainty",
         nextSkill: uncertain?.label ?? bkt.label,
-        tradeoff: "Learns more about an unclear skill, even if it is not the weakest.",
+        tradeoff:
+          "Learns more about an unclear skill, even if it is not the weakest.",
       },
       {
         policy: "Non-adaptive control",
@@ -835,7 +877,7 @@ function learningTrustReport(
     ],
     abstentions: [
       "Fairness by demographic group is not reported because this guest session does not collect demographic data or contain a large enough cohort.",
-      "Item quality is not declared from a single answer; Scout waits for repeated evidence and flags uncertainty.",
+      "Question quality is not judged here. Scout only shows this learner's exposure and repeated-miss history.",
     ],
   };
 }
@@ -1108,11 +1150,14 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           diagnosticSkillResults: [...(input.diagnosticSkillResults ?? [])],
           lessonXpAwarded: false,
           completionXpAwarded: false,
+          exposureByQuestion: {},
+          missesByQuestion: {},
         },
         planContext: input.plan,
         createdAt: now,
         updatedAt: now,
       };
+      captureLessonEvidence(created, lesson);
       store.sessions[created.id] = created;
       await this.writeStore(store);
       return { sessionId: created.id, payload: toPayload(created, bank) };
@@ -1143,7 +1188,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         );
       }
       if (input.diagnosticSkillResults.length === 0) {
-        throw new RangeError("Calibration evidence is required to rebuild the plan.");
+        throw new RangeError(
+          "Calibration evidence is required to rebuild the plan.",
+        );
       }
 
       const masteryBySkill = makeInitialMasteries(
@@ -1155,10 +1202,11 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         input.diagnosticSkillResults,
         input.plan.currentScore,
       );
-      const anchor = [...input.diagnosticSkillResults].sort(
-        (left, right) =>
-          left.accuracy - right.accuracy || right.total - left.total,
-      )[0]?.skill ?? session.todaySkill;
+      const anchor =
+        [...input.diagnosticSkillResults].sort(
+          (left, right) =>
+            left.accuracy - right.accuracy || right.total - left.total,
+        )[0]?.skill ?? session.todaySkill;
       const recommendation = recommendKnowledgeState(
         Object.values(learningTwinBySkill),
         anchor,
@@ -1204,7 +1252,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         lessonXpAwarded: false,
         completionXpAwarded: false,
         exposureByQuestion: {},
+        missesByQuestion: {},
       };
+      captureLessonEvidence(session, lesson);
       session.planContext = input.plan;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
@@ -1268,10 +1318,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.mode = "focus";
       session.repairMistakeId = null;
       const returnTarget = session.returnSkillAfterPrerequisite;
-      if (
-        !returnTarget ||
-        PREREQUISITES[returnTarget] !== skillSlug
-      ) {
+      if (!returnTarget || PREREQUISITES[returnTarget] !== skillSlug) {
         session.returnSkillAfterPrerequisite = null;
       }
       session.lessonComplete = false;
@@ -1280,6 +1327,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       );
       session.answers = [];
       session.lesson = lesson;
+      captureLessonEvidence(session, lesson);
       session.planContext = input.plan;
       profile.lessonXpAwarded = false;
       profile.completionXpAwarded = false;
@@ -1317,14 +1365,11 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           "That missed question was already fixed or is no longer available.",
         );
       getSkill(bank, mistake.skill);
-      const question = leastExposedQuestions(
-        bank,
-        profile,
-        mistake.skill,
-        1,
-        { exclude: mistake.questionId },
-      )[0];
-      if (!question) throw new RangeError("That practice question is unavailable.");
+      const question = leastExposedQuestions(bank, profile, mistake.skill, 1, {
+        exclude: mistake.questionId,
+      })[0];
+      if (!question)
+        throw new RangeError("That practice question is unavailable.");
       session.todaySkill = mistake.skill;
       session.mode = "repair";
       session.repairMistakeId = mistake.id;
@@ -1390,7 +1435,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
-        throw new RangeError("Finish your current task before starting review.");
+        throw new RangeError(
+          "Finish your current task before starting review.",
+        );
       const profile = ensureProfile(session);
       getSkill(bank, skillSlug);
       const questions = leastExposedQuestions(bank, profile, skillSlug, 2);
@@ -1420,7 +1467,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
-        throw new RangeError("Finish your current task before starting a challenge.");
+        throw new RangeError(
+          "Finish your current task before starting a challenge.",
+        );
       const profile = ensureProfile(session);
       const skill = getSkill(bank, skillSlug ?? session.nextSkill);
       const questions = leastExposedQuestions(bank, profile, skill.slug, 3, {
@@ -1453,7 +1502,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
-        throw new RangeError("Finish your current task before starting quick study.");
+        throw new RangeError(
+          "Finish your current task before starting quick study.",
+        );
       const profile = ensureProfile(session);
       const skill = getSkill(bank, input.skill ?? session.nextSkill);
       const lesson = await lessonComposer.compose({
@@ -1467,17 +1518,22 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = false;
-      session.questionIds = leastExposedQuestions(bank, profile, skill.slug, 1).map(
-        (question) => question.id,
-      );
+      session.questionIds = leastExposedQuestions(
+        bank,
+        profile,
+        skill.slug,
+        1,
+      ).map((question) => question.id);
       session.answers = [];
       session.lesson = {
         ...lesson,
         minutes: 3,
         sections: lesson.sections.slice(0, 1),
         strategyChecklist: lesson.strategyChecklist.slice(0, 2),
-        tutorOpening: "Three minutes: learn one rule, then answer one question.",
+        tutorOpening:
+          "Three minutes: learn one rule, then answer one question.",
       };
+      captureLessonEvidence(session, session.lesson);
       session.planContext = input.plan;
       profile.lessonXpAwarded = false;
       profile.completionXpAwarded = false;
@@ -1493,7 +1549,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
       if (!isComplete(session))
-        throw new RangeError("Finish your current task before starting recovery.");
+        throw new RangeError(
+          "Finish your current task before starting recovery.",
+        );
       const profile = ensureProfile(session);
       const ranked = rankKnowledgeStates(
         Object.values(ensureLearningTwin(session, bank)),
@@ -1551,12 +1609,16 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         const sourceQuestion = bank.practice.find(
           (question) => question.id === answer.questionId,
         );
-        if (!sourceQuestion || sourceQuestion.version !== command.questionVersion) {
+        if (
+          !sourceQuestion ||
+          sourceQuestion.version !== command.questionVersion
+        ) {
           throw new RangeError(
             "This saved answer uses an outdated question version.",
           );
         }
-        const processed = session.processedAnswerCommands?.[command.idempotencyKey];
+        const processed =
+          session.processedAnswerCommands?.[command.idempotencyKey];
         if (processed) {
           if (
             processed.questionId !== answer.questionId ||
@@ -1569,7 +1631,8 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           const stored = session.answers.find(
             (item) => item.questionId === processed.questionId,
           );
-          if (!stored) throw new Error("Processed answer is missing from the session.");
+          if (!stored)
+            throw new Error("Processed answer is missing from the session.");
           return toPayload(session, bank, stored.feedback);
         }
         if (command.sequence !== session.answers.length) {
@@ -1610,6 +1673,11 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       profile.exposureByQuestion ??= {};
       profile.exposureByQuestion[expectedQuestion.id] =
         (profile.exposureByQuestion[expectedQuestion.id] ?? 0) + 1;
+      profile.missesByQuestion ??= {};
+      if (!correct) {
+        profile.missesByQuestion[expectedQuestion.id] =
+          (profile.missesByQuestion[expectedQuestion.id] ?? 0) + 1;
+      }
       const updated = applyPracticeAttempt(
         session.masteryBySkill[expectedQuestion.skill],
         {
@@ -1647,8 +1715,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         Object.values(learningTwinBySkill),
         session.todaySkill,
       );
-      const completingMission =
-        session.answers.length === questions.length - 1;
+      const completingMission = session.answers.length === questions.length - 1;
       let recommendation = rankedRecommendation;
       let recommendationReason = rankedRecommendation.reason;
       if (
@@ -1836,13 +1903,18 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       assertSessionMatchesBank(session, bank);
       const text = response.trim();
       if (text.length < 20 || text.length > 1000)
-        throw new RangeError("Teach-back must be between 20 and 1,000 characters.");
-      const lesson = session.lesson ?? fallbackLesson(getLesson(bank, session.todaySkill), session);
+        throw new RangeError(
+          "Teach-back must be between 20 and 1,000 characters.",
+        );
+      const lesson =
+        session.lesson ??
+        fallbackLesson(getLesson(bank, session.todaySkill), session);
       const normalized = text.toLowerCase();
-      const ruleWords = lesson.concept
-        .toLowerCase()
-        .match(/[a-z]{5,}/g)
-        ?.slice(0, 8) ?? [];
+      const ruleWords =
+        lesson.concept
+          .toLowerCase()
+          .match(/[a-z]{5,}/g)
+          ?.slice(0, 8) ?? [];
       const rubric = [
         {
           label: "Names the rule or decision",
@@ -1850,7 +1922,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         },
         {
           label: "Explains why the rule works",
-          met: /\b(because|so that|which means|therefore|why)\b/.test(normalized),
+          met: /\b(because|so that|which means|therefore|why)\b/.test(
+            normalized,
+          ),
         },
         {
           label: "Gives or tests an example",
@@ -1924,14 +1998,22 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         after: after.learnedProbability,
         modelVersion: LEARNING_TWIN_MODEL.version,
       };
-      profile.modelCorrections = [...(profile.modelCorrections ?? []), record].slice(-50);
+      profile.modelCorrections = [
+        ...(profile.modelCorrections ?? []),
+        record,
+      ].slice(-50);
       if (input.kind === "wrong-misconception") {
         const mistake = [...profile.mistakes]
           .reverse()
-          .find((item) => item.skill === skill.slug && item.resolvedAt === null);
+          .find(
+            (item) => item.skill === skill.slug && item.resolvedAt === null,
+          );
         if (mistake) mistake.misconception = null;
       }
-      const recommendation = recommendKnowledgeState(Object.values(states), session.nextSkill);
+      const recommendation = recommendKnowledgeState(
+        Object.values(states),
+        session.nextSkill,
+      );
       session.previousNextSkill = session.nextSkill;
       session.nextSkill = recommendation.skill;
       session.futureTask = {
@@ -1965,14 +2047,20 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       profile.lessonFeedbackBySkill[session.todaySkill] = {
         helpful: previous.helpful + (input.helpful ? 1 : 0),
         unhelpful: previous.unhelpful + (input.helpful ? 0 : 1),
-        preferredStyle: input.helpful ? input.style.slice(0, 40) : previous.preferredStyle,
+        preferredStyle: input.helpful
+          ? input.style.slice(0, 40)
+          : previous.preferredStyle,
       };
       if (
         !input.helpful &&
         profile.lessonFeedbackBySkill[session.todaySkill].unhelpful >= 2 &&
         session.lesson?.generation.mode === "ai"
       ) {
-        session.lesson = fallbackLesson(getLesson(bank, session.todaySkill), session);
+        session.lesson = fallbackLesson(
+          getLesson(bank, session.todaySkill),
+          session,
+        );
+        captureLessonEvidence(session, session.lesson);
       }
       session.updatedAt = new Date().toISOString();
       await this.writeStore(store);
@@ -2040,8 +2128,13 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         answerSummary: evidence.correct
           ? "Correct · calibration"
           : "Missed · calibration",
-        informationLabel: evidence.difficulty === "hard" ? "high" : "medium",
-        informationWeight: evidence.difficulty === "hard" ? 1 : 0.85,
+        informationLabel:
+          update.event.informationWeight >= 0.85
+            ? "high"
+            : update.event.informationWeight >= 0.6
+              ? "medium"
+              : "low",
+        informationWeight: update.event.informationWeight,
         skill: skill.slug,
         skillLabel: skill.label,
         learnedBefore: current.learnedProbability,

@@ -11,6 +11,8 @@ import type {
 interface StoredScoutSession {
   id: string;
   preferences: ScoutExplanationPreferences;
+  preferencesVersion?: 2;
+  preferencesUpdatedAt?: string;
   messages: ScoutMessage[];
   createdAt: string;
   updatedAt: string;
@@ -34,6 +36,8 @@ export const DEFAULT_SCOUT_PREFERENCES: ScoutExplanationPreferences = {
 function state(session: StoredScoutSession): ScoutStateResponse {
   return {
     preferences: { ...session.preferences },
+    preferencesVersion: 2,
+    preferencesUpdatedAt: session.preferencesUpdatedAt ?? session.createdAt,
     messages: session.messages.slice(-30),
   };
 }
@@ -43,7 +47,9 @@ export class FileScoutSessionRepository {
 
   private async readStore() {
     try {
-      const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as ScoutStoreFile;
+      const parsed = JSON.parse(
+        await readFile(this.filePath, "utf8"),
+      ) as ScoutStoreFile;
       if (parsed.version !== 1 || !parsed.sessions) {
         throw new Error("Unsupported Scout session store format.");
       }
@@ -98,6 +104,8 @@ export class FileScoutSessionRepository {
       const created: StoredScoutSession = {
         id: randomUUID(),
         preferences: { ...DEFAULT_SCOUT_PREFERENCES },
+        preferencesVersion: 2,
+        preferencesUpdatedAt: now,
         messages: [],
         createdAt: now,
         updatedAt: now,
@@ -111,12 +119,23 @@ export class FileScoutSessionRepository {
   async updatePreferences(
     sessionId: string,
     preferences: ScoutExplanationPreferences,
+    preferencesUpdatedAt?: string,
   ) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
       if (!session) throw new RangeError("Scout session not found.");
-      session.preferences = { ...preferences };
-      session.updatedAt = new Date().toISOString();
+      const currentUpdatedAt =
+        session.preferencesUpdatedAt ?? session.createdAt;
+      const nextUpdatedAt =
+        preferencesUpdatedAt && !Number.isNaN(Date.parse(preferencesUpdatedAt))
+          ? preferencesUpdatedAt
+          : new Date().toISOString();
+      if (nextUpdatedAt >= currentUpdatedAt) {
+        session.preferences = { ...preferences };
+        session.preferencesVersion = 2;
+        session.preferencesUpdatedAt = nextUpdatedAt;
+        session.updatedAt = nextUpdatedAt;
+      }
       await this.writeStore(store);
       return state(session);
     });

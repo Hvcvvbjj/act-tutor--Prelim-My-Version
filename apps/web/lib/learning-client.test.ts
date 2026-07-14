@@ -1,4 +1,7 @@
-import type { LearningAnswerRequest, LearningSessionPayload } from "@act-tutor/core"
+import type {
+  LearningAnswerRequest,
+  LearningSessionPayload,
+} from "@act-tutor/core"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import {
@@ -85,6 +88,34 @@ describe("offline learning commands", () => {
     expect(seen).toEqual([0, 1])
     expect(result).toMatchObject({ applied: 1, quarantined: 1 })
     expect(readOfflineQueue()).toEqual([])
+  })
+
+  it("keeps transient server failures and later commands queued", async () => {
+    window.localStorage.setItem(
+      OFFLINE_QUEUE_KEY,
+      JSON.stringify([answer(0), answer(1), answer(2)])
+    )
+    const seen: number[] = []
+    const result = await flushOfflineAnswerQueue(async (request) => {
+      seen.push(request.command.sequence)
+      if (request.command.sequence === 1) {
+        throw new LearningHttpError("Server is temporarily busy.", 503)
+      }
+      return {} as LearningSessionPayload
+    })
+
+    expect(seen).toEqual([0, 1])
+    expect(result).toMatchObject({
+      applied: 1,
+      quarantined: 0,
+      stoppedTransient: true,
+    })
+    expect(readOfflineQueue().map((item) => item.command.sequence)).toEqual([
+      1, 2,
+    ])
+    expect(
+      JSON.parse(window.localStorage.getItem(OFFLINE_QUARANTINE_KEY) ?? "[]")
+    ).toEqual([])
   })
 })
 

@@ -53,8 +53,8 @@ This is the implementation contract for the hackathon build. A feature is not co
 
 | Feature | Product behavior |
 | --- | --- |
-| Pacing coach | Accuracy, speed, and combined modes use the current enhanced ACT section clocks. |
-| Time-pressure ramp | Untimed learning progresses through extended, standard, and pressure-finish stages. |
+| Pacing advice | Accuracy, speed, and combined controls change the advice shown beside the current enhanced ACT section clocks; they do not change timers. |
+| Suggested time-pressure progression | A four-step reference explains how to move from untimed work to test pace. The current build does not automatically advance stages. |
 | Section strategy trainer | Interactive answer/skip/flag/return choices teach no-penalty guessing and time protection. |
 | Target-score simulator | English, Math, and Reading scenarios recalculate the current three-section Composite. |
 | Test-date planner | The adaptive plan moves from instruction to timed work based on the selected test date. |
@@ -90,9 +90,8 @@ This is the implementation contract for the hackathon build. A feature is not co
 | --- | --- |
 | Why not this skill? | Recommendation contributions and the counterfactual compare the selected skill with the runner-up. |
 | Model comparison | BKT 1.0 is compared with the simpler accuracy/mastery policy; each new decision stores both choices for historical replay, and older unrecorded counterfactuals visibly abstain. |
-| Fairness audit | Consented local JSON records compare question-selection rate, prediction error, and stopping time by group. Without two sufficiently represented groups, the dashboard explicitly abstains. |
-| Item health | Repeated exposure and misses produce healthy/watch/not-enough-data states. |
-| Bad-question detection | Consented cohort imports flag an item when at least three high-readiness learners independently choose the same wrong idea; it never auto-declares an item bad from one response. |
+| Imported group-metric viewer | Consented local JSON rows supply precomputed selection, error, and stopping metrics. Scout averages and displays them but does not derive or verify a fairness audit from raw events. |
+| Learner question history | Exact per-question exposure and misses produce learner-history states. The UI explicitly does not infer item quality from one learner. |
 | Model abstention | Unsupported fairness, item-quality, and misconception claims visibly return “not enough evidence.” |
 | Policy decision comparison | Adaptive, weakest-only, uncertainty exploration, and random rules show what each would choose for the current state. The UI explicitly says this is not an experiment or performance benchmark. |
 | Private guest mode | No account is required; session data uses private cookies and local preferences. |
@@ -102,7 +101,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 
 ## Scout as the product-wide plain-English layer
 
-- Persistent labeled **Ask Scout** launcher; side panel on desktop and bottom sheet on mobile.
+- Persistent labeled **Ask Scout** launcher on desktop; a compact Scout mascot is docked inside the mobile navigation. The assistant opens as a side panel or bottom sheet.
 - Screen-aware prompts, multi-turn history, progressive response structure, action chips, read-aloud, and technical receipts.
 - Highlight any page text to reveal **Explain selection**.
 - The client sends only a question, page, optional question ID, and selected text. The server derives test mode, attempt state, reviewed content, accommodations, and allowed help from cookie-bound sessions.

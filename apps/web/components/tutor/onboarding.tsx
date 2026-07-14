@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -28,6 +28,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import type { PlacementDraft } from "@/components/tutor/types"
 import { addCalendarDaysFrom, formatCalendarDate } from "@/lib/dates"
+import {
+  DEFAULT_ACCOMMODATIONS,
+  DEFAULT_EXPLANATION_PREFERENCES,
+  readScoutSettings,
+  updateScoutAccommodations,
+  updateScoutExplanation,
+} from "@/lib/scout-settings"
 import { cn } from "@/lib/utils"
 
 interface OnboardingProps {
@@ -156,59 +163,38 @@ export function Onboarding({
   onUpdate,
 }: OnboardingProps) {
   const progress = (step / 3) * 100
-  const [explanation, setExplanation] = useState({
-    depth: "normal",
-    readingLevel: "standard",
-    exampleStyle: "everyday",
-    fewerTechnicalTerms: true,
-  })
-  const [access, setAccess] = useState({
-    readAloud: false,
-    largeText: false,
-    reducedMotion: false,
-  })
+  const [explanation, setExplanation] = useState(
+    DEFAULT_EXPLANATION_PREFERENCES
+  )
+  const [access, setAccess] = useState(() => ({
+    readAloud: DEFAULT_ACCOMMODATIONS.readAloud,
+    largeText: DEFAULT_ACCOMMODATIONS.largeText,
+    reducedMotion: DEFAULT_ACCOMMODATIONS.reducedMotion,
+  }))
+  const settingsChangedRef = useRef(false)
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      try {
-        setExplanation((current) => ({
-          ...current,
-          ...JSON.parse(
-            window.localStorage.getItem(
-              "scout-explanation-preferences-v1"
-            ) ?? "{}"
-          ),
-        }))
-        setAccess((current) => ({
-          ...current,
-          ...JSON.parse(
-            window.localStorage.getItem("scout-accommodations-v1") ?? "{}"
-          ),
-        }))
-      } catch {
-        window.localStorage.removeItem("scout-explanation-preferences-v1")
-      }
-    }, 0)
-    return () => window.clearTimeout(timeout)
+    const stored = readScoutSettings()
+    if (settingsChangedRef.current) return
+    setExplanation(stored.explanation)
+    setAccess({
+      readAloud: stored.accommodations.readAloud,
+      largeText: stored.accommodations.largeText,
+      reducedMotion: stored.accommodations.reducedMotion,
+    })
   }, [])
 
   function saveExplanation(next: typeof explanation) {
+    settingsChangedRef.current = true
     setExplanation(next)
-    window.localStorage.setItem(
-      "scout-explanation-preferences-v1",
-      JSON.stringify(next)
-    )
+    updateScoutExplanation(next)
   }
 
   function saveAccess(next: typeof access) {
+    settingsChangedRef.current = true
     setAccess(next)
-    const previous = JSON.parse(
-      window.localStorage.getItem("scout-accommodations-v1") ?? "{}"
-    ) as Record<string, boolean>
-    window.localStorage.setItem(
-      "scout-accommodations-v1",
-      JSON.stringify({ ...previous, ...next })
-    )
+    const current = readScoutSettings()
+    updateScoutAccommodations({ ...current.accommodations, ...next })
   }
 
   return (
@@ -577,7 +563,8 @@ export function Onboarding({
                             onChange={(event) =>
                               saveExplanation({
                                 ...explanation,
-                                depth: event.target.value,
+                                depth: event.target
+                                  .value as typeof explanation.depth,
                               })
                             }
                             className="h-11 border bg-background px-3"
@@ -594,7 +581,8 @@ export function Onboarding({
                             onChange={(event) =>
                               saveExplanation({
                                 ...explanation,
-                                readingLevel: event.target.value,
+                                readingLevel: event.target
+                                  .value as typeof explanation.readingLevel,
                               })
                             }
                             className="h-11 border bg-background px-3"
@@ -611,7 +599,8 @@ export function Onboarding({
                             onChange={(event) =>
                               saveExplanation({
                                 ...explanation,
-                                exampleStyle: event.target.value,
+                                exampleStyle: event.target
+                                  .value as typeof explanation.exampleStyle,
                               })
                             }
                             className="h-11 border bg-background px-3"
@@ -626,7 +615,10 @@ export function Onboarding({
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         {(
                           [
-                            ["fewerTechnicalTerms", "Use fewer technical terms"],
+                            [
+                              "fewerTechnicalTerms",
+                              "Use fewer technical terms",
+                            ],
                             ["readAloud", "Read-aloud controls"],
                             ["largeText", "Larger text"],
                             ["reducedMotion", "Reduced motion"],

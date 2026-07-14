@@ -68,9 +68,12 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
 
   expect(rebased.learning.todaySkill).not.toBe(started.todaySkill)
   expect(rebased.learning.lesson.skill).toBe(rebased.learning.todaySkill)
-  expect(rebased.learning.questions.every(
-    (question: { skill: string }) => question.skill === rebased.learning.todaySkill
-  )).toBeTruthy()
+  expect(
+    rebased.learning.questions.every(
+      (question: { skill: string }) =>
+        question.skill === rebased.learning.todaySkill
+    )
+  ).toBeTruthy()
   expect(rebased.learning.futureTask.reason).toContain(
     "Quick Check replaced the temporary baseline"
   )
@@ -92,12 +95,16 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await page
     .getByRole("button", { name: "See one answer change the plan" })
     .click()
-  await expect(page.getByText("Quick Check", { exact: true }).first()).toBeVisible()
-
   const primaryNavigation = page.getByRole("navigation", {
     name: "Primary study navigation",
   })
   await expect(primaryNavigation.getByRole("tab")).toHaveCount(4)
+  await expect(
+    primaryNavigation.getByRole("tab", { name: "Check" })
+  ).toBeVisible()
+  await expect(
+    primaryNavigation.getByRole("button", { name: "Ask Scout" })
+  ).toBeVisible()
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })

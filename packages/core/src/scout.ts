@@ -1,10 +1,5 @@
 export type ScoutScreen =
-  | "today"
-  | "plan"
-  | "calibrate"
-  | "progress"
-  | "lab"
-  | "control";
+  "today" | "plan" | "calibrate" | "progress" | "lab" | "control";
 
 export type ScoutAssistanceMode = "study" | "timed-test" | "review";
 
@@ -63,11 +58,15 @@ export interface ScoutAskResponse {
   answer: ScoutAnswer;
   messages: ReadonlyArray<ScoutMessage>;
   preferences: ScoutExplanationPreferences;
+  preferencesVersion: 2;
+  preferencesUpdatedAt: string;
 }
 
 export interface ScoutStateResponse {
   messages: ReadonlyArray<ScoutMessage>;
   preferences: ScoutExplanationPreferences;
+  preferencesVersion: 2;
+  preferencesUpdatedAt: string;
 }
 
 export function classifyScoutIntent(input: {

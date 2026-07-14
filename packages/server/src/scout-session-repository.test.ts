@@ -80,4 +80,33 @@ describe("FileScoutSessionRepository", () => {
       expect(untouched.sessionId).toBe(second.sessionId);
     });
   });
+
+  it("does not let stale preference hydration overwrite a newer choice", async () => {
+    await withRepo(async (repo) => {
+      const started = await repo.getOrCreate(null);
+      await repo.updatePreferences(
+        started.sessionId,
+        {
+          depth: "detailed",
+          readingLevel: "advanced",
+          exampleStyle: "gaming",
+          fewerTechnicalTerms: false,
+        },
+        "2099-01-01T00:00:00.000Z",
+      );
+      const state = await repo.updatePreferences(
+        started.sessionId,
+        {
+          depth: "quick",
+          readingLevel: "plain",
+          exampleStyle: "school",
+          fewerTechnicalTerms: true,
+        },
+        "2000-01-01T00:00:00.000Z",
+      );
+
+      expect(state.preferences.depth).toBe("detailed");
+      expect(state.preferencesUpdatedAt).toBe("2099-01-01T00:00:00.000Z");
+    });
+  });
 });

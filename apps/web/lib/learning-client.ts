@@ -9,7 +9,9 @@ export const OFFLINE_QUEUE_KEY = "scout-offline-answer-queue-v2"
 export const OFFLINE_QUARANTINE_KEY = "scout-offline-answer-quarantine-v2"
 const OFFLINE_LESSON_KEY = "scout-offline-learning-session-v1"
 
-function isLearningAnswerRequest(value: unknown): value is LearningAnswerRequest {
+function isLearningAnswerRequest(
+  value: unknown
+): value is LearningAnswerRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false
   const request = value as Partial<LearningAnswerRequest>
   return (
@@ -31,9 +33,7 @@ function readQuarantine() {
     const parsed = JSON.parse(
       window.localStorage.getItem(OFFLINE_QUARANTINE_KEY) ?? "[]"
     ) as unknown
-    return Array.isArray(parsed)
-      ? (parsed as QuarantinedLearningCommand[])
-      : []
+    return Array.isArray(parsed) ? (parsed as QuarantinedLearningCommand[]) : []
   } catch {
     return []
   }
@@ -59,8 +59,13 @@ export function readOfflineQueue(): LearningAnswerRequest[] {
     ) as unknown
     if (!Array.isArray(parsed)) return []
     const valid = parsed.filter(isLearningAnswerRequest)
-    for (const invalid of parsed.filter((item) => !isLearningAnswerRequest(item))) {
-      quarantineOfflineAnswer(invalid, "Unsupported or malformed offline command")
+    for (const invalid of parsed.filter(
+      (item) => !isLearningAnswerRequest(item)
+    )) {
+      quarantineOfflineAnswer(
+        invalid,
+        "Unsupported or malformed offline command"
+      )
     }
     if (valid.length !== parsed.length) {
       window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(valid))
@@ -94,14 +99,19 @@ function queueOfflineAnswer(body: LearningAnswerRequest) {
 }
 
 export class LearningHttpError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
     super(message)
   }
 }
 
-export async function learningRequest(
-  body: LearningActionRequest
-) {
+function isTransientStatus(status: number) {
+  return status === 408 || status === 425 || status === 429 || status >= 500
+}
+
+export async function learningRequest(body: LearningActionRequest) {
   let response: Response
   try {
     response = await fetch("/api/learning", {
@@ -118,10 +128,17 @@ export async function learningRequest(
     }
     throw error
   }
-  const payload = (await response.json()) as
-    | LearningSessionPayload
-    | { error: string }
+  const payload = (await response.json().catch(() => ({
+    error: `Learning request failed with status ${response.status}.`,
+  }))) as LearningSessionPayload | { error: string }
   if (!response.ok || "error" in payload) {
+    if (
+      isLearningAnswerRequest(body) &&
+      typeof window !== "undefined" &&
+      isTransientStatus(response.status)
+    ) {
+      queueOfflineAnswer(body)
+    }
     throw new LearningHttpError(
       "error" in payload ? payload.error : "Learning request failed.",
       response.status
@@ -133,8 +150,7 @@ export async function learningRequest(
 export async function loadLearningSession() {
   const response = await fetch("/api/learning", { cache: "no-store" })
   const payload = (await response.json()) as
-    | LearningSessionPayload
-    | { error: string }
+    LearningSessionPayload | { error: string }
   if (!response.ok || "error" in payload) {
     throw new Error(
       "error" in payload ? payload.error : "Learning session refresh failed."
@@ -148,8 +164,9 @@ export function cacheLearningSession(learning: LearningSessionPayload) {
 }
 
 export async function flushOfflineAnswerQueue(
-  send: (request: LearningAnswerRequest) => Promise<LearningSessionPayload> =
-    learningRequest
+  send: (
+    request: LearningAnswerRequest
+  ) => Promise<LearningSessionPayload> = learningRequest
 ) {
   const queued = readOfflineQueue().sort(
     (left, right) =>
@@ -159,6 +176,7 @@ export async function flushOfflineAnswerQueue(
   let applied = 0
   let quarantined = 0
   let lastQuarantineReason: string | null = null
+  let lastTransientReason: string | null = null
   let remaining = [...queued]
   for (const command of queued) {
     try {
@@ -166,7 +184,25 @@ export async function flushOfflineAnswerQueue(
       applied += 1
     } catch (error) {
       if (!(error instanceof LearningHttpError)) {
-        return { applied, quarantined, lastQuarantineReason, stoppedOffline: true }
+        return {
+          applied,
+          quarantined,
+          lastQuarantineReason,
+          lastTransientReason,
+          stoppedOffline: true,
+          stoppedTransient: false,
+        }
+      }
+      if (isTransientStatus(error.status)) {
+        lastTransientReason = error.message
+        return {
+          applied,
+          quarantined,
+          lastQuarantineReason,
+          lastTransientReason,
+          stoppedOffline: false,
+          stoppedTransient: true,
+        }
       }
       quarantineOfflineAnswer(command, error.message)
       quarantined += 1
@@ -177,7 +213,14 @@ export async function flushOfflineAnswerQueue(
     )
     window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining))
   }
-  return { applied, quarantined, lastQuarantineReason, stoppedOffline: false }
+  return {
+    applied,
+    quarantined,
+    lastQuarantineReason,
+    lastTransientReason,
+    stoppedOffline: false,
+    stoppedTransient: false,
+  }
 }
 
 export const REMOTE_SCOUT_DATA_ENDPOINTS = [

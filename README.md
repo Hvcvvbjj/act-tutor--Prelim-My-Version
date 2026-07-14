@@ -35,7 +35,7 @@ Working in the current slice:
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 - a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
 - exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, teach-back scoring, alternate teaching styles, and question-exposure protection;
-- an Evidence & Data workspace for bounded learner-model corrections, ACT pacing and manual score scenarios, model-choice explanations, fairness abstention, item health, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
+- an Evidence & Data workspace for bounded learner-model corrections, ACT pacing advice and manual score scenarios, model-choice explanations, an honest imported group-metric viewer, single-learner question history, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
 
 Still placeholders or future milestones:
 

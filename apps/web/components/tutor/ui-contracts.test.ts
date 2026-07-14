@@ -9,17 +9,21 @@ async function source(path: string) {
 }
 
 describe("mobile navigation contract", () => {
-  it("keeps four primary mobile tabs and moves secondary tools to More", async () => {
+  it("keeps four primary mobile tabs, docks Scout, and moves secondary tools to More", async () => {
     const dashboard = await source("components/tutor/dashboard.tsx")
     const mobileNav = dashboard.slice(
       dashboard.indexOf('aria-label="Primary study navigation"'),
-      dashboard.indexOf("<MobileOverflow", dashboard.indexOf('aria-label="Primary study navigation"'))
+      dashboard.indexOf(
+        "<MobileOverflow",
+        dashboard.indexOf('aria-label="Primary study navigation"')
+      )
     )
     expect(mobileNav.match(/<TabsTrigger/g)).toHaveLength(4)
     expect(mobileNav).toContain('value="today"')
     expect(mobileNav).toContain('value="plan"')
     expect(mobileNav).toContain('value="calibrate"')
     expect(mobileNav).toContain('value="progress"')
+    expect(mobileNav).toContain("<MobileScoutDock")
     expect(mobileNav).toContain("More")
     expect(dashboard).toContain("Test Lab")
     expect(dashboard).toContain("Evidence & data")
@@ -34,13 +38,14 @@ describe("mobile navigation contract", () => {
 })
 
 describe("Scout drawer accessibility contract", () => {
-  it("traps focus, closes on Escape, returns focus, and clears mobile nav", async () => {
+  it("traps focus, closes on Escape, returns focus, and avoids a mobile floating launcher", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")
     expect(assistant).toContain('event.key === "Escape"')
     expect(assistant).toContain('event.key !== "Tab"')
     expect(assistant).toContain("lastFocusRef.current?.focus()")
     expect(assistant).toContain('aria-modal="true"')
-    expect(assistant).toContain("5.25rem+env(safe-area-inset-bottom)")
+    expect(assistant).toContain("right-6 bottom-6")
+    expect(assistant).toContain("hidden items-center gap-2 sm:flex")
   })
 })
 

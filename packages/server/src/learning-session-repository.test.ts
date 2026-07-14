@@ -257,7 +257,11 @@ describe("FileLearningSessionRepository", () => {
       expect(rebased.todaySkill).toBe("linear-equations");
       expect(rebased.nextSkill).toBe("linear-equations");
       expect(rebased.lesson.skill).toBe("linear-equations");
-      expect(rebased.questions.every((question) => question.skill === "linear-equations")).toBe(true);
+      expect(
+        rebased.questions.every(
+          (question) => question.skill === "linear-equations",
+        ),
+      ).toBe(true);
       expect(rebased.status).toBe("lesson");
       expect(rebased.mission.progress.totalAnswered).toBe(0);
       expect(
@@ -265,7 +269,9 @@ describe("FileLearningSessionRepository", () => {
           (skill) => skill.skill === "linear-equations",
         )?.priorSource,
       ).toBe("diagnostic");
-      expect(rebased.futureTask.reason).toContain("replaced the temporary baseline");
+      expect(rebased.futureTask.reason).toContain(
+        "replaced the temporary baseline",
+      );
 
       const duplicate = await repo.rebaseAfterCalibration(
         started.sessionId,
@@ -554,7 +560,11 @@ describe("FileLearningSessionRepository", () => {
         });
       }
       const original = payload.mission.mistakes[0];
-      const repair = await repo.beginRepair(started.sessionId, bank, original.id);
+      const repair = await repo.beginRepair(
+        started.sessionId,
+        bank,
+        original.id,
+      );
       const missedAgain = await repo.answerQuestion(started.sessionId, bank, {
         questionId: repair.questions[0].id,
         choiceId: "B",
@@ -567,6 +577,42 @@ describe("FileLearningSessionRepository", () => {
         attempts: 2,
         resolvedAt: null,
       });
+      let repeated = missedAgain;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const nextRepair = await repo.beginRepair(
+          started.sessionId,
+          bank,
+          original.id,
+        );
+        repeated = await repo.answerQuestion(started.sessionId, bank, {
+          questionId: nextRepair.questions[0].id,
+          choiceId: "B",
+        });
+      }
+      expect(repeated.mission.mistakes[0].attempts).toBe(4);
+      expect(
+        repeated.trustReport.itemHealth.find(
+          (item) => item.questionId === original.questionId,
+        )?.status,
+      ).not.toBe("watch");
+    });
+  });
+
+  it("freezes lesson evidence when the lesson is created", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      expect(started.payload.lessonReceipt.evidenceQuestionIds).toEqual([]);
+      await repo.completeLesson(started.sessionId, bank);
+      const afterAnswer = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: "sentence-boundaries-practice-1",
+        choiceId: "A",
+      });
+
+      expect(afterAnswer.learningTwin.events).toHaveLength(1);
+      expect(afterAnswer.lessonReceipt.evidenceQuestionIds).toEqual([]);
     });
   });
 
@@ -618,8 +664,9 @@ describe("FileLearningSessionRepository", () => {
       );
       expect(challenge.mode).toBe("challenge");
       expect(challenge.questions).toHaveLength(3);
-      expect(challenge.questions.some((question) => question.difficulty === "hard"))
-        .toBe(true);
+      expect(
+        challenge.questions.some((question) => question.difficulty === "hard"),
+      ).toBe(true);
       expect(challenge.mission.steps).toEqual([
         expect.objectContaining({
           state: "current",
@@ -730,10 +777,14 @@ describe("FileLearningSessionRepository", () => {
       await repo.completeLesson(started.sessionId, prerequisiteBank);
       let target = started.payload;
       for (let index = 1; index <= 5; index += 1) {
-        target = await repo.answerQuestion(started.sessionId, prerequisiteBank, {
-          questionId: `linear-equations-practice-${index}`,
-          choiceId: "B",
-        });
+        target = await repo.answerQuestion(
+          started.sessionId,
+          prerequisiteBank,
+          {
+            questionId: `linear-equations-practice-${index}`,
+            choiceId: "B",
+          },
+        );
       }
       expect(target.nextSkill).toBe("ratios-and-percent");
       expect(target.futureTask.reason).toContain("weak prerequisite");
@@ -755,7 +806,9 @@ describe("FileLearningSessionRepository", () => {
         );
       }
       expect(prerequisite.nextSkill).toBe("linear-equations");
-      expect(prerequisite.futureTask.reason).toContain("Return to Linear equations");
+      expect(prerequisite.futureTask.reason).toContain(
+        "Return to Linear equations",
+      );
     });
   });
 
@@ -791,7 +844,9 @@ describe("FileLearningSessionRepository", () => {
         before?.learnedProbability ?? 0,
       );
       expect(corrected.learnerModel.corrections).toHaveLength(1);
-      expect(corrected.learnerModel.corrections[0].modelVersion).toBe("bkt-1.0");
+      expect(corrected.learnerModel.corrections[0].modelVersion).toBe(
+        "bkt-1.0",
+      );
       await expect(
         repo.correctLearnerModel(started.sessionId, bank, {
           skill: "sentence-boundaries",
@@ -799,7 +854,6 @@ describe("FileLearningSessionRepository", () => {
           note: "Trying to move the same estimate again.",
         }),
       ).rejects.toThrow("already recorded a correction");
-
     });
   });
 
@@ -882,6 +936,7 @@ describe("FileLearningSessionRepository", () => {
         correct: false,
         difficulty: "hard" as const,
         observedAt: "2026-07-13T18:00:00.000Z",
+        confidence: "guessing" as const,
       };
       const updated = await repo.recordCalibrationEvidence(
         started.sessionId,
@@ -903,6 +958,8 @@ describe("FileLearningSessionRepository", () => {
       expect(updated.learningTwin.evidence.calibration).toBe(1);
       expect(updated.learningTwin.evidence.practice).toBe(0);
       expect(updated.mission.progress.xp).toBe(0);
+      expect(updated.decisionHistory[0].informationWeight).toBe(0.48);
+      expect(updated.decisionHistory[0].informationLabel).toBe("low");
 
       const retried = await repo.recordCalibrationEvidence(
         started.sessionId,

@@ -27,37 +27,16 @@ import {
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-
-export interface AccommodationPreferences {
-  reducedMotion: boolean
-  largeText: boolean
-  highContrast: boolean
-  keyboardOnly: boolean
-  readAloud: boolean
-  simplified: boolean
-  extendedTime: boolean
-  distractionReduced: boolean
-}
+import {
+  DEFAULT_ACCOMMODATIONS,
+  DEFAULT_EXPLANATION_PREFERENCES,
+  readScoutSettings,
+  updateScoutAccommodations,
+  updateScoutExplanation,
+  type AccommodationPreferences,
+} from "@/lib/scout-settings"
 
 export type ExplanationPreferences = ScoutExplanationPreferences
-
-const DEFAULTS: AccommodationPreferences = {
-  reducedMotion: false,
-  largeText: false,
-  highContrast: false,
-  keyboardOnly: false,
-  readAloud: false,
-  simplified: false,
-  extendedTime: false,
-  distractionReduced: false,
-}
-
-const EXPLANATION_DEFAULTS: ExplanationPreferences = {
-  depth: "normal",
-  readingLevel: "standard",
-  exampleStyle: "everyday",
-  fewerTechnicalTerms: true,
-}
 
 interface ScoutProviderValue {
   accommodations: AccommodationPreferences
@@ -128,9 +107,17 @@ export function ScoutProvider({
   learning: LearningSessionPayload | null
 }) {
   const [accommodations, setAccommodations] =
-    useState<AccommodationPreferences>(DEFAULTS)
+    useState<AccommodationPreferences>(() =>
+      typeof window === "undefined"
+        ? DEFAULT_ACCOMMODATIONS
+        : readScoutSettings().accommodations
+    )
   const [explanationPreferences, setExplanationPreferences] =
-    useState<ExplanationPreferences>(EXPLANATION_DEFAULTS)
+    useState<ExplanationPreferences>(() =>
+      typeof window === "undefined"
+        ? DEFAULT_EXPLANATION_PREFERENCES
+        : readScoutSettings().explanation
+    )
   const [scoutOpen, setScoutOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const [question, setQuestion] = useState("")
@@ -138,21 +125,70 @@ export function ScoutProvider({
   const [selectedText, setSelectedText] = useState("")
   const [assistantError, setAssistantError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [scoutHydrated, setScoutHydrated] = useState(false)
   const scoutDialogRef = useRef<HTMLElement | null>(null)
   const toolsDialogRef = useRef<HTMLElement | null>(null)
   const lastFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      try {
-        const stored = window.localStorage.getItem("scout-accommodations-v1")
-        if (stored) setAccommodations({ ...DEFAULTS, ...JSON.parse(stored) })
-      } catch {
-        window.localStorage.removeItem("scout-accommodations-v1")
-      }
-    }, 0)
-    return () => window.clearTimeout(timeout)
+    let cancelled = false
+    void fetch("/api/scout/ask", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as
+          ScoutStateResponse | { error: string }
+        if (!response.ok || "error" in payload) {
+          throw new Error(
+            "error" in payload ? payload.error : "Scout could not load."
+          )
+        }
+        if (cancelled) return
+        setMessages([...payload.messages])
+        const currentLocal = readScoutSettings()
+        const serverUsesDefaults =
+          JSON.stringify(payload.preferences) ===
+          JSON.stringify(DEFAULT_EXPLANATION_PREFERENCES)
+        const localUsesDefaults =
+          JSON.stringify(currentLocal.explanation) ===
+          JSON.stringify(DEFAULT_EXPLANATION_PREFERENCES)
+        const localWins =
+          currentLocal.explanationCustomized &&
+          ((serverUsesDefaults && !localUsesDefaults) ||
+            currentLocal.explanationUpdatedAt > payload.preferencesUpdatedAt)
+        if (localWins) {
+          const patchResponse = await fetch("/api/scout/ask", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              preferences: currentLocal.explanation,
+              preferencesUpdatedAt: currentLocal.explanationUpdatedAt,
+            }),
+          })
+          const patched = (await patchResponse.json()) as
+            ScoutStateResponse | { error: string }
+          if (!patchResponse.ok || "error" in patched) {
+            throw new Error(
+              "error" in patched
+                ? patched.error
+                : "Scout preferences were not saved."
+            )
+          }
+        } else {
+          setExplanationPreferences(payload.preferences)
+          updateScoutExplanation(
+            payload.preferences,
+            payload.preferencesUpdatedAt,
+            !serverUsesDefaults
+          )
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setAssistantError(
+          error instanceof Error ? error.message : "Scout could not load."
+        )
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -161,14 +197,11 @@ export function ScoutProvider({
       setSelectedText(selection.length >= 3 ? selection.slice(0, 400) : "")
     }
     document.addEventListener("selectionchange", captureSelection)
-    return () => document.removeEventListener("selectionchange", captureSelection)
+    return () =>
+      document.removeEventListener("selectionchange", captureSelection)
   }, [])
 
   useEffect(() => {
-    window.localStorage.setItem(
-      "scout-accommodations-v1",
-      JSON.stringify(accommodations)
-    )
     const root = document.documentElement
     root.dataset.scoutMotion = accommodations.reducedMotion ? "reduced" : "full"
     root.dataset.scoutText = accommodations.largeText ? "large" : "default"
@@ -183,71 +216,47 @@ export function ScoutProvider({
       : "default"
   }, [accommodations])
 
-  useEffect(() => {
-    let cancelled = false
-    void fetch("/api/scout/ask", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = (await response.json()) as
-          | ScoutStateResponse
-          | { error: string }
-        if (!response.ok || "error" in payload) {
-          throw new Error(
-            "error" in payload ? payload.error : "Scout could not load."
-          )
-        }
-        if (cancelled) return
-        setMessages([...payload.messages])
-        setExplanationPreferences(payload.preferences)
-        setScoutHydrated(true)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setAssistantError(
-          error instanceof Error ? error.message : "Scout could not load."
-        )
-        setScoutHydrated(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  function saveAccommodation(
+    key: keyof AccommodationPreferences,
+    enabled: boolean
+  ) {
+    setAccommodations((current) => {
+      const next = { ...current, [key]: enabled }
+      updateScoutAccommodations(next)
+      return next
+    })
+  }
 
-  useEffect(() => {
-    if (!scoutHydrated) return
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => {
+  function saveExplanationPreference<K extends keyof ExplanationPreferences>(
+    key: K,
+    nextValue: ExplanationPreferences[K]
+  ) {
+    setExplanationPreferences((current) => {
+      const next = { ...current, [key]: nextValue }
+      const settings = updateScoutExplanation(next)
       void fetch("/api/scout/ask", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferences: explanationPreferences }),
-        signal: controller.signal,
+        body: JSON.stringify({
+          preferences: next,
+          preferencesUpdatedAt: settings.explanationUpdatedAt,
+        }),
       })
         .then(async (response) => {
-          const payload = (await response.json()) as
-            | ScoutStateResponse
-            | { error: string }
-          if (!response.ok || "error" in payload) {
-            throw new Error(
-              "error" in payload
-                ? payload.error
-                : "Scout preferences were not saved."
-            )
-          }
-        })
-        .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError") return
+          if (response.ok) return
+          const payload = (await response.json()) as { error?: string }
           setAssistantError(
-            error instanceof Error
-              ? error.message
-              : "Scout preferences were not saved."
+            payload.error ?? "Scout preferences were not saved to this session."
           )
         })
-    }, 350)
-    return () => {
-      window.clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [explanationPreferences, scoutHydrated])
+        .catch(() => {
+          setAssistantError(
+            "This preference is saved on your device and will sync when Scout reconnects."
+          )
+        })
+      return next
+    })
+  }
 
   useEffect(() => {
     const panel = scoutOpen
@@ -256,10 +265,13 @@ export function ScoutProvider({
         ? toolsDialogRef.current
         : null
     if (!panel) return
+    const activePanel = panel
     const selector =
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
     const focusable = () =>
-      Array.from(panel.querySelectorAll<HTMLElement>(selector))
+      Array.from(activePanel.querySelectorAll<HTMLElement>(selector)).filter(
+        (element) => !element.hidden && element.getClientRects().length > 0
+      )
     focusable()[0]?.focus()
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -273,7 +285,11 @@ export function ScoutProvider({
       if (controls.length === 0) return
       const first = controls[0]
       const last = controls.at(-1)
-      if (event.shiftKey && document.activeElement === first) {
+      if (!activePanel.contains(document.activeElement)) {
+        event.preventDefault()
+        const wrapTarget = event.shiftKey ? last : first
+        wrapTarget?.focus()
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
         last?.focus()
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -334,13 +350,13 @@ export function ScoutProvider({
           questionId:
             activeTab === "lab"
               ? null
-              : learning?.questions[learning.currentQuestionIndex]?.id ?? null,
+              : (learning?.questions[learning.currentQuestionIndex]?.id ??
+                null),
           selectedText: selection,
         }),
       })
       const payload = (await response.json()) as
-        | ScoutAskResponse
-        | { error: string }
+        ScoutAskResponse | { error: string }
       if (!response.ok || "error" in payload)
         throw new Error(
           "error" in payload ? payload.error : "Scout could not answer."
@@ -362,13 +378,8 @@ export function ScoutProvider({
     () => ({
       accommodations,
       explanationPreferences,
-      setAccommodation: (key, enabled) =>
-        setAccommodations((current) => ({ ...current, [key]: enabled })),
-      setExplanationPreference: (key, nextValue) =>
-        setExplanationPreferences((current) => ({
-          ...current,
-          [key]: nextValue,
-        })),
+      setAccommodation: saveAccommodation,
+      setExplanationPreference: saveExplanationPreference,
       openScout: (nextQuestion) => {
         lastFocusRef.current = document.activeElement as HTMLElement | null
         setScoutOpen(true)
@@ -385,16 +396,20 @@ export function ScoutProvider({
   return (
     <ScoutContext.Provider value={value}>
       {children}
-      <div className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 sm:right-6 sm:bottom-6 print:hidden">
+      <div className="fixed right-6 bottom-6 z-40 hidden items-center gap-2 sm:flex print:hidden">
         {selectedText ? (
           <Button
             type="button"
             variant="secondary"
-          className="hidden max-w-52 shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
+            className="hidden max-w-52 shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
             onClick={() => {
-              lastFocusRef.current = document.activeElement as HTMLElement | null
+              lastFocusRef.current =
+                document.activeElement as HTMLElement | null
               setScoutOpen(true)
-              void ask("Explain the selected text in plain English.", selectedText)
+              void ask(
+                "Explain the selected text in plain English.",
+                selectedText
+              )
               window.getSelection()?.removeAllRanges()
               setSelectedText("")
             }}
@@ -491,7 +506,9 @@ export function ScoutProvider({
                     </p>
                     {message.answer.example ? (
                       <div className="mt-4 border-t border-foreground/20 pt-4">
-                        <p className="ink-label text-muted-foreground">Example</p>
+                        <p className="ink-label text-muted-foreground">
+                          Example
+                        </p>
                         <p className="mt-2 text-sm leading-6">
                           {message.answer.example}
                         </p>
@@ -531,7 +548,8 @@ export function ScoutProvider({
                       {message.answer.receipt ? (
                         <>
                           <p className="mt-1">
-                            Permission: {message.answer.receipt.permissions.join(", ")}
+                            Permission:{" "}
+                            {message.answer.receipt.permissions.join(", ")}
                           </p>
                           <p className="mt-1">
                             Checks: {message.answer.receipt.checks.join(" · ")}
@@ -556,7 +574,10 @@ export function ScoutProvider({
                 </div>
               ))}
               {assistantError ? (
-                <p className="mt-4 text-sm font-semibold text-destructive" role="alert">
+                <p
+                  className="mt-4 text-sm font-semibold text-destructive"
+                  role="alert"
+                >
                   {assistantError}
                 </p>
               ) : null}
@@ -641,10 +662,7 @@ export function ScoutProvider({
                   <Switch
                     checked={accommodations[key]}
                     onCheckedChange={(enabled) =>
-                      setAccommodations((current) => ({
-                        ...current,
-                        [key]: enabled,
-                      }))
+                      saveAccommodation(key, enabled)
                     }
                     aria-label={label}
                   />
@@ -659,10 +677,10 @@ export function ScoutProvider({
                   <select
                     value={explanationPreferences.depth}
                     onChange={(event) =>
-                      setExplanationPreferences((current) => ({
-                        ...current,
-                        depth: event.target.value as ExplanationPreferences["depth"],
-                      }))
+                      saveExplanationPreference(
+                        "depth",
+                        event.target.value as ExplanationPreferences["depth"]
+                      )
                     }
                     className="h-11 border-2 border-foreground bg-background px-3"
                   >
@@ -676,11 +694,11 @@ export function ScoutProvider({
                   <select
                     value={explanationPreferences.readingLevel}
                     onChange={(event) =>
-                      setExplanationPreferences((current) => ({
-                        ...current,
-                        readingLevel: event.target
-                          .value as ExplanationPreferences["readingLevel"],
-                      }))
+                      saveExplanationPreference(
+                        "readingLevel",
+                        event.target
+                          .value as ExplanationPreferences["readingLevel"]
+                      )
                     }
                     className="h-11 border-2 border-foreground bg-background px-3"
                   >
@@ -694,11 +712,11 @@ export function ScoutProvider({
                   <select
                     value={explanationPreferences.exampleStyle}
                     onChange={(event) =>
-                      setExplanationPreferences((current) => ({
-                        ...current,
-                        exampleStyle: event.target
-                          .value as ExplanationPreferences["exampleStyle"],
-                      }))
+                      saveExplanationPreference(
+                        "exampleStyle",
+                        event.target
+                          .value as ExplanationPreferences["exampleStyle"]
+                      )
                     }
                     className="h-11 border-2 border-foreground bg-background px-3"
                   >
@@ -710,7 +728,9 @@ export function ScoutProvider({
                 </label>
                 <label className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-2">
                   <span>
-                    <span className="block font-bold">Use fewer technical terms</span>
+                    <span className="block font-bold">
+                      Use fewer technical terms
+                    </span>
                     <span className="mt-1 block text-sm text-muted-foreground">
                       Technical model details stay available in drawers.
                     </span>
@@ -718,10 +738,7 @@ export function ScoutProvider({
                   <Switch
                     checked={explanationPreferences.fewerTechnicalTerms}
                     onCheckedChange={(enabled) =>
-                      setExplanationPreferences((current) => ({
-                        ...current,
-                        fewerTechnicalTerms: enabled,
-                      }))
+                      saveExplanationPreference("fewerTechnicalTerms", enabled)
                     }
                     aria-label="Use fewer technical terms"
                   />

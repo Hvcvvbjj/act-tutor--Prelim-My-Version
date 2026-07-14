@@ -53,7 +53,10 @@ const ScoutOperationsLab = dynamic(
   {
     loading: () => (
       <main className="mx-auto max-w-3xl px-5 py-20">
-        <ScoutCoach mood="thinking" message="Opening your evidence and data tools…" />
+        <ScoutCoach
+          mood="thinking"
+          message="Opening your evidence and data tools…"
+        />
       </main>
     ),
   }
@@ -96,11 +99,12 @@ async function rebaseLearningSession(
     body: JSON.stringify({ action: "rebase_after_calibration", ...body }),
   })
   const payload = (await response.json()) as
-    | CalibrationRebaseResponse
-    | { error: string }
+    CalibrationRebaseResponse | { error: string }
   if (!response.ok || "error" in payload) {
     throw new Error(
-      "error" in payload ? payload.error : "The Quick Check plan could not be saved."
+      "error" in payload
+        ? payload.error
+        : "The Quick Check plan could not be saved."
     )
   }
   return payload
@@ -140,9 +144,7 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   return (
     <div className="flex items-center gap-3 border-l-2 border-foreground pl-4">
       <div>
-        <p className="ink-label text-muted-foreground">
-          Now
-        </p>
+        <p className="ink-label text-muted-foreground">Now</p>
         <p className="font-heading text-3xl leading-none font-black tabular-nums">
           {plan.currentComposite}
         </p>
@@ -161,6 +163,24 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
 function AccessibleTestDayLab() {
   const { accommodations } = useScoutContext()
   return <TestDayLab extendedTime={accommodations.extendedTime} />
+}
+
+function MobileScoutDock({ onOpen }: { onOpen: () => void }) {
+  const { openScout } = useScoutContext()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className="min-h-14 rounded-none px-1 text-[0.68rem]"
+      aria-label="Ask Scout"
+      onClick={() => {
+        onOpen()
+        openScout()
+      }}
+    >
+      <ScoutMark className="size-8" />
+    </Button>
+  )
 }
 
 function MobileOverflow({
@@ -252,8 +272,8 @@ export function Dashboard({
         cached
           ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
           : error instanceof Error
-          ? error.message
-          : "Your latest skill results could not load."
+            ? error.message
+            : "Your latest skill results could not load."
       )
       return null
     }
@@ -265,6 +285,10 @@ export function Dashboard({
       if (result.lastQuarantineReason) {
         setLearningError(
           `A saved answer was not applied: ${result.lastQuarantineReason} It is quarantined in Evidence & data for review.`
+        )
+      } else if (result.lastTransientReason) {
+        setLearningError(
+          `Scout's server is temporarily busy. Your saved answer is still waiting on this device and will be tried again; it was not discarded.`
         )
       }
       if (result.applied > 0) await refreshLearningSession()
@@ -306,8 +330,8 @@ export function Dashboard({
           cached
             ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
             : error instanceof Error
-            ? error.message
-            : "The learning session could not load."
+              ? error.message
+              : "The learning session could not load."
         )
       })
     return () => {
@@ -348,7 +372,9 @@ export function Dashboard({
       setLearningError(null)
     } catch (error) {
       setLearningError(
-        error instanceof Error ? error.message : "Could not check the teach-back."
+        error instanceof Error
+          ? error.message
+          : "Could not check the teach-back."
       )
     } finally {
       setSubmitting(false)
@@ -364,7 +390,9 @@ export function Dashboard({
       return true
     } catch (error) {
       setLearningError(
-        error instanceof Error ? error.message : "Could not save lesson feedback."
+        error instanceof Error
+          ? error.message
+          : "Could not save lesson feedback."
       )
       return false
     }
@@ -377,9 +405,7 @@ export function Dashboard({
   }) {
     setSubmitting(true)
     try {
-      setLearning(
-        await learningRequest({ action: "correct_model", ...input })
-      )
+      setLearning(await learningRequest({ action: "correct_model", ...input }))
       setLearningError(null)
     } catch (error) {
       setLearningError(
@@ -541,10 +567,12 @@ export function Dashboard({
       return
     }
     if (task.skill) {
-      if (await startMissionAction(
-        { action: "start_skill", skill: task.skill },
-        true
-      )) {
+      if (
+        await startMissionAction(
+          { action: "start_skill", skill: task.skill },
+          true
+        )
+      ) {
         setActiveTab("today")
       }
     }
@@ -596,11 +624,26 @@ export function Dashboard({
           className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
           aria-label="Primary study navigation"
         >
-          <TabsList className="grid h-auto w-full grid-cols-5 rounded-none bg-transparent p-0">
-            <TabsTrigger value="today" className="min-h-14 px-1 text-[0.68rem]">Today</TabsTrigger>
-            <TabsTrigger value="plan" className="min-h-14 px-1 text-[0.68rem]">Plan</TabsTrigger>
-            <TabsTrigger value="calibrate" className="min-h-14 px-1 text-[0.68rem]">Quick Check</TabsTrigger>
-            <TabsTrigger value="progress" className="min-h-14 px-1 text-[0.68rem]">My Skills</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-6 rounded-none bg-transparent p-0">
+            <TabsTrigger value="today" className="min-h-14 px-1 text-[0.68rem]">
+              Today
+            </TabsTrigger>
+            <TabsTrigger value="plan" className="min-h-14 px-1 text-[0.68rem]">
+              Plan
+            </TabsTrigger>
+            <TabsTrigger
+              value="calibrate"
+              className="min-h-14 px-1 text-[0.68rem]"
+            >
+              Check
+            </TabsTrigger>
+            <TabsTrigger
+              value="progress"
+              className="min-h-14 px-1 text-[0.68rem]"
+            >
+              Skills
+            </TabsTrigger>
+            <MobileScoutDock onOpen={() => setMoreOpen(false)} />
             <Button
               type="button"
               variant={moreOpen ? "secondary" : "ghost"}
@@ -665,16 +708,10 @@ export function Dashboard({
                   startMissionAction({ action: "start_checkpoint" }, true)
                 }
                 onStartRetention={(skill) =>
-                  startMissionAction(
-                    { action: "start_retention", skill },
-                    true
-                  )
+                  startMissionAction({ action: "start_retention", skill }, true)
                 }
                 onStartChallenge={(skill) =>
-                  startMissionAction(
-                    { action: "start_challenge", skill },
-                    true
-                  )
+                  startMissionAction({ action: "start_challenge", skill }, true)
                 }
                 onStartMicro={(skill) =>
                   startMissionAction({ action: "start_micro", skill }, true)
