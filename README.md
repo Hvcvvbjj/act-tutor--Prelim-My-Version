@@ -46,118 +46,228 @@ The half-length diagnostic is original and proportioned to the enhanced ACT core
 
 ## Run locally
 
-### Requirements
+Scout runs completely locally. The base app does **not** require a database, an API key, or Ollama. Without a live model, it uses its reviewed personalized lesson fallback. Local diagnostic, calibration, learning, exam, and study-plan state is stored in ignored JSON files under `apps/web/.data/`.
 
-- Git
-- Node.js `>=20.9.0`
-- pnpm `11.7.0`
+The repository uses:
 
-Node.js `22.12.0` is recommended and pinned in [.nvmrc](.nvmrc). If you use [nvm](https://github.com/nvm-sh/nvm), it can install and select that version automatically.
+- Git;
+- Node.js `22.12.0` from [.nvmrc](.nvmrc) on macOS, or a current Node.js LTS release on Windows;
+- pnpm `11.7.0`, pinned in `package.json`.
 
-### Windows PowerShell quick start
+Use the runbook for your computer. Every command is meant to be copied into **Terminal** on macOS or **PowerShell** on Windows.
 
-```powershell
-git clone https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version.git
-Set-Location act-tutor--Prelim-My-Version
-corepack enable
-corepack prepare pnpm@11.7.0 --activate
-pnpm install
-pnpm dev
-```
+### macOS: complete setup from scratch
 
-Then open [http://localhost:3000](http://localhost:3000). If PowerShell still says `pnpm` is not recognized, close and reopen PowerShell. If Corepack is unavailable or cannot write its shim, install the pinned package manager directly and retry:
+#### 1. Install Git
 
-```powershell
-npm install --global pnpm@11.7.0
-pnpm --version
-pnpm install
-pnpm dev
-```
-
-### 1. Clone the fork
+Open Terminal (`Command + Space`, type `Terminal`, press Return), then run:
 
 ```bash
+xcode-select --install
+```
+
+Finish the Apple Command Line Tools installer if it opens, then confirm Git works:
+
+```bash
+git --version
+```
+
+If the command says the tools are already installed, continue. You can also install Git with Homebrew using `brew install git`. See the [official Git macOS instructions](https://git-scm.com/install/mac).
+
+#### 2. Install nvm and Node.js
+
+[nvm](https://github.com/nvm-sh/nvm) lets the repository select its pinned Node.js version instead of relying on whichever version happens to be installed globally.
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm --version
+```
+
+If `nvm` is still not found, close Terminal, open it again, and run `nvm --version`.
+
+#### 3. Clone this fork
+
+```bash
+mkdir -p "$HOME/Documents"
+cd "$HOME/Documents"
 git clone https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version.git
 cd act-tutor--Prelim-My-Version
 ```
 
-If you already cloned the repository, open a terminal in its root directory instead.
+If the repository is already cloned, run only the final `cd` command with the path to your existing copy.
 
-### 2. Select Node and install pnpm
+#### 4. Install the pinned Node.js and pnpm versions
 
-With nvm:
+Run these commands from the repository root:
 
 ```bash
 nvm install
 nvm use
-corepack enable
-corepack prepare pnpm@11.7.0 --activate
-```
-
-If Node.js is already installed without nvm, run only the two `corepack` commands. Confirm the versions with:
-
-```bash
+npm install --global pnpm@11.7.0
+hash -r
 node --version
 pnpm --version
 ```
 
-### 3. Install dependencies
+Expected results are Node.js `v22.12.0` and pnpm `11.7.0`.
 
-Run this from the repository root:
-
-```bash
-pnpm install
-```
-
-### 4. Start the app
+#### 5. Install dependencies and start Scout
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Stop the development server with `Ctrl+C`.
-
-No environment variables, database, or external AI key are required for the current local MVP. Diagnostic, calibration, and learning progress are stored as ignored JSON files under `apps/web/.data/`.
-
-### Optional local configuration
-
-To store session data somewhere else, set either or both variables before starting the app:
+Leave that Terminal window running. Open a second Terminal window and run:
 
 ```bash
-export DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
-export CALIBRATION_SESSION_STORE_PATH=/absolute/path/calibration-sessions.json
-export LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
-export EXAM_LAB_STORE_PATH=/absolute/path/exam-lab-sessions.json
-export STUDY_PLAN_STORE_PATH=/absolute/path/study-plan-sessions.json
-pnpm dev
+open http://localhost:3000
 ```
 
-### Optional live AI lesson generation
+Scout should open in your browser. Press `Control + C` in the first Terminal window to stop it.
 
-The app has a real provider-neutral lesson composer. It calls any OpenAI-compatible `/chat/completions` endpoint, validates the model's JSON against the lesson contract, persists the generated lesson, and falls back to reviewed authored teaching if the request fails. The generative model never receives practice answer keys and cannot change scoring or Bayesian learner-model calculations.
+#### 6. Add free local AI lesson generation on macOS (optional)
 
-For a free local Qwen setup with [Ollama](https://ollama.com/):
+Scout already works without this step. To generate lessons with Qwen locally, install [Ollama for macOS](https://ollama.com/download/mac). Ollama currently requires macOS Sonoma 14 or newer. Open the downloaded app once and allow it to add its command-line tool when prompted.
+
+Then run:
 
 ```bash
+open -a Ollama
+ollama --version
 ollama pull qwen3:4b
+curl http://127.0.0.1:11434/api/tags
+cd "$HOME/Documents/act-tutor--Prelim-My-Version"
+cp apps/web/.env.example apps/web/.env.local
+pnpm dev
+```
+
+If the API check cannot connect, keep this command running in a separate Terminal window, then retry:
+
+```bash
 ollama serve
 ```
 
-In another terminal, create the local Next.js environment file:
+#### 7. Verify the complete macOS setup
 
-macOS/Linux:
+Stop the development server first, then run:
 
 ```bash
-cp apps/web/.env.example apps/web/.env.local
+pnpm --filter web exec playwright install chromium
+pnpm check:release
 ```
 
-Windows PowerShell:
+The final command is the full release gate: lint, type checking, unit tests, a production build, and the browser journeys.
+
+#### 8. Update an existing macOS clone
+
+```bash
+cd "$HOME/Documents/act-tutor--Prelim-My-Version"
+git pull --ff-only
+nvm use
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+### Windows: complete PowerShell setup from scratch
+
+These steps target Windows 10 22H2 or Windows 11. Open **PowerShell** from the Start menu. Administrator mode is normally not required.
+
+#### 1. Install Git and Node.js LTS
+
+Windows Package Manager (`winget`) is included with current Windows through App Installer. Run:
 
 ```powershell
-Copy-Item apps\web\.env.example apps\web\.env.local
+winget install --id Git.Git -e --source winget
+winget install --id OpenJS.NodeJS.LTS -e --source winget
 ```
 
-The example file configures:
+Close PowerShell completely and open a new PowerShell window so Windows reloads `PATH`. Then confirm the tools work:
+
+```powershell
+git --version
+node --version
+npm --version
+```
+
+If `winget` is missing, install or update **App Installer** from the Microsoft Store, or follow the [official WinGet installation instructions](https://learn.microsoft.com/windows/package-manager/winget/install). Git and Node can also be installed from the [official Git Windows page](https://git-scm.com/install/windows) and [official Node.js download page](https://nodejs.org/en/download).
+
+#### 2. Install the exact pnpm version
+
+```powershell
+npm install --global pnpm@11.7.0
+pnpm.cmd --version
+```
+
+The rest of this Windows guide intentionally uses `pnpm.cmd`. It bypasses the common PowerShell error that says `pnpm.ps1` cannot be loaded because script execution is disabled. You do not need to weaken PowerShell's execution policy.
+
+#### 3. Clone this fork
+
+```powershell
+Set-Location ([Environment]::GetFolderPath('MyDocuments'))
+git clone https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version.git
+Set-Location .\act-tutor--Prelim-My-Version
+```
+
+If the repository is already cloned, use `Set-Location` with the full path to your existing copy instead.
+
+#### 4. Install dependencies and start Scout
+
+```powershell
+pnpm.cmd install --frozen-lockfile
+pnpm.cmd dev
+```
+
+Leave that PowerShell window running. Open a second PowerShell window and run:
+
+```powershell
+Start-Process "http://localhost:3000"
+```
+
+Scout should open in your browser. Press `Ctrl + C` in the first PowerShell window to stop it.
+
+#### 5. Add free local AI lesson generation on Windows (optional)
+
+Scout already works without this step. For live local generation, open the [Ollama Windows download](https://ollama.com/download/windows), run the installer, and then open a new PowerShell window. Ollama currently requires Windows 10 22H2 or newer and normally starts its local API in the background.
+
+```powershell
+ollama --version
+ollama pull qwen3:4b
+Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags"
+Set-Location (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'act-tutor--Prelim-My-Version')
+Copy-Item apps\web\.env.example apps\web\.env.local -Force
+pnpm.cmd dev
+```
+
+If the API check cannot connect, keep the following command running in a separate PowerShell window, then retry:
+
+```powershell
+ollama serve
+```
+
+#### 6. Verify the complete Windows setup
+
+Stop the development server first, then run these commands from the repository root:
+
+```powershell
+pnpm.cmd --filter web exec playwright install chromium
+pnpm.cmd check:release
+```
+
+#### 7. Update an existing Windows clone
+
+```powershell
+Set-Location (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'act-tutor--Prelim-My-Version')
+git pull --ff-only
+pnpm.cmd install --frozen-lockfile
+pnpm.cmd dev
+```
+
+### How to tell whether live AI is working
+
+The copied `apps/web/.env.local` file points Scout at Ollama's OpenAI-compatible endpoint:
 
 ```dotenv
 AI_TUTOR_BASE_URL=http://127.0.0.1:11434/v1
@@ -165,54 +275,78 @@ AI_TUTOR_MODEL=qwen3:4b
 AI_TUTOR_API_KEY=
 ```
 
-Restart `pnpm dev` after changing environment variables. A generated lesson is labeled **AI-personalized lesson** in the UI; fallback content is labeled **Reviewed personalized fallback**, so the demo never implies that AI ran when it did not.
+Restart the development server after creating or changing this file. A successful generated lesson is labeled **AI-personalized lesson** in Scout. If Ollama is stopped, the model output is invalid, or the request fails, Scout safely uses content labeled **Reviewed personalized fallback**. The model never receives practice answer keys and cannot change scoring or Bayesian learner-model calculations.
 
-To erase local demo progress and start onboarding again:
+### Optional session-storage locations
+
+The default `apps/web/.data/` storage is enough for local development. To place the five JSON stores elsewhere for one Terminal session, set the variables before `pnpm dev`.
+
+macOS:
 
 ```bash
-rm -f apps/web/.data/diagnostic-sessions.json apps/web/.data/calibration-sessions.json apps/web/.data/learning-sessions.json apps/web/.data/exam-lab-sessions.json apps/web/.data/study-plan-sessions.json
+export DIAGNOSTIC_SESSION_STORE_PATH="$HOME/scout-data/diagnostic-sessions.json"
+export CALIBRATION_SESSION_STORE_PATH="$HOME/scout-data/calibration-sessions.json"
+export LEARNING_SESSION_STORE_PATH="$HOME/scout-data/learning-sessions.json"
+export EXAM_LAB_STORE_PATH="$HOME/scout-data/exam-lab-sessions.json"
+export STUDY_PLAN_STORE_PATH="$HOME/scout-data/study-plan-sessions.json"
+pnpm dev
 ```
 
-You may also need to clear cookies for `localhost:3000` if you want a completely new anonymous session.
+Windows PowerShell:
 
-## Verify the project
-
-Run the full lint, typecheck, test, and production-build suite:
-
-```bash
-pnpm check
+```powershell
+$env:DIAGNOSTIC_SESSION_STORE_PATH = "$HOME\scout-data\diagnostic-sessions.json"
+$env:CALIBRATION_SESSION_STORE_PATH = "$HOME\scout-data\calibration-sessions.json"
+$env:LEARNING_SESSION_STORE_PATH = "$HOME\scout-data\learning-sessions.json"
+$env:EXAM_LAB_STORE_PATH = "$HOME\scout-data\exam-lab-sessions.json"
+$env:STUDY_PLAN_STORE_PATH = "$HOME\scout-data\study-plan-sessions.json"
+pnpm.cmd dev
 ```
 
-Individual commands are also available:
+### Reset all local demo progress
+
+Stop Scout before deleting the local files.
+
+macOS:
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
+[ -d apps/web/.data ] && find apps/web/.data -maxdepth 1 -name '*.json' -delete
+```
+
+Windows PowerShell:
+
+```powershell
+Remove-Item apps\web\.data\*.json -ErrorAction SilentlyContinue
+```
+
+Clear cookies for `localhost:3000` as well if you want a completely new anonymous learner session.
+
+### Run the production build locally
+
+macOS:
+
+```bash
 pnpm build
-```
-
-Browser release journeys use Playwright. Install Chromium once, then run the release gate:
-
-```bash
-pnpm --filter web exec playwright install chromium
-pnpm check:release
-```
-
-The browser suite covers transactional Quick Check rebasing, the persisted Today lesson, mobile overflow at 320/375/390 pixels, Scout's bottom-sheet layout, plain-English margin-of-error routing, focus trapping, Escape close, and focus return.
-
-To run the production build locally after `pnpm build`:
-
-```bash
 pnpm --filter web start
+```
+
+Windows PowerShell:
+
+```powershell
+pnpm.cmd build
+pnpm.cmd --filter web start
 ```
 
 ### Troubleshooting
 
-- `pnpm: command not found`: rerun `corepack enable` and `corepack prepare pnpm@11.7.0 --activate`.
-- Unsupported Node.js version: run `nvm install && nvm use`, or install Node.js `22.12.0` manually.
-- Port `3000` is already in use: stop the other process or run `pnpm --filter web dev -- -p 3001`, then open [http://localhost:3001](http://localhost:3001).
-- Stale local progress: delete the five session files in `apps/web/.data/` and clear the localhost cookies as described above.
+- **Windows says `pnpm.ps1` cannot be loaded:** run the same command with `pnpm.cmd`, as shown throughout this guide. No execution-policy change is required.
+- **Windows says pnpm is not recognized:** close and reopen PowerShell, run `where.exe pnpm.*`, then rerun `npm install --global pnpm@11.7.0`. Confirm with `pnpm.cmd --version`.
+- **macOS says `nvm: command not found`:** open a new Terminal window. If needed, run `export NVM_DIR="$HOME/.nvm"` followed by `[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"`.
+- **macOS says pnpm is not found:** run `npm install --global pnpm@11.7.0`, then `hash -r` and `pnpm --version`.
+- **The Node.js version is wrong:** on macOS, run `nvm install` and `nvm use` from the repository root. On Windows, run `winget upgrade --id OpenJS.NodeJS.LTS -e --source winget`, reopen PowerShell, and check `node --version`.
+- **Port 3000 is busy:** use `pnpm --filter web dev -- -p 3001` on macOS or `pnpm.cmd --filter web dev -- -p 3001` in PowerShell, then open [http://localhost:3001](http://localhost:3001).
+- **Ollama cannot connect:** make sure the Ollama app is open, run `ollama serve` in its own terminal if necessary, and retry the API health command from the appropriate setup section.
+- **The browser shows old learner progress:** reset the JSON files, clear cookies for `localhost:3000`, and restart Scout.
 
 ## Core experience
 
