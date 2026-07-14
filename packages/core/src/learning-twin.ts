@@ -1,5 +1,6 @@
 import type { DiagnosticSkillResult } from "./diagnostic";
 import type {
+  AnswerConfidence,
   PracticeDifficulty,
   SkillDefinition,
   SkillSlug,
@@ -59,6 +60,9 @@ export interface KnowledgeObservation {
   difficulty: PracticeDifficulty;
   observedAt: string;
   source?: LearningEvidenceSource;
+  confidence?: AnswerConfidence;
+  selfCorrected?: boolean;
+  responseSeconds?: number;
 }
 
 export interface LearningTwinEvent {
@@ -74,6 +78,10 @@ export interface LearningTwinEvent {
   predictedCorrectAfter: number;
   observedAt: string;
   source: LearningEvidenceSource;
+  confidence: AnswerConfidence;
+  informationWeight: number;
+  selfCorrected: boolean;
+  responseSeconds: number | null;
 }
 
 export type RecommendationContributionId =
@@ -282,6 +290,10 @@ export function applyKnowledgeObservation(
     throw new RangeError("Knowledge evidence requires a valid ISO date.");
   }
   const parameters = PARAMETERS_BY_DIFFICULTY[observation.difficulty];
+  const confidence = observation.confidence ?? "sure";
+  const informationWeight =
+    (confidence === "sure" ? 1 : confidence === "unsure" ? 0.78 : 0.48) *
+    (observation.selfCorrected ? 0.82 : 1);
   const learnedBefore = clamp(state.learnedProbability);
   const learnedLikelihood = observation.correct
     ? learnedBefore * (1 - parameters.slip)
@@ -292,9 +304,12 @@ export function applyKnowledgeObservation(
   const denominator = learnedLikelihood + unlearnedLikelihood;
   const posteriorAfterEvidence =
     denominator === 0 ? learnedBefore : learnedLikelihood / denominator;
-  const learnedAfterTransition = clamp(
+  const rawAfterTransition = clamp(
     posteriorAfterEvidence +
       (1 - posteriorAfterEvidence) * parameters.transition,
+  );
+  const learnedAfterTransition = clamp(
+    learnedBefore + (rawAfterTransition - learnedBefore) * informationWeight,
   );
   const predictedCorrectAfter = predictCorrect(
     learnedAfterTransition,
@@ -334,6 +349,13 @@ export function applyKnowledgeObservation(
       predictedCorrectAfter: trace.predictedCorrectAfter,
       observedAt: trace.observedAt,
       source: observation.source ?? "practice",
+      confidence,
+      informationWeight: round(informationWeight),
+      selfCorrected: observation.selfCorrected ?? false,
+      responseSeconds:
+        typeof observation.responseSeconds === "number"
+          ? Math.max(0, Math.round(observation.responseSeconds))
+          : null,
     },
   };
 }
@@ -483,7 +505,14 @@ export function buildLearningTwinSnapshot(input: {
       left.label.localeCompare(right.label),
   );
   const allEvents = [...(input.events ?? [])]
-    .map((event) => ({ ...event, source: event.source ?? "practice" }))
+    .map((event) => ({
+      ...event,
+      source: event.source ?? "practice",
+      confidence: event.confidence ?? "sure",
+      informationWeight: event.informationWeight ?? 1,
+      selfCorrected: event.selfCorrected ?? false,
+      responseSeconds: event.responseSeconds ?? null,
+    }))
     .sort((left, right) => right.observedAt.localeCompare(left.observedAt));
   const events = allEvents.slice(0, 12);
   const diagnosticEvidence = skills.reduce(

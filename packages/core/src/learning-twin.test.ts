@@ -70,6 +70,32 @@ describe("Bayesian learning twin", () => {
     expect(missed.state.observations).toBe(2);
   });
 
+  it("records confidence and discounts a guessed-correct response", () => {
+    const initial = createInitialKnowledgeState(skill, {
+      correct: 1,
+      total: 2,
+    });
+    const sure = applyKnowledgeObservation(initial, {
+      questionId: "sure",
+      correct: true,
+      difficulty: "medium",
+      confidence: "sure",
+      observedAt: "2026-07-13T12:00:00.000Z",
+    });
+    const guess = applyKnowledgeObservation(initial, {
+      questionId: "guess",
+      correct: true,
+      difficulty: "medium",
+      confidence: "guessing",
+      observedAt: "2026-07-13T12:00:00.000Z",
+    });
+
+    expect(sure.state.learnedProbability).toBeGreaterThan(
+      guess.state.learnedProbability,
+    );
+    expect(guess.event.informationWeight).toBe(0.48);
+  });
+
   it("ranks a weak, uncertain skill ahead of a well-supported skill", () => {
     const weak = createInitialKnowledgeState(skill, { correct: 0, total: 2 });
     const secureSkill = {
@@ -143,9 +169,7 @@ describe("Bayesian learning twin", () => {
         questionId: `long-session-${index}`,
         correct: index % 3 !== 0,
         difficulty: "medium",
-        observedAt: new Date(
-          Date.UTC(2026, 6, 13, 12, index),
-        ).toISOString(),
+        observedAt: new Date(Date.UTC(2026, 6, 13, 12, index)).toISOString(),
         source: index < 8 ? "calibration" : "practice",
       });
       state = update.state;

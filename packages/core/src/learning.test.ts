@@ -26,7 +26,10 @@ const algebraSkill: SkillDefinition = {
 
 describe("learning mastery", () => {
   it("seeds mastery from diagnostic evidence with a cautious prior", () => {
-    const mastery = createInitialMastery(sentenceSkill, { correct: 0, total: 2 });
+    const mastery = createInitialMastery(sentenceSkill, {
+      correct: 0,
+      total: 2,
+    });
 
     expect(mastery.mastery).toBeCloseTo(0.25);
     expect(mastery.band).toBe("building");
@@ -62,16 +65,43 @@ describe("learning mastery", () => {
     expect(first.review.intervalDays).toBeGreaterThan(1);
   });
 
+  it("treats a confident answer as stronger evidence than a guess", () => {
+    const seed = createInitialMastery(sentenceSkill, { correct: 1, total: 2 });
+    const sure = applyPracticeAttempt(seed, {
+      skill: sentenceSkill.slug,
+      correct: true,
+      difficulty: "medium",
+      confidence: "sure",
+      answeredAt: "2026-07-12T12:00:00.000Z",
+    });
+    const guessed = applyPracticeAttempt(seed, {
+      skill: sentenceSkill.slug,
+      correct: true,
+      difficulty: "medium",
+      confidence: "guessing",
+      answeredAt: "2026-07-12T12:00:00.000Z",
+    });
+
+    expect(sure.mastery.mastery).toBeGreaterThan(guessed.mastery.mastery);
+  });
+
   it("keeps today's skill stable while letting the future task change", () => {
-    const sentence = createInitialMastery(sentenceSkill, { correct: 2, total: 2 });
-    const algebra = createInitialMastery(algebraSkill, { correct: 0, total: 2 });
+    const sentence = createInitialMastery(sentenceSkill, {
+      correct: 2,
+      total: 2,
+    });
+    const algebra = createInitialMastery(algebraSkill, {
+      correct: 0,
+      total: 2,
+    });
 
     expect(chooseNextSkill([sentence, algebra]).skill).toBe("linear-equations");
 
-    const decision = decideFutureTask("sentence-boundaries", "sentence-boundaries", [
-      sentence,
-      algebra,
-    ]);
+    const decision = decideFutureTask(
+      "sentence-boundaries",
+      "sentence-boundaries",
+      [sentence, algebra],
+    );
 
     expect(decision.todaySkill).toBe("sentence-boundaries");
     expect(decision.nextSkill).toBe("linear-equations");

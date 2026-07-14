@@ -135,19 +135,34 @@
   }
 
   .marker-underline {
-    background-image: linear-gradient(transparent 67%, rgb(246 201 69 / 0.7) 67%);
+    background-image: linear-gradient(
+      transparent 67%,
+      rgb(246 201 69 / 0.7) 67%
+    );
   }
 }
 
 @keyframes scout-float {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-4px) rotate(1deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(1deg);
+  }
 }
 
 @keyframes scout-celebrate {
-  0%, 100% { transform: scale(1) rotate(0); }
-  45% { transform: scale(1.07) rotate(-4deg); }
-  75% { transform: scale(1.04) rotate(4deg); }
+  0%,
+  100% {
+    transform: scale(1) rotate(0);
+  }
+  45% {
+    transform: scale(1.07) rotate(-4deg);
+  }
+  75% {
+    transform: scale(1.04) rotate(4deg);
+  }
 }
 
 .scout-float {
@@ -160,6 +175,58 @@
 
 .scout-thinking {
   animation-duration: 1.8s;
+}
+
+html[data-scout-text="large"] {
+  font-size: 112.5%;
+}
+
+html[data-scout-contrast="high"] {
+  --muted-foreground: #303945;
+  --border: #465263;
+  --input: #26364d;
+  --info-surface: #e2f7ef;
+}
+
+html[data-scout-keyboard="strong"] :focus-visible {
+  outline: 4px solid var(--ring) !important;
+  outline-offset: 4px !important;
+}
+
+html[data-scout-motion="reduced"] *,
+html[data-scout-motion="reduced"] *::before,
+html[data-scout-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-scout-distraction="reduced"] [data-practice-workspace] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+html[data-scout-distraction="reduced"] [data-practice-workspace] > aside {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .coach-brief,
+  .coach-brief * {
+    visibility: visible;
+  }
+
+  .coach-brief {
+    position: absolute;
+    inset: 0;
+    box-shadow: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

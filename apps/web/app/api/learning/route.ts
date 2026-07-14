@@ -1,4 +1,4 @@
-import type { DiagnosticSkillResult } from "@act-tutor/core"
+import type { DiagnosticSkillResult, LessonPlanContext } from "@act-tutor/core"
 import { type NextRequest, NextResponse } from "next/server"
 
 import { LEARNING_BANK } from "@/lib/learning-content.server"
@@ -41,7 +41,8 @@ function requireSessionId(request: NextRequest) {
 
 function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
   if (value === undefined) return []
-  if (!Array.isArray(value)) throw new RangeError("Diagnostic skill results must be an array.")
+  if (!Array.isArray(value))
+    throw new RangeError("Diagnostic skill results must be an array.")
   return value.map((item) => {
     if (!item || typeof item !== "object") {
       throw new RangeError("Diagnostic skill result must be an object.")
@@ -79,6 +80,8 @@ function parsePlanContext(body: Record<string, unknown>) {
   const currentScore = Number(body.currentScore)
   const daysUntilTest = Number(body.daysUntilTest)
   const minutesPerSession = Number(body.minutesPerSession)
+  const studyDaysPerWeek = Number(body.studyDaysPerWeek ?? 5)
+  const preferredSection = body.preferredSection ?? "balanced"
   if (
     !Number.isInteger(goalScore) ||
     goalScore < 1 ||
@@ -91,16 +94,33 @@ function parsePlanContext(body: Record<string, unknown>) {
     daysUntilTest > 730 ||
     !Number.isInteger(minutesPerSession) ||
     minutesPerSession < 15 ||
-    minutesPerSession > 180
+    minutesPerSession > 180 ||
+    !Number.isInteger(studyDaysPerWeek) ||
+    studyDaysPerWeek < 1 ||
+    studyDaysPerWeek > 7 ||
+    (preferredSection !== "balanced" &&
+      preferredSection !== "english" &&
+      preferredSection !== "math" &&
+      preferredSection !== "reading")
   ) {
     throw new RangeError("Learning plan context is malformed.")
   }
-  return { goalScore, currentScore, daysUntilTest, minutesPerSession }
+  return {
+    goalScore,
+    currentScore,
+    daysUntilTest,
+    minutesPerSession,
+    studyDaysPerWeek,
+    preferredSection: preferredSection as LessonPlanContext["preferredSection"],
+  }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const payload = await learningSessions.get(requireSessionId(request), LEARNING_BANK)
+    const payload = await learningSessions.get(
+      requireSessionId(request),
+      LEARNING_BANK
+    )
     const response = NextResponse.json(payload)
     response.headers.set("Cache-Control", "no-store")
     return response
@@ -115,13 +135,16 @@ export async function POST(request: NextRequest) {
     const action = body.action
 
     if (action === "start") {
-      if (typeof body.skill !== "string") throw new RangeError("Learning skill is required.")
+      if (typeof body.skill !== "string")
+        throw new RangeError("Learning skill is required.")
       const session = await learningSessions.getOrCreate(
         request.cookies.get(SESSION_COOKIE)?.value ?? null,
         LEARNING_BANK,
         {
           skill: body.skill,
-          diagnosticSkillResults: parseDiagnosticSkillResults(body.diagnosticSkillResults),
+          diagnosticSkillResults: parseDiagnosticSkillResults(
+            body.diagnosticSkillResults
+          ),
           plan: parsePlanContext(body),
         },
         lessonComposer
@@ -177,13 +200,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "answer") {
-      if (typeof body.questionId !== "string" || typeof body.choiceId !== "string") {
+      if (
+        typeof body.questionId !== "string" ||
+        typeof body.choiceId !== "string"
+      ) {
         throw new RangeError("A questionId and choiceId are required.")
       }
       const payload = await learningSessions.answerQuestion(
         requireSessionId(request),
         LEARNING_BANK,
-        { questionId: body.questionId, choiceId: body.choiceId }
+        {
+          questionId: body.questionId,
+          choiceId: body.choiceId,
+          confidence:
+            body.confidence === "unsure" || body.confidence === "guessing"
+              ? body.confidence
+              : "sure",
+          selfCorrected: body.selfCorrected === true,
+          responseSeconds:
+            typeof body.responseSeconds === "number"
+              ? Math.max(0, Math.min(3600, body.responseSeconds))
+              : undefined,
+        }
       )
       return NextResponse.json(payload)
     }

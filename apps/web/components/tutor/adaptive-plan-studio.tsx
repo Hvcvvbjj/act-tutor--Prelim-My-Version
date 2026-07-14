@@ -113,6 +113,15 @@ const HEALTH_COPY = {
 } as const
 
 const MINUTE_OPTIONS = [15, 20, 30, 45, 60, 75, 90, 120] as const
+const DEFAULT_STUDY_DAY_ORDER: ReadonlyArray<StudyWeekday> = [
+  "mon",
+  "wed",
+  "fri",
+  "tue",
+  "thu",
+  "sat",
+  "sun",
+]
 
 async function studyPlanRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/study-plan", {
@@ -605,7 +614,7 @@ export function AdaptivePlanStudio({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [changingTaskId, setChangingTaskId] = useState<string | null>(null)
-  const initializedKey = `${plan.today}:${plan.draft.testDate}:${plan.currentComposite}:${plan.draft.goal}`
+  const initializedKey = `${plan.today}:${plan.draft.testDate}:${plan.currentComposite}:${plan.draft.goal}:${plan.intensity.studyDaysPerWeek}:${plan.intensity.minutesPerSession}`
   const initializedRef = useRef<string | null>(null)
   const syncedSkillsRef = useRef<string | null>(null)
   const pendingRequestRef = useRef<{
@@ -657,6 +666,15 @@ export function AdaptivePlanStudio({
                   current,
                   target: plan.target.scores,
                   skills,
+                  availability: {
+                    entries: DEFAULT_STUDY_DAY_ORDER.slice(
+                      0,
+                      plan.intensity.studyDaysPerWeek
+                    ).map((weekday) => ({
+                      weekday,
+                      minutes: plan.intensity.minutesPerSession,
+                    })),
+                  },
                 }
               : { action: "sync_evidence", skills }
           )
@@ -698,6 +716,8 @@ export function AdaptivePlanStudio({
     current,
     initializedKey,
     plan.draft.testDate,
+    plan.intensity.minutesPerSession,
+    plan.intensity.studyDaysPerWeek,
     plan.target.scores,
     plan.today,
     skills,
@@ -852,6 +872,25 @@ export function AdaptivePlanStudio({
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section className="mt-6 grid gap-5 border-l-4 border-primary bg-[var(--info-surface)] p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div>
+          <p className="ink-label text-primary">The tradeoff Scout chose</p>
+          <p className="mt-2 max-w-4xl text-base leading-7 font-semibold">
+            With {plan.intensity.studyDaysPerWeek} study days each week and{" "}
+            {plan.intensity.minutesPerSession} minutes each day, Scout is
+            putting the most time into{" "}
+            {plan.draft.preferredSection === "balanced"
+              ? `${plan.weakestSection} because it offers the clearest score gain`
+              : `${plan.draft.preferredSection} because you named it as your priority`}
+            . Spreading the same time evenly across every section would leave
+            less time to repair the skills most likely to move your score.
+          </p>
+        </div>
+        <span className="font-mono text-xs font-black text-muted-foreground uppercase">
+          {plan.intensity.weeklyMinutes} min/week
+        </span>
       </section>
 
       <MilestoneRail plan={adaptivePlan} />

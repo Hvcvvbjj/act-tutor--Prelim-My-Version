@@ -13,10 +13,12 @@ import {
   ArrowRightIcon,
   ArrowUpIcon,
   BrainCircuitIcon,
-  CircleDotDashedIcon,
   DatabaseZapIcon,
   FlaskConicalIcon,
   GaugeIcon,
+  LockKeyholeIcon,
+  PrinterIcon,
+  CopyIcon,
   RouteIcon,
   ShieldCheckIcon,
 } from "lucide-react"
@@ -73,12 +75,6 @@ function signedPoints(value: number) {
   return `${points > 0 ? "+" : ""}${points} pts`
 }
 
-function confidenceLabel(state: KnowledgeState) {
-  if (state.confidence === "stable") return "Good estimate"
-  if (state.confidence === "forming") return "Getting clearer"
-  return "Needs more answers"
-}
-
 function ProbabilityMetric({
   label,
   value,
@@ -101,73 +97,202 @@ function ProbabilityMetric({
   )
 }
 
-function SkillModelRow({
-  state,
-  selected,
-  recommended,
+const SCORE_IMPACT: Record<string, "high" | "medium"> = {
+  "sentence-boundaries": "high",
+  "punctuation-and-commas": "high",
+  "linear-equations": "high",
+  "functions-and-modeling": "high",
+  "central-ideas-and-details": "high",
+  "supported-inference": "high",
+}
+
+const PREREQUISITE_ORDER: Record<string, number> = {
+  "sentence-boundaries": 1,
+  "punctuation-and-commas": 2,
+  "concision-and-redundancy": 3,
+  "logical-transitions": 4,
+  "ratios-and-percent": 1,
+  "linear-equations": 2,
+  "functions-and-modeling": 3,
+  "geometry-and-measurement": 4,
+  "central-ideas-and-details": 1,
+  "textual-evidence-and-details": 2,
+  "supported-inference": 3,
+  "author-purpose-and-structure": 4,
+}
+
+function InteractiveSkillMap({
+  skills,
+  learning,
+  selectedSkill,
   onSelect,
 }: {
-  state: KnowledgeState
-  selected: boolean
-  recommended: boolean
-  onSelect: () => void
+  skills: ReadonlyArray<KnowledgeState>
+  learning: LearningSessionPayload
+  selectedSkill: string
+  onSelect: (skill: string) => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={cn(
-        "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b px-1 py-4 text-left transition-colors outline-none first:border-t focus-visible:ring-3 focus-visible:ring-ring/50",
-        selected && "bg-[var(--info-surface)] px-3",
-        !selected && "hover:bg-muted/55"
-      )}
-    >
-      <span className="min-w-0">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-sm font-bold">{state.label}</span>
-          {recommended ? (
-            <span className="font-mono text-[0.58rem] font-bold tracking-[0.1em] text-primary uppercase">
-              Next
-            </span>
-          ) : null}
-        </span>
-        <span className="mt-1 block text-xs text-muted-foreground">
-          {SECTION_LABELS[state.section]} · {state.evidenceCount}{" "}
-          {state.evidenceCount === 1 ? "answer" : "answers"} used ·{" "}
-          {confidenceLabel(state)}
-        </span>
-        <span
-          className="mt-3 block h-1.5 overflow-hidden bg-muted"
-          aria-hidden="true"
-        >
-          <span
-            className={cn(
-              "block h-full transition-[width] duration-500 motion-reduce:transition-none",
-              recommended ? "bg-[var(--scout-coral)]" : "bg-primary"
-            )}
-            style={{ width: percent(state.predictedCorrectProbability) }}
-          />
-        </span>
-      </span>
-      <span className="flex items-center gap-2">
-        <span className="text-right">
-          <span className="block font-heading text-3xl leading-none font-black tabular-nums">
-            {percent(state.predictedCorrectProbability)}
-          </span>
-          <span className="mt-1 block text-[0.65rem] text-muted-foreground">
-            next question
-          </span>
-        </span>
-        <ArrowRightIcon
-          className={cn(
-            "size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5",
-            selected && "text-primary"
-          )}
-          aria-hidden="true"
-        />
-      </span>
-    </button>
+    <section className="mt-10 border-y-2 border-foreground py-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="ink-label text-primary">Connected skill map</p>
+          <h2 className="mt-2 font-heading text-4xl font-black">
+            Every mark has a job.
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <span>Fill = mastery</span>
+          <span>Border = certainty</span>
+          <span>Size = score impact</span>
+          <span>Arrow = prerequisite</span>
+        </div>
+      </div>
+      <div className="mt-6 grid gap-6">
+        {(["english", "math", "reading"] as const).map((section) => {
+          const lane = skills
+            .filter((skill) => skill.section === section)
+            .sort(
+              (left, right) =>
+                (PREREQUISITE_ORDER[left.skill] ?? 99) -
+                (PREREQUISITE_ORDER[right.skill] ?? 99)
+            )
+          return (
+            <div
+              key={section}
+              className="grid gap-3 md:grid-cols-[6rem_minmax(0,1fr)] md:items-center"
+            >
+              <p className="font-heading text-xl font-black">
+                {SECTION_LABELS[section]}
+              </p>
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                {lane.map((state, index) => {
+                  const certainty =
+                    state.confidence === "stable"
+                      ? "border-[3px]"
+                      : state.confidence === "forming"
+                        ? "border-2"
+                        : "border border-dashed"
+                  const badge =
+                    state.skill === learning.todaySkill
+                      ? "Today"
+                      : state.skill === learning.nextSkill
+                        ? "Next"
+                        : learning.mission.dueReviews.some(
+                              (review) => review.skill === state.skill
+                            )
+                          ? "Review"
+                          : null
+                  return (
+                    <div
+                      key={state.skill}
+                      className="flex shrink-0 items-center gap-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelect(state.skill)}
+                        aria-pressed={selectedSkill === state.skill}
+                        className={cn(
+                          "relative w-40 border-foreground px-3 py-3 text-left transition-transform outline-none hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50",
+                          certainty,
+                          SCORE_IMPACT[state.skill] === "high"
+                            ? "min-h-24"
+                            : "min-h-20",
+                          selectedSkill === state.skill &&
+                            "shadow-[4px_4px_0_var(--foreground)]"
+                        )}
+                        style={{
+                          background: `color-mix(in srgb, var(--scout-mint) ${Math.round(
+                            state.learnedProbability * 82
+                          )}%, var(--background))`,
+                        }}
+                      >
+                        {badge ? (
+                          <span className="absolute -top-2 right-2 bg-foreground px-2 py-0.5 font-mono text-[0.55rem] font-black text-background uppercase">
+                            {badge}
+                          </span>
+                        ) : null}
+                        <span className="block text-sm leading-5 font-bold">
+                          {state.label}
+                        </span>
+                        <span className="mt-2 block font-mono text-xs font-black">
+                          {percent(state.learnedProbability)} known
+                        </span>
+                      </button>
+                      {index < lane.length - 1 ? (
+                        <ArrowRightIcon
+                          className="size-5 shrink-0 text-primary"
+                          aria-label="is a prerequisite for"
+                        />
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function PlanChangePanel({ learning }: { learning: LearningSessionPayload }) {
+  const change = learning.planCounterfactual
+  return (
+    <section className="mt-10 grid border-y-2 border-foreground lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:divide-x-2 lg:divide-foreground">
+      <div className="py-7 lg:pr-7">
+        <div className="flex items-center gap-3 text-primary">
+          <LockKeyholeIcon className="size-5" />
+          <p className="ink-label">
+            {change.status === "held" ? "Plan held" : "Plan changed"}
+          </p>
+        </div>
+        <h2 className="mt-3 font-heading text-4xl font-black">
+          What would change the plan?
+        </h2>
+        <dl className="mt-6 grid grid-cols-2 gap-5 border-t-2 border-foreground pt-5">
+          <div>
+            <dt className="ink-label text-muted-foreground">
+              Current evidence
+            </dt>
+            <dd className="mt-1 font-heading text-4xl font-black tabular-nums">
+              {change.currentEvidence}%
+            </dd>
+          </div>
+          <div>
+            <dt className="ink-label text-muted-foreground">Change line</dt>
+            <dd className="mt-1 font-heading text-4xl font-black text-primary tabular-nums">
+              {change.changeThreshold}%
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-5 text-sm leading-6 text-muted-foreground">
+          Scout needs{" "}
+          {change.responsesNeeded === 1 ? "one" : change.responsesNeeded} more
+          high-information response{change.responsesNeeded === 1 ? "" : "s"}{" "}
+          before it has enough reason to replace the next mission.
+        </p>
+      </div>
+      <div className="py-7 lg:pl-7">
+        <p className="font-heading text-2xl font-black">Two possible paths</p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="border-l-4 border-primary bg-[var(--info-surface)] p-4">
+            <p className="ink-label text-primary">
+              If the next answer is right
+            </p>
+            <p className="mt-2 text-sm leading-6">{change.correctOutcome}</p>
+          </div>
+          <div className="border-l-4 border-[var(--scout-coral)] bg-[var(--coach-surface)] p-4">
+            <p className="ink-label text-[var(--scout-coral)]">
+              If it is missed
+            </p>
+            <p className="mt-2 text-sm leading-6">{change.incorrectOutcome}</p>
+          </div>
+        </div>
+        <p className="mt-5 text-sm font-semibold">{change.explanation}</p>
+      </div>
+    </section>
   )
 }
 
@@ -447,6 +572,9 @@ function EvidenceLedger({
   onOpenLesson: () => void
 }) {
   const twin = learning.learningTwin
+  const decisions = learning.decisionHistory
+  const skillLabel = (slug: string) =>
+    twin.skills.find((skill) => skill.skill === slug)?.label ?? slug
   return (
     <section className="mt-12" aria-labelledby="ledger-title">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
@@ -456,7 +584,7 @@ function EvidenceLedger({
             id="ledger-title"
             className="mt-2 font-heading text-4xl font-black"
           >
-            Recent answers
+            Evidence Timeline
           </h2>
         </div>
         <div className="flex gap-5 text-right">
@@ -481,40 +609,45 @@ function EvidenceLedger({
         </div>
       </div>
 
-      {twin.events.length ? (
+      {decisions.length ? (
         <ol className="divide-y border-b">
-          {twin.events.slice(0, 6).map((event) => (
+          {decisions.slice(0, 10).map((event) => (
             <li
               key={event.id}
-              className="grid gap-3 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+              className="grid gap-4 py-5 sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:items-start"
             >
-              <span
-                className={cn(
-                  "flex size-9 items-center justify-center border-2",
-                  event.correct
-                    ? "border-primary bg-secondary text-primary"
-                    : "border-[var(--scout-coral)] bg-[color-mix(in_srgb,var(--scout-coral),transparent_91%)] text-[var(--scout-coral)]"
-                )}
-              >
-                {event.correct ? (
-                  <ArrowUpIcon className="size-4" aria-hidden="true" />
-                ) : (
-                  <ArrowDownIcon className="size-4" aria-hidden="true" />
-                )}
-              </span>
+              <time className="font-mono text-xs font-black text-muted-foreground uppercase">
+                {new Date(event.occurredAt).toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </time>
               <div>
-                <p className="text-sm font-bold">{event.skillLabel}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {event.source === "calibration" ? "Quick Check" : "Practice"}
-                  {" · "}
-                  {event.correct ? "Correct" : "Missed"} · {event.difficulty}
-                  {" question · skill estimate "}
-                  {percent(event.learnedBefore)} → {percent(event.learnedAfter)}
+                <p className="text-sm font-bold">
+                  {event.planChanged ? "Plan updated" : "Plan held"} ·{" "}
+                  {event.skillLabel}
                 </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {event.answerSummary} · {event.informationLabel} information ·{" "}
+                  skill estimate {percent(event.learnedBefore)} →{" "}
+                  {percent(event.learnedAfter)} · confidence{" "}
+                  {event.confidenceBefore} → {event.confidenceAfter}
+                </p>
+                <p className="mt-2 text-sm leading-6">{event.why}</p>
+                {event.misconception ? (
+                  <p className="mt-2 border-l-2 border-[var(--scout-coral)] pl-3 text-xs text-muted-foreground">
+                    Misconception found: {event.misconception}
+                  </p>
+                ) : null}
               </div>
-              <span className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                Next question {percent(event.predictedCorrectAfter)}
-              </span>
+              <div className="text-right">
+                <span className="block font-mono text-[0.6rem] font-black text-muted-foreground uppercase">
+                  {event.modelVersion}
+                </span>
+                <span className="mt-1 block text-xs font-bold">
+                  {skillLabel(event.planBefore)} → {skillLabel(event.planAfter)}
+                </span>
+              </div>
             </li>
           ))}
         </ol>
@@ -536,6 +669,66 @@ function EvidenceLedger({
           </Button>
         </div>
       )}
+    </section>
+  )
+}
+
+function CoachBriefPanel({ learning }: { learning: LearningSessionPayload }) {
+  const brief = learning.coachBrief
+  const copy = [
+    `Strongest skill: ${brief.strongestSkill}`,
+    `Priority misconception: ${brief.priorityMisconception}`,
+    `Confidence: ${brief.confidenceLevel}`,
+    `Evidence: ${brief.evidenceCollected}`,
+    `Current mission: ${brief.currentMission}`,
+    `Next mission: ${brief.nextMission}`,
+    `Suggested intervention: ${brief.offlineIntervention}`,
+    `Still unknown: ${brief.unknowns}`,
+  ].join("\n")
+  return (
+    <section className="coach-brief mt-12 border-2 border-foreground bg-background p-5 shadow-[6px_6px_0_var(--foreground)] sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-5 border-b-2 border-foreground pb-5">
+        <div>
+          <p className="ink-label text-primary">
+            Share with a teacher or parent
+          </p>
+          <h2 className="mt-2 font-heading text-4xl font-black">Coach Brief</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            One useful page. No giant analytics dashboard.
+          </p>
+        </div>
+        <div className="flex gap-2 print:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void navigator.clipboard?.writeText(copy)}
+          >
+            <CopyIcon /> Copy
+          </Button>
+          <Button type="button" onClick={() => window.print()}>
+            <PrinterIcon /> Print
+          </Button>
+        </div>
+      </div>
+      <dl className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+        {[
+          ["Strongest demonstrated skill", brief.strongestSkill],
+          ["Highest-priority misconception", brief.priorityMisconception],
+          ["Confidence level", brief.confidenceLevel],
+          ["Evidence collected", brief.evidenceCollected],
+          [
+            "Current and next missions",
+            `${brief.currentMission} → ${brief.nextMission}`,
+          ],
+          ["Suggested offline intervention", brief.offlineIntervention],
+          ["What Scout still does not know", brief.unknowns],
+        ].map(([label, value]) => (
+          <div key={label} className="border-t-2 border-foreground pt-3">
+            <dt className="ink-label text-muted-foreground">{label}</dt>
+            <dd className="mt-2 text-sm leading-6 font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   )
 }
@@ -615,38 +808,14 @@ export function LearningTwinLab({
         </aside>
       </section>
 
-      <div className="mt-10 grid gap-8 xl:grid-cols-[minmax(20rem,0.72fr)_minmax(0,1.5fr)]">
-        <section aria-labelledby="skill-models-title">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="ink-label text-muted-foreground">
-                12 skills tracked
-              </p>
-              <h2
-                id="skill-models-title"
-                className="mt-2 font-heading text-3xl font-black"
-              >
-                What Scout knows so far
-              </h2>
-            </div>
-            <CircleDotDashedIcon className="text-primary" aria-hidden="true" />
-          </div>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Choose a skill to see its current estimate and why Scout placed it
-            where it did.
-          </p>
-          <div className="mt-5">
-            {skills.map((state) => (
-              <SkillModelRow
-                key={state.skill}
-                state={state}
-                selected={state.skill === selected.skill}
-                recommended={state.skill === recommendation.skill}
-                onSelect={() => setSelectedSkill(state.skill)}
-              />
-            ))}
-          </div>
-        </section>
+      <PlanChangePanel learning={learning} />
+      <InteractiveSkillMap
+        skills={skills}
+        learning={learning}
+        selectedSkill={selected.skill}
+        onSelect={setSelectedSkill}
+      />
+      <div className="mt-8">
         <ContributionInspector learning={learning} selected={selected} />
       </div>
 
@@ -655,6 +824,7 @@ export function LearningTwinLab({
         skillCount={skills.length}
       />
       <EvidenceLedger learning={learning} onOpenLesson={onOpenLesson} />
+      <CoachBriefPanel learning={learning} />
 
       <section className="mt-12 grid gap-5 border-t-2 border-foreground pt-7 md:grid-cols-4">
         {[

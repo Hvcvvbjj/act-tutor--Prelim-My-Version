@@ -39,6 +39,9 @@ function initialDraft(initialTestDate: string): PlacementDraft {
     scienceEnabled: false,
     science: 24,
     testDate: initialTestDate,
+    studyDaysPerWeek: 3,
+    minutesPerSession: 30,
+    preferredSection: "balanced",
   }
 }
 
@@ -248,7 +251,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
             draft?: unknown
           }
           if (parsed.version === 1 && isPlacementDraft(parsed.draft)) {
-            setDraft(parsed.draft)
+            setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
           }
         }
       } catch {
@@ -259,7 +262,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     }, 0)
 
     return () => window.clearTimeout(timeout)
-  }, [])
+  }, [initialTestDate])
 
   useEffect(() => {
     if (!storageReady) return
@@ -290,15 +293,23 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
       current: baseline,
       goalComposite: placementDraft.goal,
       opportunityWeights: {
-        english: 36 - baseline.english,
-        math: 36 - baseline.math,
-        reading: 36 - baseline.reading,
+        english:
+          (36 - baseline.english) *
+          (placementDraft.preferredSection === "english" ? 1.35 : 1),
+        math:
+          (36 - baseline.math) *
+          (placementDraft.preferredSection === "math" ? 1.35 : 1),
+        reading:
+          (36 - baseline.reading) *
+          (placementDraft.preferredSection === "reading" ? 1.35 : 1),
       },
     })
     const intensity = buildPlanIntensity({
       daysUntilTest,
       current: baseline,
       target: target.scores,
+      studyDaysPerWeek: placementDraft.studyDaysPerWeek,
+      minutesPerSession: placementDraft.minutesPerSession,
     })
 
     setPlan({
@@ -323,8 +334,16 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
       }
 
       if (draft.priorScoreChoice === "never") {
-        setSurface("diagnostic")
-        setError(null)
+        const evidence = normalizeCurrentScore({
+          kind: "composite_only",
+          composite: 18,
+        })
+        const baseline = evidence.planningBaseline
+        if (!baseline) throw new Error("Could not start the adaptive baseline.")
+        buildPlanFromEvidence(evidence, baseline, 18, undefined, draft)
+        setPlan((current) =>
+          current ? { ...current, adaptiveBaselineRequired: true } : current
+        )
         return
       }
 
@@ -386,6 +405,9 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         scienceEnabled: false,
         science: 24,
         testDate: addCalendarDaysFrom(today, 36),
+        studyDaysPerWeek: 3,
+        minutesPerSession: 30,
+        preferredSection: "english",
       }
       const diagnosticResult = judgeDemoDiagnostic()
       const evidence = diagnosticResultToEvidence(diagnosticResult)
@@ -407,7 +429,13 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   }
 
   if (surface === "dashboard" && plan) {
-    return <Dashboard plan={plan} onEditPlan={startOver} />
+    return (
+      <Dashboard
+        plan={plan}
+        onEditPlan={startOver}
+        onStartFullDiagnostic={() => setSurface("diagnostic")}
+      />
+    )
   }
 
   if (surface === "diagnostic") {

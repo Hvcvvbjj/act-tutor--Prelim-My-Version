@@ -6,6 +6,12 @@ import type { LearningTwinSnapshot } from "./learning-twin";
 export type SkillSlug = string;
 export type PracticeDifficulty = "easy" | "medium" | "hard";
 export type MasteryBand = "new" | "building" | "steady" | "secure";
+export type AnswerConfidence = "sure" | "unsure" | "guessing";
+export type MissionPurpose =
+  | "new-learning"
+  | "weak-skill-repair"
+  | "confidence-building"
+  | "retention-review";
 
 export interface SkillDefinition {
   slug: SkillSlug;
@@ -64,6 +70,8 @@ export interface LessonPlanContext {
   currentScore: number;
   daysUntilTest: number;
   minutesPerSession: number;
+  studyDaysPerWeek?: number;
+  preferredSection?: CoreSection | "balanced";
 }
 
 export interface PracticeChoicePublic {
@@ -132,6 +140,8 @@ export interface PracticeAttemptInput {
   correct: boolean;
   difficulty: PracticeDifficulty;
   answeredAt: string;
+  confidence?: AnswerConfidence;
+  selfCorrected?: boolean;
 }
 
 export interface ReviewDecision {
@@ -147,6 +157,65 @@ export interface FutureTaskDecision {
   reason: string;
 }
 
+export interface PlanCounterfactual {
+  status: "held" | "changed";
+  currentEvidence: number;
+  changeThreshold: number;
+  responsesNeeded: number;
+  currentSkill: SkillSlug;
+  currentSkillLabel: string;
+  challengerSkill: SkillSlug;
+  challengerSkillLabel: string;
+  correctOutcome: string;
+  incorrectOutcome: string;
+  explanation: string;
+}
+
+export interface LearningDecisionEvent {
+  id: string;
+  occurredAt: string;
+  questionId: string;
+  source: "practice" | "calibration";
+  answerSummary: string;
+  informationLabel: "low" | "medium" | "high";
+  informationWeight: number;
+  skill: SkillSlug;
+  skillLabel: string;
+  learnedBefore: number;
+  learnedAfter: number;
+  confidenceBefore: string;
+  confidenceAfter: string;
+  planBefore: SkillSlug;
+  planAfter: SkillSlug;
+  planChanged: boolean;
+  protectedCurrentMission: boolean;
+  why: string;
+  misconception: string | null;
+  modelVersion: string;
+}
+
+export interface LessonTrustReceipt {
+  objective: string;
+  approvedRule: string;
+  evidenceQuestionIds: ReadonlyArray<string>;
+  generatorStatus: string;
+  validationResult: "passed" | "reviewed-fallback";
+  validationChecks: ReadonlyArray<string>;
+  deliveredAs: "generated" | "reviewed-fallback";
+}
+
+export interface CoachBrief {
+  generatedAt: string;
+  strongestSkill: string;
+  priorityMisconception: string;
+  confidenceLevel: string;
+  evidenceCollected: string;
+  currentMission: string;
+  nextMission: string;
+  offlineIntervention: string;
+  unknowns: string;
+}
+
 export interface PracticeFeedback {
   questionId: string;
   selectedChoiceId: string;
@@ -154,6 +223,12 @@ export interface PracticeFeedback {
   correct: boolean;
   rationale: string;
   misconception: string | null;
+  confidence: AnswerConfidence;
+  selfCorrected: boolean;
+  responseSeconds: number | null;
+  evidenceWeight: number;
+  explanationVariant: "standard" | "step-by-step" | "analogy";
+  isExitTicket: boolean;
   mastery: MasteryState;
   review: ReviewDecision;
   futureTask: FutureTaskDecision;
@@ -178,6 +253,11 @@ export interface LearningSessionPayload {
   mode: LearningSessionMode;
   mission: DailyMissionSummary;
   learningTwin: LearningTwinSnapshot;
+  planCounterfactual: PlanCounterfactual;
+  decisionHistory: ReadonlyArray<LearningDecisionEvent>;
+  lessonReceipt: LessonTrustReceipt;
+  coachBrief: CoachBrief;
+  missionPurpose: MissionPurpose;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
@@ -185,6 +265,15 @@ const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
   medium: 1,
   hard: 1.25,
 };
+
+export function answerEvidenceWeight(
+  confidence: AnswerConfidence = "sure",
+  selfCorrected = false,
+) {
+  const confidenceWeight =
+    confidence === "sure" ? 1 : confidence === "unsure" ? 0.78 : 0.48;
+  return Math.round(confidenceWeight * (selfCorrected ? 0.82 : 1) * 100) / 100;
+}
 
 function addDays(isoDate: string, days: number) {
   const date = new Date(isoDate);
@@ -276,7 +365,9 @@ export function applyPracticeAttempt(
   if (state.skill !== attempt.skill) {
     throw new RangeError("Practice attempt belongs to a different skill.");
   }
-  const weight = DIFFICULTY_WEIGHT[attempt.difficulty];
+  const weight =
+    DIFFICULTY_WEIGHT[attempt.difficulty] *
+    answerEvidenceWeight(attempt.confidence, attempt.selfCorrected);
   const review = reviewDecision(state, attempt);
   return {
     review,

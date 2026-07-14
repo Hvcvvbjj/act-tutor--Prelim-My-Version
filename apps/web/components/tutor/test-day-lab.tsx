@@ -29,7 +29,10 @@ function screenFor(session: ExamLabSessionPayload): LabScreen {
   return session.progress.phase === "review" ? "review" : "runner"
 }
 
-async function labRequest(method: "GET" | "POST" | "PATCH" | "DELETE", body?: Record<string, unknown>) {
+async function labRequest(
+  method: "GET" | "POST" | "PATCH" | "DELETE",
+  body?: Record<string, unknown>
+) {
   const response = await fetch("/api/exam-lab", {
     method,
     cache: "no-store",
@@ -37,11 +40,16 @@ async function labRequest(method: "GET" | "POST" | "PATCH" | "DELETE", body?: Re
     body: body ? JSON.stringify(body) : undefined,
   })
   const payload = (await response.json()) as SessionResponse
-  if (!response.ok) throw new Error(payload.error ?? "The Test Day Lab request failed.")
+  if (!response.ok)
+    throw new Error(payload.error ?? "The Test Day Lab request failed.")
   return payload.session
 }
 
-export function TestDayLab() {
+export function TestDayLab({
+  extendedTime = false,
+}: {
+  extendedTime?: boolean
+}) {
   const [screen, setScreen] = useState<LabScreen>("loading")
   const [session, setSession] = useState<ExamLabSessionPayload | null>(null)
   const [mode, setMode] = useState<ExamLabMode>("sprint")
@@ -58,7 +66,8 @@ export function TestDayLab() {
     const controller = new AbortController()
     fetch("/api/exam-lab", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Could not load Test Day Lab progress.")
+        if (!response.ok)
+          throw new Error("Could not load Test Day Lab progress.")
         return (await response.json()) as SessionResponse
       })
       .then(({ session: resumed }) => {
@@ -72,7 +81,11 @@ export function TestDayLab() {
       })
       .catch((caught) => {
         if (controller.signal.aborted) return
-        setError(caught instanceof Error ? caught.message : "Could not load Test Day Lab progress.")
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Could not load Test Day Lab progress."
+        )
         setScreen("setup")
       })
     return () => controller.abort()
@@ -81,71 +94,102 @@ export function TestDayLab() {
   useEffect(() => {
     if (!session || screen !== "runner") return
     function updateClock() {
-      setTimeLeft(Math.max(0, Math.ceil((new Date(session!.sectionDeadlineAt).getTime() - Date.now()) / 1000)))
+      setTimeLeft(
+        Math.max(
+          0,
+          Math.ceil(
+            (new Date(session!.sectionDeadlineAt).getTime() - Date.now()) / 1000
+          )
+        )
+      )
     }
     updateClock()
     const interval = window.setInterval(updateClock, 1000)
     return () => window.clearInterval(interval)
   }, [screen, session])
 
-  const persist = useCallback((
-    nextSession: ExamLabSessionPayload,
-    nextResponses: Record<string, ExamLabResponse>,
-    nextIndex: number,
-    phase: "questions" | "review"
-  ) => {
-    const revision = ++saveRevision.current
-    setSaveStatus("saving")
-    const operation = saveQueue.current.catch(() => undefined).then(async () => {
-      const updated = await labRequest("PATCH", {
-        responses: nextResponses,
-        currentIndex: nextIndex,
-        phase,
-      })
-      if (updated) setSession(updated)
-    })
-    saveQueue.current = operation
-    operation.then(
-      () => { if (saveRevision.current === revision) setSaveStatus("saved") },
-      (caught) => {
-        if (saveRevision.current === revision) setSaveStatus("error")
-        setError(caught instanceof Error ? caught.message : "Autosave failed.")
-      }
-    )
-    setSession(nextSession)
-  }, [])
+  const persist = useCallback(
+    (
+      nextSession: ExamLabSessionPayload,
+      nextResponses: Record<string, ExamLabResponse>,
+      nextIndex: number,
+      phase: "questions" | "review"
+    ) => {
+      const revision = ++saveRevision.current
+      setSaveStatus("saving")
+      const operation = saveQueue.current
+        .catch(() => undefined)
+        .then(async () => {
+          const updated = await labRequest("PATCH", {
+            responses: nextResponses,
+            currentIndex: nextIndex,
+            phase,
+          })
+          if (updated) setSession(updated)
+        })
+      saveQueue.current = operation
+      operation.then(
+        () => {
+          if (saveRevision.current === revision) setSaveStatus("saved")
+        },
+        (caught) => {
+          if (saveRevision.current === revision) setSaveStatus("error")
+          setError(
+            caught instanceof Error ? caught.message : "Autosave failed."
+          )
+        }
+      )
+      setSession(nextSession)
+    },
+    []
+  )
 
   function localSession(
     current: ExamLabSessionPayload,
     responses: Record<string, ExamLabResponse>,
     currentIndex = current.progress.currentIndex,
-    phase: "questions" | "review" = current.progress.phase === "review" ? "review" : "questions"
+    phase: "questions" | "review" = current.progress.phase === "review"
+      ? "review"
+      : "questions"
   ): ExamLabSessionPayload {
     return {
       ...current,
-      progress: { ...current.progress, responses, currentIndex, phase, updatedAt: new Date().toISOString() },
+      progress: {
+        ...current.progress,
+        responses,
+        currentIndex,
+        phase,
+        updatedAt: new Date().toISOString(),
+      },
     }
   }
 
-  function captureCurrent(
-    patch: Partial<ExamLabResponse>,
-    current = session
-  ) {
+  function captureCurrent(patch: Partial<ExamLabResponse>, current = session) {
     if (!current) return null
     const question = current.questions[current.progress.currentIndex]
     const previous = current.progress.responses[question.id]
-    const addedSeconds = openedAt.current ? Math.max(0, Math.floor((Date.now() - openedAt.current) / 1000)) : 0
+    const addedSeconds = openedAt.current
+      ? Math.max(0, Math.floor((Date.now() - openedAt.current) / 1000))
+      : 0
     openedAt.current = Date.now()
     const response: ExamLabResponse = {
       choiceId: previous?.choiceId ?? null,
       confidence: previous?.confidence ?? "unsure",
       flagged: previous?.flagged ?? false,
-      elapsedSeconds: Math.min(7200, (previous?.elapsedSeconds ?? 0) + addedSeconds),
+      elapsedSeconds: Math.min(
+        7200,
+        (previous?.elapsedSeconds ?? 0) + addedSeconds
+      ),
       ...patch,
     }
     const responses = { ...current.progress.responses, [question.id]: response }
     const next = localSession(current, responses)
-    persist(next, responses, current.progress.currentIndex, next.progress.phase === "review" ? "review" : "questions")
+    persist(
+      next,
+      responses,
+      current.progress.currentIndex,
+      next.progress.phase === "review" ? "review" : "questions"
+    )
     return next
   }
 
@@ -153,14 +197,23 @@ export function TestDayLab() {
     setBusy(true)
     setError(null)
     try {
-      const started = await labRequest("POST", { action: "start", mode, section })
+      const started = await labRequest("POST", {
+        action: "start",
+        mode,
+        section,
+        timeMultiplier: extendedTime ? 1.5 : 1,
+      })
       if (!started) throw new Error("The Test Day Lab session is missing.")
       setSession(started)
       setScreen("runner")
       setSaveStatus("saved")
       openedAt.current = Date.now()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not start the Test Day Lab.")
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not start the Test Day Lab."
+      )
     } finally {
       setBusy(false)
     }
@@ -177,19 +230,29 @@ export function TestDayLab() {
   function toggleFlag() {
     if (!session) return
     const question = session.questions[session.progress.currentIndex]
-    captureCurrent({ flagged: !session.progress.responses[question.id]?.flagged })
+    captureCurrent({
+      flagged: !session.progress.responses[question.id]?.flagged,
+    })
   }
 
   function move(index: number) {
     if (!session || index < 0 || index >= session.questions.length) return
     const currentQuestion = session.questions[session.progress.currentIndex]
     const previous = session.progress.responses[currentQuestion.id]
-    const addedSeconds = openedAt.current ? Math.max(0, Math.floor((Date.now() - openedAt.current) / 1000)) : 0
+    const addedSeconds = openedAt.current
+      ? Math.max(0, Math.floor((Date.now() - openedAt.current) / 1000))
+      : 0
     openedAt.current = Date.now()
     const responses = previous
       ? {
           ...session.progress.responses,
-          [currentQuestion.id]: { ...previous, elapsedSeconds: Math.min(7200, previous.elapsedSeconds + addedSeconds) },
+          [currentQuestion.id]: {
+            ...previous,
+            elapsedSeconds: Math.min(
+              7200,
+              previous.elapsedSeconds + addedSeconds
+            ),
+          },
         }
       : session.progress.responses
     const phase = session.progress.phase === "review" ? "review" : "questions"
@@ -213,9 +276,12 @@ export function TestDayLab() {
       setSession(advanced)
       setScreen(advanced.progress.phase === "review" ? "review" : "runner")
       openedAt.current = Date.now()
-      if (current.progress.currentSection !== advanced.progress.currentSection) setSaveStatus("saved")
+      if (current.progress.currentSection !== advanced.progress.currentSection)
+        setSaveStatus("saved")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not end this section.")
+      setError(
+        caught instanceof Error ? caught.message : "Could not end this section."
+      )
     } finally {
       setBusy(false)
     }
@@ -227,11 +293,16 @@ export function TestDayLab() {
     try {
       await saveQueue.current
       const completed = await labRequest("POST", { action: "finalize" })
-      if (!completed?.result) throw new Error("The Test Day Lab report is missing.")
+      if (!completed?.result)
+        throw new Error("The Test Day Lab report is missing.")
       setSession(completed)
       setScreen("results")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not score this simulation.")
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not score this simulation."
+      )
     } finally {
       setBusy(false)
     }
@@ -246,7 +317,11 @@ export function TestDayLab() {
       setError(null)
       setSaveStatus("saved")
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not reset the Test Day Lab.")
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not reset the Test Day Lab."
+      )
     } finally {
       setBusy(false)
     }
@@ -255,7 +330,10 @@ export function TestDayLab() {
   if (screen === "loading") {
     return (
       <main className="flex min-h-[60svh] items-center justify-center">
-        <div className="text-center"><LoaderCircleIcon className="mx-auto size-8 animate-spin text-primary" /><p className="mt-4 font-semibold">Loading Test Day Lab…</p></div>
+        <div className="text-center">
+          <LoaderCircleIcon className="mx-auto size-8 animate-spin text-primary" />
+          <p className="mt-4 font-semibold">Loading Test Day Lab…</p>
+        </div>
       </main>
     )
   }
@@ -264,15 +342,45 @@ export function TestDayLab() {
     <>
       {error ? (
         <div className="mx-auto max-w-6xl px-5 pt-6 sm:px-8">
-          <Alert className="bg-background"><CircleAlertIcon /><AlertTitle>Test Day Lab issue</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>
+          <Alert className="bg-background">
+            <CircleAlertIcon />
+            <AlertTitle>Test Day Lab issue</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </div>
       ) : null}
       {screen === "setup" ? (
-        <ExamLabSetup mode={mode} section={section} busy={busy} onModeChange={setMode} onSectionChange={setSection} onStart={start} />
+        <ExamLabSetup
+          mode={mode}
+          section={section}
+          busy={busy}
+          extendedTime={extendedTime}
+          onModeChange={setMode}
+          onSectionChange={setSection}
+          onStart={start}
+        />
       ) : screen === "runner" && session ? (
-        <ExamLabRunner session={session} timeLeft={timeLeft} saveStatus={saveStatus} busy={busy} onAnswer={answer} onConfidence={confidence} onToggleFlag={toggleFlag} onMove={move} onEndSection={endSection} />
+        <ExamLabRunner
+          session={session}
+          timeLeft={timeLeft}
+          saveStatus={saveStatus}
+          busy={busy}
+          onAnswer={answer}
+          onConfidence={confidence}
+          onToggleFlag={toggleFlag}
+          onMove={move}
+          onEndSection={endSection}
+        />
       ) : screen === "review" && session ? (
-        <ExamLabReview session={session} busy={busy} onReturn={(index) => { setScreen("runner"); move(index) }} onSubmit={finalize} />
+        <ExamLabReview
+          session={session}
+          busy={busy}
+          onReturn={(index) => {
+            setScreen("runner")
+            move(index)
+          }}
+          onSubmit={finalize}
+        />
       ) : screen === "results" && session ? (
         <ExamLabReport session={session} onNewRun={reset} />
       ) : null}

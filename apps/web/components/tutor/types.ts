@@ -18,6 +18,9 @@ export interface PlacementDraft {
   scienceEnabled: boolean
   science: number
   testDate: string
+  studyDaysPerWeek: number
+  minutesPerSession: number
+  preferredSection: "balanced" | "english" | "math" | "reading"
 }
 
 export interface GeneratedPlan {
@@ -29,4 +32,5 @@ export interface GeneratedPlan {
   currentComposite: number
   weakestSection: "english" | "math" | "reading"
   diagnosticResult?: DiagnosticResult
+  adaptiveBaselineRequired?: boolean
 }

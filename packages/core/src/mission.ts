@@ -23,6 +23,10 @@ export interface DueReviewItem {
   mastery: number;
   dueAt: string;
   urgency: ReviewUrgency;
+  purpose: "retention-review";
+  daysSincePractice: number;
+  forgettingWindowDays: number;
+  explanation: string;
 }
 
 export interface MistakeRecordPublic {
@@ -35,6 +39,7 @@ export interface MistakeRecordPublic {
   selectedChoiceText: string;
   correctChoiceText: string;
   rationale: string;
+  misconception: string | null;
   attempts: number;
   createdAt: string;
   resolvedAt: string | null;
@@ -89,7 +94,8 @@ export function calculateLearningStreak(
 }
 
 export function learnerLevel(xp: number) {
-  if (!Number.isFinite(xp) || xp < 0) throw new RangeError("XP must be non-negative.");
+  if (!Number.isFinite(xp) || xp < 0)
+    throw new RangeError("XP must be non-negative.");
   const normalized = Math.floor(xp);
   return {
     level: Math.floor(normalized / XP_PER_LEVEL) + 1,
@@ -98,7 +104,10 @@ export function learnerLevel(xp: number) {
   };
 }
 
-export function xpForPractice(correct: boolean, difficulty: PracticeDifficulty) {
+export function xpForPractice(
+  correct: boolean,
+  difficulty: PracticeDifficulty,
+) {
   if (!correct) return 3;
   return difficulty === "hard" ? 12 : difficulty === "medium" ? 10 : 8;
 }
@@ -123,18 +132,62 @@ export function buildDueReviews(
           : dueDay === today
             ? "today"
             : "upcoming";
-      return [{
-        skill: state.skill,
-        label: state.label,
-        section: state.section,
-        mastery: state.mastery,
-        dueAt: state.nextReviewAt,
-        urgency,
-      }];
+      return [
+        {
+          skill: state.skill,
+          label: state.label,
+          section: state.section,
+          mastery: state.mastery,
+          dueAt: state.nextReviewAt,
+          urgency,
+          purpose: "retention-review" as const,
+          daysSincePractice: state.lastPracticedAt
+            ? Math.max(
+                0,
+                Math.floor(
+                  (nowTime - new Date(state.lastPracticedAt).getTime()) /
+                    (24 * 60 * 60 * 1000),
+                ),
+              )
+            : 0,
+          forgettingWindowDays: state.lastPracticedAt
+            ? Math.max(
+                1,
+                Math.round(
+                  (dueTime - new Date(state.lastPracticedAt).getTime()) /
+                    (24 * 60 * 60 * 1000),
+                ),
+              )
+            : 1,
+          explanation: state.lastPracticedAt
+            ? `You last practiced ${state.label.toLowerCase()} ${Math.max(
+                0,
+                Math.floor(
+                  (nowTime - new Date(state.lastPracticedAt).getTime()) /
+                    (24 * 60 * 60 * 1000),
+                ),
+              )} day${
+                Math.max(
+                  0,
+                  Math.floor(
+                    (nowTime - new Date(state.lastPracticedAt).getTime()) /
+                      (24 * 60 * 60 * 1000),
+                  ),
+                ) === 1
+                  ? ""
+                  : "s"
+              } ago. Scout scheduled a two-question review near its forgetting window.`
+            : `Scout scheduled a short review before this skill fades.`,
+        },
+      ];
     })
     .sort((left, right) => {
       const urgencyRank = { overdue: 0, today: 1, upcoming: 2 } as const;
       const rank = urgencyRank[left.urgency] - urgencyRank[right.urgency];
-      return rank || left.dueAt.localeCompare(right.dueAt) || left.mastery - right.mastery;
+      return (
+        rank ||
+        left.dueAt.localeCompare(right.dueAt) ||
+        left.mastery - right.mastery
+      );
     });
 }

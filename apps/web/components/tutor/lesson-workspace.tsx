@@ -1,6 +1,7 @@
 "use client"
 
-import type { LearningSessionPayload } from "@act-tutor/core"
+import { useRef, useState } from "react"
+import type { AnswerConfidence, LearningSessionPayload } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -8,6 +9,7 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   Clock3Icon,
+  LightbulbIcon,
   SparklesIcon,
   XIcon,
 } from "lucide-react"
@@ -28,7 +30,11 @@ interface LessonWorkspaceProps {
   onSectionChange: (index: number) => void
   onChoiceChange: (choice: string) => void
   onCompleteLesson: () => void
-  onSubmitAnswer: () => void
+  onSubmitAnswer: (metadata: {
+    confidence: AnswerConfidence
+    selfCorrected: boolean
+    responseSeconds: number
+  }) => void
   onClose: () => void
 }
 
@@ -193,6 +199,34 @@ function LessonStage({
         <div className="mt-6">
           <GenerationStamp learning={learning} />
         </div>
+        <details className="mt-6 border-t pt-5">
+          <summary className="cursor-pointer font-bold">
+            Why you can trust this lesson
+          </summary>
+          <dl className="mt-4 grid gap-4 text-sm leading-6">
+            <div>
+              <dt className="ink-label text-muted-foreground">Skill goal</dt>
+              <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
+            </div>
+            <div>
+              <dt className="ink-label text-muted-foreground">Reviewed rule</dt>
+              <dd className="mt-1">{learning.lessonReceipt.approvedRule}</dd>
+            </div>
+            <div>
+              <dt className="ink-label text-muted-foreground">Content check</dt>
+              <dd className="mt-1 font-semibold">
+                {learning.lessonReceipt.validationResult === "passed"
+                  ? "Passed"
+                  : "Reviewed fallback used"}
+              </dd>
+            </div>
+          </dl>
+          <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            {learning.lessonReceipt.validationChecks.map((check) => (
+              <li key={check}>{check}</li>
+            ))}
+          </ul>
+        </details>
       </aside>
     </div>
   )
@@ -227,6 +261,17 @@ function PracticeStage({
       ? "correct"
       : "repair"
     : "thinking"
+  const isExitTicket =
+    learning.mode === "focus" &&
+    learning.currentQuestionIndex === learning.questions.length - 1
+  const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
+  const [reviewing, setReviewing] = useState(false)
+  const [initialChoice, setInitialChoice] = useState("")
+  const [hintLevel, setHintLevel] = useState(0)
+  const [explanationStyle, setExplanationStyle] = useState<
+    "step-by-step" | "compare" | "simple"
+  >("step-by-step")
+  const startedAt = useRef<number | null>(null)
 
   if (learning.status === "complete") {
     return (
@@ -238,7 +283,10 @@ function PracticeStage({
               ? "Nice fix. Scout will bring this skill back later so it sticks."
               : learning.mode === "checkpoint"
                 ? "Quiz complete. Scout updated all three skills from your answers."
-                : "Practice complete. Your next study session has already been updated."
+                : learning.lastFeedback?.isExitTicket &&
+                    !learning.lastFeedback.correct
+                  ? "The exit ticket exposed a gap. Scout switched explanations and scheduled another check instead of pretending the lesson worked."
+                  : "Practice complete. Your exit ticket updated the next study session and review date."
           }
           detail={learning.futureTask.reason}
         />
@@ -282,11 +330,17 @@ function PracticeStage({
   }
 
   return (
-    <section className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <section
+      data-practice-workspace
+      className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_20rem]"
+    >
       <div className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
         <div className="flex items-center justify-between gap-4">
           <p className="ink-label text-primary">
-            {practiceLabel} · Question {learning.currentQuestionIndex + 1} of{" "}
+            {isExitTicket
+              ? "Independent exit ticket"
+              : `${practiceLabel} · Guided practice`}{" "}
+            · Question {learning.currentQuestionIndex + 1} of{" "}
             {learning.questions.length}
           </p>
           <span className="font-mono text-sm font-bold">{progress}%</span>
@@ -308,7 +362,10 @@ function PracticeStage({
         {currentQuestion ? (
           <RadioGroup
             value={selectedChoice}
-            onValueChange={onChoiceChange}
+            onValueChange={(choice) => {
+              startedAt.current ??= window.performance.now()
+              onChoiceChange(choice)
+            }}
             className="mt-7 grid gap-3"
             aria-label="Practice answer choices"
           >
@@ -331,15 +388,98 @@ function PracticeStage({
             ))}
           </RadioGroup>
         ) : null}
+        {!isExitTicket && hintLevel > 0 ? (
+          <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-4">
+            <p className="ink-label">Hint {hintLevel} of 2</p>
+            <p className="mt-2 text-sm leading-6">
+              {hintLevel === 1
+                ? learning.lesson.strategyChecklist[0]
+                : learning.lesson.transferPrompt}
+            </p>
+          </div>
+        ) : null}
+        <div className="mt-6 border-y-2 border-foreground py-5">
+          <p className="ink-label text-muted-foreground">How sure are you?</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(
+              [
+                ["sure", "Sure"],
+                ["unsure", "Unsure"],
+                ["guessing", "Guessing"],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                variant={confidence === value ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setConfidence(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            A correct guess counts less than a correct answer you felt sure
+            about. Scout uses that difference when it updates the skill.
+          </p>
+        </div>
+        {reviewing ? (
+          <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-4">
+            <p className="font-bold">One last look before scoring</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Keep your choice or change it. Scout records a self-correction
+              separately from a first-try answer.
+            </p>
+          </div>
+        ) : null}
+        {!isExitTicket ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-5"
+            disabled={hintLevel >= 2 || reviewing}
+            onClick={() => setHintLevel((level) => Math.min(2, level + 1))}
+          >
+            <LightbulbIcon />
+            {hintLevel === 0 ? "Give me a hint" : "Give me another hint"}
+          </Button>
+        ) : (
+          <p className="mt-5 text-sm font-semibold">
+            No hints here—this answer checks whether the lesson stuck.
+          </p>
+        )}
         <Button
           type="button"
           size="xl"
           className="mt-6"
-          onClick={onSubmitAnswer}
+          onClick={() => {
+            if (!reviewing) {
+              setInitialChoice(selectedChoice)
+              setReviewing(true)
+              return
+            }
+            onSubmitAnswer({
+              confidence,
+              selfCorrected: initialChoice !== selectedChoice,
+              responseSeconds: Math.max(
+                1,
+                Math.round(
+                  (window.performance.now() -
+                    (startedAt.current ?? window.performance.now())) /
+                    1000
+                )
+              ),
+            })
+          }}
           disabled={!selectedChoice || submitting}
         >
           <BrainCircuitIcon data-icon="inline-start" />
-          {submitting ? "Checking your answer…" : "Check my answer"}
+          {submitting
+            ? "Checking your answer…"
+            : reviewing
+              ? "Score this answer"
+              : "Review my choice"}
         </Button>
       </div>
 
@@ -362,10 +502,50 @@ function PracticeStage({
               {feedback.correct ? "Correct" : "Here&apos;s what went wrong"}
             </AlertTitle>
             <AlertDescription>
-              {feedback.rationale}
-              {feedback.misconception ? ` ${feedback.misconception}` : ""}
+              {feedback.correct
+                ? feedback.rationale
+                : explanationStyle === "step-by-step"
+                  ? `First, name the rule: ${learning.lesson.strategyChecklist[0]} Then compare that rule with your choice. ${feedback.rationale}`
+                  : explanationStyle === "compare"
+                    ? `The correct choice follows this rule: ${learning.lesson.concept} Your choice points to this issue: ${feedback.misconception ?? "it does not satisfy the rule"}.`
+                    : `Look for this: ${learning.lesson.transferPrompt} ${feedback.rationale}`}
             </AlertDescription>
           </Alert>
+        ) : null}
+        {feedback && !feedback.correct ? (
+          <div className="mt-4">
+            <p className="ink-label text-muted-foreground">
+              Explain it another way
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(
+                [
+                  ["step-by-step", "Step by step"],
+                  ["compare", "Compare choices"],
+                  ["simple", "Simpler"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={explanationStyle === value ? "secondary" : "outline"}
+                  onClick={() => setExplanationStyle(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {feedback ? (
+          <p className="mt-4 text-xs leading-5 text-muted-foreground">
+            Evidence weight: {Math.round(feedback.evidenceWeight * 100)}% ·{" "}
+            {feedback.confidence} ·{" "}
+            {feedback.selfCorrected
+              ? "self-corrected before scoring"
+              : "first choice kept"}
+          </p>
         ) : null}
         <div className="mt-7 border-t pt-5">
           <p className="ink-label text-muted-foreground">
@@ -446,7 +626,12 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
       </header>
 
       {props.learning.lessonComplete ? (
-        <PracticeStage {...props} />
+        <PracticeStage
+          key={
+            props.learning.questions[props.learning.currentQuestionIndex]?.id
+          }
+          {...props}
+        />
       ) : (
         <LessonStage {...props} />
       )}

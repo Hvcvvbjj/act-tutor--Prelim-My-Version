@@ -34,6 +34,7 @@ interface AdaptiveCalibrationLabProps {
   onLearningTwinUpdated: () => Promise<LearningSessionPayload | null>
   onInspectLearningTwin: () => void
   onReturnToToday: () => void
+  onStartFullDiagnostic: () => void
 }
 
 interface AdaptiveProof {
@@ -218,8 +219,9 @@ function AdaptiveProofReplay({
             after={`${proof.readinessAfter}/100`}
           />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            Scout&apos;s overall estimate moved. Its margin of error tightened from
-            ±{proof.marginBefore.toFixed(2)} to ±{proof.marginAfter.toFixed(2)}.
+            Scout&apos;s overall estimate moved. Its margin of error tightened
+            from ±{proof.marginBefore.toFixed(2)} to ±
+            {proof.marginAfter.toFixed(2)}.
           </p>
         </article>
 
@@ -232,8 +234,8 @@ function AdaptiveProofReplay({
             after={percentage(proof.learning.learnedAfter)}
           />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            This is Scout&apos;s estimate that you know this skill. It comes only
-            from your scored answers.
+            This is Scout&apos;s estimate that you know this skill. It comes
+            only from your scored answers.
           </p>
         </article>
 
@@ -389,6 +391,7 @@ export function AdaptiveCalibrationLab({
   onLearningTwinUpdated,
   onInspectLearningTwin,
   onReturnToToday,
+  onStartFullDiagnostic,
 }: AdaptiveCalibrationLabProps) {
   const [payload, setPayload] = useState<AdaptiveCalibrationPayload | null>(
     null
@@ -592,21 +595,44 @@ export function AdaptiveCalibrationLab({
               Scout has enough to choose what comes next.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              You answered {payload.responseCount} questions, including English,
-              math, and reading. Scout used them to choose the skill that needs
-              the most work next.
+              Scout reached enough confidence after {payload.responseCount}{" "}
+              questions. It checked English, math, and reading, then stopped
+              because another short-check question was unlikely to change the
+              first mission.
             </p>
+            <div className="mt-6 border-l-4 border-primary bg-[var(--info-surface)] p-5">
+              <p className="ink-label text-primary">Why Scout stopped</p>
+              <p className="mt-2 font-bold">
+                {payload.stopReason ??
+                  "The estimate was stable enough to make the next study decision."}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                The full diagnostic is still available if you want a narrower
+                score range before planning.
+              </p>
+            </div>
           </div>
           <div className="border-l-2 border-primary pl-6">
             <p className="ink-label text-muted-foreground">
-              Practice starting level
+              Estimated ACT range
             </p>
             <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
-              {payload.estimate.readinessIndex}/100
+              {Math.max(
+                1,
+                Math.round(
+                  1 + (payload.estimate.interval80.low / 6) * 35 + 17.5
+                )
+              )}
+              –
+              {Math.min(
+                36,
+                Math.round(
+                  1 + (payload.estimate.interval80.high / 6) * 35 + 17.5
+                )
+              )}
             </p>
             <p className="mt-4 font-mono text-xs font-bold text-muted-foreground uppercase">
-              Not an ACT score · margin ±
-              {payload.estimate.standardError.toFixed(2)}
+              Practice estimate · not an official ACT score
             </p>
             <Button
               type="button"
@@ -617,6 +643,15 @@ export function AdaptiveCalibrationLab({
               <BrainCircuitIcon />
               See what Scout recommends
               <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="mt-3 w-full"
+              onClick={onStartFullDiagnostic}
+            >
+              Take the full 66-question diagnostic
             </Button>
           </div>
         </section>

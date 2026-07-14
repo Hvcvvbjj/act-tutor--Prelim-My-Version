@@ -8,10 +8,7 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
-import {
-  examDebriefComposer,
-  examLabSessions,
-} from "@/lib/exam-lab.server"
+import { examDebriefComposer, examLabSessions } from "@/lib/exam-lab.server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -23,7 +20,12 @@ const CONFIDENCE = new Set<ExamConfidence>(["guess", "unsure", "sure"])
 
 function errorResponse(error: unknown, status = 400) {
   return NextResponse.json(
-    { error: error instanceof Error ? error.message : "The Test Day Lab request failed." },
+    {
+      error:
+        error instanceof Error
+          ? error.message
+          : "The Test Day Lab request failed.",
+    },
     { status }
   )
 }
@@ -46,13 +48,20 @@ function requireSessionId(request: NextRequest) {
 }
 
 function parseStart(body: Record<string, unknown>) {
-  if (!MODES.has(body.mode as ExamLabMode)) throw new RangeError("Unknown Test Day Lab mode.")
+  if (!MODES.has(body.mode as ExamLabMode))
+    throw new RangeError("Unknown Test Day Lab mode.")
   const mode = body.mode as ExamLabMode
   const section = body.section
   if (mode === "section" && !SECTIONS.has(section as CoreSection)) {
-    throw new RangeError("Choose English, Math, or Reading for a section simulation.")
+    throw new RangeError(
+      "Choose English, Math, or Reading for a section simulation."
+    )
   }
-  return { mode, section: mode === "section" ? (section as CoreSection) : null }
+  return {
+    mode,
+    section: mode === "section" ? (section as CoreSection) : null,
+    timeMultiplier: body.timeMultiplier === 1.5 ? (1.5 as const) : (1 as const),
+  }
 }
 
 function parseResponses(value: unknown) {
@@ -126,7 +135,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
     if (body.action === "start") {
-      const started = await examLabSessions.start(RAPID_DIAGNOSTIC_FORM, parseStart(body))
+      const started = await examLabSessions.start(
+        RAPID_DIAGNOSTIC_FORM,
+        parseStart(body)
+      )
       const response = NextResponse.json({ session: started.payload })
       setSessionCookie(response, started.sessionId)
       return response

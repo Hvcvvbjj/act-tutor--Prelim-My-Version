@@ -325,6 +325,9 @@ function DueReviews(props: DailyMissionHubProps) {
                   {review.urgency} · {Math.round(review.mastery * 100)}% skill
                   level · {formatCalendarDate(review.dueAt.slice(0, 10))}
                 </p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground normal-case">
+                  {review.explanation}
+                </p>
               </div>
               <Button
                 type="button"
@@ -500,6 +503,11 @@ function MistakeNotebook(props: DailyMissionHubProps) {
                     Why this answer works
                   </p>
                   <p className="mt-2">{mistake.rationale}</p>
+                  {mistake.misconception ? (
+                    <p className="mt-3 border-l-2 border-[var(--scout-coral)] pl-3">
+                      <strong>Misconception:</strong> {mistake.misconception}
+                    </p>
+                  ) : null}
                   {!mistake.resolvedAt ? (
                     <Button
                       type="button"
@@ -549,6 +557,9 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
                 : learning.mode === "repair"
                   ? "Retry"
                   : "Quick quiz"}
+            </span>
+            <span className="bg-foreground px-2 py-1 font-mono text-[0.6rem] font-black tracking-wide text-background uppercase">
+              {learning.missionPurpose.replaceAll("-", " ")}
             </span>
           </div>
           <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.04em] sm:text-7xl lg:text-8xl">

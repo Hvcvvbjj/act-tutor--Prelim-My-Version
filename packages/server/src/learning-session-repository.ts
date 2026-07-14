@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import {
   applyKnowledgeObservation,
   applyPracticeAttempt,
+  answerEvidenceWeight,
   buildLearningTwinSnapshot,
   buildDueReviews,
   calculateLearningStreak,
@@ -16,9 +17,12 @@ import {
   toPublicPracticeQuestion,
   xpForPractice,
   type DailyMissionSummary,
+  type AnswerConfidence,
+  type CoachBrief,
   type DiagnosticSkillResult,
   type LearningSessionMode,
   type LearningSessionPayload,
+  type LearningDecisionEvent,
   type LessonContent,
   type LessonPlanContext,
   type LearningTwinEvent,
@@ -26,6 +30,7 @@ import {
   type MasteryState,
   type MistakeRecordPublic,
   type PersonalizedLessonContent,
+  type PlanCounterfactual,
   type PracticeFeedback,
   type PracticeQuestionSecure,
   type SkillDefinition,
@@ -62,6 +67,7 @@ interface StoredMistake {
   createdAt: string;
   lastAttemptAt: string;
   resolvedAt: string | null;
+  misconception?: string | null;
 }
 
 interface StoredLearnerProgress {
@@ -90,6 +96,7 @@ interface StoredLearningSession {
   masteryBySkill: Record<string, MasteryState>;
   learningTwinBySkill?: Record<string, KnowledgeState>;
   learningTwinEvents?: LearningTwinEvent[];
+  decisionHistory?: LearningDecisionEvent[];
   futureTask: LearningSessionPayload["futureTask"];
   lesson?: PersonalizedLessonContent;
   profile?: StoredLearnerProgress;
@@ -161,6 +168,7 @@ function ensureProfile(session: StoredLearningSession): StoredLearnerProgress {
     lessonXpAwarded: session.lessonComplete,
     completionXpAwarded: session.answers.length === session.questionIds.length,
   };
+  session.decisionHistory ??= [];
   return session.profile;
 }
 
@@ -233,7 +241,8 @@ function fallbackLesson(
         id: "transfer",
         title: "Try it yourself",
         explanation: `Watch out for this common mistake: ${baseLesson.trap}`,
-        coachPrompt: "Say the rule once without looking, then try the question.",
+        coachPrompt:
+          "Say the rule once without looking, then try the question.",
       },
     ],
     strategyChecklist: baseLesson.steps,
@@ -274,6 +283,12 @@ function publicMistakes(
             (choice) => choice.id === question.correctChoiceId,
           )?.text ?? "Reviewed answer",
         rationale: question.rationale,
+        misconception:
+          mistake.misconception ??
+          question.choices.find(
+            (choice) => choice.id === mistake.selectedChoiceId,
+          )?.misconception ??
+          null,
         attempts: mistake.attempts,
         createdAt: mistake.createdAt,
         resolvedAt: mistake.resolvedAt,
@@ -286,6 +301,142 @@ function publicMistakes(
       return right.createdAt.localeCompare(left.createdAt);
     })
     .slice(0, 50);
+}
+
+function planCounterfactual(
+  session: StoredLearningSession,
+  states: Record<string, KnowledgeState>,
+): PlanCounterfactual {
+  const ranked = rankKnowledgeStates(Object.values(states), session.nextSkill);
+  const current = ranked[0];
+  const challenger = ranked[1] ?? ranked[0];
+  let simulated = current;
+  let responsesNeeded = 0;
+  let correctRecommendation = recommendKnowledgeState(
+    ranked,
+    session.nextSkill,
+  );
+  while (responsesNeeded < 4 && correctRecommendation.skill === current.skill) {
+    responsesNeeded += 1;
+    simulated = applyKnowledgeObservation(simulated, {
+      questionId: `counterfactual-correct-${responsesNeeded}`,
+      correct: true,
+      difficulty: "medium",
+      observedAt: session.updatedAt,
+      source: "practice",
+      confidence: "sure",
+    }).state;
+    correctRecommendation = recommendKnowledgeState(
+      ranked.map((state) =>
+        state.skill === current.skill ? simulated : state,
+      ),
+      session.nextSkill,
+    );
+  }
+  const missed = applyKnowledgeObservation(current, {
+    questionId: "counterfactual-miss",
+    correct: false,
+    difficulty: "medium",
+    observedAt: session.updatedAt,
+    source: "practice",
+    confidence: "sure",
+  }).state;
+  const missedRecommendation = recommendKnowledgeState(
+    ranked.map((state) => (state.skill === current.skill ? missed : state)),
+    session.nextSkill,
+  );
+  const lastDecision = session.decisionHistory?.at(-1);
+  const changed = lastDecision?.planChanged ?? false;
+  return {
+    status: changed ? "changed" : "held",
+    currentEvidence: Math.round(current.learnedProbability * 100),
+    changeThreshold: Math.round(simulated.learnedProbability * 100),
+    responsesNeeded: Math.max(1, responsesNeeded),
+    currentSkill: current.skill,
+    currentSkillLabel: current.label,
+    challengerSkill: challenger.skill,
+    challengerSkillLabel: challenger.label,
+    correctOutcome:
+      correctRecommendation.skill === current.skill
+        ? `Another strong answer would raise confidence in ${current.label}, but it would still remain the best next mission.`
+        : `Another strong answer would likely make ${correctRecommendation.label} the next mission.`,
+    incorrectOutcome:
+      missedRecommendation.skill === current.skill
+        ? `A missed answer would keep ${current.label} first.`
+        : `A missed answer would likely move ${missedRecommendation.label} first.`,
+    explanation: changed
+      ? `The evidence crossed Scout's change line, so the next mission changed.`
+      : `Scout is protecting the current mission until another useful answer gives it enough reason to switch.`,
+  };
+}
+
+function lessonReceipt(
+  session: StoredLearningSession,
+  lesson: PersonalizedLessonContent,
+) {
+  const generated = lesson.generation.mode === "ai";
+  return {
+    objective: lesson.objective,
+    approvedRule: lesson.concept,
+    evidenceQuestionIds: (session.learningTwinEvents ?? [])
+      .filter((event) => event.skill === lesson.skill)
+      .slice(-5)
+      .map((event) => event.questionId),
+    generatorStatus: generated
+      ? `${lesson.generation.provider} · ${lesson.generation.model ?? "model recorded"}`
+      : "Reviewed lesson bank used because generated content was unavailable or unnecessary",
+    validationResult: generated
+      ? ("passed" as const)
+      : ("reviewed-fallback" as const),
+    validationChecks: [
+      "Matched to the assigned ACT skill",
+      "Built from the reviewed rule and worked example",
+      "No answer key exposed before practice",
+      "Required lesson sections passed schema checks",
+    ],
+    deliveredAs: generated
+      ? ("generated" as const)
+      : ("reviewed-fallback" as const),
+  };
+}
+
+function coachBrief(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+  states: Record<string, KnowledgeState>,
+): CoachBrief {
+  const allStates = Object.values(states);
+  const strongest = [...allStates].sort(
+    (left, right) => right.learnedProbability - left.learnedProbability,
+  )[0];
+  const priority = recommendKnowledgeState(allStates, session.nextSkill);
+  const mistake = ensureProfile(session)
+    .mistakes.filter((item) => item.resolvedAt === null)
+    .at(-1);
+  const priorityState = states[priority.skill];
+  return {
+    generatedAt: session.updatedAt,
+    strongestSkill: strongest
+      ? `${strongest.label} (${Math.round(strongest.learnedProbability * 100)}% skill estimate)`
+      : "Not enough evidence yet",
+    priorityMisconception:
+      mistake?.misconception ??
+      "Scout needs one more missed response to name a specific misconception.",
+    confidenceLevel:
+      priorityState?.confidence === "stable"
+        ? "High"
+        : priorityState?.confidence === "forming"
+          ? "Moderate"
+          : "Low",
+    evidenceCollected: `${allStates.reduce((sum, state) => sum + state.evidenceCount, 0)} trusted answers across ${allStates.length} skills`,
+    currentMission: getSkill(bank, session.todaySkill).label,
+    nextMission: priority.label,
+    offlineIntervention: `Ask the learner to explain the first decision they make in a ${priority.label.toLowerCase()} question, then ask why the other choice fails.`,
+    unknowns:
+      priorityState?.confidence === "stable"
+        ? `Scout still needs a later review to confirm that ${priority.label.toLowerCase()} lasts.`
+        : `Scout still needs more independent answers before treating ${priority.label.toLowerCase()} as a stable estimate.`,
+  };
 }
 
 function missionSummary(
@@ -394,6 +545,18 @@ function toPayload(
     session.todaySkill;
   const baseLesson = getLesson(bank, session.todaySkill);
   const lesson = session.lesson ?? fallbackLesson(baseLesson, session);
+  const dueReviews = buildDueReviews(
+    Object.values(session.masteryBySkill),
+    session.updatedAt,
+  );
+  const missionPurpose =
+    session.mode === "repair"
+      ? ("weak-skill-repair" as const)
+      : dueReviews.some((review) => review.skill === session.todaySkill)
+        ? ("retention-review" as const)
+        : learningTwinBySkill[session.todaySkill]?.confidence === "exploring"
+          ? ("confidence-building" as const)
+          : ("new-learning" as const);
   return {
     sessionId: session.id,
     bankVersion: session.bankVersion,
@@ -420,6 +583,13 @@ function toPayload(
       events: session.learningTwinEvents ?? [],
       preferredSkill: session.nextSkill,
     }),
+    planCounterfactual: planCounterfactual(session, learningTwinBySkill),
+    decisionHistory: [...(session.decisionHistory ?? [])]
+      .reverse()
+      .slice(0, 40),
+    lessonReceipt: lessonReceipt(session, lesson),
+    coachBrief: coachBrief(session, bank, learningTwinBySkill),
+    missionPurpose,
   };
 }
 
@@ -823,7 +993,13 @@ export class FileLearningSessionRepository {
   async answerQuestion(
     sessionId: string,
     bank: LearningBankInput,
-    answer: { questionId: string; choiceId: string },
+    answer: {
+      questionId: string;
+      choiceId: string;
+      confidence?: AnswerConfidence;
+      selfCorrected?: boolean;
+      responseSeconds?: number;
+    },
   ): Promise<LearningSessionPayload> {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
@@ -853,6 +1029,11 @@ export class FileLearningSessionRepository {
         (choice) => choice.id === answer.choiceId,
       );
       const correct = answer.choiceId === expectedQuestion.correctChoiceId;
+      const confidence = answer.confidence ?? "sure";
+      const evidenceWeight = answerEvidenceWeight(
+        confidence,
+        answer.selfCorrected ?? false,
+      );
       const now = new Date().toISOString();
       const profile = ensureProfile(session);
       const updated = applyPracticeAttempt(
@@ -862,10 +1043,13 @@ export class FileLearningSessionRepository {
           correct,
           difficulty: expectedQuestion.difficulty,
           answeredAt: now,
+          confidence,
+          selfCorrected: answer.selfCorrected,
         },
       );
       session.masteryBySkill[expectedQuestion.skill] = updated.mastery;
       const learningTwinBySkill = ensureLearningTwin(session, bank);
+      const twinBefore = learningTwinBySkill[expectedQuestion.skill];
       const twinUpdate = applyKnowledgeObservation(
         learningTwinBySkill[expectedQuestion.skill],
         {
@@ -874,6 +1058,9 @@ export class FileLearningSessionRepository {
           difficulty: expectedQuestion.difficulty,
           observedAt: now,
           source: "practice",
+          confidence,
+          selfCorrected: answer.selfCorrected,
+          responseSeconds: answer.responseSeconds,
         },
       );
       learningTwinBySkill[expectedQuestion.skill] = twinUpdate.state;
@@ -895,6 +1082,42 @@ export class FileLearningSessionRepository {
       session.previousNextSkill = previousRecommendation;
       session.nextSkill = futureTask.nextSkill;
       session.futureTask = futureTask;
+      const decision: LearningDecisionEvent = {
+        id: randomUUID(),
+        occurredAt: now,
+        questionId: expectedQuestion.id,
+        source: "practice",
+        answerSummary: correct
+          ? `Correct · ${confidence}`
+          : `Missed · ${confidence}`,
+        informationLabel:
+          evidenceWeight >= 0.85
+            ? "high"
+            : evidenceWeight >= 0.6
+              ? "medium"
+              : "low",
+        informationWeight: evidenceWeight,
+        skill: expectedQuestion.skill,
+        skillLabel: getSkill(bank, expectedQuestion.skill).label,
+        learnedBefore: twinBefore.learnedProbability,
+        learnedAfter: twinUpdate.state.learnedProbability,
+        confidenceBefore: twinBefore.confidence,
+        confidenceAfter: twinUpdate.state.confidence,
+        planBefore: previousRecommendation,
+        planAfter: recommendation.skill,
+        planChanged: recommendation.skill !== previousRecommendation,
+        protectedCurrentMission: true,
+        why:
+          recommendation.skill !== previousRecommendation
+            ? `${recommendation.label} moved to the front after this answer.`
+            : `The evidence was not strong enough to replace today's unfinished mission.`,
+        misconception: selectedChoice?.misconception ?? null,
+        modelVersion: "bkt-1.0",
+      };
+      session.decisionHistory = [
+        ...(session.decisionHistory ?? []),
+        decision,
+      ].slice(-100);
       session.updatedAt = now;
       const feedback: PracticeFeedback = {
         questionId: expectedQuestion.id,
@@ -903,6 +1126,17 @@ export class FileLearningSessionRepository {
         correct,
         rationale: expectedQuestion.rationale,
         misconception: selectedChoice?.misconception ?? null,
+        confidence,
+        selfCorrected: answer.selfCorrected ?? false,
+        responseSeconds:
+          typeof answer.responseSeconds === "number"
+            ? Math.max(0, Math.round(answer.responseSeconds))
+            : null,
+        evidenceWeight,
+        explanationVariant: correct ? "standard" : "step-by-step",
+        isExitTicket:
+          session.mode === "focus" &&
+          session.answers.length === questions.length - 1,
         mastery: updated.mastery,
         review: updated.review,
         futureTask,
@@ -940,6 +1174,7 @@ export class FileLearningSessionRepository {
             createdAt: now,
             lastAttemptAt: now,
             resolvedAt: null,
+            misconception: selectedChoice?.misconception ?? null,
           });
           profile.mistakes = profile.mistakes.slice(-100);
         }
@@ -988,6 +1223,7 @@ export class FileLearningSessionRepository {
         difficulty: evidence.difficulty,
         observedAt: evidence.observedAt,
         source: "calibration",
+        confidence: "sure",
       });
       learningTwinBySkill[skill.slug] = update.state;
       session.learningTwinEvents = [...twinEvents, update.event].slice(-100);
@@ -1005,6 +1241,37 @@ export class FileLearningSessionRepository {
         changed: recommendation.skill !== previousRecommendation,
         reason: recommendation.reason,
       };
+      const calibrationDecision: LearningDecisionEvent = {
+        id: randomUUID(),
+        occurredAt: evidence.observedAt,
+        questionId: evidence.questionId,
+        source: "calibration",
+        answerSummary: evidence.correct
+          ? "Correct · calibration"
+          : "Missed · calibration",
+        informationLabel: evidence.difficulty === "hard" ? "high" : "medium",
+        informationWeight: evidence.difficulty === "hard" ? 1 : 0.85,
+        skill: skill.slug,
+        skillLabel: skill.label,
+        learnedBefore: current.learnedProbability,
+        learnedAfter: update.state.learnedProbability,
+        confidenceBefore: current.confidence,
+        confidenceAfter: update.state.confidence,
+        planBefore: previousRecommendation,
+        planAfter: recommendation.skill,
+        planChanged: recommendation.skill !== previousRecommendation,
+        protectedCurrentMission: true,
+        why:
+          recommendation.skill !== previousRecommendation
+            ? `${recommendation.label} moved to the front after this high-value check.`
+            : `Scout kept the plan steady because one answer did not clear the change threshold.`,
+        misconception: null,
+        modelVersion: "bkt-1.0",
+      };
+      session.decisionHistory = [
+        ...(session.decisionHistory ?? []),
+        calibrationDecision,
+      ].slice(-100);
       session.updatedAt = evidence.observedAt;
       await this.writeStore(store);
       return toPayload(session, bank);

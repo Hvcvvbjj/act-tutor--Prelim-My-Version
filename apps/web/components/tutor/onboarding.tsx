@@ -43,7 +43,7 @@ interface OnboardingProps {
 const STEP_LABELS = [
   "What score are you aiming for?",
   "Current score",
-  "Test date",
+  "Test date and study time",
 ] as const
 
 interface ScoreFieldProps {
@@ -370,8 +370,8 @@ export function Onboarding({
                     <ScoutCoach
                       className="mt-6 max-w-2xl"
                       mood="ready"
-                      message="No score is fine. You'll take a 66-question half-length diagnostic: 25 English, 23 Math, and 18 Reading."
-                      detail="It autosaves, uses original ACT-style passage and four-choice questions, and produces an estimated practice range rather than an official score."
+                      message="No score is fine. Scout will start with an 8–12 question adaptive check across English, Math, and Reading."
+                      detail="It stops when it has enough evidence to choose a useful first mission. The full 66-question diagnostic stays available if you want a narrower score range."
                     />
                   )}
                 </FieldSet>
@@ -380,7 +380,7 @@ export function Onboarding({
               {step === 3 ? (
                 <FieldSet>
                   <FieldLegend className="text-xl font-bold sm:text-2xl">
-                    When is your next ACT?
+                    When is your next ACT, and how much can you study?
                   </FieldLegend>
                   <FieldDescription className="mt-2">
                     The date controls how quickly your plan moves from lessons
@@ -425,6 +425,90 @@ export function Onboarding({
                         })}
                       </div>
                     </Field>
+                    <Field>
+                      <FieldLabel>How many study days each week?</FieldLabel>
+                      <FieldDescription>
+                        Scout will protect this limit when it builds your plan.
+                      </FieldDescription>
+                      <div className="flex flex-wrap gap-2">
+                        {[2, 3, 4, 5, 6].map((days) => (
+                          <Button
+                            key={days}
+                            type="button"
+                            variant={
+                              draft.studyDaysPerWeek === days
+                                ? "secondary"
+                                : "outline"
+                            }
+                            onClick={() => onUpdate({ studyDaysPerWeek: days })}
+                          >
+                            {days} days
+                          </Button>
+                        ))}
+                      </div>
+                    </Field>
+                    <Field>
+                      <FieldLabel>Minutes each study day</FieldLabel>
+                      <div className="flex flex-wrap gap-2">
+                        {[15, 30, 45, 60].map((minutes) => (
+                          <Button
+                            key={minutes}
+                            type="button"
+                            variant={
+                              draft.minutesPerSession === minutes
+                                ? "secondary"
+                                : "outline"
+                            }
+                            onClick={() =>
+                              onUpdate({ minutesPerSession: minutes })
+                            }
+                          >
+                            {minutes} min
+                          </Button>
+                        ))}
+                      </div>
+                    </Field>
+                    <Field>
+                      <FieldLabel>
+                        Where do you most want to improve?
+                      </FieldLabel>
+                      <FieldDescription>
+                        Pick a section, or let Scout balance the score gain.
+                      </FieldDescription>
+                      <RadioGroup
+                        value={draft.preferredSection}
+                        onValueChange={(preferredSection) =>
+                          onUpdate({
+                            preferredSection:
+                              preferredSection as PlacementDraft["preferredSection"],
+                          })
+                        }
+                        className="grid gap-2 sm:grid-cols-2"
+                      >
+                        {[
+                          ["balanced", "Best score gain"],
+                          ["english", "English"],
+                          ["math", "Math"],
+                          ["reading", "Reading"],
+                        ].map(([value, label]) => (
+                          <FieldLabel
+                            key={value}
+                            className={cn(
+                              "cursor-pointer border p-3",
+                              draft.preferredSection === value &&
+                                "border-primary bg-primary/5"
+                            )}
+                          >
+                            <Field orientation="horizontal">
+                              <RadioGroupItem value={value} />
+                              <FieldContent>
+                                <span className="font-semibold">{label}</span>
+                              </FieldContent>
+                            </Field>
+                          </FieldLabel>
+                        ))}
+                      </RadioGroup>
+                    </Field>
                   </FieldGroup>
                 </FieldSet>
               ) : null}
@@ -451,7 +535,7 @@ export function Onboarding({
               >
                 {step === 3
                   ? draft.priorScoreChoice === "never"
-                    ? "Continue to diagnostic"
+                    ? "Start adaptive check"
                     : "Build my plan"
                   : "Continue"}
                 <ArrowRightIcon data-icon="inline-end" />

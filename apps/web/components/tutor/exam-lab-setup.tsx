@@ -18,6 +18,7 @@ interface ExamLabSetupProps {
   mode: ExamLabMode
   section: CoreSection
   busy: boolean
+  extendedTime: boolean
   onModeChange: (mode: ExamLabMode) => void
   onSectionChange: (section: CoreSection) => void
   onStart: () => void
@@ -56,6 +57,7 @@ export function ExamLabSetup({
   mode,
   section,
   busy,
+  extendedTime,
   onModeChange,
   onSectionChange,
   onStart,
@@ -157,6 +159,12 @@ export function ExamLabSetup({
             <TimerResetIcon data-icon="inline-start" />
             {busy ? "Preparing secure form…" : "Enter the Test Day Lab"}
           </Button>
+          {extendedTime ? (
+            <p className="mt-4 border-l-4 border-primary bg-[var(--info-surface)] p-3 text-sm font-semibold">
+              Extended time is on. Test Lab will use 1.5× the standard practice
+              time.
+            </p>
+          ) : null}
         </section>
 
         <aside className="lg:pt-8">

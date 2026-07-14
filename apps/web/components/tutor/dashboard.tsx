@@ -1,7 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import type { LearningSessionPayload, StudyPlanTask } from "@act-tutor/core"
+import type {
+  AnswerConfidence,
+  LearningSessionPayload,
+  StudyPlanTask,
+} from "@act-tutor/core"
 import { ArrowRightIcon, InfoIcon, PencilLineIcon } from "lucide-react"
 
 import { AdaptivePlanStudio } from "@/components/tutor/adaptive-plan-studio"
@@ -10,6 +14,10 @@ import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
 import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
 import { LearningTwinLab } from "@/components/tutor/learning-twin-lab"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import {
+  ScoutProvider,
+  useScoutContext,
+} from "@/components/tutor/scout-assistant"
 import { TestDayLab } from "@/components/tutor/test-day-lab"
 import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -19,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 interface DashboardProps {
   plan: GeneratedPlan
   onEditPlan: () => void
+  onStartFullDiagnostic: () => void
 }
 
 const SECTION_FALLBACK_SKILLS = {
@@ -91,7 +100,16 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   )
 }
 
-export function Dashboard({ plan, onEditPlan }: DashboardProps) {
+function AccessibleTestDayLab() {
+  const { accommodations } = useScoutContext()
+  return <TestDayLab extendedTime={accommodations.extendedTime} />
+}
+
+export function Dashboard({
+  plan,
+  onEditPlan,
+  onStartFullDiagnostic,
+}: DashboardProps) {
   const diagnostic = plan.diagnosticResult
   const representativeDemo = diagnostic?.formId === "scout-judge-demo"
   const startingSkill =
@@ -104,7 +122,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState(
-    representativeDemo ? "calibrate" : "today"
+    representativeDemo || plan.adaptiveBaselineRequired ? "calibrate" : "today"
   )
 
   const refreshLearningSession = useCallback(async () => {
@@ -133,6 +151,8 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       currentScore: plan.currentComposite,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
+      studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
+      preferredSection: plan.draft.preferredSection,
     })
       .then((payload) => {
         if (!active) return
@@ -154,8 +174,10 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
     diagnostic?.skillResults,
     plan.currentComposite,
     plan.draft.goal,
+    plan.draft.preferredSection,
     plan.intensity.daysUntilTest,
     plan.intensity.minutesPerSession,
+    plan.intensity.studyDaysPerWeek,
     startingSkill,
   ])
 
@@ -176,7 +198,11 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
     }
   }
 
-  async function submitAnswer() {
+  async function submitAnswer(metadata: {
+    confidence: AnswerConfidence
+    selfCorrected: boolean
+    responseSeconds: number
+  }) {
     const question = learning?.questions[learning.currentQuestionIndex]
     if (!question || !selectedChoice) return
     setSubmitting(true)
@@ -186,6 +212,7 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
           action: "answer",
           questionId: question.id,
           choiceId: selectedChoice,
+          ...metadata,
         })
       )
       setSelectedChoice("")
@@ -205,6 +232,8 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
       currentScore: plan.currentComposite,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
+      studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
+      preferredSection: plan.draft.preferredSection,
     }
   }
 
@@ -264,139 +293,145 @@ export function Dashboard({ plan, onEditPlan }: DashboardProps) {
   }
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={setActiveTab}
-      className="min-h-svh gap-0 bg-transparent"
-    >
-      <header className="sticky top-0 z-20 border-b-2 border-foreground bg-background">
-        <div className="mx-auto grid min-h-20 max-w-[96rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
-          <Brand />
-          <TabsList
-            variant="line"
-            className="order-3 col-span-2 justify-self-center lg:order-none lg:col-span-1"
-            aria-label="Study navigation"
-          >
-            <TabsTrigger value="today">Today</TabsTrigger>
-            <TabsTrigger value="plan">Plan</TabsTrigger>
-            <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
-            <TabsTrigger value="progress">My Skills</TabsTrigger>
-            <TabsTrigger value="lab">Test Lab</TabsTrigger>
-          </TabsList>
-          <div className="flex items-center gap-3 justify-self-end">
-            <div className="hidden sm:block">
-              <ScoreRoute plan={plan} />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onEditPlan}
-              aria-label="Edit score plan"
+    <ScoutProvider activeTab={activeTab} plan={plan} learning={learning}>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="min-h-svh gap-0 bg-transparent"
+      >
+        <header className="sticky top-0 z-20 border-b-2 border-foreground bg-background">
+          <div className="mx-auto grid min-h-20 max-w-[96rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
+            <Brand />
+            <TabsList
+              variant="line"
+              className="order-3 col-span-2 justify-self-center lg:order-none lg:col-span-1"
+              aria-label="Study navigation"
             >
-              <PencilLineIcon />
-            </Button>
+              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="plan">Plan</TabsTrigger>
+              <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
+              <TabsTrigger value="progress">My Skills</TabsTrigger>
+              <TabsTrigger value="lab">Test Lab</TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-3 justify-self-end">
+              <div className="hidden sm:block">
+                <ScoreRoute plan={plan} />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onEditPlan}
+                aria-label="Edit score plan"
+              >
+                <PencilLineIcon />
+              </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <TabsContent value="today">
-        <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
-          {workspaceOpen && learning ? (
-            <LessonWorkspace
-              learning={learning}
-              activeSection={activeSection}
-              selectedChoice={selectedChoice}
-              submitting={submitting}
-              onSectionChange={setActiveSection}
-              onChoiceChange={setSelectedChoice}
-              onCompleteLesson={completeLesson}
-              onSubmitAnswer={submitAnswer}
-              onClose={() => setWorkspaceOpen(false)}
-            />
-          ) : learning ? (
-            <DailyMissionHub
+        <TabsContent value="today">
+          <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
+            {workspaceOpen && learning ? (
+              <LessonWorkspace
+                learning={learning}
+                activeSection={activeSection}
+                selectedChoice={selectedChoice}
+                submitting={submitting}
+                onSectionChange={setActiveSection}
+                onChoiceChange={setSelectedChoice}
+                onCompleteLesson={completeLesson}
+                onSubmitAnswer={submitAnswer}
+                onClose={() => setWorkspaceOpen(false)}
+              />
+            ) : learning ? (
+              <DailyMissionHub
+                plan={plan}
+                learning={learning}
+                busy={submitting}
+                onOpenWorkspace={() => setWorkspaceOpen(true)}
+                onStartNext={() => startMissionAction({ action: "start_next" })}
+                onStartSkill={(skill) =>
+                  startMissionAction({ action: "start_skill", skill })
+                }
+                onStartRepair={(mistakeId) =>
+                  startMissionAction(
+                    { action: "start_repair", mistakeId },
+                    true
+                  )
+                }
+                onStartCheckpoint={() =>
+                  startMissionAction({ action: "start_checkpoint" }, true)
+                }
+              />
+            ) : (
+              <div className="mx-auto max-w-2xl py-20">
+                <ScoutCoach
+                  mood="thinking"
+                  message="Scout is choosing the best work for today…"
+                />
+                {learningError ? (
+                  <Alert className="mt-7 bg-background">
+                    <InfoIcon />
+                    <AlertTitle>Could not load today’s work</AlertTitle>
+                    <AlertDescription>{learningError}</AlertDescription>
+                  </Alert>
+                ) : null}
+              </div>
+            )}
+          </main>
+        </TabsContent>
+
+        <TabsContent value="plan">
+          {learning ? (
+            <AdaptivePlanStudio
               plan={plan}
               learning={learning}
               busy={submitting}
-              onOpenWorkspace={() => setWorkspaceOpen(true)}
-              onStartNext={() => startMissionAction({ action: "start_next" })}
-              onStartSkill={(skill) =>
-                startMissionAction({ action: "start_skill", skill })
-              }
-              onStartRepair={(mistakeId) =>
-                startMissionAction({ action: "start_repair", mistakeId }, true)
-              }
-              onStartCheckpoint={() =>
-                startMissionAction({ action: "start_checkpoint" }, true)
-              }
+              onLaunchTask={launchPlanTask}
             />
           ) : (
-            <div className="mx-auto max-w-2xl py-20">
+            <main className="mx-auto max-w-3xl px-5 py-20">
               <ScoutCoach
                 mood="thinking"
-                message="Scout is choosing the best work for today…"
+                message="Scout is matching your study days to your test date."
               />
-              {learningError ? (
-                <Alert className="mt-7 bg-background">
-                  <InfoIcon />
-                  <AlertTitle>Could not load today’s work</AlertTitle>
-                  <AlertDescription>{learningError}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
+            </main>
           )}
-        </main>
-      </TabsContent>
-
-      <TabsContent value="plan">
-        {learning ? (
-          <AdaptivePlanStudio
+        </TabsContent>
+        <TabsContent value="calibrate">
+          {learning ? (
+            <AdaptiveCalibrationLab
+              representativeDemo={representativeDemo}
+              learning={learning}
+              onLearningTwinUpdated={refreshLearningSession}
+              onInspectLearningTwin={() => setActiveTab("progress")}
+              onReturnToToday={() => setActiveTab("today")}
+              onStartFullDiagnostic={onStartFullDiagnostic}
+            />
+          ) : (
+            <main className="mx-auto max-w-3xl px-5 py-20">
+              <ScoutCoach
+                mood="thinking"
+                message="Scout is getting your Quick Check ready."
+              />
+            </main>
+          )}
+        </TabsContent>
+        <TabsContent value="progress">
+          <LearningTwinLab
             plan={plan}
             learning={learning}
-            busy={submitting}
-            onLaunchTask={launchPlanTask}
+            onOpenLesson={() => {
+              setWorkspaceOpen(true)
+              setActiveTab("today")
+            }}
           />
-        ) : (
-          <main className="mx-auto max-w-3xl px-5 py-20">
-            <ScoutCoach
-              mood="thinking"
-              message="Scout is matching your study days to your test date."
-            />
-          </main>
-        )}
-      </TabsContent>
-      <TabsContent value="calibrate">
-        {learning ? (
-          <AdaptiveCalibrationLab
-            representativeDemo={representativeDemo}
-            learning={learning}
-            onLearningTwinUpdated={refreshLearningSession}
-            onInspectLearningTwin={() => setActiveTab("progress")}
-            onReturnToToday={() => setActiveTab("today")}
-          />
-        ) : (
-          <main className="mx-auto max-w-3xl px-5 py-20">
-            <ScoutCoach
-              mood="thinking"
-              message="Scout is getting your Quick Check ready."
-            />
-          </main>
-        )}
-      </TabsContent>
-      <TabsContent value="progress">
-        <LearningTwinLab
-          plan={plan}
-          learning={learning}
-          onOpenLesson={() => {
-            setWorkspaceOpen(true)
-            setActiveTab("today")
-          }}
-        />
-      </TabsContent>
-      <TabsContent value="lab">
-        <TestDayLab />
-      </TabsContent>
-    </Tabs>
+        </TabsContent>
+        <TabsContent value="lab">
+          <AccessibleTestDayLab />
+        </TabsContent>
+      </Tabs>
+    </ScoutProvider>
   )
 }
