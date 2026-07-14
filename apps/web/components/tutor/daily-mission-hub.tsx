@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import type {
   LearningSessionPayload,
   MasteryState,
@@ -39,6 +40,10 @@ interface DailyMissionHubProps {
   onStartSkill: (skill: string) => void
   onStartRepair: (mistakeId: string) => void
   onStartCheckpoint: () => void
+  onStartRetention: (skill: string) => void
+  onStartChallenge: (skill?: string) => void
+  onStartMicro: (skill?: string) => void
+  onStartRecovery: () => void
 }
 
 const STEP_META = {
@@ -82,6 +87,53 @@ const SKILL_LEVEL_LABEL = {
   steady: "Getting there",
   secure: "Strong",
 } as const
+
+function getMissionCopy(learning: LearningSessionPayload) {
+  switch (learning.mode) {
+    case "repair":
+      return {
+        label: "Retry",
+        title: `Retry: ${learning.mastery.label}`,
+        description: "Try the question again without looking at the explanation.",
+      }
+    case "checkpoint":
+      return {
+        label: "Quick quiz",
+        title: "Mixed three-question quiz",
+        description: "One question from each of three weak skills. No hints.",
+      }
+    case "retention":
+      return {
+        label: "Memory check",
+        title: `Do you still remember ${learning.mastery.label}?`,
+        description: "Two questions check whether the skill held up after time away.",
+      }
+    case "challenge":
+      return {
+        label: "Mastery challenge",
+        title: `Prove you own ${learning.mastery.label}`,
+        description: "Three harder questions can prove this skill is ready for less repetition.",
+      }
+    case "micro":
+      return {
+        label: "3-minute study",
+        title: `One useful step in ${learning.mastery.label}`,
+        description: "A short lesson and one question keep your plan moving on a busy day.",
+      }
+    case "recovery":
+      return {
+        label: "Recovery session",
+        title: "Get the plan moving again",
+        description: "Two priority questions rebuild momentum without pretending you have extra time.",
+      }
+    default:
+      return {
+        label: "Today’s focus",
+        title: learning.lesson.title,
+        description: learning.lesson.whyAssigned,
+      }
+  }
+}
 
 const STEP_LABEL = {
   learn: "learn",
@@ -333,7 +385,7 @@ function DueReviews(props: DailyMissionHubProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => props.onStartSkill(review.skill)}
+                onClick={() => props.onStartRetention(review.skill)}
                 disabled={props.busy || props.learning.status !== "complete"}
               >
                 Review
@@ -539,11 +591,91 @@ function MistakeNotebook(props: DailyMissionHubProps) {
   )
 }
 
+function StudyModeControls(props: DailyMissionHubProps) {
+  const [energy, setEnergy] = useState<"low" | "normal" | "challenge">(
+    "normal"
+  )
+  const ready = props.learning.status === "complete" && !props.busy
+  return (
+    <section className="grid border-y-2 border-foreground lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:divide-x-2 lg:divide-foreground">
+      <div className="py-6 lg:pr-7">
+        <p className="ink-label text-primary">Set today’s energy</p>
+        <h2 className="mt-2 font-heading text-3xl font-black">
+          Keep the plan honest.
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Low energy shortens the work. Challenge mode raises the difficulty.
+          Neither choice breaks a streak or erases progress.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(
+            [
+              ["low", "Low energy"],
+              ["normal", "Normal"],
+              ["challenge", "Challenge me"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={energy === value ? "secondary" : "outline"}
+              onClick={() => setEnergy(value)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="py-6 lg:pl-7">
+        <p className="ink-label text-muted-foreground">Choose a safe shortcut</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto min-h-20 flex-col items-start"
+            disabled={!ready}
+            onClick={() => props.onStartMicro()}
+          >
+            <span>3-minute study</span>
+            <span className="text-xs font-normal">One rule + one question</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto min-h-20 flex-col items-start"
+            disabled={!ready}
+            onClick={() => props.onStartChallenge()}
+          >
+            <span>Mastery challenge</span>
+            <span className="text-xs font-normal">Prove it and skip repetition</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto min-h-20 flex-col items-start"
+            disabled={!ready}
+            onClick={props.onStartRecovery}
+          >
+            <span>Recovery session</span>
+            <span className="text-xs font-normal">Two priority questions</span>
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Suggested now: {energy === "low" ? "3-minute study" : energy === "challenge" ? "mastery challenge" : "the regular mission"}.
+        </p>
+      </div>
+    </section>
+  )
+}
+
 export function DailyMissionHub(props: DailyMissionHubProps) {
   const { learning, plan } = props
   const complete = learning.status === "complete"
+  const missionCopy = getMissionCopy(learning)
   return (
     <div className="space-y-14 pb-8">
+      <StudyModeControls {...props} />
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1.45fr)_minmax(21rem,0.65fr)] xl:gap-16">
         <section className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -552,29 +684,17 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
               {plan.intensity.daysUntilTest} days to test day
             </span>
             <span className="font-mono text-xs font-bold text-muted-foreground capitalize">
-              {learning.mode === "focus"
-                ? "Today’s focus"
-                : learning.mode === "repair"
-                  ? "Retry"
-                  : "Quick quiz"}
+              {missionCopy.label}
             </span>
             <span className="bg-foreground px-2 py-1 font-mono text-[0.6rem] font-black tracking-wide text-background uppercase">
               {learning.missionPurpose.replaceAll("-", " ")}
             </span>
           </div>
           <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.04em] sm:text-7xl lg:text-8xl">
-            {learning.mode === "checkpoint"
-              ? "Mixed three-question quiz"
-              : learning.mode === "repair"
-                ? `Retry: ${learning.mastery.label}`
-                : learning.lesson.title}
+            {missionCopy.title}
           </h1>
           <p className="marker-underline mt-6 max-w-3xl text-lg leading-8 font-semibold sm:text-xl">
-            {learning.mode === "focus"
-              ? learning.lesson.whyAssigned
-              : learning.mode === "repair"
-                ? "Try the question again without looking at the explanation."
-                : "One question from each of three weak skills. No hints."}
+            {missionCopy.description}
           </p>
           <MissionTrail {...props} />
           {complete ? (

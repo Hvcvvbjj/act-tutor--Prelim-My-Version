@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -155,6 +156,60 @@ export function Onboarding({
   onUpdate,
 }: OnboardingProps) {
   const progress = (step / 3) * 100
+  const [explanation, setExplanation] = useState({
+    depth: "normal",
+    readingLevel: "standard",
+    exampleStyle: "everyday",
+    fewerTechnicalTerms: true,
+  })
+  const [access, setAccess] = useState({
+    readAloud: false,
+    largeText: false,
+    reducedMotion: false,
+  })
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      try {
+        setExplanation((current) => ({
+          ...current,
+          ...JSON.parse(
+            window.localStorage.getItem(
+              "scout-explanation-preferences-v1"
+            ) ?? "{}"
+          ),
+        }))
+        setAccess((current) => ({
+          ...current,
+          ...JSON.parse(
+            window.localStorage.getItem("scout-accommodations-v1") ?? "{}"
+          ),
+        }))
+      } catch {
+        window.localStorage.removeItem("scout-explanation-preferences-v1")
+      }
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [])
+
+  function saveExplanation(next: typeof explanation) {
+    setExplanation(next)
+    window.localStorage.setItem(
+      "scout-explanation-preferences-v1",
+      JSON.stringify(next)
+    )
+  }
+
+  function saveAccess(next: typeof access) {
+    setAccess(next)
+    const previous = JSON.parse(
+      window.localStorage.getItem("scout-accommodations-v1") ?? "{}"
+    ) as Record<string, boolean>
+    window.localStorage.setItem(
+      "scout-accommodations-v1",
+      JSON.stringify({ ...previous, ...next })
+    )
+  }
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -508,6 +563,100 @@ export function Onboarding({
                           </FieldLabel>
                         ))}
                       </RadioGroup>
+                    </Field>
+                    <Field className="border-t-2 border-foreground pt-6">
+                      <FieldLabel>How should Scout explain things?</FieldLabel>
+                      <FieldDescription>
+                        These choices follow you into lessons and Ask Scout.
+                      </FieldDescription>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Answer length
+                          <select
+                            value={explanation.depth}
+                            onChange={(event) =>
+                              saveExplanation({
+                                ...explanation,
+                                depth: event.target.value,
+                              })
+                            }
+                            className="h-11 border bg-background px-3"
+                          >
+                            <option value="quick">Quick</option>
+                            <option value="normal">Normal</option>
+                            <option value="detailed">Detailed</option>
+                          </select>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Reading level
+                          <select
+                            value={explanation.readingLevel}
+                            onChange={(event) =>
+                              saveExplanation({
+                                ...explanation,
+                                readingLevel: event.target.value,
+                              })
+                            }
+                            className="h-11 border bg-background px-3"
+                          >
+                            <option value="plain">Plain</option>
+                            <option value="standard">Standard</option>
+                            <option value="advanced">Advanced</option>
+                          </select>
+                        </label>
+                        <label className="grid gap-2 text-sm font-semibold">
+                          Example style
+                          <select
+                            value={explanation.exampleStyle}
+                            onChange={(event) =>
+                              saveExplanation({
+                                ...explanation,
+                                exampleStyle: event.target.value,
+                              })
+                            }
+                            className="h-11 border bg-background px-3"
+                          >
+                            <option value="everyday">Everyday</option>
+                            <option value="school">School</option>
+                            <option value="sports">Sports</option>
+                            <option value="gaming">Gaming</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {(
+                          [
+                            ["fewerTechnicalTerms", "Use fewer technical terms"],
+                            ["readAloud", "Read-aloud controls"],
+                            ["largeText", "Larger text"],
+                            ["reducedMotion", "Reduced motion"],
+                          ] as const
+                        ).map(([key, label]) => {
+                          const checked =
+                            key === "fewerTechnicalTerms"
+                              ? explanation.fewerTechnicalTerms
+                              : access[key]
+                          return (
+                            <label
+                              key={key}
+                              className="flex items-center justify-between gap-4 border px-3 py-3 text-sm font-semibold"
+                            >
+                              {label}
+                              <Switch
+                                checked={checked}
+                                onCheckedChange={(enabled) =>
+                                  key === "fewerTechnicalTerms"
+                                    ? saveExplanation({
+                                        ...explanation,
+                                        fewerTechnicalTerms: enabled,
+                                      })
+                                    : saveAccess({ ...access, [key]: enabled })
+                                }
+                              />
+                            </label>
+                          )
+                        })}
+                      </div>
                     </Field>
                   </FieldGroup>
                 </FieldSet>

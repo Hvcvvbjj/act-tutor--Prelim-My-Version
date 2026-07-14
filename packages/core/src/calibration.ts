@@ -3,6 +3,7 @@ import type {
   DiagnosticQuestionPublic,
 } from "./diagnostic";
 import type { CoreSection } from "./types";
+import type { AnswerConfidence } from "./learning";
 
 export const ADAPTIVE_CALIBRATION_MODEL = {
   name: "Two-parameter logistic Item Response Theory",
@@ -33,6 +34,7 @@ export interface CalibrationItemDescriptor {
 export interface CalibrationObservation extends CalibrationItemDescriptor {
   correct: boolean;
   answeredAt: string;
+  confidence?: AnswerConfidence;
 }
 
 export type CalibrationPrecision = "broad" | "stabilizing" | "precise";

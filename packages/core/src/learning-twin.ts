@@ -258,6 +258,19 @@ function normalizeState(
   };
 }
 
+export function applyLearnerModelCorrection(
+  state: KnowledgeState,
+  kind: "too-high" | "too-low" | "wrong-misconception",
+): KnowledgeState {
+  if (kind === "wrong-misconception") return state;
+  return normalizeState({
+    ...state,
+    learnedProbability: clamp(
+      state.learnedProbability + (kind === "too-high" ? -0.08 : 0.08),
+    ),
+  });
+}
+
 export function createInitialKnowledgeState(
   skill: SkillDefinition,
   diagnosticResult?: Pick<DiagnosticSkillResult, "correct" | "total"> | null,

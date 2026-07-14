@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import type {
   AdaptiveCalibrationPayload,
+  AnswerConfidence,
   CalibrationCandidateScore,
   CoreSection,
   LearningSessionPayload,
@@ -35,6 +36,8 @@ interface AdaptiveCalibrationLabProps {
   onInspectLearningTwin: () => void
   onReturnToToday: () => void
   onStartFullDiagnostic: () => void
+  adaptiveBaselineRequired: boolean
+  onUseAdaptiveBaseline: (payload: AdaptiveCalibrationPayload) => void
 }
 
 interface AdaptiveProof {
@@ -392,11 +395,14 @@ export function AdaptiveCalibrationLab({
   onInspectLearningTwin,
   onReturnToToday,
   onStartFullDiagnostic,
+  adaptiveBaselineRequired,
+  onUseAdaptiveBaseline,
 }: AdaptiveCalibrationLabProps) {
   const [payload, setPayload] = useState<AdaptiveCalibrationPayload | null>(
     null
   )
   const [selectedChoice, setSelectedChoice] = useState("")
+  const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showLatestAnswer, setShowLatestAnswer] = useState(false)
@@ -444,9 +450,11 @@ export function AdaptiveCalibrationLab({
         action: "answer",
         questionId: question.id,
         choiceId: selectedChoice,
+        confidence,
       })
       setPayload(next)
       setSelectedChoice("")
+      setConfidence("sure")
       setError(null)
       setShowLatestAnswer(true)
       if (next.learningTwinUpdated) {
@@ -582,11 +590,24 @@ export function AdaptiveCalibrationLab({
       ) : null}
 
       {payload.status === "complete" && proof ? (
-        <AdaptiveProofReplay
-          proof={proof}
-          onInspectLearningTwin={onInspectLearningTwin}
-          onReturnToToday={onReturnToToday}
-        />
+        <>
+          <AdaptiveProofReplay
+            proof={proof}
+            onInspectLearningTwin={onInspectLearningTwin}
+            onReturnToToday={onReturnToToday}
+          />
+          {adaptiveBaselineRequired ? (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
+              <div>
+                <p className="font-heading text-2xl font-black">Use this as my starting point</p>
+                <p className="mt-1 text-sm text-muted-foreground">This replaces the temporary starting score and rebuilds the study plan from your own Quick Check.</p>
+              </div>
+              <Button type="button" onClick={() => onUseAdaptiveBaseline(payload)}>
+                Build my real plan
+              </Button>
+            </div>
+          ) : null}
+        </>
       ) : payload.status === "complete" || !question ? (
         <section className="mt-8 grid gap-8 border-y-2 border-foreground py-10 lg:grid-cols-[1fr_0.8fr]">
           <div>
@@ -644,6 +665,16 @@ export function AdaptiveCalibrationLab({
               See what Scout recommends
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
+            {adaptiveBaselineRequired ? (
+              <Button
+                type="button"
+                size="lg"
+                className="mt-3 w-full"
+                onClick={() => onUseAdaptiveBaseline(payload)}
+              >
+                Build my plan from this baseline
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -710,6 +741,31 @@ export function AdaptiveCalibrationLab({
                 </label>
               ))}
             </RadioGroup>
+            <div className="mt-5 border-y-2 border-foreground py-4">
+              <p className="ink-label text-muted-foreground">How sure are you?</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(
+                  [
+                    ["sure", "Sure"],
+                    ["unsure", "Unsure"],
+                    ["guessing", "Guessing"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={confidence === value ? "secondary" : "outline"}
+                    onClick={() => setConfidence(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Confidence changes the skill-model weight, not whether the answer is marked right or wrong.
+              </p>
+            </div>
             {error ? (
               <Alert variant="destructive" className="mt-5">
                 <CircleAlertIcon />

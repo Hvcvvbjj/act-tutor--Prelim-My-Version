@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyKnowledgeObservation,
+  applyLearnerModelCorrection,
   buildLearningTwinForecast,
   buildLearningTwinSnapshot,
   compareLearningTwinSnapshots,
@@ -94,6 +95,26 @@ describe("Bayesian learning twin", () => {
       guess.state.learnedProbability,
     );
     expect(guess.event.informationWeight).toBe(0.48);
+  });
+
+  it("accepts a bounded learner correction without deleting prior evidence", () => {
+    const initial = createInitialKnowledgeState(skill, {
+      correct: 1,
+      total: 2,
+    });
+    const lower = applyLearnerModelCorrection(initial, "too-high");
+    const higher = applyLearnerModelCorrection(initial, "too-low");
+    const labelOnly = applyLearnerModelCorrection(
+      initial,
+      "wrong-misconception",
+    );
+
+    expect(lower.learnedProbability).toBeLessThan(initial.learnedProbability);
+    expect(higher.learnedProbability).toBeGreaterThan(
+      initial.learnedProbability,
+    );
+    expect(lower.evidenceCount).toBe(initial.evidenceCount);
+    expect(labelOnly).toEqual(initial);
   });
 
   it("ranks a weak, uncertain skill ahead of a well-supported skill", () => {

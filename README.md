@@ -17,7 +17,7 @@ Working in the current slice:
 - a generated Today/Plan/Progress dashboard with a durable adaptive learner profile;
 - an Adaptive Plan Studio that turns availability into dated lesson, focus, review, timed-transfer, checkpoint, and rehearsal assignments through test day;
 - editable per-day study minutes, week navigation, milestone tracking, task completion, catch-up, capacity/readiness estimates, and future-only rebalancing that freezes today and completed history;
-- a no-score path with a validated 66-question half-length diagnostic covering 12 skills, grouped ACT-style passages, per-answer server autosave/resume, deterministic scoring, skill signals, and baseline-to-plan handoff;
+- a no-score path that starts with an 8–12 question information-gain Quick Check, rebuilds the real plan from that baseline, and keeps a validated 66-question half-length diagnostic available for a narrower range;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
 - a versioned 12-skill learning taxonomy, 12 reviewed lesson foundations, AI-generated personalized four-stage teaching sequences, and 60 focused practice questions;
@@ -33,6 +33,9 @@ Working in the current slice:
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
+- a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
+- exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, teach-back scoring, alternate teaching styles, and question-exposure protection;
+- a Scout Lab for learner-model correction, ACT pacing and score scenarios, coach workflows, imported cohort heatmaps, content approval, model/policy comparison, fairness abstention, item health, data export/delete, and weak-connection answer sync.
 
 Still placeholders or future milestones:
 
@@ -242,6 +245,7 @@ For the fastest product tour, click **See one answer change the plan** on the fi
 - [Milestone roadmap](docs/PROJECT_ROADMAP.md)
 - [Prioritized implementation backlog](docs/BACKLOG.md)
 - [Hackathon submission kit](docs/submission/README.md)
+- [Exhaustive implemented feature ledger](docs/FEATURE_LEDGER.md)
 
 ## Hackathon demo target
 

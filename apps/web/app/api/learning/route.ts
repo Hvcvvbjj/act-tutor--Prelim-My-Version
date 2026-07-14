@@ -199,6 +199,117 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(payload)
     }
 
+    if (action === "start_retention") {
+      if (typeof body.skill !== "string")
+        throw new RangeError("A review skill is required.")
+      const payload = await learningSessions.beginRetention(
+        requireSessionId(request),
+        LEARNING_BANK,
+        body.skill
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "start_challenge") {
+      const payload = await learningSessions.beginChallenge(
+        requireSessionId(request),
+        LEARNING_BANK,
+        typeof body.skill === "string" ? body.skill : undefined
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "start_micro") {
+      const payload = await learningSessions.beginMicro(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          skill: typeof body.skill === "string" ? body.skill : undefined,
+          plan: parsePlanContext(body),
+        },
+        lessonComposer
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "start_recovery") {
+      const payload = await learningSessions.beginRecovery(
+        requireSessionId(request),
+        LEARNING_BANK
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "teach_back") {
+      if (typeof body.response !== "string")
+        throw new RangeError("A teach-back response is required.")
+      const payload = await learningSessions.recordTeachBack(
+        requireSessionId(request),
+        LEARNING_BANK,
+        body.response
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "correct_model") {
+      if (
+        typeof body.skill !== "string" ||
+        (body.kind !== "too-high" &&
+          body.kind !== "too-low" &&
+          body.kind !== "wrong-misconception")
+      ) {
+        throw new RangeError("A valid learner-model correction is required.")
+      }
+      const payload = await learningSessions.correctLearnerModel(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          skill: body.skill,
+          kind: body.kind,
+          note: typeof body.note === "string" ? body.note : "",
+        }
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "tutor_override") {
+      if (typeof body.skill !== "string" || typeof body.reason !== "string")
+        throw new RangeError("A tutor override skill and reason are required.")
+      const payload = await learningSessions.recordTutorOverride(
+        requireSessionId(request),
+        LEARNING_BANK,
+        { skill: body.skill, reason: body.reason }
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "lesson_feedback") {
+      const payload = await learningSessions.recordLessonFeedback(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          helpful: body.helpful === true,
+          style: typeof body.style === "string" ? body.style : "standard",
+        }
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "review_lesson") {
+      const payload = await learningSessions.reviewLessonContent(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          approved: body.approved === true,
+          editedExplanation:
+            typeof body.editedExplanation === "string"
+              ? body.editedExplanation
+              : undefined,
+        }
+      )
+      return NextResponse.json(payload)
+    }
+
     if (action === "answer") {
       if (
         typeof body.questionId !== "string" ||

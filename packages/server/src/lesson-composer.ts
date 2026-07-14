@@ -163,6 +163,39 @@ function validateGeneratedLesson(
       coachPrompt: asString(record.coachPrompt, `sections[${index}].coachPrompt`, 12),
     } satisfies PersonalizedLessonSection;
   });
+  const generatedText = [
+    candidate.whyAssigned,
+    candidate.tutorOpening,
+    candidate.transferPrompt,
+    ...(Array.isArray(candidate.strategyChecklist)
+      ? candidate.strategyChecklist
+      : []),
+    ...sections.flatMap((section) => [
+      section.title,
+      section.explanation,
+      section.coachPrompt,
+    ]),
+  ]
+    .filter((item): item is string => typeof item === "string")
+    .join(" ")
+    .toLowerCase();
+  if (
+    /\b(guarantee(?:d)? score|official act question|leaked item|answer key|correct (?:answer|choice) is [a-d])\b/.test(
+      generatedText,
+    )
+  ) {
+    throw new TypeError("AI lesson failed the claim or answer-leakage check.");
+  }
+  const reviewedTerms = input.baseLesson.concept
+    .toLowerCase()
+    .match(/[a-z]{5,}/g)
+    ?.slice(0, 12) ?? [];
+  if (
+    reviewedTerms.length > 0 &&
+    !reviewedTerms.some((term) => generatedText.includes(term))
+  ) {
+    throw new TypeError("AI lesson is not grounded in the reviewed rule.");
+  }
 
   return {
     ...input.baseLesson,

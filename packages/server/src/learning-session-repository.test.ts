@@ -293,6 +293,10 @@ describe("FileLearningSessionRepository", () => {
         difficulty: "easy",
       });
       expect(answered.futureTask.reason).toContain("ranks first");
+      expect(answered.decisionHistory[0]).toMatchObject({
+        modelVersion: "bkt-1.0",
+        comparisonModelVersion: "accuracy-1.0",
+      });
 
       const restarted = new FileLearningSessionRepository(filePath);
       const resumed = await restarted.get(started.sessionId, bank);
@@ -384,8 +388,9 @@ describe("FileLearningSessionRepository", () => {
       );
       expect(repair.mode).toBe("repair");
       expect(repair.questions).toHaveLength(1);
+      expect(repair.questions[0].id).not.toBe(mistake.questionId);
       const repaired = await repo.answerQuestion(started.sessionId, bank, {
-        questionId: mistake.questionId,
+        questionId: repair.questions[0].id,
         choiceId: "A",
       });
       expect(repaired.mission.unresolvedMistakes).toBe(0);
@@ -393,6 +398,135 @@ describe("FileLearningSessionRepository", () => {
       expect(repaired.mission.progress.xp).toBeGreaterThan(
         payload.mission.progress.xp,
       );
+    });
+  });
+
+  it("runs exact two-question retention and three-question challenge modes", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      await repo.completeLesson(started.sessionId, bank);
+      for (let index = 1; index <= 5; index += 1) {
+        await repo.answerQuestion(started.sessionId, bank, {
+          questionId: `sentence-boundaries-practice-${index}`,
+          choiceId: "A",
+        });
+      }
+
+      const retention = await repo.beginRetention(
+        started.sessionId,
+        bank,
+        "sentence-boundaries",
+      );
+      expect(retention.mode).toBe("retention");
+      expect(retention.questions).toHaveLength(2);
+      for (const question of retention.questions) {
+        await repo.answerQuestion(started.sessionId, bank, {
+          questionId: question.id,
+          choiceId: "A",
+        });
+      }
+
+      const challenge = await repo.beginChallenge(
+        started.sessionId,
+        bank,
+        "sentence-boundaries",
+      );
+      expect(challenge.mode).toBe("challenge");
+      expect(challenge.questions).toHaveLength(3);
+      expect(challenge.questions.some((question) => question.difficulty === "hard"))
+        .toBe(true);
+    });
+  });
+
+  it("scores teach-back, audits learner correction, and protects tutor override", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const teachBack = await repo.recordTeachBack(
+        started.sessionId,
+        bank,
+        "A complete sentence needs a subject and verb because it must finish the thought. For example, I can test whether it stands alone.",
+      );
+      expect(teachBack.teachBack?.score).toBeGreaterThanOrEqual(2);
+
+      const before = teachBack.learningTwin.skills.find(
+        (state) => state.skill === "sentence-boundaries",
+      );
+      const corrected = await repo.correctLearnerModel(
+        started.sessionId,
+        bank,
+        {
+          skill: "sentence-boundaries",
+          kind: "too-high",
+          note: "I recognized the wording from class rather than using the rule.",
+        },
+      );
+      const after = corrected.learningTwin.skills.find(
+        (state) => state.skill === "sentence-boundaries",
+      );
+      expect(after?.learnedProbability).toBeLessThan(
+        before?.learnedProbability ?? 0,
+      );
+      expect(corrected.learnerModel.corrections).toHaveLength(1);
+
+      const overridden = await repo.recordTutorOverride(
+        started.sessionId,
+        bank,
+        {
+          skill: "linear-equations",
+          reason: "The class is starting linear equations tomorrow.",
+        },
+      );
+      expect(overridden.nextSkill).toBe("linear-equations");
+      expect(overridden.tutorOverrides[0]).toMatchObject({
+        previousSkill: corrected.nextSkill,
+        selectedSkill: "linear-equations",
+      });
+      expect(overridden.todaySkill).toBe("sentence-boundaries");
+    });
+  });
+
+  it("saves a teacher-edited lesson with a receipt and rejects unsafe edits", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const explanation =
+        "A complete sentence needs a subject, a verb, and a finished thought. Test it by reading the words alone and asking whether the idea is complete.";
+      const reviewed = await repo.reviewLessonContent(
+        started.sessionId,
+        bank,
+        { approved: true, editedExplanation: explanation },
+      );
+
+      expect(reviewed.lesson.concept).toBe(explanation);
+      expect(reviewed.lesson.sections[0].explanation).toBe(explanation);
+      expect(reviewed.lessonReceipt).toMatchObject({
+        deliveredAs: "human-reviewed",
+        validationResult: "human-reviewed",
+      });
+
+      await expect(
+        repo.reviewLessonContent(started.sessionId, bank, {
+          approved: true,
+          editedExplanation:
+            "This leaked answer is an official ACT question and guarantees a score.",
+        }),
+      ).rejects.toThrow("unsafe or unsupported claim");
+
+      const rejected = await repo.reviewLessonContent(
+        started.sessionId,
+        bank,
+        { approved: false },
+      );
+      expect(rejected.lessonReceipt.deliveredAs).toBe("reviewed-fallback");
+      expect(rejected.lesson.concept).toBe(bank.lessons[0].concept);
     });
   });
 

@@ -19,6 +19,7 @@ import {
   type DiagnosticQuestionPublic,
   type DiagnosticQuestionSecure,
   type PracticeDifficulty,
+  type AnswerConfidence,
 } from "@act-tutor/core";
 
 export interface CalibrationBankInput {
@@ -33,6 +34,7 @@ export interface CalibrationKnowledgeEvidence {
   correct: boolean;
   difficulty: PracticeDifficulty;
   observedAt: string;
+  confidence?: AnswerConfidence;
 }
 
 interface StoredCalibrationResponse {
@@ -71,6 +73,7 @@ function knowledgeEvidenceFor(
     correct: response.observation.correct,
     difficulty: response.observation.difficulty,
     observedAt: response.observation.answeredAt,
+    confidence: response.observation.confidence ?? "sure",
   };
 }
 
@@ -218,7 +221,7 @@ function toPayload(
 function applyAnswer(
   session: StoredCalibrationSession,
   bank: CalibrationBankInput,
-  answer: { questionId: string; choiceId: string },
+  answer: { questionId: string; choiceId: string; confidence?: AnswerConfidence },
 ): CalibrationKnowledgeEvidence {
   if (session.status === "complete")
     throw new RangeError("This precision check is already complete.");
@@ -238,6 +241,7 @@ function applyAnswer(
     ...descriptorFor(question),
     correct,
     answeredAt,
+    confidence: answer.confidence ?? "sure",
   };
   const after = estimateAbility([...observations(session), observation]);
   const event: CalibrationHistoryEvent = {
@@ -362,7 +366,7 @@ export class FileAdaptiveCalibrationRepository {
   async answer(
     sessionId: string,
     bank: CalibrationBankInput,
-    answer: { questionId: string; choiceId: string },
+    answer: { questionId: string; choiceId: string; confidence?: AnswerConfidence },
   ): Promise<{
     payload: AdaptiveCalibrationPayload;
     evidence: CalibrationKnowledgeEvidence | null;

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import type {
+  AdaptiveCalibrationPayload,
   AnswerConfidence,
   LearningSessionPayload,
   StudyPlanTask,
@@ -14,6 +15,7 @@ import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
 import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
 import { LearningTwinLab } from "@/components/tutor/learning-twin-lab"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import { ScoutOperationsLab } from "@/components/tutor/scout-operations-lab"
 import {
   ScoutProvider,
   useScoutContext,
@@ -28,6 +30,7 @@ interface DashboardProps {
   plan: GeneratedPlan
   onEditPlan: () => void
   onStartFullDiagnostic: () => void
+  onUseAdaptiveBaseline: (payload: AdaptiveCalibrationPayload) => void
 }
 
 const SECTION_FALLBACK_SKILLS = {
@@ -36,12 +39,55 @@ const SECTION_FALLBACK_SKILLS = {
   reading: "supported-inference",
 } as const
 
+const OFFLINE_QUEUE_KEY = "scout-offline-answer-queue-v1"
+const OFFLINE_LESSON_KEY = "scout-offline-learning-session-v1"
+
+function readOfflineQueue() {
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(OFFLINE_QUEUE_KEY) ?? "[]"
+    ) as unknown
+    return Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : []
+  } catch {
+    return []
+  }
+}
+
+function readCachedLearningSession() {
+  try {
+    return JSON.parse(
+      window.localStorage.getItem(OFFLINE_LESSON_KEY) ?? "null"
+    ) as LearningSessionPayload | null
+  } catch {
+    return null
+  }
+}
+
+function queueOfflineAnswer(body: Record<string, unknown>) {
+  const current = readOfflineQueue()
+  if (!current.some((item) => item.questionId === body.questionId)) {
+    current.push(body)
+    window.localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(current))
+  }
+}
+
 async function learningRequest(body: Record<string, unknown>) {
-  const response = await fetch("/api/learning", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetch("/api/learning", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  } catch (error) {
+    if (body.action === "answer" && typeof window !== "undefined") {
+      queueOfflineAnswer(body)
+      throw new Error(
+        "You are offline. This answer is saved on this device and will be scored when the connection returns."
+      )
+    }
+    throw error
+  }
   const payload = (await response.json()) as
     LearningSessionPayload | { error: string }
   if (!response.ok || "error" in payload) {
@@ -109,6 +155,7 @@ export function Dashboard({
   plan,
   onEditPlan,
   onStartFullDiagnostic,
+  onUseAdaptiveBaseline,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
   const representativeDemo = diagnostic?.formId === "scout-judge-demo"
@@ -132,14 +179,47 @@ export function Dashboard({
       setLearningError(null)
       return payload
     } catch (error) {
+      const cached = readCachedLearningSession()
+      if (cached) setLearning(cached)
       setLearningError(
-        error instanceof Error
+        cached
+          ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
+          : error instanceof Error
           ? error.message
           : "Your latest skill results could not load."
       )
       return null
     }
   }, [])
+
+  useEffect(() => {
+    async function flushOfflineAnswers() {
+      const queued = readOfflineQueue()
+      if (!queued.length) return
+      for (let index = 0; index < queued.length; index += 1) {
+        try {
+          await learningRequest(queued[index])
+          const remaining = queued.slice(index + 1)
+          window.localStorage.setItem(
+            OFFLINE_QUEUE_KEY,
+            JSON.stringify(remaining)
+          )
+        } catch {
+          return
+        }
+      }
+      await refreshLearningSession()
+    }
+    window.addEventListener("online", flushOfflineAnswers)
+    if (navigator.onLine) void flushOfflineAnswers()
+    return () => window.removeEventListener("online", flushOfflineAnswers)
+  }, [refreshLearningSession])
+
+  useEffect(() => {
+    if (learning) {
+      window.localStorage.setItem(OFFLINE_LESSON_KEY, JSON.stringify(learning))
+    }
+  }, [learning])
 
   useEffect(() => {
     let active = true
@@ -161,8 +241,12 @@ export function Dashboard({
       })
       .catch((error: unknown) => {
         if (!active) return
+        const cached = readCachedLearningSession()
+        if (cached) setLearning(cached)
         setLearningError(
-          error instanceof Error
+          cached
+            ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
+            : error instanceof Error
             ? error.message
             : "The learning session could not load."
         )
@@ -196,6 +280,106 @@ export function Dashboard({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function submitTeachBack(response: string) {
+    setSubmitting(true)
+    try {
+      setLearning(await learningRequest({ action: "teach_back", response }))
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error ? error.message : "Could not check the teach-back."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function submitLessonFeedback(helpful: boolean, style: string) {
+    try {
+      setLearning(
+        await learningRequest({ action: "lesson_feedback", helpful, style })
+      )
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error ? error.message : "Could not save lesson feedback."
+      )
+    }
+  }
+
+  async function correctLearnerModel(input: {
+    skill: string
+    kind: "too-high" | "too-low" | "wrong-misconception"
+    note: string
+  }) {
+    setSubmitting(true)
+    try {
+      setLearning(
+        await learningRequest({ action: "correct_model", ...input })
+      )
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error ? error.message : "Could not correct the model."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function saveTutorOverride(input: {
+    skill: string
+    reason: string
+  }) {
+    setSubmitting(true)
+    try {
+      setLearning(
+        await learningRequest({ action: "tutor_override", ...input })
+      )
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error ? error.message : "Could not save the override."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function decideLessonContent(input: {
+    approved: boolean
+    editedExplanation?: string
+  }) {
+    setSubmitting(true)
+    try {
+      const payload = await learningRequest({ action: "review_lesson", ...input })
+      setLearning(payload)
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error
+          ? error.message
+          : "Could not save the lesson decision."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function deleteLearnerData() {
+    await Promise.allSettled(
+      ["/api/learning", "/api/calibration", "/api/diagnostic", "/api/exam-lab", "/api/study-plan"].map(
+        (url) => fetch(url, { method: "DELETE" })
+      )
+    )
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith("scout-") || key.startsWith("ai-act-")) {
+        window.localStorage.removeItem(key)
+      }
+    }
+    window.location.reload()
   }
 
   async function submitAnswer(metadata: {
@@ -312,6 +496,7 @@ export function Dashboard({
               <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
               <TabsTrigger value="progress">My Skills</TabsTrigger>
               <TabsTrigger value="lab">Test Lab</TabsTrigger>
+              <TabsTrigger value="control">Scout Lab</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-3 justify-self-end">
               <div className="hidden sm:block">
@@ -341,6 +526,8 @@ export function Dashboard({
                 onSectionChange={setActiveSection}
                 onChoiceChange={setSelectedChoice}
                 onCompleteLesson={completeLesson}
+                onTeachBack={submitTeachBack}
+                onLessonFeedback={submitLessonFeedback}
                 onSubmitAnswer={submitAnswer}
                 onClose={() => setWorkspaceOpen(false)}
               />
@@ -362,6 +549,24 @@ export function Dashboard({
                 }
                 onStartCheckpoint={() =>
                   startMissionAction({ action: "start_checkpoint" }, true)
+                }
+                onStartRetention={(skill) =>
+                  startMissionAction(
+                    { action: "start_retention", skill },
+                    true
+                  )
+                }
+                onStartChallenge={(skill) =>
+                  startMissionAction(
+                    { action: "start_challenge", skill },
+                    true
+                  )
+                }
+                onStartMicro={(skill) =>
+                  startMissionAction({ action: "start_micro", skill }, true)
+                }
+                onStartRecovery={() =>
+                  startMissionAction({ action: "start_recovery" }, true)
                 }
               />
             ) : (
@@ -408,6 +613,8 @@ export function Dashboard({
               onInspectLearningTwin={() => setActiveTab("progress")}
               onReturnToToday={() => setActiveTab("today")}
               onStartFullDiagnostic={onStartFullDiagnostic}
+              adaptiveBaselineRequired={plan.adaptiveBaselineRequired === true}
+              onUseAdaptiveBaseline={onUseAdaptiveBaseline}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
@@ -430,6 +637,30 @@ export function Dashboard({
         </TabsContent>
         <TabsContent value="lab">
           <AccessibleTestDayLab />
+        </TabsContent>
+        <TabsContent value="control">
+          {learning ? (
+            <ScoutOperationsLab
+              plan={plan}
+              learning={learning}
+              busy={submitting}
+              onCorrectModel={correctLearnerModel}
+              onTutorOverride={saveTutorOverride}
+              onStartChallenge={(skill) =>
+                startMissionAction(
+                  { action: "start_challenge", skill },
+                  true
+                ).then(() => setActiveTab("today"))
+              }
+              onStartRecovery={() =>
+                startMissionAction({ action: "start_recovery" }, true).then(
+                  () => setActiveTab("today")
+                )
+              }
+              onDeleteData={deleteLearnerData}
+              onContentDecision={decideLessonContent}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </ScoutProvider>

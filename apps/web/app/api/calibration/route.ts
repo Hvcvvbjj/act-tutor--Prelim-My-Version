@@ -104,7 +104,14 @@ export async function POST(request: NextRequest) {
     const answered = await calibrationSessions.answer(
       sessionId,
       CALIBRATION_BANK,
-      { questionId: body.questionId, choiceId: body.choiceId }
+      {
+        questionId: body.questionId,
+        choiceId: body.choiceId,
+        confidence:
+          body.confidence === "unsure" || body.confidence === "guessing"
+            ? body.confidence
+            : "sure",
+      }
     )
     const learningTwinUpdated = answered.evidence
       ? await syncLearningTwin(request, [answered.evidence])

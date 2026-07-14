@@ -3,12 +3,14 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import {
+  applyLearnerModelCorrection,
   applyKnowledgeObservation,
   applyPracticeAttempt,
   answerEvidenceWeight,
   buildLearningTwinSnapshot,
   buildDueReviews,
   calculateLearningStreak,
+  chooseNextSkill,
   createInitialKnowledgeState,
   createInitialMastery,
   learnerLevel,
@@ -34,6 +36,9 @@ import {
   type PracticeFeedback,
   type PracticeQuestionSecure,
   type SkillDefinition,
+  type LearnerModelCorrection,
+  type TeachBackResult,
+  type TutorOverrideRecord,
 } from "@act-tutor/core";
 
 import { AuthoredLessonComposer, type LessonComposer } from "./lesson-composer";
@@ -81,6 +86,14 @@ interface StoredLearnerProgress {
   diagnosticSkillResults: DiagnosticSkillResult[];
   lessonXpAwarded: boolean;
   completionXpAwarded: boolean;
+  exposureByQuestion?: Record<string, number>;
+  modelCorrections?: LearnerModelCorrection[];
+  tutorOverrides?: TutorOverrideRecord[];
+  teachBackBySkill?: Record<string, TeachBackResult>;
+  lessonFeedbackBySkill?: Record<
+    string,
+    { helpful: number; unhelpful: number; preferredStyle: string | null }
+  >;
 }
 
 interface StoredLearningSession {
@@ -101,6 +114,7 @@ interface StoredLearningSession {
   lesson?: PersonalizedLessonContent;
   profile?: StoredLearnerProgress;
   planContext?: LessonPlanContext;
+  repairMistakeId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -140,6 +154,30 @@ function getQuestions(bank: LearningBankInput, skill: string) {
   return questions;
 }
 
+function leastExposedQuestions(
+  bank: LearningBankInput,
+  profile: StoredLearnerProgress,
+  skill: string,
+  count: number,
+  options: { exclude?: string; preferHard?: boolean } = {},
+) {
+  const exposure = profile.exposureByQuestion ?? {};
+  return getQuestions(bank, skill)
+    .filter((question) => question.id !== options.exclude)
+    .sort((left, right) => {
+      const exposureGap =
+        (exposure[left.id] ?? 0) - (exposure[right.id] ?? 0);
+      if (exposureGap !== 0) return exposureGap;
+      if (options.preferHard) {
+        const rank = { hard: 0, medium: 1, easy: 2 } as const;
+        const difficultyGap = rank[left.difficulty] - rank[right.difficulty];
+        if (difficultyGap !== 0) return difficultyGap;
+      }
+      return left.id.localeCompare(right.id);
+    })
+    .slice(0, count);
+}
+
 function getSessionQuestions(
   session: StoredLearningSession,
   bank: LearningBankInput,
@@ -167,7 +205,17 @@ function ensureProfile(session: StoredLearningSession): StoredLearnerProgress {
     diagnosticSkillResults: [],
     lessonXpAwarded: session.lessonComplete,
     completionXpAwarded: session.answers.length === session.questionIds.length,
+    exposureByQuestion: {},
+    modelCorrections: [],
+    tutorOverrides: [],
+    teachBackBySkill: {},
+    lessonFeedbackBySkill: {},
   };
+  session.profile.exposureByQuestion ??= {};
+  session.profile.modelCorrections ??= [];
+  session.profile.tutorOverrides ??= [];
+  session.profile.teachBackBySkill ??= {};
+  session.profile.lessonFeedbackBySkill ??= {};
   session.decisionHistory ??= [];
   return session.profile;
 }
@@ -194,6 +242,12 @@ function assertSessionMatchesBank(
     );
   }
   if (
+    session.mode === "micro" &&
+    (questions.length !== 1 || questions[0].skill !== session.todaySkill)
+  ) {
+    throw new RangeError("This three-minute session belongs to different content.");
+  }
+  if (
     session.mode === "repair" &&
     (questions.length !== 1 || questions[0].skill !== session.todaySkill)
   ) {
@@ -205,6 +259,15 @@ function assertSessionMatchesBank(
     throw new RangeError(
       "This checkpoint belongs to different practice content.",
     );
+  }
+  if (
+    (session.mode === "retention" || session.mode === "recovery") &&
+    questions.length !== 2
+  ) {
+    throw new RangeError("This review session belongs to different content.");
+  }
+  if (session.mode === "challenge" && questions.length !== 3) {
+    throw new RangeError("This mastery challenge belongs to different content.");
   }
 }
 
@@ -375,6 +438,7 @@ function lessonReceipt(
   lesson: PersonalizedLessonContent,
 ) {
   const generated = lesson.generation.mode === "ai";
+  const humanReviewed = lesson.generation.provider === "Teacher-reviewed edit";
   return {
     objective: lesson.objective,
     approvedRule: lesson.concept,
@@ -382,10 +446,14 @@ function lessonReceipt(
       .filter((event) => event.skill === lesson.skill)
       .slice(-5)
       .map((event) => event.questionId),
-    generatorStatus: generated
+    generatorStatus: humanReviewed
+      ? "Teacher-reviewed edit saved with its original reviewed source"
+      : generated
       ? `${lesson.generation.provider} · ${lesson.generation.model ?? "model recorded"}`
       : "Reviewed lesson bank used because generated content was unavailable or unnecessary",
-    validationResult: generated
+    validationResult: humanReviewed
+      ? ("human-reviewed" as const)
+      : generated
       ? ("passed" as const)
       : ("reviewed-fallback" as const),
     validationChecks: [
@@ -394,7 +462,9 @@ function lessonReceipt(
       "No answer key exposed before practice",
       "Required lesson sections passed schema checks",
     ],
-    deliveredAs: generated
+    deliveredAs: humanReviewed
+      ? ("human-reviewed" as const)
+      : generated
       ? ("generated" as const)
       : ("reviewed-fallback" as const),
   };
@@ -521,6 +591,191 @@ function missionSummary(
   };
 }
 
+const PREREQUISITES: Record<string, string> = {
+  "punctuation-and-commas": "sentence-boundaries",
+  "concision-and-redundancy": "sentence-boundaries",
+  "logical-transitions": "concision-and-redundancy",
+  "linear-equations": "ratios-and-percent",
+  "functions-and-modeling": "linear-equations",
+  "geometry-and-measurement": "linear-equations",
+  "textual-evidence-and-details": "central-ideas-and-details",
+  "supported-inference": "textual-evidence-and-details",
+  "author-purpose-and-structure": "central-ideas-and-details",
+};
+
+function learnerModelReport(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+  states: Record<string, KnowledgeState>,
+) {
+  const profile = ensureProfile(session);
+  const current = states[session.todaySkill] ?? Object.values(states)[0];
+  const events = session.learningTwinEvents ?? [];
+  const responseTimes = events
+    .flatMap((event) =>
+      event.responseSeconds === null ? [] : [event.responseSeconds],
+    )
+    .sort((left, right) => left - right);
+  const medianSeconds = responseTimes.length
+    ? responseTimes[Math.floor(responseTimes.length / 2)]
+    : null;
+  const grouped = new Map<
+    string,
+    { skill: string; count: number; questionId: string }
+  >();
+  for (const mistake of profile.mistakes.filter(
+    (item) => item.resolvedAt === null && item.misconception,
+  )) {
+    const key = `${mistake.skill}:${mistake.misconception}`;
+    const found = grouped.get(key);
+    grouped.set(key, {
+      skill: mistake.skill,
+      count: (found?.count ?? 0) + mistake.attempts,
+      questionId: mistake.questionId,
+    });
+  }
+  const misconceptions = [...grouped.entries()]
+    .map(([key, value]) => {
+      const label = key.slice(key.indexOf(":") + 1);
+      return {
+        label,
+        skill: value.skill,
+        skillLabel: getSkill(bank, value.skill).label,
+        count: value.count,
+        latestQuestionId: value.questionId,
+      };
+    })
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 6);
+  const prerequisite = PREREQUISITES[session.nextSkill];
+  const prerequisiteState = prerequisite ? states[prerequisite] : null;
+  const transferPair = events.find((event, index) => {
+    const previous = events[index - 1];
+    return previous && previous.skill !== event.skill && previous.correct && event.correct;
+  });
+  const due = buildDueReviews(Object.values(session.masteryBySkill), session.updatedAt);
+  const explore = [...Object.values(states)].sort(
+    (left, right) => right.uncertainty - left.uncertainty,
+  )[0];
+  const certainty = current ? 1 - current.uncertainty : 0;
+  return {
+    readiness: {
+      mastery: current?.learnedProbability ?? 0.5,
+      certainty,
+      label:
+        certainty >= 0.7
+          ? "Strong estimate"
+          : certainty >= 0.4
+            ? "Useful estimate, still checking"
+            : "Early estimate",
+    },
+    misconceptions,
+    responseTime: {
+      medianSeconds,
+      interpretation:
+        medianSeconds === null
+          ? "Scout has not timed enough independent answers yet."
+          : `Your middle response time is ${medianSeconds} seconds. Scout uses this for pacing advice, never as a mastery penalty.`,
+      affectsMastery: false as const,
+    },
+    prerequisiteConfusion:
+      prerequisiteState && prerequisiteState.learnedProbability < 0.55
+        ? `${getSkill(bank, prerequisite).label} may be causing trouble with ${getSkill(bank, session.nextSkill).label}. Scout will repair the prerequisite first, then return.`
+        : null,
+    transferSignal: transferPair
+      ? `You carried a correct method from ${transferPair.skillLabel} into a different skill. Scout marked that as transfer evidence.`
+      : "Scout needs correct answers in two different settings before claiming the skill transfers.",
+    decaySignal: due.length
+      ? due[0].explanation
+      : "No practiced skill is close enough to its forgetting window yet.",
+    explorationQuestion: explore
+      ? `Scout’s next exploration question should check ${explore.label}, where the estimate is least certain.`
+      : "Scout needs another answer before choosing an exploration question.",
+    corrections: [...(profile.modelCorrections ?? [])].reverse().slice(0, 20),
+  };
+}
+
+function learningTrustReport(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+  states: Record<string, KnowledgeState>,
+) {
+  const profile = ensureProfile(session);
+  const exposure = profile.exposureByQuestion ?? {};
+  const exposureRows = Object.entries(exposure)
+    .map(([questionId, attempts]) => ({
+      questionId,
+      attempts,
+      protected: attempts >= 2,
+    }))
+    .sort((left, right) => right.attempts - left.attempts);
+  const itemHealth = exposureRows.map((item) => {
+    const repeatedMisses = profile.mistakes
+      .filter((mistake) => mistake.questionId === item.questionId)
+      .reduce((sum, mistake) => sum + mistake.attempts, 0);
+    return {
+      questionId: item.questionId,
+      status:
+        repeatedMisses >= 3
+          ? ("watch" as const)
+          : item.attempts >= 3
+            ? ("healthy" as const)
+            : ("not-enough-data" as const),
+      reason:
+        repeatedMisses >= 3
+          ? "Repeated misses make this item worth a human review; Scout will not treat it as unquestionable."
+          : item.attempts >= 3
+            ? "No learner-specific warning signal appeared across repeated exposure."
+            : "Scout abstained because one learner has not produced enough evidence to judge this item.",
+    };
+  });
+  const bkt = recommendKnowledgeState(Object.values(states), session.nextSkill);
+  const legacy = chooseNextSkill(Object.values(session.masteryBySkill));
+  const uncertain = [...Object.values(states)].sort(
+    (left, right) => right.uncertainty - left.uncertainty,
+  )[0];
+  const random = bank.skills[ensureProfile(session).completedSets % bank.skills.length];
+  return {
+    exposure: exposureRows,
+    itemHealth,
+    modelComparison: {
+      current: bkt.label,
+      comparison: legacy.label,
+      agrees: bkt.skill === legacy.skill,
+      explanation:
+        bkt.skill === legacy.skill
+          ? "The learning model and the simpler accuracy model choose the same next skill."
+          : `The learning model chooses ${bkt.label} because it includes certainty and recent evidence; the simpler model would choose ${legacy.label}.`,
+    },
+    policyBenchmarks: [
+      {
+        policy: "Scout adaptive",
+        nextSkill: bkt.label,
+        tradeoff: "Balances weakness, certainty, evidence count, and recent misses.",
+      },
+      {
+        policy: "Weakest only",
+        nextSkill: legacy.label,
+        tradeoff: "Repairs the lowest estimate but may overreact to thin evidence.",
+      },
+      {
+        policy: "Explore uncertainty",
+        nextSkill: uncertain?.label ?? bkt.label,
+        tradeoff: "Learns more about an unclear skill, even if it is not the weakest.",
+      },
+      {
+        policy: "Non-adaptive control",
+        nextSkill: random.label,
+        tradeoff: "Provides a comparison baseline without personalization.",
+      },
+    ],
+    abstentions: [
+      "Fairness by demographic group is not reported because this guest session does not collect demographic data or contain a large enough cohort.",
+      "Item quality is not declared from a single answer; Scout waits for repeated evidence and flags uncertainty.",
+    ],
+  };
+}
+
 function toPayload(
   session: StoredLearningSession,
   bank: LearningBankInput,
@@ -590,6 +845,13 @@ function toPayload(
     lessonReceipt: lessonReceipt(session, lesson),
     coachBrief: coachBrief(session, bank, learningTwinBySkill),
     missionPurpose,
+    learnerModel: learnerModelReport(session, bank, learningTwinBySkill),
+    trustReport: learningTrustReport(session, bank, learningTwinBySkill),
+    teachBack:
+      ensureProfile(session).teachBackBySkill?.[session.todaySkill] ?? null,
+    tutorOverrides: [...(ensureProfile(session).tutorOverrides ?? [])]
+      .reverse()
+      .slice(0, 20),
   };
 }
 
@@ -847,7 +1109,7 @@ export class FileLearningSessionRepository {
       const session = store.sessions[sessionId];
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
-      if (session.mode !== "focus")
+      if (session.mode !== "focus" && session.mode !== "micro")
         throw new RangeError("This mission does not contain a lesson.");
       const profile = ensureProfile(session);
       const now = new Date().toISOString();
@@ -890,6 +1152,7 @@ export class FileLearningSessionRepository {
       session.previousNextSkill = session.nextSkill;
       session.nextSkill = skillSlug;
       session.mode = "focus";
+      session.repairMistakeId = null;
       session.lessonComplete = false;
       session.questionIds = getQuestions(bank, skillSlug).map(
         (question) => question.id,
@@ -933,13 +1196,17 @@ export class FileLearningSessionRepository {
           "That missed question was already fixed or is no longer available.",
         );
       getSkill(bank, mistake.skill);
-      const question = bank.practice.find(
-        (item) => item.id === mistake.questionId,
-      );
-      if (!question)
-        throw new RangeError("That practice question is unavailable.");
+      const question = leastExposedQuestions(
+        bank,
+        profile,
+        mistake.skill,
+        1,
+        { exclude: mistake.questionId },
+      )[0];
+      if (!question) throw new RangeError("That practice question is unavailable.");
       session.todaySkill = mistake.skill;
       session.mode = "repair";
+      session.repairMistakeId = mistake.id;
       session.lessonComplete = true;
       session.questionIds = [question.id];
       session.answers = [];
@@ -980,6 +1247,134 @@ export class FileLearningSessionRepository {
       session.mode = "checkpoint";
       session.lessonComplete = true;
       session.questionIds = questionIds;
+      session.answers = [];
+      session.lesson = undefined;
+      profile.lessonXpAwarded = true;
+      profile.completionXpAwarded = false;
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async beginRetention(
+    sessionId: string,
+    bank: LearningBankInput,
+    skillSlug: string,
+  ) {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (!isComplete(session))
+        throw new RangeError("Finish your current task before starting review.");
+      const profile = ensureProfile(session);
+      getSkill(bank, skillSlug);
+      const questions = leastExposedQuestions(bank, profile, skillSlug, 2);
+      session.todaySkill = skillSlug;
+      session.mode = "retention";
+      session.repairMistakeId = null;
+      session.lessonComplete = true;
+      session.questionIds = questions.map((question) => question.id);
+      session.answers = [];
+      session.lesson = undefined;
+      profile.lessonXpAwarded = true;
+      profile.completionXpAwarded = false;
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async beginChallenge(
+    sessionId: string,
+    bank: LearningBankInput,
+    skillSlug?: string,
+  ) {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (!isComplete(session))
+        throw new RangeError("Finish your current task before starting a challenge.");
+      const profile = ensureProfile(session);
+      const skill = getSkill(bank, skillSlug ?? session.nextSkill);
+      const questions = leastExposedQuestions(bank, profile, skill.slug, 3, {
+        preferHard: true,
+      });
+      session.todaySkill = skill.slug;
+      session.mode = "challenge";
+      session.repairMistakeId = null;
+      session.lessonComplete = true;
+      session.questionIds = questions.map((question) => question.id);
+      session.answers = [];
+      session.lesson = undefined;
+      profile.lessonXpAwarded = true;
+      profile.completionXpAwarded = false;
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async beginMicro(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: { skill?: string; plan: LessonPlanContext },
+    lessonComposer: LessonComposer = new AuthoredLessonComposer(),
+  ) {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (!isComplete(session))
+        throw new RangeError("Finish your current task before starting quick study.");
+      const profile = ensureProfile(session);
+      const skill = getSkill(bank, input.skill ?? session.nextSkill);
+      const lesson = await lessonComposer.compose({
+        baseLesson: getLesson(bank, skill.slug),
+        skill,
+        diagnosticSkillResults: profile.diagnosticSkillResults,
+        plan: input.plan,
+      });
+      session.todaySkill = skill.slug;
+      session.mode = "micro";
+      session.repairMistakeId = null;
+      session.lessonComplete = false;
+      session.questionIds = leastExposedQuestions(bank, profile, skill.slug, 1).map(
+        (question) => question.id,
+      );
+      session.answers = [];
+      session.lesson = { ...lesson, minutes: 3 };
+      session.planContext = input.plan;
+      profile.lessonXpAwarded = false;
+      profile.completionXpAwarded = false;
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async beginRecovery(sessionId: string, bank: LearningBankInput) {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (!isComplete(session))
+        throw new RangeError("Finish your current task before starting recovery.");
+      const profile = ensureProfile(session);
+      const ranked = rankKnowledgeStates(
+        Object.values(ensureLearningTwin(session, bank)),
+        session.nextSkill,
+      ).slice(0, 2);
+      const questions = ranked.map(
+        (state) => leastExposedQuestions(bank, profile, state.skill, 1)[0],
+      );
+      session.todaySkill = ranked[0].skill;
+      session.mode = "recovery";
+      session.repairMistakeId = null;
+      session.lessonComplete = true;
+      session.questionIds = questions.map((question) => question.id);
       session.answers = [];
       session.lesson = undefined;
       profile.lessonXpAwarded = true;
@@ -1036,6 +1431,9 @@ export class FileLearningSessionRepository {
       );
       const now = new Date().toISOString();
       const profile = ensureProfile(session);
+      profile.exposureByQuestion ??= {};
+      profile.exposureByQuestion[expectedQuestion.id] =
+        (profile.exposureByQuestion[expectedQuestion.id] ?? 0) + 1;
       const updated = applyPracticeAttempt(
         session.masteryBySkill[expectedQuestion.skill],
         {
@@ -1072,6 +1470,9 @@ export class FileLearningSessionRepository {
       const recommendation = recommendKnowledgeState(
         Object.values(learningTwinBySkill),
         session.todaySkill,
+      );
+      const comparisonRecommendation = chooseNextSkill(
+        Object.values(session.masteryBySkill),
       );
       const futureTask = {
         todaySkill: session.todaySkill,
@@ -1113,6 +1514,9 @@ export class FileLearningSessionRepository {
             : `The evidence was not strong enough to replace today's unfinished mission.`,
         misconception: selectedChoice?.misconception ?? null,
         modelVersion: "bkt-1.0",
+        comparisonPlan: comparisonRecommendation.skill,
+        comparisonPlanLabel: comparisonRecommendation.label,
+        comparisonModelVersion: "accuracy-1.0",
       };
       session.decisionHistory = [
         ...(session.decisionHistory ?? []),
@@ -1150,10 +1554,17 @@ export class FileLearningSessionRepository {
       if (correct) profile.totalCorrect += 1;
       profile.xp += xpForPractice(correct, expectedQuestion.difficulty);
       recordActivity(profile, now);
-      const openMistake = profile.mistakes.find(
-        (item) =>
-          item.questionId === expectedQuestion.id && item.resolvedAt === null,
-      );
+      const openMistake =
+        (session.mode === "repair" && session.repairMistakeId
+          ? profile.mistakes.find(
+              (item) =>
+                item.id === session.repairMistakeId && item.resolvedAt === null,
+            )
+          : undefined) ??
+        profile.mistakes.find(
+          (item) =>
+            item.questionId === expectedQuestion.id && item.resolvedAt === null,
+        );
       if (correct && openMistake) {
         openMistake.resolvedAt = now;
         openMistake.lastAttemptAt = now;
@@ -1192,6 +1603,240 @@ export class FileLearningSessionRepository {
     });
   }
 
+  async recordTeachBack(
+    sessionId: string,
+    bank: LearningBankInput,
+    response: string,
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const text = response.trim();
+      if (text.length < 20 || text.length > 1000)
+        throw new RangeError("Teach-back must be between 20 and 1,000 characters.");
+      const lesson = session.lesson ?? fallbackLesson(getLesson(bank, session.todaySkill), session);
+      const normalized = text.toLowerCase();
+      const ruleWords = lesson.concept
+        .toLowerCase()
+        .match(/[a-z]{5,}/g)
+        ?.slice(0, 8) ?? [];
+      const rubric = [
+        {
+          label: "Names the rule or decision",
+          met: ruleWords.some((word) => normalized.includes(word)),
+        },
+        {
+          label: "Explains why the rule works",
+          met: /\b(because|so that|which means|therefore|why)\b/.test(normalized),
+        },
+        {
+          label: "Gives or tests an example",
+          met: /\b(example|for instance|if |such as|try )\b/.test(normalized),
+        },
+      ];
+      const score = rubric.filter((item) => item.met).length;
+      const result: TeachBackResult = {
+        id: randomUUID(),
+        occurredAt: new Date().toISOString(),
+        skill: session.todaySkill,
+        response: text,
+        score,
+        maxScore: 3,
+        rubric,
+        feedback:
+          score === 3
+            ? "You named the rule, explained it, and tested it with an example."
+            : score === 2
+              ? "The main idea is there. Add the one missing rubric part before practice."
+              : "Scout found only part of the rule. Use the worked example, then explain the decision again in your own words.",
+      };
+      const profile = ensureProfile(session);
+      profile.teachBackBySkill ??= {};
+      profile.teachBackBySkill[session.todaySkill] = result;
+      session.updatedAt = result.occurredAt;
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async correctLearnerModel(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: {
+      skill: string;
+      kind: LearnerModelCorrection["kind"];
+      note: string;
+    },
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const skill = getSkill(bank, input.skill);
+      const states = ensureLearningTwin(session, bank);
+      const before = states[skill.slug];
+      const after = applyLearnerModelCorrection(before, input.kind);
+      states[skill.slug] = after;
+      const note = input.note.trim().slice(0, 300);
+      const record: LearnerModelCorrection = {
+        id: randomUUID(),
+        occurredAt: new Date().toISOString(),
+        skill: skill.slug,
+        skillLabel: skill.label,
+        kind: input.kind,
+        note: note || "Learner corrected Scout’s interpretation.",
+        before: before.learnedProbability,
+        after: after.learnedProbability,
+      };
+      const profile = ensureProfile(session);
+      profile.modelCorrections = [...(profile.modelCorrections ?? []), record].slice(-50);
+      if (input.kind === "wrong-misconception") {
+        const mistake = [...profile.mistakes]
+          .reverse()
+          .find((item) => item.skill === skill.slug && item.resolvedAt === null);
+        if (mistake) mistake.misconception = null;
+      }
+      const recommendation = recommendKnowledgeState(Object.values(states), session.nextSkill);
+      session.previousNextSkill = session.nextSkill;
+      session.nextSkill = recommendation.skill;
+      session.futureTask = {
+        todaySkill: session.todaySkill,
+        nextSkill: recommendation.skill,
+        changed: recommendation.skill !== session.previousNextSkill,
+        reason: `Scout included your correction, then reran the next-mission decision: ${recommendation.reason}`,
+      };
+      session.updatedAt = record.occurredAt;
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async recordTutorOverride(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: { skill: string; reason: string },
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const skill = getSkill(bank, input.skill);
+      const reason = input.reason.trim();
+      if (reason.length < 8 || reason.length > 300)
+        throw new RangeError("Tutor override reason must be 8 to 300 characters.");
+      const record: TutorOverrideRecord = {
+        id: randomUUID(),
+        occurredAt: new Date().toISOString(),
+        previousSkill: session.nextSkill,
+        selectedSkill: skill.slug,
+        selectedSkillLabel: skill.label,
+        reason,
+      };
+      const profile = ensureProfile(session);
+      profile.tutorOverrides = [...(profile.tutorOverrides ?? []), record].slice(-50);
+      session.previousNextSkill = session.nextSkill;
+      session.nextSkill = skill.slug;
+      session.futureTask = {
+        todaySkill: session.todaySkill,
+        nextSkill: skill.slug,
+        changed: skill.slug !== record.previousSkill,
+        reason: `Tutor override: ${reason}`,
+      };
+      session.updatedAt = record.occurredAt;
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async recordLessonFeedback(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: { helpful: boolean; style: string },
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const profile = ensureProfile(session);
+      profile.lessonFeedbackBySkill ??= {};
+      const previous = profile.lessonFeedbackBySkill[session.todaySkill] ?? {
+        helpful: 0,
+        unhelpful: 0,
+        preferredStyle: null,
+      };
+      profile.lessonFeedbackBySkill[session.todaySkill] = {
+        helpful: previous.helpful + (input.helpful ? 1 : 0),
+        unhelpful: previous.unhelpful + (input.helpful ? 0 : 1),
+        preferredStyle: input.helpful ? input.style.slice(0, 40) : previous.preferredStyle,
+      };
+      if (
+        !input.helpful &&
+        profile.lessonFeedbackBySkill[session.todaySkill].unhelpful >= 2 &&
+        session.lesson?.generation.mode === "ai"
+      ) {
+        session.lesson = fallbackLesson(getLesson(bank, session.todaySkill), session);
+      }
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
+  async reviewLessonContent(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: { approved: boolean; editedExplanation?: string },
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const baseLesson = getLesson(bank, session.todaySkill);
+      const current = session.lesson ?? fallbackLesson(baseLesson, session);
+      const editedExplanation = input.editedExplanation?.trim() ?? "";
+
+      if (!input.approved) {
+        session.lesson = fallbackLesson(baseLesson, session);
+      } else if (editedExplanation) {
+        if (editedExplanation.length < 20 || editedExplanation.length > 1200) {
+          throw new RangeError("A reviewed explanation must be 20 to 1,200 characters.");
+        }
+        if (/guaranteed score|official act question|leaked answer/i.test(editedExplanation)) {
+          throw new RangeError("The reviewed edit contains an unsafe or unsupported claim.");
+        }
+        session.lesson = {
+          ...current,
+          concept: editedExplanation,
+          sections: current.sections.map((section, index) =>
+            index === 0 ? { ...section, explanation: editedExplanation } : section,
+          ),
+          generation: {
+            mode: "authored-fallback",
+            provider: "Teacher-reviewed edit",
+            model: null,
+            generatedAt: new Date().toISOString(),
+          },
+        };
+      }
+      const profile = ensureProfile(session);
+      profile.lessonFeedbackBySkill ??= {};
+      const previous = profile.lessonFeedbackBySkill[session.todaySkill] ?? {
+        helpful: 0,
+        unhelpful: 0,
+        preferredStyle: null,
+      };
+      profile.lessonFeedbackBySkill[session.todaySkill] = {
+        helpful: previous.helpful + (input.approved ? 1 : 0),
+        unhelpful: previous.unhelpful + (input.approved ? 0 : 1),
+        preferredStyle: input.approved ? "human-review" : previous.preferredStyle,
+      };
+      session.updatedAt = new Date().toISOString();
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
   async recordCalibrationEvidence(
     sessionId: string,
     bank: LearningBankInput,
@@ -1223,7 +1868,7 @@ export class FileLearningSessionRepository {
         difficulty: evidence.difficulty,
         observedAt: evidence.observedAt,
         source: "calibration",
-        confidence: "sure",
+        confidence: evidence.confidence ?? "sure",
       });
       learningTwinBySkill[skill.slug] = update.state;
       session.learningTwinEvents = [...twinEvents, update.event].slice(-100);
@@ -1232,6 +1877,9 @@ export class FileLearningSessionRepository {
       const recommendation = recommendKnowledgeState(
         Object.values(learningTwinBySkill),
         session.todaySkill,
+      );
+      const comparisonRecommendation = chooseNextSkill(
+        Object.values(session.masteryBySkill),
       );
       session.previousNextSkill = previousRecommendation;
       session.nextSkill = recommendation.skill;
@@ -1267,6 +1915,9 @@ export class FileLearningSessionRepository {
             : `Scout kept the plan steady because one answer did not clear the change threshold.`,
         misconception: null,
         modelVersion: "bkt-1.0",
+        comparisonPlan: comparisonRecommendation.skill,
+        comparisonPlanLabel: comparisonRecommendation.label,
+        comparisonModelVersion: "accuracy-1.0",
       };
       session.decisionHistory = [
         ...(session.decisionHistory ?? []),

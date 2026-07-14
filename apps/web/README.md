@@ -1,6 +1,6 @@
 # Scout ACT web app
 
-This is the Next.js frontend for Scout ACT. It contains the three-gate onboarding flow, deterministic plan reveal, a 66-question half-length baseline, AI-assisted four-stage lessons, the interactive Scout tutor, and a durable adaptive learning loop.
+This is the Next.js frontend for Scout ACT. It contains the three-gate onboarding flow, an 8–12 question adaptive baseline with an optional 66-question precision form, AI-assisted teaching loops, the product-wide Ask Scout layer, Test Lab, coach/trust tools, and a durable adaptive learning loop.
 
 Run it from the repository root so the local `@act-tutor/core` workspace package resolves correctly.
 
@@ -28,7 +28,7 @@ pnpm check
 
 ## Current boundary
 
-The prior-score path produces a deterministic local plan. The no-score path loads a validated 66-question half-length form from a Route Handler, autosaves progress to a cookie-bound anonymous server session, withholds keys until submission, finalizes idempotently, scores an estimated range on the server, and feeds the result into the same planner.
+The prior-score path produces a deterministic local plan. The no-score path starts with the adaptive Quick Check, then replaces its temporary baseline and rebuilds the plan from the learner's own answers. A validated 66-question half-length form remains available for higher precision, with autosave, server scoring, and withheld answer keys.
 
 The dashboard starts a separate cookie-bound learning session. It creates and persists an individualized four-stage lesson through an optional OpenAI-compatible model, with a reviewed fallback when AI is unavailable. It gates the five-question focus set until teaching is complete, withholds answer keys until each answer is submitted, updates mastery deterministically, schedules review, and shows whether future practice changed. Today's task stays stable during the session.
 

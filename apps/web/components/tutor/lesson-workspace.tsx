@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { ScoutCoach, type ScoutMood } from "@/components/tutor/scout"
+import { useScoutContext } from "@/components/tutor/scout-assistant"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel } from "@/components/ui/progress"
@@ -30,6 +31,8 @@ interface LessonWorkspaceProps {
   onSectionChange: (index: number) => void
   onChoiceChange: (choice: string) => void
   onCompleteLesson: () => void
+  onTeachBack: (response: string) => void
+  onLessonFeedback: (helpful: boolean, style: string) => void
   onSubmitAnswer: (metadata: {
     confidence: AnswerConfidence
     selfCorrected: boolean
@@ -74,6 +77,8 @@ function LessonStage({
   submitting,
   onSectionChange,
   onCompleteLesson,
+  onTeachBack,
+  onLessonFeedback,
 }: Pick<
   LessonWorkspaceProps,
   | "learning"
@@ -81,9 +86,32 @@ function LessonStage({
   | "submitting"
   | "onSectionChange"
   | "onCompleteLesson"
+  | "onTeachBack"
+  | "onLessonFeedback"
 >) {
   const section = learning.lesson.sections[activeSection]
   const isLast = activeSection === learning.lesson.sections.length - 1
+  const { accommodations, explanationPreferences } = useScoutContext()
+  const [explanationMode, setExplanationMode] = useState<
+    "standard" | "short" | "analogy" | "visual"
+  >(explanationPreferences.depth === "quick" ? "short" : "standard")
+  const [teachBack, setTeachBack] = useState(learning.teachBack?.response ?? "")
+  const displayExplanation =
+    explanationMode === "short"
+      ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
+      : explanationMode === "analogy"
+        ? `Think of this like ${
+            explanationPreferences.exampleStyle === "sports"
+              ? "checking the rule before the play counts"
+              : explanationPreferences.exampleStyle === "gaming"
+                ? "checking the game mechanic before choosing a move"
+                : explanationPreferences.exampleStyle === "school"
+                  ? "showing the rule before writing the final answer"
+                  : "checking a road sign before choosing a turn"
+          }. ${section.explanation}`
+        : explanationMode === "visual"
+          ? `Picture three boxes: NOTICE → APPLY THE RULE → CHECK THE CHOICE. ${section.explanation}`
+          : section.explanation
 
   return (
     <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_17rem]">
@@ -101,8 +129,43 @@ function LessonStage({
           {section.title}
         </h2>
         <p className="mt-5 max-w-3xl text-base leading-8 sm:text-lg">
-          {section.explanation}
+          {displayExplanation}
         </p>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="Explanation style">
+          {(
+            [
+              ["standard", "Normal"],
+              ["short", "Concise"],
+              ["analogy", "Analogy"],
+              ["visual", "Visual steps"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={explanationMode === value ? "secondary" : "outline"}
+              onClick={() => setExplanationMode(value)}
+            >
+              {label}
+            </Button>
+          ))}
+          {accommodations.readAloud ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                window.speechSynthesis.cancel()
+                window.speechSynthesis.speak(
+                  new SpeechSynthesisUtterance(displayExplanation)
+                )
+              }}
+            >
+              Read this part aloud
+            </Button>
+          ) : null}
+        </div>
 
         {section.id === "guided-example" ? (
           <div className="paper-panel mt-7 border-2 border-foreground px-5 py-5 sm:px-6">
@@ -115,6 +178,40 @@ function LessonStage({
             </p>
             <p className="mt-4 font-semibold">
               Answer: {learning.lesson.workedExample.answer}
+            </p>
+          </div>
+        ) : null}
+
+        {section.id === "guided-example" ? (
+          <div className="mt-5 grid border-y-2 border-foreground sm:grid-cols-2 sm:divide-x-2 sm:divide-foreground">
+            <div className="py-4 sm:pr-5">
+              <p className="ink-label text-primary">Solution that works</p>
+              <p className="mt-2 text-sm leading-6">
+                {learning.lesson.workedExample.answer}. It follows this rule: {learning.lesson.concept}
+              </p>
+            </div>
+            <div className="py-4 sm:pl-5">
+              <p className="ink-label text-[var(--scout-coral)]">Tempting wrong path</p>
+              <p className="mt-2 text-sm leading-6">
+                {learning.lesson.trap} Compare the exact decision, not just how the answer sounds.
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {section.id === "guided-example" ? (
+          <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-5">
+            <p className="ink-label text-primary">
+              Your {explanationPreferences.exampleStyle} example
+            </p>
+            <p className="mt-2 text-sm leading-6">
+              {explanationPreferences.exampleStyle === "sports"
+                ? "Picture a game recap: first identify the exact play, then apply the rule, then check whether the conclusion matches what happened."
+                : explanationPreferences.exampleStyle === "gaming"
+                  ? "Picture a game choice: identify the mechanic being tested, apply its rule, then reject any option that adds a move the rules do not allow."
+                  : explanationPreferences.exampleStyle === "school"
+                    ? "Picture explaining this at the board: name the rule, show the first decision, and check the final choice against the original prompt."
+                    : "Picture checking directions before a turn: notice the sign, use the rule it gives you, and make sure the choice follows it."}
+              {" "}For this lesson, the rule is: {learning.lesson.concept}
             </p>
           </div>
         ) : null}
@@ -136,12 +233,51 @@ function LessonStage({
         ) : null}
 
         {section.id === "transfer" ? (
-          <div className="mt-7 border-2 border-dashed border-foreground p-5">
-            <p className="ink-label">Try it yourself</p>
-            <p className="mt-3 text-lg leading-7 font-semibold">
-              {learning.lesson.transferPrompt}
-            </p>
-          </div>
+          <>
+            <div className="mt-7 border-2 border-dashed border-foreground p-5">
+              <p className="ink-label">Try it yourself</p>
+              <p className="mt-3 text-lg leading-7 font-semibold">
+                {learning.lesson.transferPrompt}
+              </p>
+            </div>
+            <div className="mt-5 border-2 border-foreground bg-[var(--info-surface)] p-5">
+              <p className="ink-label text-primary">Teach it back</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Explain the rule, why it works, and one example. Scout scores the explanation against those three parts.
+              </p>
+              <textarea
+                value={teachBack}
+                onChange={(event) => setTeachBack(event.target.value)}
+                rows={4}
+                maxLength={1000}
+                className="mt-4 w-full border-2 border-foreground bg-background p-3 text-sm"
+                placeholder="The rule is… It works because… For example…"
+              />
+              <Button
+                type="button"
+                className="mt-3"
+                disabled={teachBack.trim().length < 20 || submitting}
+                onClick={() => onTeachBack(teachBack)}
+              >
+                Check my explanation
+              </Button>
+              {learning.teachBack ? (
+                <div className="mt-4 border-t pt-4">
+                  <p className="font-bold">
+                    Rubric: {learning.teachBack.score}/{learning.teachBack.maxScore}
+                  </p>
+                  <ul className="mt-2 grid gap-1 text-sm">
+                    {learning.teachBack.rubric.map((item) => (
+                      <li key={item.label}>
+                        {item.met ? "✓" : "○"} {item.label}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-sm">{learning.teachBack.feedback}</p>
+                </div>
+              ) : null}
+            </div>
+          </>
         ) : null}
 
         <ScoutCoach
@@ -209,6 +345,28 @@ function LessonStage({
               <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
             </div>
             <div>
+              <dt className="ink-label text-muted-foreground">Evidence questions</dt>
+              <dd className="mt-1 break-words">
+                {learning.lessonReceipt.evidenceQuestionIds.length
+                  ? learning.lessonReceipt.evidenceQuestionIds.join(", ")
+                  : "No prior scored question; baseline evidence used"}
+              </dd>
+            </div>
+            <div>
+              <dt className="ink-label text-muted-foreground">Generator status</dt>
+              <dd className="mt-1">{learning.lessonReceipt.generatorStatus}</dd>
+            </div>
+            <div>
+              <dt className="ink-label text-muted-foreground">Delivered as</dt>
+              <dd className="mt-1 font-semibold">
+                {learning.lessonReceipt.deliveredAs === "generated"
+                  ? "Generated lesson"
+                  : learning.lessonReceipt.deliveredAs === "human-reviewed"
+                    ? "Teacher-reviewed lesson"
+                    : "Reviewed fallback lesson"}
+              </dd>
+            </div>
+            <div>
               <dt className="ink-label text-muted-foreground">Reviewed rule</dt>
               <dd className="mt-1">{learning.lessonReceipt.approvedRule}</dd>
             </div>
@@ -217,7 +375,9 @@ function LessonStage({
               <dd className="mt-1 font-semibold">
                 {learning.lessonReceipt.validationResult === "passed"
                   ? "Passed"
-                  : "Reviewed fallback used"}
+                  : learning.lessonReceipt.validationResult === "human-reviewed"
+                    ? "Teacher review saved"
+                    : "Reviewed fallback used"}
               </dd>
             </div>
           </dl>
@@ -226,6 +386,24 @@ function LessonStage({
               <li key={check}>{check}</li>
             ))}
           </ul>
+          <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onLessonFeedback(true, explanationMode)}
+            >
+              This explanation helped
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => onLessonFeedback(false, explanationMode)}
+            >
+              Still confusing
+            </Button>
+          </div>
         </details>
       </aside>
     </div>
@@ -255,7 +433,15 @@ function PracticeStage({
       ? "Retry"
       : learning.mode === "checkpoint"
         ? "Mixed quiz"
-        : "Practice"
+        : learning.mode === "retention"
+          ? "Retention check"
+          : learning.mode === "challenge"
+            ? "Mastery challenge"
+            : learning.mode === "recovery"
+              ? "Recovery session"
+              : learning.mode === "micro"
+                ? "Three-minute study"
+                : "Practice"
   const mood: ScoutMood = feedback
     ? feedback.correct
       ? "correct"
@@ -269,7 +455,7 @@ function PracticeStage({
   const [initialChoice, setInitialChoice] = useState("")
   const [hintLevel, setHintLevel] = useState(0)
   const [explanationStyle, setExplanationStyle] = useState<
-    "step-by-step" | "compare" | "simple"
+    "step-by-step" | "compare" | "simple" | "analogy" | "visual"
   >("step-by-step")
   const startedAt = useRef<number | null>(null)
 
@@ -283,6 +469,12 @@ function PracticeStage({
               ? "Nice fix. Scout will bring this skill back later so it sticks."
               : learning.mode === "checkpoint"
                 ? "Quiz complete. Scout updated all three skills from your answers."
+                : learning.mode === "retention"
+                  ? "Retention check complete. Scout now knows whether the skill lasted."
+                  : learning.mode === "challenge"
+                    ? "Mastery challenge complete. Strong results let you skip needless repetition."
+                    : learning.mode === "recovery"
+                      ? "Recovery complete. Missed days did not erase your progress."
                 : learning.lastFeedback?.isExitTicket &&
                     !learning.lastFeedback.correct
                   ? "The exit ticket exposed a gap. Scout switched explanations and scheduled another check instead of pretending the lesson worked."
@@ -295,6 +487,12 @@ function PracticeStage({
             ? "Mistake fixed."
             : learning.mode === "checkpoint"
               ? "Quiz complete."
+              : learning.mode === "retention"
+                ? "Review complete."
+                : learning.mode === "challenge"
+                  ? "Challenge complete."
+                  : learning.mode === "recovery"
+                    ? "Recovery complete."
               : "Practice complete."}
         </h2>
         <p className="mt-5 max-w-2xl text-lg leading-8">
@@ -508,7 +706,11 @@ function PracticeStage({
                   ? `First, name the rule: ${learning.lesson.strategyChecklist[0]} Then compare that rule with your choice. ${feedback.rationale}`
                   : explanationStyle === "compare"
                     ? `The correct choice follows this rule: ${learning.lesson.concept} Your choice points to this issue: ${feedback.misconception ?? "it does not satisfy the rule"}.`
-                    : `Look for this: ${learning.lesson.transferPrompt} ${feedback.rationale}`}
+                    : explanationStyle === "analogy"
+                      ? `Treat the rule like a checkpoint: the choice does not pass unless every required part is present. ${feedback.rationale}`
+                      : explanationStyle === "visual"
+                        ? `NOTICE → NAME THE RULE → TEST EACH CHOICE. The mismatch happened at the rule check: ${feedback.rationale}`
+                        : `Look for this: ${learning.lesson.transferPrompt} ${feedback.rationale}`}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -523,6 +725,8 @@ function PracticeStage({
                   ["step-by-step", "Step by step"],
                   ["compare", "Compare choices"],
                   ["simple", "Simpler"],
+                  ["analogy", "Analogy"],
+                  ["visual", "Visual steps"],
                 ] as const
               ).map(([value, label]) => (
                 <Button
@@ -574,14 +778,28 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
               ? "Retry a missed question"
               : props.learning.mode === "checkpoint"
                 ? "Mixed quiz"
-                : "Today’s lesson"}
+                : props.learning.mode === "retention"
+                  ? "Forgetting protection"
+                  : props.learning.mode === "challenge"
+                    ? "Mastery challenge"
+                    : props.learning.mode === "recovery"
+                      ? "Recovery session"
+                      : props.learning.mode === "micro"
+                        ? "Three-minute study"
+                        : "Today’s lesson"}
           </p>
           <p className="mt-1 truncate font-heading text-xl font-bold sm:text-2xl">
             {props.learning.mode === "repair"
               ? `Try again: ${props.learning.mastery.label}`
               : props.learning.mode === "checkpoint"
                 ? "Three-skill check"
-                : props.learning.lesson.title}
+                : props.learning.mode === "retention"
+                  ? `Two-question review: ${props.learning.mastery.label}`
+                  : props.learning.mode === "challenge"
+                    ? `Prove it: ${props.learning.mastery.label}`
+                    : props.learning.mode === "recovery"
+                      ? "Two-skill reset"
+                      : props.learning.lesson.title}
           </p>
         </div>
         {!props.learning.lessonComplete ? (
@@ -611,7 +829,15 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
               ? "1 replay"
               : props.learning.mode === "checkpoint"
                 ? "3 mixed questions"
-                : "Focused practice"}
+                : props.learning.mode === "retention"
+                  ? "2 review questions"
+                  : props.learning.mode === "challenge"
+                    ? "3 hard questions"
+                    : props.learning.mode === "recovery"
+                      ? "2 recovery questions"
+                      : props.learning.mode === "micro"
+                        ? "1 quick question"
+                        : "Focused practice"}
           </span>
         )}
         <Button

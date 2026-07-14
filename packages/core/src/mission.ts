@@ -1,7 +1,14 @@
 import type { MasteryState, PracticeDifficulty, SkillSlug } from "./learning";
 import type { CoreSection } from "./types";
 
-export type LearningSessionMode = "focus" | "repair" | "checkpoint";
+export type LearningSessionMode =
+  | "focus"
+  | "repair"
+  | "checkpoint"
+  | "retention"
+  | "challenge"
+  | "micro"
+  | "recovery";
 export type ReviewUrgency = "overdue" | "today" | "upcoming";
 
 export interface LearnerProgress {

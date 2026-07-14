@@ -9,6 +9,8 @@ interface ScoutRequest {
   mode?: unknown
   simple?: unknown
   context?: unknown
+  permissions?: unknown
+  preferences?: unknown
 }
 
 function text(value: unknown, fallback = "") {
@@ -24,6 +26,18 @@ export async function POST(request: Request) {
     body.context && typeof body.context === "object"
       ? (body.context as Record<string, unknown>)
       : {}
+  const permissions = Array.isArray(body.permissions)
+    ? body.permissions.filter((item): item is string => typeof item === "string")
+    : []
+  const questionId = text(context.questionId) || null
+  const skillId = text(context.skillId) || null
+  const receipt = {
+    questionId,
+    skillId,
+    permissions,
+    checks: ["approved-content-grounding", "answer-leakage", "claim-scope"],
+    delivery: "reviewed-grounded-fallback",
+  }
   if (!question) {
     return NextResponse.json(
       { error: "Ask Scout a question first." },
@@ -45,6 +59,25 @@ export async function POST(request: Request) {
         "Keep working, skip the question, or end the section and review it.",
       source: "Test Lab rules",
       mode: "guarded",
+      receipt,
+    })
+  }
+
+  if (
+    mode !== "test" &&
+    /\b(answer|which choice|tell me which|solve)\b/.test(lower) &&
+    context.attempted !== true
+  ) {
+    return NextResponse.json({
+      summary: "I won’t choose the answer before you try.",
+      explanation:
+        "I can explain what the question is testing, define a word, or give a small hint. Your first independent choice is useful evidence for your plan.",
+      example: null,
+      technical: "Guardrail: direct_answer_requires_attempt",
+      nextAction: "Choose a small hint, then make your own first attempt.",
+      source: "Practice assistance rules",
+      mode: "guarded",
+      receipt,
     })
   }
 
@@ -93,6 +126,16 @@ export async function POST(request: Request) {
       "Cross out a choice only when you can name the exact rule it breaks."
     nextAction =
       "Use Hint 1 in guided practice. The exit ticket stays hint-free."
+  } else if (/another example|give me an example|similar example/.test(lower)) {
+    summary = "Use the same decision on a fresh example."
+    explanation = rule
+    example = `Try this pattern without copying an answer: identify the rule, test each side, then explain why one choice follows the rule.`
+    nextAction = "Say which rule you would check first."
+  } else if (/show.*rule|grammar rule|technical detail/.test(lower)) {
+    summary = rule
+    explanation = objective
+    example = null
+    nextAction = "Apply the rule to the next independent question."
   } else if (/confidence|percent|mastery|estimate/.test(lower)) {
     const estimate = text(context.skillEstimate, "still forming")
     summary = `Scout’s current skill estimate is ${estimate}.`
@@ -127,5 +170,6 @@ export async function POST(request: Request) {
     nextAction,
     source,
     mode: "grounded",
+    receipt,
   })
 }

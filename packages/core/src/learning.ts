@@ -7,6 +7,10 @@ export type SkillSlug = string;
 export type PracticeDifficulty = "easy" | "medium" | "hard";
 export type MasteryBand = "new" | "building" | "steady" | "secure";
 export type AnswerConfidence = "sure" | "unsure" | "guessing";
+export type ExplanationDepth = "quick" | "normal" | "detailed";
+export type ReadingLevel = "plain" | "standard" | "advanced";
+export type ExampleStyle = "school" | "sports" | "gaming" | "everyday";
+export type SessionEnergy = "low" | "normal" | "challenge";
 export type MissionPurpose =
   | "new-learning"
   | "weak-skill-repair"
@@ -192,6 +196,9 @@ export interface LearningDecisionEvent {
   why: string;
   misconception: string | null;
   modelVersion: string;
+  comparisonPlan?: SkillSlug;
+  comparisonPlanLabel?: string;
+  comparisonModelVersion?: string;
 }
 
 export interface LessonTrustReceipt {
@@ -199,9 +206,9 @@ export interface LessonTrustReceipt {
   approvedRule: string;
   evidenceQuestionIds: ReadonlyArray<string>;
   generatorStatus: string;
-  validationResult: "passed" | "reviewed-fallback";
+  validationResult: "passed" | "human-reviewed" | "reviewed-fallback";
   validationChecks: ReadonlyArray<string>;
-  deliveredAs: "generated" | "reviewed-fallback";
+  deliveredAs: "generated" | "human-reviewed" | "reviewed-fallback";
 }
 
 export interface CoachBrief {
@@ -214,6 +221,92 @@ export interface CoachBrief {
   nextMission: string;
   offlineIntervention: string;
   unknowns: string;
+}
+
+export interface LearnerModelCorrection {
+  id: string;
+  occurredAt: string;
+  skill: SkillSlug;
+  skillLabel: string;
+  kind: "too-high" | "too-low" | "wrong-misconception";
+  note: string;
+  before: number;
+  after: number;
+}
+
+export interface TeachBackResult {
+  id: string;
+  occurredAt: string;
+  skill: SkillSlug;
+  response: string;
+  score: number;
+  maxScore: 3;
+  rubric: ReadonlyArray<{
+    label: string;
+    met: boolean;
+  }>;
+  feedback: string;
+}
+
+export interface TutorOverrideRecord {
+  id: string;
+  occurredAt: string;
+  previousSkill: SkillSlug;
+  selectedSkill: SkillSlug;
+  selectedSkillLabel: string;
+  reason: string;
+}
+
+export interface MisconceptionFingerprint {
+  label: string;
+  skill: SkillSlug;
+  skillLabel: string;
+  count: number;
+  latestQuestionId: string;
+}
+
+export interface LearnerModelReport {
+  readiness: {
+    mastery: number;
+    certainty: number;
+    label: string;
+  };
+  misconceptions: ReadonlyArray<MisconceptionFingerprint>;
+  responseTime: {
+    medianSeconds: number | null;
+    interpretation: string;
+    affectsMastery: false;
+  };
+  prerequisiteConfusion: string | null;
+  transferSignal: string;
+  decaySignal: string;
+  explorationQuestion: string;
+  corrections: ReadonlyArray<LearnerModelCorrection>;
+}
+
+export interface LearningTrustReport {
+  exposure: ReadonlyArray<{
+    questionId: string;
+    attempts: number;
+    protected: boolean;
+  }>;
+  itemHealth: ReadonlyArray<{
+    questionId: string;
+    status: "healthy" | "watch" | "not-enough-data";
+    reason: string;
+  }>;
+  modelComparison: {
+    current: string;
+    comparison: string;
+    agrees: boolean;
+    explanation: string;
+  };
+  policyBenchmarks: ReadonlyArray<{
+    policy: string;
+    nextSkill: string;
+    tradeoff: string;
+  }>;
+  abstentions: ReadonlyArray<string>;
 }
 
 export interface PracticeFeedback {
@@ -258,6 +351,10 @@ export interface LearningSessionPayload {
   lessonReceipt: LessonTrustReceipt;
   coachBrief: CoachBrief;
   missionPurpose: MissionPurpose;
+  learnerModel: LearnerModelReport;
+  trustReport: LearningTrustReport;
+  teachBack: TeachBackResult | null;
+  tutorOverrides: ReadonlyArray<TutorOverrideRecord>;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
