@@ -51,7 +51,7 @@ Scout runs completely locally. The base app does **not** require a database, an 
 The repository uses:
 
 - Git;
-- Node.js `22.12.0` from [.nvmrc](.nvmrc) on macOS, or a current Node.js LTS release on Windows;
+- Node.js `22.13.1` from [.nvmrc](.nvmrc) on macOS, or a current Node.js LTS release on Windows;
 - pnpm `11.7.0`, pinned in `package.json`.
 
 Use the runbook for your computer. Every command is meant to be copied into **Terminal** on macOS or **PowerShell** on Windows.
@@ -111,7 +111,7 @@ node --version
 pnpm --version
 ```
 
-Expected results are Node.js `v22.12.0` and pnpm `11.7.0`.
+Expected results are Node.js `v22.13.1` and pnpm `11.7.0`. pnpm 11 requires Node.js `22.13` or newer. Install pnpm **after** `nvm use`, because each nvm-managed Node.js version has its own global packages.
 
 #### 5. Install dependencies and start Scout
 
@@ -343,6 +343,8 @@ pnpm.cmd --filter web start
 - **Windows says pnpm is not recognized:** close and reopen PowerShell, run `where.exe pnpm.*`, then rerun `npm install --global pnpm@11.7.0`. Confirm with `pnpm.cmd --version`.
 - **macOS says `nvm: command not found`:** open a new Terminal window. If needed, run `export NVM_DIR="$HOME/.nvm"` followed by `[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"`.
 - **macOS says pnpm is not found:** run `npm install --global pnpm@11.7.0`, then `hash -r` and `pnpm --version`.
+- **pnpm says Node.js 22.13 or newer is required:** pull the latest repository changes, run `nvm install`, `nvm use`, and then `npm install --global pnpm@11.7.0`. The previous `.nvmrc` incorrectly selected Node.js 22.12.
+- **pnpm disappeared after changing Node.js versions with nvm:** this is expected because nvm keeps global npm packages separate for each Node.js version. With the new version active, run `npm install --global pnpm@11.7.0`, then `hash -r`.
 - **The Node.js version is wrong:** on macOS, run `nvm install` and `nvm use` from the repository root. On Windows, run `winget upgrade --id OpenJS.NodeJS.LTS -e --source winget`, reopen PowerShell, and check `node --version`.
 - **Port 3000 is busy:** use `pnpm --filter web dev -- -p 3001` on macOS or `pnpm.cmd --filter web dev -- -p 3001` in PowerShell, then open [http://localhost:3001](http://localhost:3001).
 - **Ollama cannot connect:** make sure the Ollama app is open, run `ollama serve` in its own terminal if necessary, and retry the API health command from the appropriate setup section.
