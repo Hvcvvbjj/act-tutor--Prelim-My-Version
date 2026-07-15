@@ -346,7 +346,7 @@ pnpm.cmd --filter web start
 - **pnpm says Node.js 22.13 or newer is required:** pull the latest repository changes, run `nvm install`, `nvm use`, and then `npm install --global pnpm@11.7.0`. The previous `.nvmrc` incorrectly selected Node.js 22.12.
 - **pnpm disappeared after changing Node.js versions with nvm:** this is expected because nvm keeps global npm packages separate for each Node.js version. With the new version active, run `npm install --global pnpm@11.7.0`, then `hash -r`.
 - **The Node.js version is wrong:** on macOS, run `nvm install` and `nvm use` from the repository root. On Windows, run `winget upgrade --id OpenJS.NodeJS.LTS -e --source winget`, reopen PowerShell, and check `node --version`.
-- **Port 3000 is busy:** use `pnpm --filter web dev -- -p 3001` on macOS or `pnpm.cmd --filter web dev -- -p 3001` in PowerShell, then open [http://localhost:3001](http://localhost:3001).
+- **Port 3000 is busy:** use `pnpm --filter web exec next dev -p 3001` on macOS or `pnpm.cmd --filter web exec next dev -p 3001` in PowerShell, then open [http://localhost:3001](http://localhost:3001).
 - **Ollama cannot connect:** make sure the Ollama app is open, run `ollama serve` in its own terminal if necessary, and retry the API health command from the appropriate setup section.
 - **The browser shows old learner progress:** reset the JSON files, clear cookies for `localhost:3000`, and restart Scout.
 

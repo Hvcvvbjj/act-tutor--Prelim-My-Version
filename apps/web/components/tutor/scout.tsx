@@ -85,16 +85,16 @@ export function ScoutCoach({
   return (
     <aside
       className={cn(
-        "scout-coach grid grid-cols-[auto_minmax(0,1fr)] gap-4",
+        "scout-coach grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3",
         className
       )}
     >
-      <ScoutMark mood={mood} />
-      <div className="relative border-l-4 border-primary bg-[var(--coach-surface)] px-5 py-4 shadow-[4px_4px_0_var(--coach-shadow)]">
-        <p className="font-heading text-sm font-black tracking-[0.08em] uppercase">
+      <ScoutMark mood={mood} className="size-12" />
+      <div className="relative rounded-lg border border-primary/25 bg-[var(--info-surface)] px-4 py-3">
+        <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
           Scout says
         </p>
-        <p className="mt-2 text-sm leading-6 sm:text-base">
+        <p className="mt-1.5 text-sm leading-6">
           {message ?? MOOD_COPY[mood]}
         </p>
         {detail ? (
@@ -111,7 +111,7 @@ export function ScoutCoach({
               {expanded ? "Hide coaching note" : "Why this matters"}
             </Button>
             {expanded ? (
-              <p className="mt-3 border-t border-foreground/15 pt-3 text-sm leading-6 text-muted-foreground">
+              <p className="mt-3 border-t pt-3 text-sm leading-6 text-muted-foreground">
                 {detail}
               </p>
             ) : null}

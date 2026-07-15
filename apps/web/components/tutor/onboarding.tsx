@@ -1,40 +1,34 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { calendarDaysUntil } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
+  CalendarDaysIcon,
   LockKeyholeIcon,
   MinusIcon,
   PlayCircleIcon,
   PlusIcon,
+  TargetIcon,
+  TrendingUpIcon,
 } from "lucide-react"
 
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import type { PlacementDraft } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
 import {
   Field,
   FieldContent,
   FieldDescription,
   FieldError,
-  FieldGroup,
   FieldLabel,
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
-import type { PlacementDraft } from "@/components/tutor/types"
-import { addCalendarDaysFrom, formatCalendarDate } from "@/lib/dates"
-import {
-  DEFAULT_ACCOMMODATIONS,
-  DEFAULT_EXPLANATION_PREFERENCES,
-  readScoutSettings,
-  updateScoutAccommodations,
-  updateScoutExplanation,
-} from "@/lib/scout-settings"
+import { formatCalendarDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
 interface OnboardingProps {
@@ -48,11 +42,7 @@ interface OnboardingProps {
   onUpdate: (update: Partial<PlacementDraft>) => void
 }
 
-const STEP_LABELS = [
-  "What score are you aiming for?",
-  "Current score",
-  "Test date and study time",
-] as const
+const STEP_LABELS = ["Goal", "Scores", "Schedule"] as const
 
 interface ScoreFieldProps {
   id: string
@@ -64,29 +54,23 @@ interface ScoreFieldProps {
 
 function ScoreField({ id, label, value, error, onChange }: ScoreFieldProps) {
   return (
-    <Field
-      orientation="responsive"
-      data-invalid={Boolean(error)}
-      className="border-b py-3 last:border-0"
-    >
-      <FieldLabel htmlFor={id} className="text-base">
+    <Field data-invalid={Boolean(error)} className="gap-2">
+      <FieldLabel htmlFor={id} className="text-sm font-semibold">
         {label}
       </FieldLabel>
-      <div className="w-full max-w-64">
-        <Input
-          id={id}
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={36}
-          value={value || ""}
-          aria-label={`${label} ACT score`}
-          aria-invalid={Boolean(error)}
-          onChange={(event) => onChange(Number(event.target.value))}
-          className="h-12 max-w-40 text-lg font-semibold tabular-nums"
-        />
-        <FieldError className="mt-2">{error}</FieldError>
-      </div>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={36}
+        value={value || ""}
+        aria-label={`${label} ACT score`}
+        aria-invalid={Boolean(error)}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-12 w-full text-lg font-semibold tabular-nums"
+      />
+      <FieldError>{error}</FieldError>
     </Field>
   )
 }
@@ -95,13 +79,10 @@ function errorForScore(error: string | null, label: string) {
   return error?.startsWith(`${label} score`) ? error : null
 }
 
-function StepRail({ step }: { step: number }) {
+function StepTracker({ step }: { step: number }) {
   return (
-    <aside className="hidden border-l bg-[var(--rail)] px-12 py-24 lg:block">
-      <p className="mb-10 text-sm font-semibold text-foreground">
-        Your plan in 3 steps
-      </p>
-      <ol className="flex flex-col">
+    <nav aria-label="Setup progress" className="mx-auto max-w-3xl">
+      <ol className="grid grid-cols-3">
         {STEP_LABELS.map((label, index) => {
           const number = index + 1
           const active = number === step
@@ -109,33 +90,31 @@ function StepRail({ step }: { step: number }) {
           return (
             <li
               key={label}
-              className="relative flex min-h-36 gap-4 last:min-h-0"
+              className="relative flex items-center justify-center gap-2 px-1 text-sm sm:gap-3 sm:text-base"
             >
-              {number < STEP_LABELS.length ? (
+              {index > 0 ? (
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute top-9 left-[17px] h-[calc(100%-2rem)] border-l-2",
-                    complete ? "border-primary" : "border-dashed border-border"
+                    "absolute top-1/2 right-[calc(50%+3.25rem)] left-0 h-px -translate-y-1/2",
+                    complete || active ? "bg-primary" : "bg-border"
                   )}
                 />
               ) : null}
               <span
                 className={cn(
-                  "relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full border-2 bg-background text-sm font-semibold",
+                  "relative z-10 flex size-8 items-center justify-center rounded-full border bg-background text-sm font-bold",
                   active && "border-primary bg-primary text-primary-foreground",
                   complete && "border-primary text-primary",
-                  !active && !complete && "border-border text-muted-foreground"
+                  !active && !complete && "text-muted-foreground"
                 )}
               >
                 {number}
               </span>
               <span
                 className={cn(
-                  "pt-2 text-sm",
-                  active
-                    ? "font-semibold text-foreground"
-                    : "text-muted-foreground"
+                  "relative z-10 hidden bg-background px-1 font-semibold sm:inline",
+                  active ? "text-primary" : "text-foreground"
                 )}
               >
                 {label}
@@ -144,10 +123,69 @@ function StepRail({ step }: { step: number }) {
           )
         })}
       </ol>
-      <div aria-hidden="true" className="mt-14 px-8">
-        <div className="h-20 w-full rounded-[50%] border-b-2 border-l border-border" />
-        <div className="ml-auto size-3 -translate-y-1 rounded-full bg-[var(--reward)]" />
-      </div>
+    </nav>
+  )
+}
+
+function PlanSummary({
+  draft,
+  today,
+}: {
+  draft: PlacementDraft
+  today: string
+}) {
+  let daysToTest = 0
+  try {
+    daysToTest = Math.max(0, calendarDaysUntil(today, draft.testDate))
+  } catch {
+    daysToTest = 0
+  }
+
+  return (
+    <aside className="hidden rounded-xl border bg-background p-5 lg:sticky lg:top-24 lg:block">
+      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+        Your starting plan
+      </p>
+      <dl className="mt-5 divide-y">
+        <div className="flex items-center gap-4 py-4 first:pt-0">
+          <TargetIcon className="size-6 text-primary" aria-hidden="true" />
+          <div>
+            <dt className="text-sm text-muted-foreground">Goal</dt>
+            <dd className="text-2xl font-bold tabular-nums">{draft.goal}</dd>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 py-4">
+          <TrendingUpIcon
+            className="size-6 text-[var(--scout-coral)]"
+            aria-hidden="true"
+          />
+          <div>
+            <dt className="text-sm text-muted-foreground">Current</dt>
+            <dd className="text-lg font-bold">
+              {draft.priorScoreChoice === "never"
+                ? "Quick Check"
+                : draft.composite}
+            </dd>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 py-4 last:pb-0">
+          <CalendarDaysIcon
+            className="size-6 text-primary"
+            aria-hidden="true"
+          />
+          <div>
+            <dt className="text-sm text-muted-foreground">Next ACT</dt>
+            <dd className="font-bold">
+              {daysToTest ? `${daysToTest} days` : "Choose a date"}
+            </dd>
+            {draft.testDate ? (
+              <dd className="mt-0.5 text-xs text-muted-foreground">
+                {formatCalendarDate(draft.testDate)}
+              </dd>
+            ) : null}
+          </div>
+        </div>
+      </dl>
     </aside>
   )
 }
@@ -162,87 +200,43 @@ export function Onboarding({
   onJudgeDemo,
   onUpdate,
 }: OnboardingProps) {
-  const progress = (step / 3) * 100
-  const [explanation, setExplanation] = useState(
-    DEFAULT_EXPLANATION_PREFERENCES
-  )
-  const [access, setAccess] = useState(() => ({
-    readAloud: DEFAULT_ACCOMMODATIONS.readAloud,
-    largeText: DEFAULT_ACCOMMODATIONS.largeText,
-    reducedMotion: DEFAULT_ACCOMMODATIONS.reducedMotion,
-  }))
-  const settingsChangedRef = useRef(false)
-
-  useEffect(() => {
-    const stored = readScoutSettings()
-    if (settingsChangedRef.current) return
-    setExplanation(stored.explanation)
-    setAccess({
-      readAloud: stored.accommodations.readAloud,
-      largeText: stored.accommodations.largeText,
-      reducedMotion: stored.accommodations.reducedMotion,
-    })
-  }, [])
-
-  function saveExplanation(next: typeof explanation) {
-    settingsChangedRef.current = true
-    setExplanation(next)
-    updateScoutExplanation(next)
-  }
-
-  function saveAccess(next: typeof access) {
-    settingsChangedRef.current = true
-    setAccess(next)
-    const current = readScoutSettings()
-    updateScoutAccommodations({ ...current.accommodations, ...next })
-  }
-
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
-        <ScoutMark className="size-11" />
-        <p className="font-heading text-2xl font-black tracking-tight">
-          SCOUT ACT
+      <header className="flex h-16 items-center gap-2.5 border-b px-5 sm:px-8">
+        <ScoutMark className="size-9" />
+        <p className="font-heading text-xl font-black tracking-tight">
+          SCOUT <span className="text-primary">ACT</span>
         </p>
       </header>
 
-      <main className="grid min-h-[calc(100svh-5rem)] lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <section className="px-5 py-8 sm:px-10 sm:py-10 lg:px-[max(4rem,10vw)] lg:py-12">
-          <div className="mx-auto max-w-3xl">
-            <h1 className="max-w-3xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-              Tell us your goal. We’ll build your study plan.
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Answer three quick questions. Then Scout will show you what to
-              study.
-            </p>
+      <main className="mx-auto w-full max-w-6xl px-5 py-7 sm:px-8 sm:py-10">
+        <StepTracker step={step} />
 
-            <div className="mt-8 sm:mt-10">
-              <div className="mb-3 flex items-center justify-between text-sm font-semibold text-primary">
-                <span>{step} of 3</span>
-                <span className="sr-only">
-                  {Math.round(progress)}% complete
-                </span>
-              </div>
-              <Progress
-                value={progress}
-                aria-label={`Onboarding step ${step} of 3`}
-              />
-            </div>
+        <div className="mt-9 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
+          <section className="min-w-0">
+            <h1 className="font-heading text-4xl leading-tight font-black tracking-[-0.025em] sm:text-5xl">
+              Build your study plan
+            </h1>
+            <p className="mt-2 text-base leading-7 text-muted-foreground">
+              Three quick steps, then Scout gives you today&apos;s first lesson.
+            </p>
 
             <div
               key={step}
-              className="mt-8 animate-in duration-300 fade-in slide-in-from-right-3 motion-reduce:animate-none sm:mt-10"
+              className="mt-8 animate-in duration-200 fade-in slide-in-from-right-2 motion-reduce:animate-none"
             >
               {step === 1 ? (
                 <FieldSet>
                   <FieldLegend className="text-xl font-bold sm:text-2xl">
                     What score are you aiming for?
                   </FieldLegend>
-                  <div className="mt-7 flex max-w-xl items-center justify-between gap-5 sm:gap-10">
+                  <FieldDescription className="mt-2">
+                    ACT Composite scores run from 1 to 36.
+                  </FieldDescription>
+                  <div className="mt-7 flex max-w-lg items-center gap-5 sm:gap-8">
                     <Button
                       type="button"
-                      size="score"
+                      size="icon-lg"
                       variant="outline"
                       aria-label="Decrease goal score"
                       disabled={draft.goal <= 1}
@@ -251,14 +245,16 @@ export function Onboarding({
                       <MinusIcon />
                     </Button>
                     <div className="min-w-28 text-center" aria-live="polite">
-                      <p className="text-7xl font-bold tracking-[-0.06em] text-primary tabular-nums sm:text-8xl">
+                      <p className="text-6xl font-black tracking-[-0.05em] text-primary tabular-nums">
                         {draft.goal}
                       </p>
-                      <p className="mt-1 text-sm text-muted-foreground">1–36</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Goal Composite
+                      </p>
                     </div>
                     <Button
                       type="button"
-                      size="score"
+                      size="icon-lg"
                       variant="outline"
                       aria-label="Increase goal score"
                       disabled={draft.goal >= 36}
@@ -273,11 +269,11 @@ export function Onboarding({
               {step === 2 ? (
                 <FieldSet>
                   <FieldLegend className="text-xl font-bold sm:text-2xl">
-                    What&apos;s your current score?
+                    What scores do you have now?
                   </FieldLegend>
-                  <FieldDescription className="mt-2 max-w-2xl">
-                    Section scores help us balance your plan. Short skill checks
-                    will teach us the details.
+                  <FieldDescription className="mt-2">
+                    Use what you know. Scout can fill the gaps with a short
+                    Quick Check.
                   </FieldDescription>
                   <RadioGroup
                     value={draft.priorScoreChoice}
@@ -287,60 +283,33 @@ export function Onboarding({
                           value as PlacementDraft["priorScoreChoice"],
                       })
                     }
-                    className="mt-6 gap-3"
+                    className="mt-6 grid gap-3 md:grid-cols-3"
                   >
-                    <FieldLabel
-                      className={cn(
-                        "cursor-pointer border p-4 text-base transition-colors",
-                        draft.priorScoreChoice === "scores" &&
-                          "border-primary bg-primary/5"
-                      )}
-                    >
-                      <Field orientation="horizontal">
-                        <RadioGroupItem value="scores" />
-                        <FieldContent>
-                          <span className="font-semibold">
-                            I have ACT scores
-                          </span>
-                        </FieldContent>
-                      </Field>
-                    </FieldLabel>
-                    <FieldLabel
-                      className={cn(
-                        "cursor-pointer border p-4 text-base transition-colors",
-                        draft.priorScoreChoice === "composite_only" &&
-                          "border-primary bg-primary/5"
-                      )}
-                    >
-                      <Field orientation="horizontal">
-                        <RadioGroupItem value="composite_only" />
-                        <FieldContent>
-                          <span className="font-semibold">
-                            I only know my Composite
-                          </span>
-                        </FieldContent>
-                      </Field>
-                    </FieldLabel>
-                    <FieldLabel
-                      className={cn(
-                        "cursor-pointer border p-4 text-base transition-colors",
-                        draft.priorScoreChoice === "never" &&
-                          "border-primary bg-primary/5"
-                      )}
-                    >
-                      <Field orientation="horizontal">
-                        <RadioGroupItem value="never" />
-                        <FieldContent>
-                          <span className="font-semibold">
-                            I haven&apos;t taken the ACT yet
-                          </span>
-                        </FieldContent>
-                      </Field>
-                    </FieldLabel>
+                    {[
+                      ["scores", "I have section scores"],
+                      ["composite_only", "I only know my Composite"],
+                      ["never", "I haven’t taken the ACT"],
+                    ].map(([value, label]) => (
+                      <FieldLabel
+                        key={value}
+                        className={cn(
+                          "cursor-pointer rounded-lg border p-4 text-sm transition-colors",
+                          draft.priorScoreChoice === value &&
+                            "border-primary bg-secondary"
+                        )}
+                      >
+                        <Field orientation="horizontal">
+                          <RadioGroupItem value={value} />
+                          <FieldContent>
+                            <span className="font-semibold">{label}</span>
+                          </FieldContent>
+                        </Field>
+                      </FieldLabel>
+                    ))}
                   </RadioGroup>
 
                   {draft.priorScoreChoice !== "never" ? (
-                    <FieldGroup className="mt-6 gap-0 border-y">
+                    <div className="mt-6 grid gap-4 rounded-xl border p-5 sm:grid-cols-2">
                       <ScoreField
                         id="composite"
                         label="Composite"
@@ -372,19 +341,13 @@ export function Onboarding({
                             onChange={(reading) => onUpdate({ reading })}
                           />
                         </>
-                      ) : (
-                        <p className="border-b py-4 text-sm leading-6 text-muted-foreground">
-                          We&apos;ll use your Composite as a rough starting
-                          point, then ask a few questions to learn which skills
-                          need the most work.
-                        </p>
-                      )}
-                      <Field orientation="horizontal" className="py-4">
+                      ) : null}
+                      <Field
+                        orientation="horizontal"
+                        className="rounded-lg border px-4 py-3 sm:col-span-2"
+                      >
                         <FieldContent>
-                          <FieldLabel
-                            htmlFor="science-toggle"
-                            className="text-base"
-                          >
+                          <FieldLabel htmlFor="science-toggle">
                             Taking Science?
                           </FieldLabel>
                           <FieldDescription>Optional</FieldDescription>
@@ -406,13 +369,13 @@ export function Onboarding({
                           onChange={(science) => onUpdate({ science })}
                         />
                       ) : null}
-                    </FieldGroup>
+                    </div>
                   ) : (
                     <ScoutCoach
                       className="mt-6 max-w-2xl"
                       mood="ready"
-                      message="No score is fine. Scout will start with an 8–12 question adaptive check across English, Math, and Reading."
-                      detail="It stops when it has enough evidence to choose a useful first mission. The full 66-question diagnostic stays available if you want a narrower score range."
+                      message="No score is fine. Scout will start with an 8–12 question Quick Check."
+                      detail="It stops when it has enough evidence to choose a useful first lesson."
                     />
                   )}
                 </FieldSet>
@@ -421,15 +384,15 @@ export function Onboarding({
               {step === 3 ? (
                 <FieldSet>
                   <FieldLegend className="text-xl font-bold sm:text-2xl">
-                    When is your next ACT, and how much can you study?
+                    When can you study?
                   </FieldLegend>
                   <FieldDescription className="mt-2">
-                    The date controls how quickly your plan moves from lessons
-                    into timed practice.
+                    Scout uses this to keep your plan realistic.
                   </FieldDescription>
-                  <FieldGroup className="mt-7">
+
+                  <div className="mt-6 grid gap-6">
                     <Field data-invalid={Boolean(error)}>
-                      <FieldLabel htmlFor="test-date">Test date</FieldLabel>
+                      <FieldLabel htmlFor="test-date">Next ACT date</FieldLabel>
                       <Input
                         id="test-date"
                         type="date"
@@ -443,35 +406,10 @@ export function Onboarding({
                       />
                       <FieldError>{error}</FieldError>
                     </Field>
+
                     <Field>
-                      <FieldLabel>Try a timeline</FieldLabel>
-                      <div className="flex flex-wrap gap-2">
-                        {[36, 56, 84].map((days) => {
-                          const date = addCalendarDaysFrom(today, days)
-                          return (
-                            <Button
-                              key={days}
-                              type="button"
-                              variant={
-                                draft.testDate === date
-                                  ? "secondary"
-                                  : "outline"
-                              }
-                              size="lg"
-                              onClick={() => onUpdate({ testDate: date })}
-                            >
-                              {days} days · {formatCalendarDate(date)}
-                            </Button>
-                          )
-                        })}
-                      </div>
-                    </Field>
-                    <Field>
-                      <FieldLabel>How many study days each week?</FieldLabel>
-                      <FieldDescription>
-                        Scout will protect this limit when it builds your plan.
-                      </FieldDescription>
-                      <div className="flex flex-wrap gap-2">
+                      <FieldLabel>Study days each week</FieldLabel>
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                         {[2, 3, 4, 5, 6].map((days) => (
                           <Button
                             key={days}
@@ -481,6 +419,7 @@ export function Onboarding({
                                 ? "secondary"
                                 : "outline"
                             }
+                            className="h-12"
                             onClick={() => onUpdate({ studyDaysPerWeek: days })}
                           >
                             {days} days
@@ -488,9 +427,10 @@ export function Onboarding({
                         ))}
                       </div>
                     </Field>
+
                     <Field>
                       <FieldLabel>Minutes each study day</FieldLabel>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         {[15, 30, 45, 60].map((minutes) => (
                           <Button
                             key={minutes}
@@ -500,6 +440,7 @@ export function Onboarding({
                                 ? "secondary"
                                 : "outline"
                             }
+                            className="h-12"
                             onClick={() =>
                               onUpdate({ minutesPerSession: minutes })
                             }
@@ -509,13 +450,9 @@ export function Onboarding({
                         ))}
                       </div>
                     </Field>
+
                     <Field>
-                      <FieldLabel>
-                        Where do you most want to improve?
-                      </FieldLabel>
-                      <FieldDescription>
-                        Pick a section, or let Scout balance the score gain.
-                      </FieldDescription>
+                      <FieldLabel>Main focus</FieldLabel>
                       <RadioGroup
                         value={draft.preferredSection}
                         onValueChange={(preferredSection) =>
@@ -524,7 +461,7 @@ export function Onboarding({
                               preferredSection as PlacementDraft["preferredSection"],
                           })
                         }
-                        className="grid gap-2 sm:grid-cols-2"
+                        className="grid gap-2 sm:grid-cols-4"
                       >
                         {[
                           ["balanced", "Best score gain"],
@@ -535,9 +472,9 @@ export function Onboarding({
                           <FieldLabel
                             key={value}
                             className={cn(
-                              "cursor-pointer border p-3",
+                              "cursor-pointer rounded-lg border p-3",
                               draft.preferredSection === value &&
-                                "border-primary bg-primary/5"
+                                "border-primary bg-secondary"
                             )}
                           >
                             <Field orientation="horizontal">
@@ -550,112 +487,12 @@ export function Onboarding({
                         ))}
                       </RadioGroup>
                     </Field>
-                    <Field className="border-t-2 border-foreground pt-6">
-                      <FieldLabel>How should Scout explain things?</FieldLabel>
-                      <FieldDescription>
-                        These choices follow you into lessons and Ask Scout.
-                      </FieldDescription>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                        <label className="grid gap-2 text-sm font-semibold">
-                          Answer length
-                          <select
-                            value={explanation.depth}
-                            onChange={(event) =>
-                              saveExplanation({
-                                ...explanation,
-                                depth: event.target
-                                  .value as typeof explanation.depth,
-                              })
-                            }
-                            className="h-11 border bg-background px-3"
-                          >
-                            <option value="quick">Quick</option>
-                            <option value="normal">Normal</option>
-                            <option value="detailed">Detailed</option>
-                          </select>
-                        </label>
-                        <label className="grid gap-2 text-sm font-semibold">
-                          Reading level
-                          <select
-                            value={explanation.readingLevel}
-                            onChange={(event) =>
-                              saveExplanation({
-                                ...explanation,
-                                readingLevel: event.target
-                                  .value as typeof explanation.readingLevel,
-                              })
-                            }
-                            className="h-11 border bg-background px-3"
-                          >
-                            <option value="plain">Plain</option>
-                            <option value="standard">Standard</option>
-                            <option value="advanced">Advanced</option>
-                          </select>
-                        </label>
-                        <label className="grid gap-2 text-sm font-semibold">
-                          Example style
-                          <select
-                            value={explanation.exampleStyle}
-                            onChange={(event) =>
-                              saveExplanation({
-                                ...explanation,
-                                exampleStyle: event.target
-                                  .value as typeof explanation.exampleStyle,
-                              })
-                            }
-                            className="h-11 border bg-background px-3"
-                          >
-                            <option value="everyday">Everyday</option>
-                            <option value="school">School</option>
-                            <option value="sports">Sports</option>
-                            <option value="gaming">Gaming</option>
-                          </select>
-                        </label>
-                      </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        {(
-                          [
-                            [
-                              "fewerTechnicalTerms",
-                              "Use fewer technical terms",
-                            ],
-                            ["readAloud", "Read-aloud controls"],
-                            ["largeText", "Larger text"],
-                            ["reducedMotion", "Reduced motion"],
-                          ] as const
-                        ).map(([key, label]) => {
-                          const checked =
-                            key === "fewerTechnicalTerms"
-                              ? explanation.fewerTechnicalTerms
-                              : access[key]
-                          return (
-                            <label
-                              key={key}
-                              className="flex items-center justify-between gap-4 border px-3 py-3 text-sm font-semibold"
-                            >
-                              {label}
-                              <Switch
-                                checked={checked}
-                                onCheckedChange={(enabled) =>
-                                  key === "fewerTechnicalTerms"
-                                    ? saveExplanation({
-                                        ...explanation,
-                                        fewerTechnicalTerms: enabled,
-                                      })
-                                    : saveAccess({ ...access, [key]: enabled })
-                                }
-                              />
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </Field>
-                  </FieldGroup>
+                  </div>
                 </FieldSet>
               ) : null}
             </div>
 
-            <div className="mt-8 flex max-w-2xl gap-3 sm:mt-9">
+            <div className="mt-8 flex max-w-2xl gap-3">
               {step > 1 ? (
                 <Button
                   type="button"
@@ -676,22 +513,29 @@ export function Onboarding({
               >
                 {step === 3
                   ? draft.priorScoreChoice === "never"
-                    ? "Start adaptive check"
+                    ? "Start Quick Check"
                     : "Build my plan"
                   : "Continue"}
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             </div>
+
+            {step === 3 ? (
+              <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <LockKeyholeIcon className="size-4" aria-hidden="true" />
+                You can change your schedule and learning settings later.
+              </p>
+            ) : null}
+
             {step === 1 ? (
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+              <div className="mt-5 flex max-w-2xl flex-wrap items-center justify-between gap-3 border-t pt-4">
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <LockKeyholeIcon aria-hidden="true" />
-                  No account needed to begin.
+                  <LockKeyholeIcon className="size-4" aria-hidden="true" />
+                  No account needed.
                 </p>
                 <Button
                   type="button"
                   variant="link"
-                  size="lg"
                   onClick={onJudgeDemo}
                   className="h-auto px-0 font-bold"
                 >
@@ -700,9 +544,10 @@ export function Onboarding({
                 </Button>
               </div>
             ) : null}
-          </div>
-        </section>
-        <StepRail step={step} />
+          </section>
+
+          <PlanSummary draft={draft} today={today} />
+        </div>
       </main>
     </div>
   )

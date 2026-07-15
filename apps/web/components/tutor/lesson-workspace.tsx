@@ -134,47 +134,52 @@ function LessonStage({
             {Math.max(2, Math.round(learning.lesson.minutes / 4))} min
           </span>
         </div>
-        <h2 className="mt-4 max-w-2xl font-heading text-4xl leading-none font-black tracking-[-0.025em] sm:text-5xl">
+        <h2 className="mt-4 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] sm:text-4xl">
           {section.title}
         </h2>
         <p className="mt-5 max-w-3xl text-base leading-8 sm:text-lg">
           {displayExplanation}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="Explanation style">
-          {(
-            [
-              ["standard", "Normal"],
-              ["short", "Concise"],
-              ["analogy", "Analogy"],
-              ["visual", "Visual steps"],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={explanationMode === value ? "secondary" : "outline"}
-              onClick={() => setExplanationMode(value)}
-            >
-              {label}
-            </Button>
-          ))}
-          {accommodations.readAloud ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                window.speechSynthesis.cancel()
-                window.speechSynthesis.speak(
-                  new SpeechSynthesisUtterance(displayExplanation)
-                )
-              }}
-            >
-              Read this part aloud
-            </Button>
-          ) : null}
-        </div>
+        <details className="group mt-4 max-w-xl">
+          <summary className="cursor-pointer text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            Change how Scout explains this
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="Explanation style">
+            {(
+              [
+                ["standard", "Normal"],
+                ["short", "Concise"],
+                ["analogy", "Analogy"],
+                ["visual", "Visual steps"],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={explanationMode === value ? "secondary" : "outline"}
+                onClick={() => setExplanationMode(value)}
+              >
+                {label}
+              </Button>
+            ))}
+            {accommodations.readAloud ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  window.speechSynthesis.cancel()
+                  window.speechSynthesis.speak(
+                    new SpeechSynthesisUtterance(displayExplanation)
+                  )
+                }}
+              >
+                Read this part aloud
+              </Button>
+            ) : null}
+          </div>
+        </details>
 
         {section.id === "guided-example" ? (
           <div className="paper-panel mt-7 border-2 border-foreground px-5 py-5 sm:px-6">
@@ -586,7 +591,7 @@ function PracticeStage({
             {currentQuestion.stimulus}
           </div>
         ) : null}
-        <h2 className="mt-7 max-w-3xl font-heading text-3xl leading-tight font-bold tracking-[-0.02em] sm:text-4xl">
+        <h2 className="mt-7 max-w-3xl font-heading text-2xl leading-tight font-bold tracking-[-0.01em] sm:text-3xl">
           {currentQuestion?.prompt}
         </h2>
         {currentQuestion ? (
@@ -602,7 +607,7 @@ function PracticeStage({
               <label
                 key={choice.id}
                 className={cn(
-                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start border-2 border-border bg-background px-4 py-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground sm:text-base",
+                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors hover:border-primary sm:text-base",
                   selectedChoice === choice.id && "border-primary bg-secondary"
                 )}
               >
@@ -627,7 +632,7 @@ function PracticeStage({
             </p>
           </div>
         ) : null}
-        <div className="mt-6 border-y-2 border-foreground py-5">
+        <div className="mt-6 border-y py-5">
           <p className="ink-label text-muted-foreground">How sure are you?</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {(
@@ -801,10 +806,10 @@ function PracticeStage({
 
 export function LessonWorkspace(props: LessonWorkspaceProps) {
   return (
-    <div className="paper-panel overflow-hidden border-2 border-foreground bg-background">
-      <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-3 border-b-2 border-foreground bg-foreground px-4 py-3 text-background sm:px-6">
+    <div className="paper-panel overflow-hidden rounded-xl border bg-background">
+      <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-3 border-b bg-background px-4 py-3 text-foreground sm:px-6">
         <div className="min-w-0 flex-1">
-          <p className="ink-label text-[var(--scout-mint)]">
+          <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
             {props.learning.mode === "repair"
               ? "Retry a missed question"
               : props.learning.mode === "checkpoint"
@@ -819,7 +824,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                         ? "Three-minute study"
                         : "Today’s lesson"}
           </p>
-          <p className="mt-1 truncate font-heading text-xl font-bold sm:text-2xl">
+          <p className="mt-1 truncate text-base font-bold sm:text-lg">
             {props.learning.mode === "repair"
               ? `Try again: ${props.learning.mastery.label}`
               : props.learning.mode === "checkpoint"
@@ -848,7 +853,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                 variant={props.activeSection === index ? "secondary" : "ghost"}
                 size="sm"
                 className={cn(
-                  "text-background hover:text-foreground",
+                  "text-foreground",
                   props.activeSection === index && "text-secondary-foreground"
                 )}
                 onClick={() => props.onSectionChange(index)}
@@ -858,7 +863,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
             ))}
           </nav>
         ) : (
-          <span className="ink-label text-[var(--scout-mint)]">
+          <span className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
             {props.learning.mode === "repair"
               ? "1 replay"
               : props.learning.mode === "checkpoint"

@@ -113,15 +113,10 @@ async function rebaseLearningSession(
 function Brand() {
   return (
     <div className="flex items-center gap-2.5">
-      <ScoutMark className="size-10" />
-      <div>
-        <p className="font-heading text-xl leading-none font-black tracking-[-0.02em]">
-          SCOUT ACT
-        </p>
-        <p className="font-mono text-[0.58rem] font-bold tracking-[0.14em] text-muted-foreground uppercase">
-          Every answer shapes your plan
-        </p>
-      </div>
+      <ScoutMark className="size-9" />
+      <p className="font-heading text-xl leading-none font-black tracking-[-0.02em]">
+        SCOUT <span className="text-primary">ACT</span>
+      </p>
     </div>
   )
 }
@@ -130,30 +125,27 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   const provisional = plan.evidence.source === "rapid_diagnostic"
   if (provisional) {
     return (
-      <div className="border-l-2 border-foreground pl-4">
-        <p className="ink-label text-muted-foreground">Quick Check plan</p>
-        <p className="mt-1 font-heading text-xl leading-none font-black">
-          Goal: ACT {plan.draft.goal}
+      <div className="rounded-lg border px-3 py-2">
+        <p className="text-xs font-semibold text-muted-foreground">
+          Quick Check plan
         </p>
-        <p className="mt-1 text-[0.65rem] font-semibold text-muted-foreground">
-          No predicted ACT score
+        <p className="mt-0.5 text-sm font-bold">
+          Goal ACT <span className="text-primary">{plan.draft.goal}</span>
         </p>
       </div>
     )
   }
   return (
-    <div className="flex items-center gap-3 border-l-2 border-foreground pl-4">
+    <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
       <div>
-        <p className="ink-label text-muted-foreground">Now</p>
-        <p className="font-heading text-3xl leading-none font-black tabular-nums">
-          {plan.currentComposite}
+        <p className="text-base leading-none font-black tabular-nums">
+          {plan.currentComposite} <span className="text-xs font-normal text-muted-foreground">now</span>
         </p>
       </div>
-      <ArrowRightIcon className="text-primary" aria-hidden="true" />
+      <ArrowRightIcon className="size-4 text-muted-foreground" aria-hidden="true" />
       <div>
-        <p className="ink-label text-muted-foreground">Goal</p>
-        <p className="font-heading text-3xl leading-none font-black text-primary tabular-nums">
-          {plan.draft.goal}
+        <p className="text-base leading-none font-black text-primary tabular-nums">
+          {plan.draft.goal} <span className="text-xs font-normal text-muted-foreground">goal</span>
         </p>
       </div>
     </div>
@@ -196,7 +188,7 @@ function MobileOverflow({
   if (!open) return null
   return (
     <div
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] border-2 border-foreground bg-background p-3 shadow-[5px_5px_0_var(--foreground)] md:hidden"
+      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
       role="menu"
       aria-label="More destinations"
     >
@@ -211,6 +203,49 @@ function MobileOverflow({
       >
         <FlaskConicalIcon /> Test Lab
       </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onClick={() => {
+          onNavigate("control")
+          onClose()
+        }}
+      >
+        <ShieldCheckIcon /> Evidence & data
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onClick={() => {
+          openSettings()
+          onClose()
+        }}
+      >
+        <Settings2Icon /> Learning settings
+      </Button>
+    </div>
+  )
+}
+
+function DesktopOverflow({
+  open,
+  onNavigate,
+  onClose,
+}: {
+  open: boolean
+  onNavigate: (tab: string) => void
+  onClose: () => void
+}) {
+  const { openSettings } = useScoutContext()
+  if (!open) return null
+  return (
+    <div
+      className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-56 rounded-xl border bg-background p-2 shadow-xl md:block"
+      role="menu"
+      aria-label="More destinations"
+    >
       <Button
         type="button"
         variant="ghost"
@@ -588,21 +623,38 @@ export function Dashboard({
         }}
         className="min-h-svh gap-0 bg-transparent pb-24 md:pb-0"
       >
-        <header className="sticky top-0 z-20 border-b-2 border-foreground bg-background">
-          <div className="mx-auto grid min-h-20 max-w-[96rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
+        <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+          <div className="mx-auto grid min-h-16 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
             <Brand />
-            <TabsList
-              variant="line"
-              className="order-3 col-span-2 hidden justify-self-center md:flex lg:order-none lg:col-span-1"
-              aria-label="Study navigation"
-            >
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="plan">Plan</TabsTrigger>
-              <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
-              <TabsTrigger value="progress">My Skills</TabsTrigger>
-              <TabsTrigger value="lab">Test Lab</TabsTrigger>
-              <TabsTrigger value="control">Evidence & data</TabsTrigger>
-            </TabsList>
+            <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
+              <TabsList
+                variant="line"
+                className="bg-transparent"
+                aria-label="Study navigation"
+              >
+                <TabsTrigger value="today">Today</TabsTrigger>
+                <TabsTrigger value="plan">Plan</TabsTrigger>
+                <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
+                <TabsTrigger value="progress">Skills</TabsTrigger>
+                <TabsTrigger value="lab">Test Lab</TabsTrigger>
+              </TabsList>
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-expanded={moreOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setMoreOpen((current) => !current)}
+                >
+                  More <EllipsisIcon data-icon="inline-end" />
+                </Button>
+                <DesktopOverflow
+                  open={moreOpen}
+                  onNavigate={setActiveTab}
+                  onClose={() => setMoreOpen(false)}
+                />
+              </div>
+            </div>
             <div className="flex items-center gap-3 justify-self-end">
               <div className="hidden sm:block">
                 <ScoreRoute plan={plan} />
@@ -673,7 +725,7 @@ export function Dashboard({
         ) : null}
 
         <TabsContent value="today">
-          <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
+          <main className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8">
             {workspaceOpen && learning ? (
               <LessonWorkspace
                 learning={learning}

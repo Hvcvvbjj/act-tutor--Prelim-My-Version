@@ -9,25 +9,24 @@ import type {
 import {
   ArrowRightIcon,
   BookOpenCheckIcon,
-  BrainCircuitIcon,
+  CalendarDaysIcon,
   CheckCircle2Icon,
+  ChevronRightIcon,
+  Clock3Icon,
   FlameIcon,
   GaugeIcon,
   ListChecksIcon,
-  LockKeyholeIcon,
-  NotebookPenIcon,
   RefreshCwIcon,
   RotateCcwIcon,
+  Settings2Icon,
   SparklesIcon,
   StarIcon,
   TimerResetIcon,
-  TrophyIcon,
 } from "lucide-react"
 
-import { ScoutCoach } from "@/components/tutor/scout"
+import { ScoutMark } from "@/components/tutor/scout"
 import type { GeneratedPlan } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
-import { Progress, ProgressLabel } from "@/components/ui/progress"
 import { formatCalendarDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
@@ -48,24 +47,24 @@ interface DailyMissionHubProps {
 
 const STEP_META = {
   learn: {
-    number: "01",
+    label: "Learn",
+    short: "See the rule",
     icon: BookOpenCheckIcon,
-    description: "Learn one rule and see it used in a real example.",
   },
   practice: {
-    number: "02",
+    label: "Practice",
+    short: "Try it yourself",
     icon: ListChecksIcon,
-    description: "Use the rule on five ACT-style questions.",
   },
   repair: {
-    number: "03",
+    label: "Fix mistakes",
+    short: "Review and improve",
     icon: RotateCcwIcon,
-    description: "Retry one question you missed without looking at the answer.",
   },
   checkpoint: {
-    number: "04",
+    label: "Quick quiz",
+    short: "Lock it in",
     icon: GaugeIcon,
-    description: "Answer three mixed questions without hints.",
   },
 } as const
 
@@ -94,7 +93,8 @@ function getMissionCopy(learning: LearningSessionPayload) {
       return {
         label: "Retry",
         title: `Retry: ${learning.mastery.label}`,
-        description: "Try the question again without looking at the explanation.",
+        description:
+          "Try the question again without looking at the explanation.",
       }
     case "checkpoint":
       return {
@@ -106,152 +106,156 @@ function getMissionCopy(learning: LearningSessionPayload) {
       return {
         label: "Memory check",
         title: `Do you still remember ${learning.mastery.label}?`,
-        description: "Two questions check whether the skill held up after time away.",
+        description:
+          "Two questions check whether the skill held up after time away.",
       }
     case "challenge":
       return {
         label: "Mastery challenge",
         title: `Prove you own ${learning.mastery.label}`,
-        description: "Three harder questions can prove this skill is ready for less repetition.",
+        description:
+          "Three harder questions can prove this skill needs less repetition.",
       }
     case "micro":
       return {
         label: "3-minute study",
         title: `One useful step in ${learning.mastery.label}`,
-        description: "A short lesson and one question keep your plan moving on a busy day.",
+        description:
+          "A short lesson and one question keep your plan moving on a busy day.",
       }
     case "recovery":
       return {
         label: "Recovery session",
         title: "Get the plan moving again",
-        description: "Two priority questions rebuild momentum without pretending you have extra time.",
+        description:
+          "Two priority questions rebuild momentum without adding extra work.",
       }
     default:
       return {
-        label: "Today’s focus",
+        label: "Today’s mission",
         title: learning.lesson.title,
-        description: learning.lesson.whyAssigned,
+        description: learning.lesson.concept,
       }
   }
 }
 
-const STEP_LABEL = {
-  learn: "learn",
-  practice: "practice",
-  repair: "retry",
-  checkpoint: "quiz",
-} as const
-
-function stepAction(
-  step: MissionStep,
-  learning: LearningSessionPayload,
-  props: DailyMissionHubProps
-) {
-  if (step.state !== "current") return null
-  if (step.id === "learn" || step.id === "practice") {
+function MissionAction(props: DailyMissionHubProps) {
+  const { learning } = props
+  if (learning.status === "complete") {
+    const nextLabel =
+      learning.mission.skillMap.find(
+        (skill) => skill.skill === learning.nextSkill
+      )?.label ?? "next skill"
     return (
       <Button
         type="button"
-        size="lg"
-        onClick={props.onOpenWorkspace}
+        size="xl"
+        onClick={props.onStartNext}
         disabled={props.busy}
+        className="w-full sm:w-auto sm:min-w-72"
       >
-        {step.id === "learn" ? (
-          <SparklesIcon data-icon="inline-start" />
-        ) : (
-          <ArrowRightIcon data-icon="inline-start" />
-        )}
-        {step.id === "learn" ? "Start lesson" : "Continue practice"}
+        Continue to {nextLabel}
+        <ArrowRightIcon data-icon="inline-end" />
       </Button>
     )
   }
-  if (step.id === "repair") {
+
+  const current = learning.mission.steps.find((step) => step.state === "current")
+  if (!current) return null
+  if (current.id === "learn" || current.id === "practice") {
+    return (
+      <Button
+        type="button"
+        size="xl"
+        onClick={props.onOpenWorkspace}
+        disabled={props.busy}
+        className="w-full sm:w-auto sm:min-w-72"
+      >
+        {current.id === "learn" ? (
+          <SparklesIcon data-icon="inline-start" />
+        ) : null}
+        {current.id === "learn" ? "Start today’s lesson" : "Continue practice"}
+        <ArrowRightIcon data-icon="inline-end" />
+      </Button>
+    )
+  }
+  if (current.id === "repair") {
     const mistake = learning.mission.mistakes.find(
       (item) => item.resolvedAt === null
     )
     return mistake ? (
       <Button
         type="button"
-        size="lg"
+        size="xl"
         onClick={() => props.onStartRepair(mistake.id)}
         disabled={props.busy}
+        className="w-full sm:w-auto sm:min-w-72"
       >
         <RefreshCwIcon data-icon="inline-start" />
-        Retry a missed question
+        Retry one missed question
       </Button>
     ) : null
   }
   return (
     <Button
       type="button"
-      size="lg"
+      size="xl"
       onClick={props.onStartCheckpoint}
       disabled={props.busy}
+      className="w-full sm:w-auto sm:min-w-72"
     >
       <TimerResetIcon data-icon="inline-start" />
-      Start mixed quiz
+      Start the quick quiz
     </Button>
   )
 }
 
-function MissionTrail(props: DailyMissionHubProps) {
+function MissionProgress({ steps }: { steps: ReadonlyArray<MissionStep> }) {
   return (
-    <ol className="mt-8 max-w-3xl" aria-label="Daily mission steps">
-      {props.learning.mission.steps.map((step) => {
+    <ol
+      className="mt-7 grid gap-3 border-t pt-6 sm:grid-cols-2 lg:grid-cols-4"
+      aria-label="Daily mission steps"
+    >
+      {steps.map((step, index) => {
         const meta = STEP_META[step.id]
         const Icon = meta.icon
-        const action = stepAction(step, props.learning, props)
         return (
           <li
             key={step.id}
             className={cn(
-              "mission-step relative grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-4 pb-9 last:pb-0",
+              "relative rounded-lg border p-4",
+              step.state === "current" && "border-primary bg-secondary",
+              step.state === "done" && "border-primary/40",
               step.state === "queued" && "text-muted-foreground"
             )}
+            aria-current={step.state === "current" ? "step" : undefined}
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute top-13 bottom-0 left-[1.6rem] border-l-2",
-                step.state === "done"
-                  ? "border-primary"
-                  : "border-dashed border-border"
-              )}
-            />
-            <span
-              className={cn(
-                "relative flex size-13 items-center justify-center border-2 border-foreground bg-background shadow-[3px_3px_0_var(--foreground)]",
-                step.state === "done" &&
-                  "border-primary bg-primary text-primary-foreground shadow-none",
-                step.state === "current" && "bg-[var(--coach-surface)]"
-              )}
-            >
-              {step.state === "done" ? (
-                <CheckCircle2Icon />
-              ) : step.state === "queued" ? (
-                <LockKeyholeIcon />
-              ) : (
-                <Icon />
-              )}
-            </span>
-            <div className="min-w-0 pt-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <p className="ink-label">
-                  {meta.number} · {STEP_LABEL[step.id]}
+            <div className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-full border bg-background",
+                  step.state === "current" && "border-primary text-primary",
+                  step.state === "done" &&
+                    "border-primary bg-primary text-primary-foreground"
+                )}
+              >
+                {step.state === "done" ? (
+                  <CheckCircle2Icon className="size-4" />
+                ) : (
+                  <Icon className="size-4" />
+                )}
+              </span>
+              <div>
+                <p className="text-sm font-bold">
+                  {index + 1}. {meta.label}
                 </p>
-                {step.total > 1 ? (
-                  <span className="font-mono text-xs font-bold text-muted-foreground">
-                    {step.progress}/{step.total}
-                  </span>
-                ) : null}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {step.total > 1 && step.progress > 0
+                    ? `${step.progress}/${step.total} · `
+                    : ""}
+                  {meta.short}
+                </p>
               </div>
-              <h3 className="mt-1 font-heading text-2xl leading-tight font-bold tracking-[-0.015em]">
-                {step.label}
-              </h3>
-              <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
-                {meta.description}
-              </p>
-              {action ? <div className="mt-4">{action}</div> : null}
             </div>
           </li>
         )
@@ -260,353 +264,63 @@ function MissionTrail(props: DailyMissionHubProps) {
   )
 }
 
-function ProgressRail({ learning }: { learning: LearningSessionPayload }) {
-  const progress = learning.mission.progress
-  const xpPercent = Math.round(
-    (progress.xpIntoLevel / progress.xpForNextLevel) * 100
-  )
-  const accuracy = progress.totalAnswered
-    ? Math.round((progress.totalCorrect / progress.totalAnswered) * 100)
-    : null
+function LaterToday(props: DailyMissionHubProps) {
+  const review = props.learning.mission.dueReviews[0]
   return (
-    <aside className="min-w-0 xl:pt-4">
-      <ScoutCoach
-        mood={learning.status === "complete" ? "correct" : "ready"}
-        message={
-          learning.status === "complete"
-            ? "Nice work. Your answers have already changed what Scout recommends next."
-            : learning.lesson.tutorOpening
-        }
-        detail={learning.mission.recommendedReason}
-      />
-
-      <section
-        className="mt-8 border-y-2 border-foreground py-6"
-        aria-labelledby="progress-title"
+    <section className="mt-6 border-t pt-5" aria-labelledby="later-title">
+      <p
+        id="later-title"
+        className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase"
       >
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="ink-label text-muted-foreground">
-              Level {progress.level}
+        Later today
+      </p>
+      {review ? (
+        <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg bg-muted px-4 py-3">
+          <RefreshCwIcon className="size-5 text-primary" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Review: {review.label}</p>
+            <p className="text-xs text-muted-foreground">
+              Two-question memory check · due {formatCalendarDate(review.dueAt.slice(0, 10))}
             </p>
-            <h2
-              id="progress-title"
-              className="mt-1 font-heading text-3xl font-bold"
-            >
-              Your progress
-            </h2>
           </div>
-          <TrophyIcon
-            className="size-8 text-[var(--scout-coral)]"
-            aria-hidden="true"
-          />
-        </div>
-        <div className="mt-5 flex items-baseline justify-between gap-4">
-          <span className="font-heading text-5xl font-black tabular-nums">
-            {progress.xp}
-          </span>
-          <span className="font-mono text-xs font-bold text-muted-foreground">
-            TOTAL XP
-          </span>
-        </div>
-        <Progress value={xpPercent} className="mt-3 h-3 bg-muted">
-          <ProgressLabel className="sr-only">Level progress</ProgressLabel>
-        </Progress>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {progress.xpIntoLevel} of {progress.xpForNextLevel} XP toward level{" "}
-          {progress.level + 1}
-        </p>
-        <dl className="mt-6 grid grid-cols-3 divide-x border-t pt-5 text-center">
-          <div>
-            <dt className="ink-label text-muted-foreground">Streak</dt>
-            <dd className="mt-2 inline-flex items-center gap-1 font-heading text-2xl font-black">
-              <FlameIcon
-                className="size-5 text-[var(--scout-coral)]"
-                aria-hidden="true"
-              />
-              {progress.currentStreak}d
-            </dd>
-          </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">Accuracy</dt>
-            <dd className="mt-2 font-heading text-2xl font-black">
-              {accuracy === null ? "—" : `${accuracy}%`}
-            </dd>
-          </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">Sets</dt>
-            <dd className="mt-2 font-heading text-2xl font-black">
-              {progress.completedSets}
-            </dd>
-          </div>
-        </dl>
-      </section>
-    </aside>
-  )
-}
-
-function DueReviews(props: DailyMissionHubProps) {
-  const reviews = props.learning.mission.dueReviews.slice(0, 4)
-  return (
-    <section
-      className="border-t-2 border-foreground pt-6"
-      aria-labelledby="reviews-title"
-    >
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="ink-label text-primary">Scheduled review</p>
-          <h2
-            id="reviews-title"
-            className="mt-2 font-heading text-4xl font-bold"
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => props.onStartRetention(review.skill)}
+            disabled={props.busy || props.learning.status !== "complete"}
           >
-            Due for review
-          </h2>
-        </div>
-        <RefreshCwIcon className="text-primary" aria-hidden="true" />
-      </div>
-      {reviews.length ? (
-        <ol className="mt-5 border-t">
-          {reviews.map((review) => (
-            <li
-              key={review.skill}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b py-4"
-            >
-              <div className="min-w-0">
-                <p className="font-semibold">{review.label}</p>
-                <p className="mt-1 text-sm text-muted-foreground capitalize">
-                  {review.urgency} · {Math.round(review.mastery * 100)}% skill
-                  level · {formatCalendarDate(review.dueAt.slice(0, 10))}
-                </p>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground normal-case">
-                  {review.explanation}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => props.onStartRetention(review.skill)}
-                disabled={props.busy || props.learning.status !== "complete"}
-              >
-                Review
-              </Button>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <div className="mt-5 border-y py-5">
-          <p className="font-semibold">Nothing is overdue.</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            After you practice a skill, Scout will bring it back before you
-            forget it.
-          </p>
-        </div>
-      )}
-    </section>
-  )
-}
-
-function SkillRow({
-  mastery,
-  props,
-}: {
-  mastery: MasteryState
-  props: DailyMissionHubProps
-}) {
-  const percent = Math.round(mastery.mastery * 100)
-  const current = props.learning.todaySkill === mastery.skill
-  return (
-    <button
-      type="button"
-      className={cn(
-        "group grid w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-4 border-b py-3 text-left transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed",
-        current && "bg-secondary"
-      )}
-      onClick={() => props.onStartSkill(mastery.skill)}
-      disabled={props.busy || props.learning.status !== "complete" || current}
-    >
-      <span className="min-w-0 px-2">
-        <span className="flex items-center justify-between gap-3">
-          <span className="truncate text-sm font-semibold">
-            {mastery.label}
-          </span>
-          <span className="font-mono text-[0.65rem] font-bold text-muted-foreground uppercase">
-            {SKILL_LEVEL_LABEL[mastery.band]}
-          </span>
-        </span>
-        <span className="mt-2 block h-1.5 overflow-hidden bg-muted">
-          <span
-            className="block h-full transition-[width] duration-300"
-            style={{
-              width: `${percent}%`,
-              background: SECTION_COLOR[mastery.section],
-            }}
-          />
-        </span>
-      </span>
-      <span className="font-heading text-2xl font-black tabular-nums">
-        {percent}
-      </span>
-    </button>
-  )
-}
-
-function SkillMap(props: DailyMissionHubProps) {
-  return (
-    <section
-      className="border-t-2 border-foreground pt-6"
-      aria-labelledby="skill-map-title"
-    >
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="ink-label text-primary">All 12 skills</p>
-          <h2
-            id="skill-map-title"
-            className="mt-2 font-heading text-4xl font-bold"
-          >
-            Skill map
-          </h2>
-        </div>
-        <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-          Finish today&apos;s work, then choose any skill. Weak skills and
-          recent misses move higher on the list.
-        </p>
-      </div>
-      <div className="mt-6 grid gap-x-8 gap-y-7 lg:grid-cols-3">
-        {(["english", "math", "reading"] as const).map((section) => (
-          <div key={section}>
-            <h3 className="flex items-center gap-2 border-b-2 border-foreground pb-3 font-heading text-2xl font-bold">
-              <span
-                className="size-3"
-                style={{ background: SECTION_COLOR[section] }}
-                aria-hidden="true"
-              />
-              {SECTION_LABEL[section]}
-            </h3>
-            {props.learning.mission.skillMap
-              .filter((mastery) => mastery.section === section)
-              .map((mastery) => (
-                <SkillRow key={mastery.skill} mastery={mastery} props={props} />
-              ))}
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function MistakeNotebook(props: DailyMissionHubProps) {
-  const mistakes = props.learning.mission.mistakes.slice(0, 5)
-  return (
-    <section
-      className="border-t-2 border-foreground pt-6"
-      aria-labelledby="mistakes-title"
-    >
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="ink-label text-[var(--scout-coral)]">
-            Nothing gets thrown away
-          </p>
-          <h2
-            id="mistakes-title"
-            className="mt-2 font-heading text-4xl font-bold"
-          >
-            Mistake notebook
-          </h2>
-        </div>
-        <NotebookPenIcon
-          className="text-[var(--scout-coral)]"
-          aria-hidden="true"
-        />
-      </div>
-      {mistakes.length ? (
-        <div className="mt-5 border-t">
-          {mistakes.map((mistake) => (
-            <details key={mistake.id} className="group border-b py-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{mistake.skillLabel}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {mistake.resolvedAt
-                      ? "Fixed"
-                      : `Try again · ${mistake.attempts} attempt${mistake.attempts === 1 ? "" : "s"}`}
-                  </p>
-                </div>
-                {mistake.resolvedAt ? (
-                  <CheckCircle2Icon className="text-primary" />
-                ) : (
-                  <RotateCcwIcon className="text-[var(--scout-coral)]" />
-                )}
-              </summary>
-              <div className="mt-5 grid gap-5 border-l-4 border-[var(--scout-coral)] pl-5 text-sm leading-6 sm:grid-cols-2">
-                <div>
-                  <p className="ink-label text-muted-foreground">Question</p>
-                  <p className="mt-2">{mistake.prompt}</p>
-                  <p className="mt-3">
-                    <strong>Your choice:</strong> {mistake.selectedChoiceText}
-                  </p>
-                  <p className="mt-1">
-                    <strong>Reviewed answer:</strong>{" "}
-                    {mistake.correctChoiceText}
-                  </p>
-                </div>
-                <div>
-                  <p className="ink-label text-muted-foreground">
-                    Why this answer works
-                  </p>
-                  <p className="mt-2">{mistake.rationale}</p>
-                  {mistake.misconception ? (
-                    <p className="mt-3 border-l-2 border-[var(--scout-coral)] pl-3">
-                      <strong>Misconception:</strong> {mistake.misconception}
-                    </p>
-                  ) : null}
-                  {!mistake.resolvedAt ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => props.onStartRepair(mistake.id)}
-                      disabled={
-                        props.busy || props.learning.status !== "complete"
-                      }
-                    >
-                      Try again without notes
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            </details>
-          ))}
+            Review
+            <ChevronRightIcon data-icon="inline-end" />
+          </Button>
         </div>
       ) : (
-        <div className="mt-5 border-y py-5">
-          <p className="font-semibold">Your notebook is clean—for now.</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            When you miss a question, Scout saves it so you can try it again
-            later.
-          </p>
-        </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          No review is due yet. Scout will schedule one after you practice.
+        </p>
       )}
     </section>
   )
 }
 
-function StudyModeControls(props: DailyMissionHubProps) {
+function PaceControls(props: DailyMissionHubProps) {
   const [energy, setEnergy] = useState<"low" | "normal" | "challenge">(
     "normal"
   )
   const ready = props.learning.status === "complete" && !props.busy
   return (
-    <section className="grid border-y-2 border-foreground lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:divide-x-2 lg:divide-foreground">
-      <div className="py-6 lg:pr-7">
-        <p className="ink-label text-primary">Session preference</p>
-        <h2 className="mt-2 font-heading text-3xl font-black">
-          Keep the plan honest.
-        </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          This choice only changes the suggestion on the right. Your mission changes after you select a study option, and unfinished work stays protected.
+    <details className="group border-t">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+        <span className="flex items-center gap-3">
+          <Settings2Icon className="size-5 text-muted-foreground" />
+          Change today&apos;s pace
+        </span>
+        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="pb-5">
+        <p className="text-sm leading-6 text-muted-foreground">
+          Pick how today feels. Scout will protect unfinished work.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           {(
             [
               ["low", "Low energy"],
@@ -625,131 +339,363 @@ function StudyModeControls(props: DailyMissionHubProps) {
             </Button>
           ))}
         </div>
-      </div>
-      <div className="py-6 lg:pl-7">
-        <p className="ink-label text-muted-foreground">Choose a safe shortcut</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-2">
           <Button
             type="button"
             variant="outline"
-            className="h-auto min-h-20 flex-col items-start"
+            className="justify-start"
             disabled={!ready}
             onClick={() => props.onStartMicro()}
           >
-            <span>3-minute study</span>
-            <span className="text-xs font-normal">One rule + one question</span>
+            3-minute study
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="h-auto min-h-20 flex-col items-start"
+            className="justify-start"
             disabled={!ready}
             onClick={() => props.onStartChallenge()}
           >
-            <span>Mastery challenge</span>
-            <span className="text-xs font-normal">Prove it and skip repetition</span>
+            Mastery challenge
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="h-auto min-h-20 flex-col items-start"
+            className="justify-start"
             disabled={!ready}
             onClick={props.onStartRecovery}
           >
-            <span>Recovery session</span>
-            <span className="text-xs font-normal">Two priority questions</span>
+            Recovery session
           </Button>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Suggested now: {energy === "low" ? "3-minute study" : energy === "challenge" ? "mastery challenge" : "the regular mission"}. Nothing has changed yet.
-        </p>
+        {!ready ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Finish the current mission before switching formats.
+          </p>
+        ) : null}
       </div>
-    </section>
+    </details>
+  )
+}
+
+function WeeklySummary(props: DailyMissionHubProps) {
+  const { plan, learning } = props
+  const provisional = plan.evidence.source === "rapid_diagnostic"
+  return (
+    <aside className="rounded-xl border bg-background p-5 lg:sticky lg:top-24">
+      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+        This week
+      </p>
+      <dl className="mt-4 divide-y">
+        <div className="flex items-center gap-4 py-4 first:pt-0">
+          <CalendarDaysIcon className="size-6 text-primary" aria-hidden="true" />
+          <div>
+            <dt className="font-bold">
+              {plan.intensity.studyDaysPerWeek} study days
+            </dt>
+            <dd className="text-sm text-muted-foreground">Planned</dd>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 py-4">
+          <Clock3Icon className="size-6 text-primary" aria-hidden="true" />
+          <div>
+            <dt className="font-bold">
+              {plan.intensity.minutesPerSession} min each
+            </dt>
+            <dd className="text-sm text-muted-foreground">Daily target</dd>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 py-4">
+          <FlameIcon
+            className="size-6 text-[var(--scout-coral)]"
+            aria-hidden="true"
+          />
+          <div>
+            <dt className="font-bold">
+              {learning.mission.progress.currentStreak} day streak
+            </dt>
+            <dd className="text-sm text-muted-foreground">Keep it going</dd>
+          </div>
+        </div>
+      </dl>
+
+      <div className="border-t py-5">
+        <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+          Your score route
+        </p>
+        {provisional ? (
+          <div className="mt-4">
+            <p className="text-3xl font-black text-primary tabular-nums">
+              Goal {plan.draft.goal}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Finish the Quick Check for a stronger starting range.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-3xl font-black tabular-nums">
+                {plan.currentComposite}
+              </p>
+              <p className="text-sm text-muted-foreground">Now</p>
+            </div>
+            <div className="mb-5 h-px flex-1 border-t border-dashed" />
+            <div className="text-right">
+              <p className="text-3xl font-black text-primary tabular-nums">
+                {plan.draft.goal}
+              </p>
+              <p className="text-sm text-muted-foreground">Goal</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <details className="group border-t">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          Why this mission?
+          <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
+        </summary>
+        <p className="pb-5 text-sm leading-6 text-muted-foreground">
+          {learning.lesson.whyAssigned}
+        </p>
+      </details>
+      <PaceControls {...props} />
+    </aside>
+  )
+}
+
+function SkillRow({
+  mastery,
+  props,
+}: {
+  mastery: MasteryState
+  props: DailyMissionHubProps
+}) {
+  const percent = Math.round(mastery.mastery * 100)
+  const current = props.learning.todaySkill === mastery.skill
+  return (
+    <button
+      type="button"
+      className={cn(
+        "grid w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-4 border-b py-3 text-left hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed",
+        current && "bg-secondary"
+      )}
+      onClick={() => props.onStartSkill(mastery.skill)}
+      disabled={props.busy || props.learning.status !== "complete" || current}
+    >
+      <span className="min-w-0 px-2">
+        <span className="flex items-center justify-between gap-3">
+          <span className="truncate text-sm font-semibold">{mastery.label}</span>
+          <span className="text-[0.65rem] font-bold text-muted-foreground uppercase">
+            {SKILL_LEVEL_LABEL[mastery.band]}
+          </span>
+        </span>
+        <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
+          <span
+            className="block h-full rounded-full"
+            style={{
+              width: `${percent}%`,
+              background: SECTION_COLOR[mastery.section],
+            }}
+          />
+        </span>
+      </span>
+      <span className="text-xl font-black tabular-nums">{percent}</span>
+    </button>
+  )
+}
+
+function ExpandedStudyDetails(props: DailyMissionHubProps) {
+  const reviews = props.learning.mission.dueReviews.slice(0, 4)
+  const mistakes = props.learning.mission.mistakes.slice(0, 5)
+  return (
+    <details className="group rounded-xl border bg-background">
+      <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-6">
+        <span>
+          Reviews, saved mistakes, and all skills
+          <span className="mt-1 block text-sm font-normal text-muted-foreground">
+            Open the detailed study tools only when you need them.
+          </span>
+        </span>
+        <ChevronRightIcon className="size-5 transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="grid gap-10 border-t px-5 py-7 sm:px-6 xl:grid-cols-2">
+        <section aria-labelledby="reviews-title">
+          <h2 id="reviews-title" className="text-xl font-bold">
+            Due for review
+          </h2>
+          {reviews.length ? (
+            <ol className="mt-4 divide-y border-y">
+              {reviews.map((review) => (
+                <li
+                  key={review.skill}
+                  className="flex items-center gap-4 py-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{review.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {review.explanation}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => props.onStartRetention(review.skill)}
+                    disabled={props.busy || props.learning.status !== "complete"}
+                  >
+                    Review
+                  </Button>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Nothing is overdue.
+            </p>
+          )}
+        </section>
+
+        <section aria-labelledby="mistakes-title">
+          <h2 id="mistakes-title" className="text-xl font-bold">
+            Saved mistakes
+          </h2>
+          {mistakes.length ? (
+            <div className="mt-4 divide-y border-y">
+              {mistakes.map((mistake) => (
+                <details key={mistake.id} className="py-4">
+                  <summary className="cursor-pointer list-none font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                    {mistake.skillLabel} · {mistake.resolvedAt ? "Fixed" : "Try again"}
+                  </summary>
+                  <p className="mt-3 text-sm leading-6">{mistake.prompt}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {mistake.rationale}
+                  </p>
+                  {!mistake.resolvedAt ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => props.onStartRepair(mistake.id)}
+                      disabled={props.busy || props.learning.status !== "complete"}
+                    >
+                      Try again
+                    </Button>
+                  ) : null}
+                </details>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No mistakes saved yet.
+            </p>
+          )}
+        </section>
+      </div>
+
+      <section className="border-t px-5 py-7 sm:px-6" aria-labelledby="skills-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 id="skills-title" className="text-xl font-bold">
+            All 12 skills
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Finish today&apos;s work before switching skills.
+          </p>
+        </div>
+        <div className="mt-5 grid gap-7 lg:grid-cols-3">
+          {(["english", "math", "reading"] as const).map((section) => (
+            <div key={section}>
+              <h3 className="flex items-center gap-2 border-b pb-3 font-bold">
+                <span
+                  className="size-2.5 rounded-full"
+                  style={{ background: SECTION_COLOR[section] }}
+                  aria-hidden="true"
+                />
+                {SECTION_LABEL[section]}
+              </h3>
+              {props.learning.mission.skillMap
+                .filter((mastery) => mastery.section === section)
+                .map((mastery) => (
+                  <SkillRow
+                    key={mastery.skill}
+                    mastery={mastery}
+                    props={props}
+                  />
+                ))}
+            </div>
+          ))}
+        </div>
+      </section>
+    </details>
   )
 }
 
 export function DailyMissionHub(props: DailyMissionHubProps) {
   const { learning, plan } = props
-  const complete = learning.status === "complete"
   const missionCopy = getMissionCopy(learning)
   return (
-    <div className="space-y-14 pb-8">
-      <StudyModeControls {...props} />
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,1.45fr)_minmax(21rem,0.65fr)] xl:gap-16">
-        <section className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <p className="ink-label text-primary">Today’s mission</p>
-            <span className="font-mono text-xs font-bold text-muted-foreground">
-              {plan.intensity.daysUntilTest} days to test day
-            </span>
-            <span className="font-mono text-xs font-bold text-muted-foreground capitalize">
+    <div className="space-y-6 pb-6">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <section className="min-w-0 rounded-xl border bg-background p-5 sm:p-7 lg:p-8">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
               {missionCopy.label}
-            </span>
-            <span className="bg-foreground px-2 py-1 font-mono text-[0.6rem] font-black tracking-wide text-background uppercase">
-              {learning.missionPurpose.replaceAll("-", " ")}
+            </p>
+            <span className="text-sm font-semibold text-muted-foreground">
+              {SECTION_LABEL[learning.mastery.section]}
             </span>
           </div>
-          <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+
+          <h1 className="mt-4 max-w-3xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.025em] sm:text-5xl">
             {missionCopy.title}
           </h1>
-          <p className="marker-underline mt-6 max-w-3xl text-lg leading-8 font-semibold sm:text-xl">
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
             {missionCopy.description}
           </p>
-          <MissionTrail {...props} />
-          {complete ? (
-            <div className="mt-9 flex flex-wrap items-center gap-4 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
-              <StarIcon
-                className="text-[var(--scout-coral)]"
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-heading text-2xl font-bold">
-                  Your plan just updated.
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Scout used your answers to choose what you should study next.
-                </p>
-              </div>
-              <Button
-                type="button"
-                onClick={props.onStartNext}
-                disabled={props.busy}
-              >
-                Continue:{" "}
-                {learning.mission.skillMap.find(
-                  (skill) => skill.skill === learning.nextSkill
-                )?.label ?? "next skill"}
-                <ArrowRightIcon data-icon="inline-end" />
-              </Button>
+
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-muted-foreground">
+            <span className="inline-flex items-center gap-2">
+              <Clock3Icon className="size-4" aria-hidden="true" />
+              {plan.intensity.minutesPerSession} min
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <CalendarDaysIcon className="size-4" aria-hidden="true" />
+              {plan.intensity.daysUntilTest} days to ACT
+            </span>
+          </div>
+
+          <div className="mt-6">
+            <MissionAction {...props} />
+          </div>
+
+          <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/25 bg-[var(--info-surface)] p-4">
+            <ScoutMark className="mt-0.5 size-9 shrink-0" />
+            <p className="text-sm leading-6">
+              {learning.status === "complete"
+                ? "Your answers changed what Scout recommends next."
+                : learning.lesson.tutorOpening}
+            </p>
+          </div>
+
+          <MissionProgress steps={learning.mission.steps} />
+          <LaterToday {...props} />
+
+          {learning.status === "complete" ? (
+            <div className="mt-5 flex items-center gap-3 rounded-lg bg-[var(--coach-surface)] px-4 py-3">
+              <StarIcon className="size-5 text-[var(--scout-coral)]" />
+              <p className="text-sm font-semibold">
+                Plan updated from your latest answers.
+              </p>
             </div>
           ) : null}
         </section>
-        <ProgressRail learning={learning} />
+
+        <WeeklySummary {...props} />
       </div>
 
-      <div className="grid gap-12 xl:grid-cols-2 xl:gap-16">
-        <DueReviews {...props} />
-        <MistakeNotebook {...props} />
-      </div>
-      <SkillMap {...props} />
-
-      <section className="flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground py-5">
-        <div className="flex items-center gap-3">
-          <BrainCircuitIcon className="text-primary" aria-hidden="true" />
-          <div>
-            <p className="font-semibold">Your answers control the plan</p>
-            <p className="text-sm text-muted-foreground">
-              AI can explain a lesson, but only scored answers change your
-              progress, reviews, and next skill.
-            </p>
-          </div>
-        </div>
-        <span className="inline-flex items-center gap-2 font-mono text-xs font-bold text-muted-foreground">
-          <TrophyIcon className="size-4" /> Longest streak{" "}
-          {learning.mission.progress.longestStreak}{" "}
-          {learning.mission.progress.longestStreak === 1 ? "day" : "days"}
-        </span>
-      </section>
+      <ExpandedStudyDetails {...props} />
     </div>
   )
 }

@@ -47,47 +47,47 @@
 }
 
 :root {
-  --background: #fffdf6;
-  --foreground: #14233a;
-  --card: #fffdf6;
-  --card-foreground: #14233a;
-  --popover: #fffdf6;
-  --popover-foreground: #14233a;
-  --primary: #0c9c7c;
-  --primary-foreground: #071e1a;
-  --secondary: #dff8ef;
-  --secondary-foreground: #12372f;
-  --muted: #f1eee3;
-  --muted-foreground: #5e6875;
-  --accent: #fff0bd;
+  --background: #ffffff;
+  --foreground: #10213f;
+  --card: #ffffff;
+  --card-foreground: #10213f;
+  --popover: #ffffff;
+  --popover-foreground: #10213f;
+  --primary: #07877d;
+  --primary-foreground: #ffffff;
+  --secondary: #e9f7f5;
+  --secondary-foreground: #11514c;
+  --muted: #f3f6f9;
+  --muted-foreground: #5d6a7d;
+  --accent: #fff4c7;
   --accent-foreground: #3b2d00;
-  --destructive: #c64736;
-  --border: #c8c5b9;
-  --input: #aaa79c;
-  --ring: #0c9c7c;
-  --chart-1: #0c9c7c;
-  --chart-2: #ff6b52;
+  --destructive: #c34736;
+  --border: #d6dce5;
+  --input: #b9c2cf;
+  --ring: #07877d;
+  --chart-1: #07877d;
+  --chart-2: #f0644a;
   --chart-3: #f6c945;
-  --chart-4: #14233a;
+  --chart-4: #10213f;
   --chart-5: #68778d;
-  --radius: 0.45rem;
-  --sidebar: #f6f2e8;
-  --sidebar-foreground: #14233a;
-  --sidebar-primary: #0c9c7c;
-  --sidebar-primary-foreground: #071e1a;
-  --sidebar-accent: #dff8ef;
+  --radius: 0.7rem;
+  --sidebar: #f7f9fb;
+  --sidebar-foreground: #10213f;
+  --sidebar-primary: #07877d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e9f7f5;
   --sidebar-accent-foreground: #12372f;
-  --sidebar-border: #c8c5b9;
-  --sidebar-ring: #0c9c7c;
-  --rail: #f6f2e8;
-  --info-surface: #eef9f5;
-  --reward: #ff6b52;
-  --scout-coral: #ff6b52;
+  --sidebar-border: #d6dce5;
+  --sidebar-ring: #07877d;
+  --rail: #f7f9fb;
+  --info-surface: #edf8f7;
+  --reward: #f0644a;
+  --scout-coral: #f0644a;
   --scout-sun: #f6c945;
   --scout-mint: #b8ffdf;
-  --scout-paper: #fffdf6;
-  --coach-surface: #fff0bd;
-  --coach-shadow: #14233a;
+  --scout-paper: #ffffff;
+  --coach-surface: #fff6d8;
+  --coach-shadow: #10213f;
 }
 
 @layer base {
@@ -104,10 +104,6 @@
     @apply bg-background text-foreground;
     min-width: 320px;
     overflow-x: clip;
-    background-image:
-      linear-gradient(rgb(20 35 58 / 0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(20 35 58 / 0.025) 1px, transparent 1px);
-    background-size: 24px 24px;
   }
 
   button:not(:disabled),
@@ -132,7 +128,7 @@
 @layer components {
   .paper-panel {
     background-color: var(--background);
-    box-shadow: 5px 5px 0 rgb(20 35 58 / 0.12);
+    box-shadow: 0 12px 32px rgb(16 33 63 / 0.08);
   }
 
   .ink-label {
