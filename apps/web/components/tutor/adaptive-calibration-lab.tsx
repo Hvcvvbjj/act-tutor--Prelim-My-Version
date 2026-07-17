@@ -151,7 +151,7 @@ function CandidateRow({
       </div>
       <span className="text-right">
         <span className="block font-mono text-[0.55rem] font-bold text-muted-foreground uppercase">
-          Usefulness
+          Ranking score
         </span>
         <span className="font-mono text-xs font-black tabular-nums">
           {candidate.selectionScore.toFixed(2)}
@@ -188,6 +188,12 @@ function AdaptiveProofReplay({
 }) {
   const nextLesson = proof.learning.recommendationAfter
   const previousLesson = proof.learning.recommendationBefore
+  const leadingFactors = [...nextLesson.contributions]
+    .filter((factor) => factor.points > 0)
+    .sort((left, right) => right.points - left.points)
+    .slice(0, 2)
+    .map((factor) => `${factor.label.toLowerCase()} (+${factor.points})`)
+    .join(" and ")
 
   return (
     <section
@@ -204,27 +210,28 @@ function AdaptiveProofReplay({
             id="adaptive-proof-heading"
             className="mt-3 max-w-4xl font-heading text-5xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl"
           >
-            One answer changed what Scout knows about you.
+            Your answer updated two separate estimates.
           </h2>
         </div>
         <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
           {proof.correct
-            ? "You got it right. Here is exactly what moved."
-            : "You missed it. Scout used the mistake to choose better practice."}
+            ? "You got it right. Correctness updated overall theta and the tested skill estimate; Scout then reranked the 12 skills."
+            : "You missed it. Correctness updated overall theta and the tested skill estimate; Scout then reranked the 12 skills."}
         </p>
       </div>
 
       <div className="grid border-t-2 border-foreground lg:grid-cols-3 lg:divide-x-2 lg:divide-foreground">
         <article className="py-7 lg:pr-7">
-          <p className="ink-label text-muted-foreground">1 · Planning index</p>
+          <p className="ink-label text-muted-foreground">
+            1 · IRT display position
+          </p>
           <ChangeValue
             before={`${proof.readinessBefore}/100`}
             after={`${proof.readinessAfter}/100`}
           />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            Scout&apos;s overall estimate moved. Its margin of error tightened
-            from ±{proof.marginBefore.toFixed(2)} to ±
-            {proof.marginAfter.toFixed(2)}.
+            This is theta rescaled from −3…+3 to 0…100 so it is easier to read.
+            It helps rank the next Quick Check item; it is not ACT readiness.
           </p>
         </article>
 
@@ -237,14 +244,16 @@ function AdaptiveProofReplay({
             after={percentage(proof.learning.learnedAfter)}
           />
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            This is Scout&apos;s estimate that you know this skill. It comes
-            only from your scored answers.
+            A separate BKT calculation updated only this skill. Your confidence
+            choice scales this update, but does not change the IRT value above.
           </p>
         </article>
 
         <article className="border-t-2 border-foreground py-7 lg:border-t-0 lg:pl-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="ink-label text-muted-foreground">3 · Next lesson</p>
+            <p className="ink-label text-muted-foreground">
+              3 · Skill-practice ranking
+            </p>
             <span className="bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black text-background uppercase">
               {proof.learning.recommendationChanged ? "Changed" : "Held steady"}
             </span>
@@ -254,8 +263,8 @@ function AdaptiveProofReplay({
           </p>
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
             {proof.learning.recommendationChanged
-              ? `${nextLesson.label} moved ahead of ${previousLesson.label} because it now needs the most attention.`
-              : `${previousLesson.label} stayed first because it still needs more work than ${proof.learning.skillLabel}. One answer should not make your plan jump around for no reason.`}
+              ? `${nextLesson.label} moved ahead of ${previousLesson.label} to #1 at ${nextLesson.priorityScore}/100. Its largest current point terms are ${leadingFactors || "the fixed ranking factors"}.`
+              : `${nextLesson.label} remains #1 at ${nextLesson.priorityScore}/100. This answer changed ${proof.learning.skillLabel}, but not enough to change the top rank.`}
           </p>
         </article>
       </div>
@@ -263,12 +272,12 @@ function AdaptiveProofReplay({
       <div className="grid gap-6 border-t-2 border-foreground py-7 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="font-heading text-2xl font-black">
-            Scout chose a question at your level. Your answer updated the skill.
-            The skill ranking chose the next lesson.
+            Quick Check updates its item-selection model and the tested skill.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Open My Skills to inspect every number and every answer behind this
-            decision.
+            It does not update the dated My week calendar. If this check is your
+            required starting baseline, “Build my study plan” creates a new
+            calendar from the completed check.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -303,17 +312,22 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
     <section aria-labelledby="ability-estimate-heading">
       <div className="grid grid-cols-2 divide-x-2 divide-foreground border-y-2 border-foreground">
         <div className="px-4 py-5 sm:px-6">
-          <p className="ink-label text-muted-foreground">Planning index</p>
+          <p className="ink-label text-muted-foreground">
+            Theta display · not ACT readiness
+          </p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums sm:text-5xl">
             {estimate.readinessIndex}/100
           </p>
         </div>
         <div className="px-4 py-5 sm:px-6">
-          <p className="ink-label text-muted-foreground">Margin of error</p>
+          <p className="ink-label text-muted-foreground">
+            Standard error · theta units
+          </p>
           <p className="mt-2 font-heading text-4xl font-black tabular-nums sm:text-5xl">
             ±{estimate.standardError.toFixed(2)}
+            {" "}
             <span className="ml-2 font-mono text-xs text-muted-foreground">
-              smaller is better
+              lower means a narrower model interval
             </span>
           </p>
         </div>
@@ -322,19 +336,17 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
       <div className="mt-8 border-y-2 border-foreground py-8">
         <div className="relative h-44 overflow-hidden bg-[var(--rail)]">
           <div className="absolute inset-x-0 top-1/2 h-px bg-foreground" />
-          {["Low", "Below average", "Middle", "Above average", "High"].map(
-            (label, index) => (
-              <div
-                key={label}
-                className="absolute inset-y-0 border-l border-border"
-                style={{ left: `${index * 25}%` }}
-              >
-                <span className="absolute top-1 font-mono text-[0.62rem] text-muted-foreground">
-                  {label}
-                </span>
-              </div>
-            )
-          )}
+          {["−3", "−1.5", "0", "+1.5", "+3"].map((label, index) => (
+            <div
+              key={label}
+              className="absolute inset-y-0 border-l border-border"
+              style={{ left: `${index * 25}%` }}
+            >
+              <span className="absolute top-1 font-mono text-[0.62rem] text-muted-foreground">
+                {label}
+              </span>
+            </div>
+          ))}
           {previous ? (
             <div
               className="absolute top-7 h-10 border-2 border-dashed border-muted-foreground/50 bg-background/50"
@@ -356,7 +368,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             }}
           >
             <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 font-mono text-[0.62rem] font-black whitespace-nowrap text-primary uppercase">
-              Likely range
+              80% model interval
             </span>
           </div>
           <div
@@ -364,7 +376,7 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             style={{ left: thetaPosition(estimate.theta) }}
           >
             <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black whitespace-nowrap text-background">
-              Index {estimate.readinessIndex}
+              Theta {signed(estimate.theta)}
             </span>
           </div>
         </div>
@@ -373,14 +385,15 @@ function ModelBand({ payload }: { payload: AdaptiveCalibrationPayload }) {
             id="ability-estimate-heading"
             className="text-sm text-muted-foreground"
           >
-            Smaller margin = Scout is more sure
+            The ± value is one standard error. The shaded band is an 80% model
+            interval. Neither is an ACT score range.
           </p>
           <p className="font-mono text-xs font-black text-primary uppercase">
-            {estimate.precision === "precise"
-              ? "Enough information"
-              : estimate.precision === "stabilizing"
-                ? "Getting clearer"
-                : "Still learning"}
+            {estimate.standardError <= 0.56
+              ? "SE ≤ 0.56 · early-stop threshold met"
+              : estimate.standardError <= 0.82
+                ? "SE 0.57–0.82"
+                : "SE > 0.82"}
           </p>
         </div>
       </div>
@@ -415,6 +428,13 @@ export function AdaptiveCalibrationLab({
       try {
         initialLoad.current ??= (async () => {
           let next = await calibrationRequest("GET")
+          if (!representativeDemo && next.representativeDemo) {
+            const reset = await fetch("/api/calibration", { method: "DELETE" })
+            if (!reset.ok) {
+              throw new Error("Could not clear the sample Quick Check.")
+            }
+            next = await calibrationRequest("GET")
+          }
           if (representativeDemo && next.responseCount === 0) {
             next = await calibrationRequest("POST", { action: "seed_demo" })
             if (next.learningTwinUpdated) await onLearningTwinUpdated()
@@ -546,16 +566,29 @@ export function AdaptiveCalibrationLab({
             <p className="ink-label">Quick Check</p>
           </div>
           <h1 className="mt-3 font-heading text-5xl leading-[0.9] font-black tracking-[-0.035em] sm:text-6xl">
-            Let’s get a clearer starting point.
+            A short check to choose your first lessons.
           </h1>
+          <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
+            Answer 8–12 questions across English, Math, and Reading. Correctness
+            updates one overall IRT estimate and the matching skill estimate.
+            The check can stop after eight only when every section has at least
+            two answers and standard error is 0.56 or lower; otherwise it runs
+            to 12. The result orders practice—it is not an ACT score.
+          </p>
         </div>
         <div className="min-w-64 border-l-2 border-foreground pl-5">
-          <p className="ink-label text-muted-foreground">How it works</p>
+          <p className="ink-label text-muted-foreground">Time and progress</p>
           <p className="mt-1 font-heading text-3xl font-black">
-            Questions adjust to you
+            About{" "}
+            {Math.max(
+              1,
+              Math.ceil((payload.maximumItems - payload.responseCount) * 1.5)
+            )}{" "}
+            min left
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {payload.responseCount} answered · {payload.maximumItems} at most
+            {payload.responseCount} answered · up to {payload.maximumItems}{" "}
+            total
           </p>
         </div>
       </div>
@@ -565,9 +598,10 @@ export function AdaptiveCalibrationLab({
           <ScanSearchIcon />
           <AlertTitle>Seven example answers are ready</AlertTitle>
           <AlertDescription>
-            Answer this last question. Scout will show what changed in your
-            level estimate, this skill, and your next lesson. The first seven
-            answers are examples, not a real student&apos;s work.
+            Answer this last question. Scout will show what changed in the IRT
+            item-selection position, this skill estimate, and the skill ranking.
+            The first seven answers are examples, not a real student&apos;s
+            work.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -590,18 +624,20 @@ export function AdaptiveCalibrationLab({
           <div>
             <p className="font-bold">Answer recorded</p>
             <p className="text-sm text-muted-foreground">
-              Starting level{" "}
-              {Math.round(((latestEvent.thetaBefore + 3) / 6) * 100)} →{" "}
-              {Math.round(((latestEvent.thetaAfter + 3) / 6) * 100)} · margin ±
-              {latestEvent.standardErrorBefore.toFixed(2)} → ±
-              {latestEvent.standardErrorAfter.toFixed(2)}
+              {payload.learningTwinUpdated
+                ? "Correctness updated the IRT estimate and the tested skill. The next item is ranked from model information plus coverage bonuses."
+                : "Correctness updated the IRT estimate, but the tested-skill update did not sync. The next item still uses the IRT and coverage rules; the skill ranking shown elsewhere has not been updated from this answer."}
             </p>
           </div>
           {payload.learningTwinUpdated ? (
             <span className="font-mono text-xs font-black text-primary uppercase">
               Skill model updated
             </span>
-          ) : null}
+          ) : (
+            <span className="font-mono text-xs font-black text-destructive uppercase">
+              Skill sync incomplete
+            </span>
+          )}
         </div>
       ) : null}
 
@@ -615,10 +651,20 @@ export function AdaptiveCalibrationLab({
           {adaptiveBaselineRequired ? (
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
               <div>
-                <p className="font-heading text-2xl font-black">Use this as my starting point</p>
-                <p className="mt-1 text-sm text-muted-foreground">This replaces the temporary planning placeholder and rebuilds the study plan from your own Quick Check. It does not create an ACT score.</p>
+                <p className="font-heading text-2xl font-black">
+                  Build my plan from these answers
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Scout will convert smoothed section correctness into an
+                  internal 1–36 scheduling proxy. It is not ACT equating or an
+                  official score estimate.
+                </p>
               </div>
-              <Button type="button" disabled={busy} onClick={() => void applyAdaptiveBaseline()}>
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={() => void applyAdaptiveBaseline()}
+              >
                 {busy ? "Saving your plan…" : "Build my study plan"}
               </Button>
             </div>
@@ -629,36 +675,38 @@ export function AdaptiveCalibrationLab({
           <div>
             <p className="ink-label text-primary">Quick Check complete</p>
             <h2 className="mt-3 font-heading text-5xl font-black sm:text-6xl">
-              Scout has enough to choose what comes next.
+              The Quick Check stopping rule is satisfied.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Scout reached enough confidence after {payload.responseCount}{" "}
-              questions. It checked English, math, and reading, then stopped
-              because another short-check question was unlikely to change the
-              first mission.
+              You answered {payload.responseCount} questions across English,
+              Math, and Reading. Scout stopped at 12, or after at least 8 when
+              each section had two answers and standard error was 0.56 or lower.
             </p>
             <div className="mt-6 border-l-4 border-primary bg-[var(--info-surface)] p-5">
               <p className="ink-label text-primary">Why Scout stopped</p>
               <p className="mt-2 font-bold">
-                {payload.stopReason ??
-                  "The estimate was stable enough to make the next study decision."}
+                {payload.responseCount >= payload.maximumItems
+                  ? `Stopped at ${payload.maximumItems}, the maximum for Quick Check.`
+                  : "Stopped because every section has at least two answers and standard error is 0.56 or lower."}
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                The full diagnostic is still available if you want a stronger
-                practice baseline before planning.
+                This is a code rule under Scout’s assumed item parameters, not
+                proof that the estimate is accurate or that a goal is reachable.
               </p>
             </div>
           </div>
           <div className="border-l-2 border-primary pl-6">
             <p className="ink-label text-muted-foreground">
-              Quick Check result
+              Theta display · not ACT readiness
             </p>
             <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
               {payload.estimate.readinessIndex}
               <span className="text-3xl text-muted-foreground">/100</span>
             </p>
             <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              This is a provisional planning index from a short check. Scout does not convert it into an ACT score. Use the full diagnostic for a stronger practice baseline.
+              Display value = round((theta + 3) ÷ 6 × 100). It is a readable
+              rescaling used on this screen, not an ACT score or the 1–36
+              scheduling proxy built after the check.
             </p>
             <Button
               type="button"
@@ -678,11 +726,14 @@ export function AdaptiveCalibrationLab({
                 disabled={busy}
                 onClick={() => void applyAdaptiveBaseline()}
               >
-                {busy ? "Saving baseline…" : "Use as my provisional baseline"}
+                {busy ? "Building my plan…" : "Build my plan from this check"}
               </Button>
             ) : null}
             {error ? (
-              <p className="mt-3 text-sm font-semibold text-destructive" role="alert">
+              <p
+                className="mt-3 text-sm font-semibold text-destructive"
+                role="alert"
+              >
                 {error}
               </p>
             ) : null}
@@ -698,7 +749,7 @@ export function AdaptiveCalibrationLab({
           </div>
         </section>
       ) : (
-        <div className="mt-8 grid border-y-2 border-foreground lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.08fr)_minmax(19rem,0.74fr)]">
+        <div className="mt-8 grid border-y-2 border-foreground lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.55fr)]">
           <section className="py-8 lg:border-r-2 lg:border-foreground lg:pr-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="ink-label text-primary">
@@ -739,7 +790,7 @@ export function AdaptiveCalibrationLab({
                 <label
                   key={choice.id}
                   className={cn(
-                    "grid cursor-pointer grid-cols-[2.4rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground",
+                    "grid cursor-pointer grid-cols-[2.4rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:-translate-y-0.5 hover:border-foreground",
                     selectedChoice === choice.id &&
                       "border-primary bg-secondary"
                   )}
@@ -753,8 +804,19 @@ export function AdaptiveCalibrationLab({
               ))}
             </RadioGroup>
             <div className="mt-5 border-y-2 border-foreground py-4">
-              <p className="ink-label text-muted-foreground">How sure are you?</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <p
+                id="quick-check-confidence-label"
+                className="ink-label text-muted-foreground"
+              >
+                How sure are you?{" "}
+                <span className="normal-case">(optional)</span>
+              </p>
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                role="group"
+                aria-labelledby="quick-check-confidence-label"
+                aria-describedby="quick-check-confidence-help"
+              >
                 {(
                   [
                     ["sure", "Sure"],
@@ -767,14 +829,20 @@ export function AdaptiveCalibrationLab({
                     type="button"
                     size="sm"
                     variant={confidence === value ? "secondary" : "outline"}
+                    aria-pressed={confidence === value}
                     onClick={() => setConfidence(value)}
                   >
                     {label}
                   </Button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Confidence changes the skill-model weight, not whether the answer is marked right or wrong.
+              <p
+                id="quick-check-confidence-help"
+                className="mt-2 text-xs text-muted-foreground"
+              >
+                Sure, Unsure, and Guessing do not change IRT, right-or-wrong
+                scoring, next-question ranking, or the stop rule. They only
+                scale the separate skill update to 100%, 78%, or 48%.
               </p>
             </div>
             {error ? (
@@ -796,7 +864,7 @@ export function AdaptiveCalibrationLab({
               ) : (
                 <ShieldCheckIcon />
               )}
-              {busy ? "Updating your plan…" : "Check my answer"}
+              {busy ? "Recording my answer…" : "Check my answer"}
               {!busy ? <ArrowRightIcon data-icon="inline-end" /> : null}
             </Button>
             <p className="mt-4 text-center text-xs text-muted-foreground">
@@ -804,107 +872,69 @@ export function AdaptiveCalibrationLab({
             </p>
           </section>
 
-          <div className="py-8 lg:px-7">
+          <aside className="border-t-2 border-foreground py-8 lg:border-t-0 lg:pl-7">
             <div className="flex items-center gap-3 text-primary">
-              <BrainCircuitIcon className="size-5" />
-              <p className="ink-label">Your starting estimate</p>
+              <CrosshairIcon className="size-5" aria-hidden="true" />
+              <p className="ink-label">Why this question?</p>
             </div>
-            <div className="mt-5">
-              <ModelBand payload={payload} />
-            </div>
-            <section className="mt-8 border-t-2 border-foreground pt-6">
+            <p className="mt-4 font-heading text-3xl leading-tight font-black">
+              This {question.skillLabel} item ranked first among unanswered
+              questions.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              This unanswered item had the highest ranking score: IRT item
+              information plus bonuses for an under-sampled section and an
+              unseen skill. Your ACT goal is not used here.
+            </p>
+
+            <div className="mt-8 border-t-2 border-foreground pt-6">
               <p className="ink-label text-muted-foreground">
-                What happens after you answer
+                After you answer
               </p>
-              <ol className="mt-5 grid gap-4 sm:grid-cols-3">
+              <ol className="mt-5 grid gap-5">
                 {[
                   [
                     "1",
-                    "Pick a question",
-                    "Choose what will tell Scout the most",
+                    "Your answer is scored",
+                    "You will see whether it was right.",
                   ],
-                  ["2", "Update the skill", "Use your scored answer"],
-                  ["3", "Change the plan", "Choose your next lesson"],
+                  [
+                    "2",
+                    "Scout applies the stop rule",
+                    "After at least 8 answers, it checks section coverage and standard error; 12 is the maximum.",
+                  ],
+                  [
+                    "3",
+                    "The tested skill updates",
+                    "Confidence scales this separate BKT update; it does not change item selection.",
+                  ],
                 ].map(([number, title, detail]) => (
-                  <li key={number} className="border-l-2 border-primary pl-3">
-                    <span className="font-mono text-xs font-black">
+                  <li
+                    key={number}
+                    className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+                  >
+                    <span className="flex size-8 items-center justify-center bg-foreground font-mono text-xs font-black text-background">
                       {number}
                     </span>
-                    <p className="mt-2 font-heading text-xl font-black">
-                      {title}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {detail}
-                    </p>
+                    <div>
+                      <p className="font-heading text-xl font-black">{title}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {detail}
+                      </p>
+                    </div>
                   </li>
                 ))}
               </ol>
-            </section>
-          </div>
+            </div>
 
-          <aside className="py-8 lg:border-l-2 lg:border-foreground lg:pl-7">
-            <div className="flex items-center gap-3 text-primary">
-              <GaugeIcon className="size-5" />
-              <p className="ink-label">Why this question?</p>
-            </div>
-            <div className="mt-5">
-              <MetricRow
-                label="How useful it is"
-                detail="How much this answer can teach Scout about your level"
-                value={
-                  selectedCandidate
-                    ? selectedCandidate.itemInformation >= 0.9
-                      ? "High"
-                      : "Medium"
-                    : "—"
-                }
-                accent
-              />
-              <MetricRow
-                label="Your chance of getting it right"
-                detail="Scout's best guess before you answer"
-                value={
-                  selectedCandidate
-                    ? `${Math.round(selectedCandidate.probabilityCorrect * 100)}%`
-                    : "—"
-                }
-              />
-              <MetricRow
-                label="Difficulty"
-                detail="Based on the reviewed question bank"
-                value={question.difficulty}
-              />
-              <MetricRow
-                label="Matches your level"
-                detail="This question is close to your current estimate"
-                value="Yes"
-              />
-              <MetricRow
-                label="Balances your check"
-                detail={`${SECTION_LABELS[question.section]} · ${question.skillLabel}`}
-                value={SECTION_LABELS[question.section]}
-              />
-            </div>
-            <div className="mt-7 border-t-2 border-foreground pt-6">
-              <h3 className="font-heading text-2xl font-black">
-                Other questions Scout considered
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Scout compares useful questions, then makes sure English, math,
-                and reading all get checked.
+            <div className="mt-8 border-l-4 border-primary bg-[var(--info-surface)] p-4">
+              <p className="font-bold">
+                {payload.maximumItems - payload.responseCount} questions left at
+                most
               </p>
-              <ol className="mt-4">
-                {payload.selection?.candidates.map((candidate, index) => (
-                  <CandidateRow
-                    key={candidate.id}
-                    candidate={candidate}
-                    rank={index + 1}
-                    selected={
-                      candidate.id === payload.selection?.selectedItemId
-                    }
-                  />
-                ))}
-              </ol>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                This is practice guidance, not an official ACT score.
+              </p>
             </div>
           </aside>
         </div>
@@ -912,26 +942,110 @@ export function AdaptiveCalibrationLab({
 
       <div className="mt-8 grid gap-5 border-t-2 border-foreground pt-6 text-sm text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-center">
         <p>
-          Scout asks at least {payload.minimumItems} questions and no more than{" "}
-          {payload.maximumItems}. It checks English, math, and reading before
-          stopping.
+          Quick Check stops at {payload.maximumItems}, or after at least{" "}
+          {payload.minimumItems} when English, Math, and Reading each have two
+          answers and standard error is 0.56 or lower.
         </p>
         <p className="font-mono text-xs font-black uppercase">
           {payload.responseCount} answers used
         </p>
       </div>
 
-      <details className="mt-6 border-t pt-5 text-sm text-muted-foreground">
-        <summary className="cursor-pointer font-bold text-foreground">
-          Technical details for judges
+      <details className="group mt-6 border-y-2 border-foreground bg-[var(--rail)]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-5 font-bold text-foreground marker:content-none sm:px-6">
+          <span className="flex items-center gap-3">
+            <GaugeIcon className="size-5 text-primary" aria-hidden="true" />
+            How Scout chose this question
+            <span className="font-normal text-muted-foreground">
+              (technical details)
+            </span>
+          </span>
+          <span className="font-mono text-xs font-black uppercase group-open:hidden">
+            Show
+          </span>
+          <span className="hidden font-mono text-xs font-black uppercase group-open:inline">
+            Hide
+          </span>
         </summary>
-        <p className="mt-3 max-w-3xl leading-6">
-          Scout uses a two-parameter Item Response Theory model (2PL IRT). It
-          estimates a level called theta, measures its margin of error, and
-          chooses the unanswered question expected to reduce that margin the
-          most. Current theta: {signed(payload.estimate.theta)}. Model version:{" "}
-          {payload.model.version}.
-        </p>
+        <div className="border-t-2 border-foreground bg-background px-4 py-7 sm:px-6">
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            Scout uses a two-parameter Item Response Theory-shaped model (2PL
+            IRT). Easy, medium, and hard questions use preset difficulty and
+            discrimination constants assigned in this app; they are not
+            calibrated from a national sample. Unanswered items are ranked by
+            Fisher information at the current theta, plus +1.35 for an unseen
+            section, +0.24 for the least-covered section, and +0.12 for an
+            unseen skill. Current theta: {signed(payload.estimate.theta)}. Model
+            version: {payload.model.version}.
+          </p>
+
+          {question ? (
+            <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
+              <div>
+                <div className="flex items-center gap-3 text-primary">
+                  <BrainCircuitIcon className="size-5" aria-hidden="true" />
+                  <p className="ink-label">Current model estimate</p>
+                </div>
+                <div className="mt-5">
+                  <ModelBand payload={payload} />
+                </div>
+              </div>
+
+              <div>
+                <p className="ink-label text-primary">Selection data</p>
+                <div className="mt-3">
+                  <MetricRow
+                    label="Item information"
+                    detail="How informative the item is at current theta before coverage bonuses"
+                    value={
+                      selectedCandidate
+                        ? selectedCandidate.itemInformation.toFixed(2)
+                        : "—"
+                    }
+                    accent
+                  />
+                  <MetricRow
+                    label="Predicted correct"
+                    detail="Calculated from theta and preset item parameters; confidence and ACT goal are ignored"
+                    value={
+                      selectedCandidate
+                        ? `${Math.round(selectedCandidate.probabilityCorrect * 100)}%`
+                        : "—"
+                    }
+                  />
+                  <MetricRow
+                    label="Difficulty"
+                    detail="Question-bank category mapped to fixed constants in code"
+                    value={question.difficulty}
+                  />
+                </div>
+                <div className="mt-7 border-t-2 border-foreground pt-6">
+                  <h3 className="font-heading text-2xl font-black">
+                    Candidate ranking
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Ranking score = item information + section and skill
+                    coverage bonuses. It is not a probability. Exact ties use
+                    higher unbonused item information, then the question-bank
+                    item ID. Displayed scores are rounded to two decimals.
+                  </p>
+                  <ol className="mt-4">
+                    {payload.selection?.candidates.map((candidate, index) => (
+                      <CandidateRow
+                        key={candidate.id}
+                        candidate={candidate}
+                        rank={index + 1}
+                        selected={
+                          candidate.id === payload.selection?.selectedItemId
+                        }
+                      />
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </details>
     </main>
   )

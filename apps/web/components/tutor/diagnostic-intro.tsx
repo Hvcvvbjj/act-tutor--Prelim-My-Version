@@ -61,12 +61,13 @@ export function DiagnosticIntro({
           <section>
             <p className="ink-label text-primary">No ACT score yet</p>
             <h1 className="mt-3 font-heading text-5xl leading-[0.95] font-black tracking-[-0.035em] sm:text-7xl">
-              Let’s find your starting score.
+              Create an internal planning baseline.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">
-              You&apos;re aiming for {goal} by {formatCalendarDate(testDate)}.
-              You do not need to guess where you stand. Your answers will show
-              Scout which skills are strong and which need work.
+              This 66-question original practice form converts raw correctness
+              into internal English, Math, and Reading planning numbers for your{" "}
+              {goal} goal on {formatCalendarDate(testDate)}. It is not
+              ACT-equated and does not produce an official score.
             </p>
 
             <div className="mt-10 border-y-2 border-foreground py-7">
@@ -94,17 +95,17 @@ export function DiagnosticIntro({
             <ScoutCoach
               className="mt-8 max-w-2xl"
               mood="ready"
-              message="This is long enough to expose patterns, not just lucky guesses. You can save and return at any point."
-              detail="Questions remain original and are organized in ACT-style passage and four-choice formats. Results are still estimated practice ranges, not official ACT scores."
+              message="This form gives Scout more observations than Quick Check, but guessing and question mix can still affect the result. You can save and return."
+              detail="Questions are original and use ACT-style passage and four-choice formats. The result is an internal planning proxy, not an official ACT score."
             />
 
             <Alert className="mt-8 max-w-2xl bg-[var(--info-surface)]">
               <ShieldCheckIcon />
-              <AlertTitle>Practice test, not an official ACT</AlertTitle>
+              <AlertTitle>The result stays fixed</AlertTitle>
               <AlertDescription>
                 The 25/23/18 split is half the current English, Math, and
-                Reading test. The questions are original, and your score is an
-                estimate that gets better as you practice.
+                Reading test. Later practice updates separate skill estimates;
+                it does not make this diagnostic result more accurate.
               </AlertDescription>
             </Alert>
           </section>

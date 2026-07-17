@@ -133,7 +133,7 @@ export function ExamLabRunner({
       <header className="sticky top-0 z-30 border-b-2 border-foreground bg-background">
         <div className="mx-auto grid max-w-[100rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
           <div>
-            <p className="ink-label text-primary">Test Day Lab</p>
+            <p className="ink-label text-primary">Timed practice</p>
             <p className="mt-1 truncate font-heading text-xl font-bold">
               {session.title}
             </p>
@@ -271,7 +271,7 @@ export function ExamLabRunner({
               <label
                 key={choice.id}
                 className={cn(
-                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] border-2 border-border bg-background px-4 py-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground sm:text-base",
+                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] border-2 border-border bg-background px-4 py-4 text-sm leading-6 transition-[transform,background-color,border-color] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:-translate-y-0.5 hover:border-foreground sm:text-base",
                   response?.choiceId === choice.id &&
                     "border-primary bg-secondary"
                 )}
@@ -302,6 +302,10 @@ export function ExamLabRunner({
                       : "outline"
                   }
                   className="capitalize"
+                  aria-pressed={
+                    response?.confidence === confidence &&
+                    Boolean(response.choiceId)
+                  }
                   onClick={() => onConfidence(confidence)}
                   disabled={!response?.choiceId}
                 >

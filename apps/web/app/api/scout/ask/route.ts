@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto"
 
 import {
   classifyScoutIntent,
+  type AdaptiveCalibrationPayload,
+  type AdaptiveStudyPlan,
   type LearningSessionPayload,
   type ScoutAnswer,
   type ScoutAskRequest,
@@ -13,10 +15,12 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
+import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { examLabSessions } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
 import { scoutSessions } from "@/lib/scout-sessions.server"
+import { studyPlanSessions } from "@/lib/study-plan.server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,6 +28,8 @@ export const dynamic = "force-dynamic"
 const SCOUT_COOKIE = "ai_act_scout_session"
 const LEARNING_COOKIE = "ai_act_learning_session"
 const EXAM_COOKIE = "scout_exam_lab_session"
+const CALIBRATION_COOKIE = "ai_act_calibration_session"
+const STUDY_PLAN_COOKIE = "scout_study_plan_session"
 const SCREENS = new Set<ScoutScreen>([
   "today",
   "plan",
@@ -100,6 +106,26 @@ async function getExam(request: NextRequest) {
   }
 }
 
+async function getCalibration(request: NextRequest) {
+  const sessionId = request.cookies.get(CALIBRATION_COOKIE)?.value
+  if (!sessionId) return null
+  try {
+    return await calibrationSessions.get(sessionId, CALIBRATION_BANK)
+  } catch {
+    return null
+  }
+}
+
+async function getStudyPlan(request: NextRequest) {
+  const sessionId = request.cookies.get(STUDY_PLAN_COOKIE)?.value
+  if (!sessionId) return null
+  try {
+    return await studyPlanSessions.get(sessionId)
+  } catch {
+    return null
+  }
+}
+
 function selectionIsGrounded(
   selectedText: string,
   corpus: ReadonlyArray<string>
@@ -119,35 +145,19 @@ function concise(value: string, preferences: ScoutExplanationPreferences) {
 function plainWords(value: string) {
   return value
     .replaceAll(/calibration/gi, "starting check")
-    .replaceAll(/uncertainty/gi, "how unsure Scout is")
+    .replaceAll(/uncertainty/gi, "estimate uncertainty")
     .replaceAll(/independent evidence/gi, "answers you gave without help")
     .replaceAll(/learner model/gi, "skill tracker")
     .replaceAll(/mastery estimate/gi, "skill estimate")
 }
 
-function exampleForStyle(
-  style: ScoutExplanationPreferences["exampleStyle"],
-  base: string | null,
-  lessonTitle: string
-) {
-  if (!base) return null
-  const example = base
-  if (style === "school") {
-    return `School example: before turning in a ${lessonTitle} answer, underline the clue that triggers the rule. ${example}`
-  }
-  if (style === "sports") {
-    return `Sports example: treat the rule like a boundary line—check it before calling the play. ${example}`
-  }
-  if (style === "gaming") {
-    return `Gaming example: identify the rule like a game mechanic before selecting your move. ${example}`
-  }
-  return `Everyday example: pause, name the rule, and then make the choice. ${example}`
+function exampleForStyle(base: string | null) {
+  return base
 }
 
 function applyPreferences(
   answer: Omit<ScoutAnswer, "receipt">,
-  preferences: ScoutExplanationPreferences,
-  lessonTitle: string
+  preferences: ScoutExplanationPreferences
 ) {
   let summary = answer.summary
   let explanation = answer.explanation
@@ -155,34 +165,20 @@ function applyPreferences(
   if (preferences.readingLevel === "plain") {
     summary = `In plain words: ${plainWords(summary)}`
     explanation = plainWords(explanation)
-  } else if (preferences.readingLevel === "advanced") {
-    explanation +=
-      " Advanced view: Scout separates the estimated skill level from how certain that estimate is."
   }
   if (preferences.fewerTechnicalTerms) {
     summary = plainWords(summary)
     explanation = plainWords(explanation)
     technical = plainWords(technical)
-  } else {
-    explanation +=
-      " Technical note: Scout tracks evidence weight and confidence separately from whether the answer was correct."
-    technical +=
-      " · Technical terms stay visible: evidence weight, confidence, and server state"
   }
   if (preferences.depth === "quick") {
     explanation = concise(explanation, preferences)
-  } else if (preferences.depth === "detailed") {
-    explanation += ` Walkthrough: first identify what ${lessonTitle} is testing, then apply the reviewed rule, and only then compare the choices.`
   }
   return {
     ...answer,
     summary,
     explanation,
-    example: exampleForStyle(
-      preferences.exampleStyle,
-      answer.example,
-      lessonTitle
-    ),
+    example: exampleForStyle(answer.example),
     technical,
   }
 }
@@ -215,9 +211,13 @@ export function answerFor(input: {
   preferences: ScoutExplanationPreferences
   learning: LearningSessionPayload | null
   exam: Awaited<ReturnType<typeof getExam>>
+  calibration?: AdaptiveCalibrationPayload | null
+  studyPlan?: AdaptiveStudyPlan | null
   history?: ReadonlyArray<ScoutMessage>
 }): ScoutAnswer {
   const { request, preferences, learning } = input
+  const calibration = input.calibration ?? null
+  const studyPlan = input.studyPlan ?? null
   const exam = request.screen === "lab" ? input.exam : null
   const examMode = exam
     ? exam.status === "in_progress" && exam.progress.phase === "questions"
@@ -273,7 +273,7 @@ export function answerFor(input: {
   const answerSeeking =
     /\b(answer|which choice|tell me which|solve|eliminate)\b/.test(lower)
   const interfaceOnly =
-    /\b(timer|flag|skip|submit|button|technical issue|navigate|move to)\b/.test(
+    /\b(timer|flag|skip|submit|button|technical issue|navigate|move to|pace|pacing|timed practice|results|accuracy)\b/.test(
       lower
     )
   const intent = classifyScoutIntent({
@@ -281,7 +281,7 @@ export function answerFor(input: {
     hasSelectedText: Boolean(request.selectedText),
   })
   const followup =
-    /\b(another example|explain (that|this)|more simply|why does this matter|show (that|the) rule|let me try one)\b/.test(
+    /\b(another example|explain (that|this)|more simply|why does this matter|show (that|the) rule)\b/.test(
       lower
     )
   const previous = followup ? input.history?.at(-1) : undefined
@@ -368,7 +368,7 @@ export function answerFor(input: {
     if (/another example/.test(lower)) {
       example =
         previous.answer.receipt.intent === "calibration-definition"
-          ? "If Scout stops after eight questions with a 24–27 range, it has enough information to plan. A full diagnostic may narrow that range."
+          ? "For example, a standard error of 0.60 means ±0.60 in theta units. The separate 80% interval is wider because it uses ±1.281552 × standard error. Neither number maps to ACT points."
           : (learning?.lesson.workedExample.prompt ??
             `Try the same ${lessonTitle} rule on a new item before checking your work.`)
       nextAction =
@@ -384,6 +384,35 @@ export function answerFor(input: {
       nextAction =
         "Apply this rule to the current item before comparing choices."
     }
+  } else if (
+    request.screen === "lab" &&
+    /which timed practice|which practice|should i choose/.test(lower)
+  ) {
+    summary = "Choose the run that matches how much you want to practice."
+    explanation =
+      "Quick 12 is the shortest cross-section check. One-section practice contains 18–25 questions. Half-length contains 66 English, Math, and Reading questions."
+    nextAction = "Choose the shortest mode that still matches today’s purpose."
+    source = "Reviewed Timed Practice mode definitions"
+    delivery = "reviewed-interface-guidance"
+  } else if (request.screen === "lab" && /pace|pacing|timer/.test(lower)) {
+    summary = "Use the timer shown for the mode you choose."
+    explanation =
+      "During a timed run, answer, flag, and move on. The clock continues while you navigate, and answer explanations unlock only after submission."
+    nextAction =
+      "Flag a question if you need to return before the section ends."
+    source = "Reviewed Timed Practice timer and review rules"
+    delivery = "reviewed-interface-guidance"
+  } else if (
+    request.screen === "lab" &&
+    /results|what will scout|confidence|accuracy/.test(lower)
+  ) {
+    summary = "Timed Practice results stay inside Timed Practice."
+    explanation =
+      "The report shows raw accuracy, average time per answered question, and self-reported confidence labels. It does not update Today, My Week, or the skill web."
+    nextAction =
+      "Use the report as a practice observation, not a mastery score."
+    source = "Reviewed Timed Practice result fields and sync boundary"
+    delivery = "reviewed-interface-guidance"
   } else if (examMode === "timed-test" && interfaceOnly) {
     summary = "Use the Test Lab controls without changing the question content."
     explanation =
@@ -400,12 +429,15 @@ export function answerFor(input: {
       "Explain the rule in your own words, then try a different item."
     source = `Scored Test Lab review for ${review.questionId}`
   } else if (intent === "calibration-definition") {
-    summary =
-      "Margin of error means Scout is still unsure about the exact starting level."
-    explanation =
-      "A wider range means the short check has less evidence. As you answer useful questions across English, math, and reading, the range can narrow. It is a planning range, not an official ACT score."
-    example =
-      "If the estimate says 20–25, Scout is saying your current evidence fits several nearby starting levels—not that you earned one exact score."
+    summary = calibration
+      ? `The displayed ±${calibration.estimate.standardError.toFixed(2)} is one standard error in theta units.`
+      : "Quick Check reports standard error in internal theta units."
+    explanation = calibration
+      ? `The shaded band is a separate 80% model interval from theta ${calibration.estimate.interval80.low.toFixed(2)} to ${calibration.estimate.interval80.high.toFixed(2)}. The items use preset easy, medium, and hard parameters assigned in this app, not national calibration. Neither value is an ACT score range.`
+      : "The ± value is one standard error. The shaded band is an 80% model interval. Neither is an ACT score range, and Scout cannot read a current Quick Check session from this request."
+    example = calibration
+      ? `Current theta ${calibration.estimate.theta.toFixed(2)} is displayed as ${calibration.estimate.readinessIndex}/100 using round((theta + 3) ÷ 6 × 100). That display is not ACT readiness.`
+      : null
     nextAction =
       "Keep answering independently, or take the full diagnostic for more evidence."
     source = "Reviewed Quick Check interface glossary"
@@ -430,23 +462,37 @@ export function answerFor(input: {
       delivery = "reviewed-interface-guidance"
     }
   } else if (intent === "plan-reason") {
-    summary = `${nextSkill} is the current next mission.`
-    explanation = planReason
-    example = learning
-      ? `${learning.planCounterfactual.correctOutcome} ${learning.planCounterfactual.incorrectOutcome}`
-      : null
-    nextAction =
-      "Open My Skills to inspect the scored evidence behind the choice."
-    source = "Server learning recommendation and scored evidence"
+    if (request.screen === "plan") {
+      summary = studyPlan
+        ? "I can explain the calendar rules, but I cannot see which assignment you selected."
+        : "I cannot read the dated calendar for this answer."
+      explanation = studyPlan
+        ? `The current calendar contains ${studyPlan.forecast.scheduledMinutes} minutes before test day. Skills are ranked from lower BKT estimate, fewer scored answers, planned section-score movement, a due stored-review date, and the current Today/Next flag. The time check compares those minutes with a rough ${studyPlan.forecast.recommendedMinutes}-minute product target; it does not prove the goal is reachable.`
+        : "Open “Why this assignment is here” on My week. That panel stores the specific skill estimate, answer count, section target movement, review status, and fixed phase rule used for the selected task."
+      example = null
+      nextAction =
+        "Open the selected assignment’s “Why this assignment is here” panel for its exact stored inputs."
+      source = studyPlan
+        ? "Server dated-plan fields and fixed scheduling rules"
+        : "Capability boundary: no dated-plan context available"
+    } else {
+      summary = `${nextSkill} is the current next skill.`
+      explanation = `${planReason} The total uses predicted chance on a medium item × 52, estimate entropy × 24, evidence scarcity × 14, and a recent miss worth 10. The ACT goal is not part of this ranking.`
+      example = null
+      nextAction =
+        "Open Progress and select the skill to inspect all four point values."
+      source = "Server BKT recommendation and fixed priority formula"
+    }
   } else if (intent === "estimate") {
     const selectedState = learning?.learningTwin.skills.find(
       (skill) => skill.skill === learning.todaySkill
     )
     summary = selectedState
-      ? `The current practice estimate is ${Math.round(selectedState.learnedProbability * 100)}%.`
+      ? `${selectedState.label} is ${Math.round(selectedState.learnedProbability * 100)}% from ${selectedState.evidenceCount} scored ${selectedState.evidenceCount === 1 ? "answer" : "answers"}.`
       : "Scout does not have enough scored evidence for a skill estimate yet."
-    explanation =
-      "This is an internal practice estimate, not an ACT score. Its certainty depends on how much independent evidence Scout has collected."
+    explanation = selectedState
+      ? `This is a BKT learned-probability estimate, not percent correct or an ACT score. Its starting source is ${selectedState.priorSource}; ${selectedState.confidence} is a rule based on answer count and entropy, not a statistical confidence interval.`
+      : "No current skill state was available."
     nextAction =
       "Open the Evidence Timeline to see the answers behind the estimate."
     source = "Server learning state"
@@ -467,15 +513,20 @@ export function answerFor(input: {
     nextAction =
       "Say the rule once in your own words, then use it on the next item."
   } else if (request.screen === "plan") {
-    summary = "The schedule uses the days and minutes you said are available."
-    explanation = planReason
+    summary = studyPlan
+      ? `${studyPlan.availability.entries.length} weekdays and ${studyPlan.forecast.weeklyCapacity} minutes per week are available to the calendar generator.`
+      : "Scout cannot read the dated calendar in this answer."
+    explanation = studyPlan
+      ? `${studyPlan.forecast.scheduledMinutes} minutes are scheduled before test day. The rough internal target is ${studyPlan.forecast.recommendedMinutes} minutes, calculated as 120 + 25 per planned section-score point + 15 per skill estimate below 65%. This is not evidence that the goal is reachable.`
+      : "Open My week to inspect the calendar. The assistant currently has only the learning-session context."
     nextAction = "Edit your availability if the schedule no longer fits."
     source = "Server study-plan inputs and learning state"
   } else if (request.screen === "calibrate") {
-    summary =
-      "Quick Check chooses a useful next question, then stops at its evidence limit."
+    summary = calibration
+      ? `Quick Check has recorded ${calibration.responseCount} of at most ${calibration.maximumItems} answers.`
+      : "Quick Check uses 8–12 questions."
     explanation =
-      "It checks all three core sections and uses each scored response to choose the next item. The result is only a planning baseline."
+      "It stops at 12, or after at least 8 when English, Math, and Reading each have two answers and standard error is 0.56 or lower. The next item’s ranking is Fisher information plus section and skill coverage bonuses. Confidence does not affect IRT, selection, or stopping."
     nextAction =
       "Answer independently; use the full diagnostic if you want more evidence."
     source = "Reviewed Quick Check behavior"
@@ -487,13 +538,13 @@ export function answerFor(input: {
       summary,
       explanation,
       example,
-      technical: `Context and permissions derived on the server · ${examMode}`,
+      technical:
+        "This response used the current lesson, result, or plan fields named under Source. Scout did not read the rest of the visible screen.",
       nextAction,
       source,
       mode: "grounded",
     },
-    preferences,
-    lessonTitle
+    preferences
   )
 
   return {
@@ -567,15 +618,23 @@ export async function POST(request: NextRequest) {
       questionId: text(body.questionId, 160) || null,
       selectedText: text(body.selectedText, 400) || null,
     }
-    const [learning, exam] = await Promise.all([
+    const [learning, exam, calibration, studyPlan] = await Promise.all([
       getLearning(request),
       scoutRequest.screen === "lab" ? getExam(request) : Promise.resolve(null),
+      scoutRequest.screen === "calibrate"
+        ? getCalibration(request)
+        : Promise.resolve(null),
+      scoutRequest.screen === "plan"
+        ? getStudyPlan(request)
+        : Promise.resolve(null),
     ])
     const answer = answerFor({
       request: scoutRequest,
       preferences: scout.state.preferences,
       learning,
       exam,
+      calibration,
+      studyPlan,
       history: scout.state.messages.slice(-6),
     })
     const message = {

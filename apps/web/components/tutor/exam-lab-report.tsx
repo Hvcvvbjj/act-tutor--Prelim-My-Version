@@ -64,19 +64,21 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
     session.questions.map((question) => [question.id, question])
   )
   const estimateLabel = result.practiceEstimate.composite
-    ? "Practice Composite estimate"
-    : "Practice section estimate"
+    ? "Internal Composite display"
+    : "Internal section display"
+  const estimateMargin = result.mode === "sprint" ? 4 : 3
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
       <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)] lg:gap-16">
         <div>
-          <p className="ink-label text-primary">Test Day Lab report</p>
-          <h1 className="mt-3 font-heading text-6xl leading-[0.9] font-black tracking-[-0.04em] sm:text-8xl">
+          <p className="ink-label text-primary">Timed-practice results</p>
+          <h1 className="mt-3 font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
             Here&apos;s what happened under the clock.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            See what you knew, where you spent too much time, and when you felt
-            sure but were wrong.
+            See raw accuracy, average time per answered question, and how your
+            Sure, Unsure, and Guess labels lined up with correctness. These
+            results stay in Timed Practice and do not update Today or My Week.
           </p>
 
           <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-[1.2fr_0.8fr] sm:divide-x-2 sm:divide-foreground">
@@ -86,8 +88,8 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
                 {result.practiceEstimate.low}–{result.practiceEstimate.high}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Midpoint {result.practiceEstimate.estimate} · original practice
-                content
+                Midpoint {result.practiceEstimate.estimate} · calculated from
+                raw correctness
               </p>
             </div>
             <div className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8">
@@ -100,6 +102,26 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
               </p>
             </div>
           </div>
+          <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
+            <summary className="cursor-pointer font-semibold">
+              How the 1–36 display is calculated
+            </summary>
+            <p className="mt-3 text-muted-foreground">
+              Each section uses{" "}
+              <code className="font-mono text-xs text-foreground">
+                round(1 + ((correct + 1) / (total + 2)) × 35)
+              </code>
+              .{" "}
+              {result.practiceEstimate.composite
+                ? "Because this run includes English, Math, and Reading, the midpoint is the rounded average of the three section displays."
+                : "Because this run includes one section, the midpoint is that section display."}
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              The shown range is the midpoint ±{estimateMargin}, clipped to
+              1–36. This is an internal conversion from raw correctness—not an
+              ACT-equated score or a statistical confidence interval.
+            </p>
+          </details>
         </div>
         <aside className="lg:pt-8">
           <ScoutCoach
@@ -107,8 +129,11 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
             message={result.debrief.headline}
             detail={result.debrief.summary}
           />
-          <div className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
-            <p className="inline-flex items-center gap-2 font-semibold">
+          <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
+            <summary className="cursor-pointer font-semibold">
+              How this summary was made
+            </summary>
+            <p className="mt-3 inline-flex items-center gap-2 font-semibold">
               {result.debrief.generation.mode === "ai" ? (
                 <SparklesIcon className="text-primary" />
               ) : (
@@ -119,10 +144,11 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
                 : "Reviewed report"}
             </p>
             <p className="mt-2 text-muted-foreground">
-              AI saw only your overall results—not the answer key or question
-              text.
+              {result.debrief.generation.mode === "ai"
+                ? "AI received only aggregate results—not the answer key or question text."
+                : "A reviewed fallback assembled this summary from aggregate results; no AI model was used."}
             </p>
-          </div>
+          </details>
         </aside>
       </section>
 
@@ -132,7 +158,7 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
       >
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="ink-label text-primary">Your score</p>
+            <p className="ink-label text-primary">Raw results</p>
             <h2
               id="section-results-title"
               className="mt-2 font-heading text-4xl font-bold"
@@ -158,7 +184,7 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
               </div>
               <MetricBar value={section.accuracy * 100} />
               <p className="mt-3 text-sm text-muted-foreground">
-                {section.correct}/{section.total} correct ·{" "}
+                Internal display · {section.correct}/{section.total} correct ·{" "}
                 {Math.round(section.averageSeconds)}s average
               </p>
             </div>
@@ -173,7 +199,9 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
         >
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="ink-label text-[var(--scout-coral)]">Time use</p>
+              <p className="ink-label text-[var(--scout-coral-text)]">
+                Time use
+              </p>
               <h2
                 id="pacing-title"
                 className="mt-2 font-heading text-4xl font-bold"
@@ -188,7 +216,8 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
           </p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {Math.round(result.pacing.averageSeconds)}s actual average compared
-            with {Math.round(result.pacing.expectedAverageSeconds)}s expected.
+            with a {Math.round(result.pacing.expectedAverageSeconds)}s average
+            question-bank target.
           </p>
           <dl className="mt-6 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
             <div>
@@ -210,6 +239,13 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
               </dd>
             </div>
           </dl>
+          <p className="mt-4 text-xs leading-5 text-muted-foreground">
+            “Rushed” means under 40% of a question&apos;s bank target time;
+            “Overtime” means above 150%. With at least three answered questions,
+            Scout labels the run “Rushing” when at least 35% are rushed;
+            otherwise it labels it “Overinvesting” when at least 35% are
+            overtime; otherwise it labels it “Balanced.”
+          </p>
         </section>
 
         <section
@@ -252,8 +288,8 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
             ))}
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            {result.overconfidentMisses} confident misses ·{" "}
-            {result.luckyGuesses} correct guesses
+            {result.overconfidentMisses} wrong answers marked Sure ·{" "}
+            {result.luckyGuesses} correct answers marked Guess
           </p>
         </section>
       </div>
@@ -264,17 +300,17 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="ink-label text-primary">All 12 skills</p>
+            <p className="ink-label text-primary">Skills in this run</p>
             <h2
               id="skills-title"
               className="mt-2 font-heading text-4xl font-bold"
             >
-              Skills that need the most work
+              Lowest raw accuracy first
             </h2>
           </div>
           <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-            Scout looks at wrong answers, time spent, and confident mistakes—not
-            just your score.
+            Skills are ordered by lowest raw accuracy; ties use slower average
+            time. Confidence labels are shown but do not change the order.
           </p>
         </div>
         <div className="mt-6 grid gap-x-10 lg:grid-cols-2">
@@ -437,8 +473,8 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-y-2 border-foreground py-5">
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          These are practice results, not an official ACT score. Take more than
-          one practice test before trusting a pattern.
+          These are practice results, not an official ACT score. They remain in
+          Timed Practice and do not update Today or My Week in this build.
         </p>
         <Button type="button" size="lg" onClick={onNewRun}>
           Take another practice test <ArrowRightIcon data-icon="inline-end" />

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef } from "react"
 import type { CoreSection, ExamLabMode } from "@act-tutor/core"
 import {
   BookOpenCheckIcon,
@@ -38,7 +39,7 @@ const MODES = [
     title: "One-section practice",
     meta: "18–25 questions · half-length ACT timing",
     description:
-      "Practice one section and see where time or confidence hurts you.",
+      "Practice one section, then compare time and self-reported confidence with correctness.",
     icon: BookOpenCheckIcon,
   },
   {
@@ -62,18 +63,21 @@ export function ExamLabSetup({
   onSectionChange,
   onStart,
 }: ExamLabSetupProps) {
+  const modeRefs = useRef<Array<HTMLButtonElement | null>>([])
+
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:gap-16">
         <section>
-          <p className="ink-label text-primary">Test Day Lab</p>
-          <h1 className="mt-3 max-w-4xl font-heading text-6xl leading-[0.9] font-black tracking-[-0.04em] sm:text-8xl">
+          <p className="ink-label text-primary">Timed practice</p>
+          <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
             Practice the test before test day.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            Answer original ACT-style questions with a real timer. Scout checks
-            your score, pace, confidence, flags, and blank answers before
-            changing your plan.
+            Choose a quick quiz, one section, or a half-length practice test.
+            You&apos;ll get raw accuracy, time per question, a confidence
+            breakdown, and a suggested next action. In this build, the result
+            stays in Timed Practice and does not change Today or My Week.
           </p>
 
           <div
@@ -81,20 +85,47 @@ export function ExamLabSetup({
             role="radiogroup"
             aria-label="Simulation type"
           >
-            {MODES.map((option) => {
+            {MODES.map((option, index) => {
               const Icon = option.icon
               const selected = mode === option.id
               return (
                 <button
                   key={option.id}
+                  ref={(node) => {
+                    modeRefs.current[index] = node
+                  }}
                   type="button"
                   role="radio"
                   aria-checked={selected}
+                  tabIndex={selected ? 0 : -1}
                   className={cn(
                     "grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-4 border-b-2 border-foreground px-2 py-6 text-left transition-colors hover:bg-muted/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     selected && "bg-[var(--coach-surface)]"
                   )}
                   onClick={() => onModeChange(option.id)}
+                  onKeyDown={(event) => {
+                    if (
+                      ![
+                        "ArrowDown",
+                        "ArrowRight",
+                        "ArrowUp",
+                        "ArrowLeft",
+                      ].includes(event.key)
+                    ) {
+                      return
+                    }
+                    event.preventDefault()
+                    const direction =
+                      event.key === "ArrowDown" || event.key === "ArrowRight"
+                        ? 1
+                        : -1
+                    const nextIndex =
+                      (index + direction + MODES.length) % MODES.length
+                    onModeChange(MODES[nextIndex].id)
+                    window.requestAnimationFrame(() =>
+                      modeRefs.current[nextIndex]?.focus()
+                    )
+                  }}
                 >
                   <span
                     className={cn(
@@ -138,6 +169,7 @@ export function ExamLabSetup({
                     key={value}
                     type="button"
                     variant={section === value ? "default" : "outline"}
+                    aria-pressed={section === value}
                     size="lg"
                     className="capitalize"
                     onClick={() => onSectionChange(value)}
@@ -157,12 +189,12 @@ export function ExamLabSetup({
             disabled={busy}
           >
             <TimerResetIcon data-icon="inline-start" />
-            {busy ? "Preparing secure form…" : "Enter the Test Day Lab"}
+            {busy ? "Getting questions ready…" : "Start timed practice"}
           </Button>
           {extendedTime ? (
             <p className="mt-4 border-l-4 border-primary bg-[var(--info-surface)] p-3 text-sm font-semibold">
-              Extended time is on. Test Lab will use 1.5× the standard practice
-              time.
+              Extended time is on. Timed Practice will use 1.5× the standard
+              practice time.
             </p>
           ) : null}
         </section>
@@ -170,8 +202,8 @@ export function ExamLabSetup({
         <aside className="lg:pt-8">
           <ScoutCoach
             mood="ready"
-            message="Treat this as practice, not a final judgment. Notice where the timer changes how you answer."
-            detail="Answer keys stay hidden until you submit. AI sees only your overall results, not the answer key or question text."
+            message="Treat this as practice, not a final judgment. Compare how long you spent and how sure you felt with which answers were correct."
+            detail="Answer keys stay hidden until you submit. The report uses correctness, elapsed time, and the confidence label you chose. It stays inside Timed Practice and does not update Today or My Week."
           />
           <section className="mt-8 border-y-2 border-foreground py-6">
             <h2 className="font-heading text-3xl font-bold">
@@ -207,8 +239,9 @@ export function ExamLabSetup({
             </ol>
           </section>
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            This uses original practice content and produces an estimated
-            practice range—not an official ACT score.
+            This uses original practice content. The report includes an internal
+            1–36 conversion from raw accuracy; it is not ACT-equated or an
+            official ACT score.
           </p>
         </aside>
       </div>

@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 
 import {
   catchUpStudyPlan,
@@ -13,6 +11,11 @@ import {
   type StudyPlanTaskStatus,
   type StudySkillSignal,
 } from "@act-tutor/core";
+
+import {
+  resolveJsonDocumentStore,
+  type JsonDocumentStore,
+} from "./atomic-json-repository";
 
 interface StoredStudyPlanSession {
   id: string;
@@ -64,59 +67,45 @@ function sameSkills(
 }
 
 export class FileStudyPlanRepository {
+  private readonly store: JsonDocumentStore;
+
   constructor(
-    private readonly filePath: string,
+    source: string | JsonDocumentStore,
     private readonly now: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.store = resolveJsonDocumentStore(source);
+  }
 
   private async readStore(): Promise<StudyPlanStoreFile> {
-    try {
-      const parsed = JSON.parse(
-        await readFile(this.filePath, "utf8"),
-      ) as StudyPlanStoreFile;
-      if (parsed.version !== 1 || !parsed.sessions) {
-        throw new Error("Unsupported study-plan store format.");
-      }
-      return parsed;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return structuredClone(EMPTY_STORE);
-      }
-      throw error;
+    const value = await this.store.read();
+    if (value === null) return structuredClone(EMPTY_STORE);
+    const parsed = value as StudyPlanStoreFile;
+    if (parsed.version !== 1 || !parsed.sessions) {
+      throw new Error("Unsupported study-plan store format.");
     }
+    return parsed;
   }
 
   private async writeStore(store: StudyPlanStoreFile) {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await rename(temporaryPath, this.filePath);
-    } catch (error) {
-      await unlink(temporaryPath).catch(() => undefined);
-      throw error;
-    }
+    await this.store.write(store);
   }
 
   private async transact<T>(
     operation: (store: StudyPlanStoreFile) => Promise<T> | T,
   ): Promise<T> {
-    const previous = queues.get(this.filePath) ?? Promise.resolve();
+    const previous = queues.get(this.store.key) ?? Promise.resolve();
     let release: () => void = () => {};
     const current = new Promise<void>((resolve) => {
       release = resolve;
     });
     const tail = previous.then(() => current);
-    queues.set(this.filePath, tail);
+    queues.set(this.store.key, tail);
     await previous;
     try {
       return await operation(await this.readStore());
     } finally {
       release();
-      if (queues.get(this.filePath) === tail) queues.delete(this.filePath);
+      if (queues.get(this.store.key) === tail) queues.delete(this.store.key);
     }
   }
 
@@ -131,14 +120,31 @@ export class FileStudyPlanRepository {
   async getOrCreate(sessionId: string | null, input: GenerateStudyPlanInput) {
     return this.transact(async (store) => {
       const existing = sessionId ? store.sessions[sessionId] : undefined;
-      if (
+      const samePlanWindow =
         existing &&
         existing.plan.copyVersion === 2 &&
         existing.plan.today === input.today &&
         existing.plan.testDate === input.testDate &&
         sameScores(existing.plan.current, input.current) &&
-        sameScores(existing.plan.target, input.target)
-      ) {
+        sameScores(existing.plan.target, input.target);
+      if (existing && samePlanWindow) {
+        const availabilityChanged =
+          input.availability &&
+          !sameAvailability(existing.plan.availability, input.availability);
+        const skillsChanged = !sameSkills(existing.plan.skills, input.skills);
+        if (!availabilityChanged && !skillsChanged) {
+          return { sessionId: existing.id, plan: existing.plan };
+        }
+        const now = this.now();
+        existing.plan = rebalanceStudyPlan(existing.plan, {
+          ...(availabilityChanged ? { availability: input.availability } : {}),
+          ...(skillsChanged ? { skills: input.skills } : {}),
+          updatedAt: now,
+          reason:
+            "Calendar capacity or skill evidence changed, so Scout rebuilt future dates. Tasks dated today and completed tasks were kept.",
+        });
+        existing.updatedAt = now;
+        await this.writeStore(store);
         return { sessionId: existing.id, plan: existing.plan };
       }
 

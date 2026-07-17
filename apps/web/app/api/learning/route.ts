@@ -122,6 +122,20 @@ function parsePlanContext(body: Record<string, unknown>) {
   const minutesPerSession = Number(body.minutesPerSession)
   const studyDaysPerWeek = Number(body.studyDaysPerWeek ?? 5)
   const preferredSection = body.preferredSection ?? "balanced"
+  const rawSectionScores = body.sectionScores
+  const sectionScores =
+    rawSectionScores &&
+    typeof rawSectionScores === "object" &&
+    !Array.isArray(rawSectionScores)
+      ? (rawSectionScores as Record<string, unknown>)
+      : null
+  const parsedSectionScores = sectionScores
+    ? {
+        english: Number(sectionScores.english),
+        math: Number(sectionScores.math),
+        reading: Number(sectionScores.reading),
+      }
+    : undefined
   if (
     !Number.isInteger(goalScore) ||
     goalScore < 1 ||
@@ -138,6 +152,10 @@ function parsePlanContext(body: Record<string, unknown>) {
     !Number.isInteger(studyDaysPerWeek) ||
     studyDaysPerWeek < 1 ||
     studyDaysPerWeek > 7 ||
+    (parsedSectionScores !== undefined &&
+      Object.values(parsedSectionScores).some(
+        (score) => !Number.isInteger(score) || score < 1 || score > 36
+      )) ||
     (preferredSection !== "balanced" &&
       preferredSection !== "english" &&
       preferredSection !== "math" &&
@@ -148,6 +166,7 @@ function parsePlanContext(body: Record<string, unknown>) {
   return {
     goalScore,
     currentScore,
+    sectionScores: parsedSectionScores,
     daysUntilTest,
     minutesPerSession,
     studyDaysPerWeek,
@@ -175,7 +194,8 @@ export async function POST(request: NextRequest) {
     const action = body.action
 
     if (action === "rebase_after_calibration") {
-      const calibrationSessionId = request.cookies.get(CALIBRATION_COOKIE)?.value
+      const calibrationSessionId =
+        request.cookies.get(CALIBRATION_COOKIE)?.value
       if (!calibrationSessionId) {
         throw new RangeError("Complete Quick Check before rebuilding the plan.")
       }
@@ -187,6 +207,7 @@ export async function POST(request: NextRequest) {
       const plan = parsePlanContext({
         ...body,
         currentScore: baseline.composite,
+        sectionScores: baseline.sections,
       })
       const learning = await learningSessions.rebaseAfterCalibration(
         requireSessionId(request),

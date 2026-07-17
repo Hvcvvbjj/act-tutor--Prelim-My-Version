@@ -1,17 +1,12 @@
 import { TutorApp } from "@/components/tutor/tutor-app"
+import { addCalendarDaysFrom, toIsoCalendarDate } from "@/lib/dates"
 
 export const dynamic = "force-dynamic"
 
 export default function Page() {
   const now = new Date()
-  const today = now.toISOString().slice(0, 10)
-  const defaultTest = new Date(now)
-  defaultTest.setUTCDate(defaultTest.getUTCDate() + 36)
+  const today = toIsoCalendarDate(now)
+  const defaultTest = addCalendarDaysFrom(today, 36)
 
-  return (
-    <TutorApp
-      today={today}
-      initialTestDate={defaultTest.toISOString().slice(0, 10)}
-    />
-  )
+  return <TutorApp today={today} initialTestDate={defaultTest} />
 }

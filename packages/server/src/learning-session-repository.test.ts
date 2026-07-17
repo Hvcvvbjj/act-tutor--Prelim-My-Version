@@ -208,6 +208,30 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
+  it("uses each reported section score for that section's BKT prior", async () => {
+    await withRepository(async (repo) => {
+      const { payload } = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        diagnosticSkillResults: [],
+        plan: {
+          ...plan,
+          sectionScores: { english: 12, math: 24, reading: 36 },
+        },
+      });
+
+      const bySkill = new Map(
+        payload.learningTwin.skills.map((skill) => [skill.skill, skill]),
+      );
+      expect(
+        bySkill.get("sentence-boundaries")?.learnedProbability,
+      ).toBeCloseTo(0.12 + (11 / 35) * 0.76);
+      expect(bySkill.get("linear-equations")?.learnedProbability).toBeCloseTo(
+        0.12 + (23 / 35) * 0.76,
+      );
+      expect(bySkill.get("supported-inference")?.learnedProbability).toBe(0.88);
+    });
+  });
+
   it("transactionally rebases a temporary no-score session from calibration", async () => {
     await withRepository(async (repo) => {
       const started = await repo.getOrCreate(null, bank, {
@@ -257,6 +281,7 @@ describe("FileLearningSessionRepository", () => {
       expect(rebased.todaySkill).toBe("linear-equations");
       expect(rebased.nextSkill).toBe("linear-equations");
       expect(rebased.lesson.skill).toBe("linear-equations");
+      expect(rebased.learningTwin.evidence.calibration).toBe(0);
       expect(
         rebased.questions.every(
           (question) => question.skill === "linear-equations",

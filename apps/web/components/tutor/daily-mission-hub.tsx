@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import type {
+  KnowledgeState,
   LearningSessionPayload,
-  MasteryState,
   MissionStep,
 } from "@act-tutor/core"
 import {
@@ -18,9 +17,7 @@ import {
   ListChecksIcon,
   RefreshCwIcon,
   RotateCcwIcon,
-  Settings2Icon,
   SparklesIcon,
-  StarIcon,
   TimerResetIcon,
 } from "lucide-react"
 
@@ -47,23 +44,15 @@ interface DailyMissionHubProps {
 
 const STEP_META = {
   learn: {
-    label: "Learn",
-    short: "See the rule",
     icon: BookOpenCheckIcon,
   },
   practice: {
-    label: "Practice",
-    short: "Try it yourself",
     icon: ListChecksIcon,
   },
   repair: {
-    label: "Fix mistakes",
-    short: "Review and improve",
     icon: RotateCcwIcon,
   },
   checkpoint: {
-    label: "Quick quiz",
-    short: "Lock it in",
     icon: GaugeIcon,
   },
 } as const
@@ -80,61 +69,55 @@ const SECTION_COLOR = {
   reading: "var(--scout-sun)",
 } as const
 
-const SKILL_LEVEL_LABEL = {
-  new: "Just starting",
-  building: "Learning",
-  steady: "Getting there",
-  secure: "Strong",
-} as const
-
 function getMissionCopy(learning: LearningSessionPayload) {
   switch (learning.mode) {
     case "repair":
       return {
-        label: "Retry",
+        label: "Today’s assignment · Retry",
         title: `Retry: ${learning.mastery.label}`,
         description:
-          "Try the question again without looking at the explanation.",
+          "Answer one question you previously missed. The answer updates this skill and, if correct, marks that saved mistake resolved.",
       }
     case "checkpoint":
       return {
-        label: "Quick quiz",
-        title: "Mixed three-question quiz",
-        description: "One question from each of three weak skills. No hints.",
+        label: "Today’s assignment · Quick quiz",
+        title: "3-question mixed quiz",
+        description:
+          "Answer one question from each of three currently prioritized skills. Each answer updates only the skill it tests.",
       }
     case "retention":
       return {
-        label: "Memory check",
-        title: `Do you still remember ${learning.mastery.label}?`,
+        label: "Today’s assignment · Memory check",
+        title: `Review ${learning.mastery.label}`,
         description:
-          "Two questions check whether the skill held up after time away.",
+          "Answer two questions for this skill. Both answers update its estimate and set its next stored review date.",
       }
     case "challenge":
       return {
-        label: "Mastery challenge",
-        title: `Prove you own ${learning.mastery.label}`,
+        label: "Today’s assignment · Challenge",
+        title: `Harder ${learning.mastery.label} questions`,
         description:
-          "Three harder questions can prove this skill needs less repetition.",
+          "Answer three hard questions for this skill. The results update this skill and may move its next review date.",
       }
     case "micro":
       return {
-        label: "3-minute study",
-        title: `One useful step in ${learning.mastery.label}`,
+        label: "Today’s assignment · 3 minutes",
+        title: `3-minute ${learning.mastery.label} lesson`,
         description:
-          "A short lesson and one question keep your plan moving on a busy day.",
+          "Read the short rule, then answer one scored question. That answer updates this skill like regular practice.",
       }
     case "recovery":
       return {
-        label: "Recovery session",
-        title: "Get the plan moving again",
+        label: "Today’s assignment · Restart",
+        title: "Start again with two questions",
         description:
-          "Two priority questions rebuild momentum without adding extra work.",
+          "Answer two questions from the skills currently ranked highest. This records normal practice; it does not erase missed assignments.",
       }
     default:
       return {
-        label: "Today’s mission",
+        label: "Today’s assignment",
         title: learning.lesson.title,
-        description: learning.lesson.concept,
+        description: `Read one rule and one worked example, then answer ${learning.questions.length} scored questions. Those answers update ${learning.mastery.label} only.`,
       }
   }
 }
@@ -160,7 +143,9 @@ function MissionAction(props: DailyMissionHubProps) {
     )
   }
 
-  const current = learning.mission.steps.find((step) => step.state === "current")
+  const current = learning.mission.steps.find(
+    (step) => step.state === "current"
+  )
   if (!current) return null
   if (current.id === "learn" || current.id === "practice") {
     return (
@@ -174,7 +159,7 @@ function MissionAction(props: DailyMissionHubProps) {
         {current.id === "learn" ? (
           <SparklesIcon data-icon="inline-start" />
         ) : null}
-        {current.id === "learn" ? "Start today’s lesson" : "Continue practice"}
+        {current.id === "learn" ? "Start lesson" : "Continue practice"}
         <ArrowRightIcon data-icon="inline-end" />
       </Button>
     )
@@ -214,7 +199,7 @@ function MissionProgress({ steps }: { steps: ReadonlyArray<MissionStep> }) {
   return (
     <ol
       className="mt-7 grid gap-3 border-t pt-6 sm:grid-cols-2 lg:grid-cols-4"
-      aria-label="Daily mission steps"
+      aria-label="Today’s assignment steps"
     >
       {steps.map((step, index) => {
         const meta = STEP_META[step.id]
@@ -247,13 +232,16 @@ function MissionProgress({ steps }: { steps: ReadonlyArray<MissionStep> }) {
               </span>
               <div>
                 <p className="text-sm font-bold">
-                  {index + 1}. {meta.label}
+                  {index + 1}. {step.label}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {step.total > 1 && step.progress > 0
-                    ? `${step.progress}/${step.total} · `
-                    : ""}
-                  {meta.short}
+                  {step.id === "learn"
+                    ? step.state === "done"
+                      ? "Opened"
+                      : step.state === "current"
+                        ? "Open this first"
+                        : "Not started"
+                    : `${step.progress} of ${step.total} answered${step.state === "done" ? " · complete" : ""}`}
                 </p>
               </div>
             </div>
@@ -280,7 +268,8 @@ function LaterToday(props: DailyMissionHubProps) {
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Review: {review.label}</p>
             <p className="text-xs text-muted-foreground">
-              Two-question memory check · due {formatCalendarDate(review.dueAt.slice(0, 10))}
+              Two-question memory check · due{" "}
+              {formatCalendarDate(review.dueAt.slice(0, 10))}
             </p>
           </div>
           <Button
@@ -303,42 +292,18 @@ function LaterToday(props: DailyMissionHubProps) {
 }
 
 function PaceControls(props: DailyMissionHubProps) {
-  const [energy, setEnergy] = useState<"low" | "normal" | "challenge">(
-    "normal"
-  )
   const ready = props.learning.status === "complete" && !props.busy
   return (
     <details className="group border-t">
       <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-        <span className="flex items-center gap-3">
-          <Settings2Icon className="size-5 text-muted-foreground" />
-          Change today&apos;s pace
-        </span>
+        Choose another study option
         <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
       </summary>
       <div className="pb-5">
         <p className="text-sm leading-6 text-muted-foreground">
-          Pick how today feels. Scout will protect unfinished work.
+          After today&apos;s assignment, choose a shorter session, a harder
+          challenge, or an easy restart.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(
-            [
-              ["low", "Low energy"],
-              ["normal", "Normal"],
-              ["challenge", "Challenge me"],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={energy === value ? "secondary" : "outline"}
-              onClick={() => setEnergy(value)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
         <div className="mt-4 grid gap-2">
           <Button
             type="button"
@@ -347,7 +312,7 @@ function PaceControls(props: DailyMissionHubProps) {
             disabled={!ready}
             onClick={() => props.onStartMicro()}
           >
-            3-minute study
+            3-minute lesson
           </Button>
           <Button
             type="button"
@@ -356,7 +321,7 @@ function PaceControls(props: DailyMissionHubProps) {
             disabled={!ready}
             onClick={() => props.onStartChallenge()}
           >
-            Mastery challenge
+            Harder 3-question challenge
           </Button>
           <Button
             type="button"
@@ -365,12 +330,12 @@ function PaceControls(props: DailyMissionHubProps) {
             disabled={!ready}
             onClick={props.onStartRecovery}
           >
-            Recovery session
+            Easy 2-question restart
           </Button>
         </div>
         {!ready ? (
           <p className="mt-3 text-xs text-muted-foreground">
-            Finish the current mission before switching formats.
+            Finish today&apos;s assignment to unlock these options.
           </p>
         ) : null}
       </div>
@@ -380,20 +345,28 @@ function PaceControls(props: DailyMissionHubProps) {
 
 function WeeklySummary(props: DailyMissionHubProps) {
   const { plan, learning } = props
-  const provisional = plan.evidence.source === "rapid_diagnostic"
+  const provisional = plan.adaptiveBaselineRequired === true
+  const isInternalProxy =
+    plan.evidence.source === "rapid_diagnostic" ||
+    plan.evidence.source === "starter_diagnostic"
   return (
     <aside className="rounded-xl border bg-background p-5 lg:sticky lg:top-24">
       <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-        This week
+        Your week
       </p>
       <dl className="mt-4 divide-y">
         <div className="flex items-center gap-4 py-4 first:pt-0">
-          <CalendarDaysIcon className="size-6 text-primary" aria-hidden="true" />
+          <CalendarDaysIcon
+            className="size-6 text-primary"
+            aria-hidden="true"
+          />
           <div>
             <dt className="font-bold">
               {plan.intensity.studyDaysPerWeek} study days
             </dt>
-            <dd className="text-sm text-muted-foreground">Planned</dd>
+            <dd className="text-sm text-muted-foreground">
+              Exact weekdays are editable in My week
+            </dd>
           </div>
         </div>
         <div className="flex items-center gap-4 py-4">
@@ -402,7 +375,7 @@ function WeeklySummary(props: DailyMissionHubProps) {
             <dt className="font-bold">
               {plan.intensity.minutesPerSession} min each
             </dt>
-            <dd className="text-sm text-muted-foreground">Daily target</dd>
+            <dd className="text-sm text-muted-foreground">Per study day</dd>
           </div>
         </div>
         <div className="flex items-center gap-4 py-4">
@@ -421,7 +394,7 @@ function WeeklySummary(props: DailyMissionHubProps) {
 
       <div className="border-t py-5">
         <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-          Your score route
+          Your ACT goal
         </p>
         {provisional ? (
           <div className="mt-4">
@@ -429,7 +402,7 @@ function WeeklySummary(props: DailyMissionHubProps) {
               Goal {plan.draft.goal}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Finish the Quick Check for a stronger starting range.
+              Finish the starting check to set your baseline.
             </p>
           </div>
         ) : (
@@ -438,7 +411,11 @@ function WeeklySummary(props: DailyMissionHubProps) {
               <p className="text-3xl font-black tabular-nums">
                 {plan.currentComposite}
               </p>
-              <p className="text-sm text-muted-foreground">Now</p>
+              <p className="text-sm text-muted-foreground">
+                {isInternalProxy
+                  ? "Internal planning proxy · not an ACT score"
+                  : "Reported planning baseline"}
+              </p>
             </div>
             <div className="mb-5 h-px flex-1 border-t border-dashed" />
             <div className="text-right">
@@ -453,11 +430,15 @@ function WeeklySummary(props: DailyMissionHubProps) {
 
       <details className="group border-t">
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          Why this mission?
+          What happens after this?
           <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
         </summary>
         <p className="pb-5 text-sm leading-6 text-muted-foreground">
-          {learning.lesson.whyAssigned}
+          Each scored answer updates only its tested skill. Scout then reranks
+          all 12 skills with four fixed factors: predicted chance on a medium
+          item, estimate entropy, answer count, and a recent miss. The highest
+          total becomes the next recommended skill; this does not recalculate an
+          ACT score.
         </p>
       </details>
       <PaceControls {...props} />
@@ -466,14 +447,14 @@ function WeeklySummary(props: DailyMissionHubProps) {
 }
 
 function SkillRow({
-  mastery,
+  skill,
   props,
 }: {
-  mastery: MasteryState
+  skill: KnowledgeState
   props: DailyMissionHubProps
 }) {
-  const percent = Math.round(mastery.mastery * 100)
-  const current = props.learning.todaySkill === mastery.skill
+  const percent = Math.round(skill.learnedProbability * 100)
+  const current = props.learning.todaySkill === skill.skill
   return (
     <button
       type="button"
@@ -481,14 +462,16 @@ function SkillRow({
         "grid w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-4 border-b py-3 text-left hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed",
         current && "bg-secondary"
       )}
-      onClick={() => props.onStartSkill(mastery.skill)}
+      onClick={() => props.onStartSkill(skill.skill)}
       disabled={props.busy || props.learning.status !== "complete" || current}
     >
       <span className="min-w-0 px-2">
         <span className="flex items-center justify-between gap-3">
-          <span className="truncate text-sm font-semibold">{mastery.label}</span>
+          <span className="truncate text-sm font-semibold">{skill.label}</span>
           <span className="text-[0.65rem] font-bold text-muted-foreground uppercase">
-            {SKILL_LEVEL_LABEL[mastery.band]}
+            {skill.evidenceCount === 0
+              ? "Starting estimate"
+              : `${skill.evidenceCount} scored ${skill.evidenceCount === 1 ? "answer" : "answers"}`}
           </span>
         </span>
         <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
@@ -496,7 +479,7 @@ function SkillRow({
             className="block h-full rounded-full"
             style={{
               width: `${percent}%`,
-              background: SECTION_COLOR[mastery.section],
+              background: SECTION_COLOR[skill.section],
             }}
           />
         </span>
@@ -513,9 +496,10 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
     <details className="group rounded-xl border bg-background">
       <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-6">
         <span>
-          Reviews, saved mistakes, and all skills
+          Other study tools
           <span className="mt-1 block text-sm font-normal text-muted-foreground">
-            Open the detailed study tools only when you need them.
+            Review past work or choose a different skill after today&apos;s
+            assignment.
           </span>
         </span>
         <ChevronRightIcon className="size-5 transition-transform group-open:rotate-90" />
@@ -528,10 +512,7 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
           {reviews.length ? (
             <ol className="mt-4 divide-y border-y">
               {reviews.map((review) => (
-                <li
-                  key={review.skill}
-                  className="flex items-center gap-4 py-4"
-                >
+                <li key={review.skill} className="flex items-center gap-4 py-4">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{review.label}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -543,7 +524,9 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => props.onStartRetention(review.skill)}
-                    disabled={props.busy || props.learning.status !== "complete"}
+                    disabled={
+                      props.busy || props.learning.status !== "complete"
+                    }
                   >
                     Review
                   </Button>
@@ -566,7 +549,8 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
               {mistakes.map((mistake) => (
                 <details key={mistake.id} className="py-4">
                   <summary className="cursor-pointer list-none font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                    {mistake.skillLabel} · {mistake.resolvedAt ? "Fixed" : "Try again"}
+                    {mistake.skillLabel} ·{" "}
+                    {mistake.resolvedAt ? "Fixed" : "Try again"}
                   </summary>
                   <p className="mt-3 text-sm leading-6">{mistake.prompt}</p>
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -579,7 +563,9 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
                       size="sm"
                       className="mt-3"
                       onClick={() => props.onStartRepair(mistake.id)}
-                      disabled={props.busy || props.learning.status !== "complete"}
+                      disabled={
+                        props.busy || props.learning.status !== "complete"
+                      }
                     >
                       Try again
                     </Button>
@@ -595,13 +581,16 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
         </section>
       </div>
 
-      <section className="border-t px-5 py-7 sm:px-6" aria-labelledby="skills-title">
+      <section
+        className="border-t px-5 py-7 sm:px-6"
+        aria-labelledby="skills-title"
+      >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 id="skills-title" className="text-xl font-bold">
             All 12 skills
           </h2>
           <p className="text-sm text-muted-foreground">
-            Finish today&apos;s work before switching skills.
+            Finish today&apos;s assignment before switching skills.
           </p>
         </div>
         <div className="mt-5 grid gap-7 lg:grid-cols-3">
@@ -615,14 +604,10 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
                 />
                 {SECTION_LABEL[section]}
               </h3>
-              {props.learning.mission.skillMap
-                .filter((mastery) => mastery.section === section)
-                .map((mastery) => (
-                  <SkillRow
-                    key={mastery.skill}
-                    mastery={mastery}
-                    props={props}
-                  />
+              {props.learning.learningTwin.skills
+                .filter((skill) => skill.section === section)
+                .map((skill) => (
+                  <SkillRow key={skill.skill} skill={skill} props={props} />
                 ))}
             </div>
           ))}
@@ -635,6 +620,18 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
 export function DailyMissionHub(props: DailyMissionHubProps) {
   const { learning, plan } = props
   const missionCopy = getMissionCopy(learning)
+  const currentSkill =
+    learning.learningTwin.skills.find(
+      (skill) => skill.skill === learning.todaySkill
+    ) ?? learning.learningTwin.skills[0]
+  const currentRecommendation = learning.learningTwin.recommendation
+  if (!currentSkill) return null
+  const assignmentIsCurrentRecommendation =
+    currentRecommendation.skill === learning.todaySkill
+  const topFactors = [...currentRecommendation.contributions]
+    .filter((factor) => factor.points > 0)
+    .sort((left, right) => right.points - left.points)
+    .slice(0, 2)
   return (
     <div className="space-y-6 pb-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
@@ -658,7 +655,7 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <Clock3Icon className="size-4" aria-hidden="true" />
-              {plan.intensity.minutesPerSession} min
+              Usual study block: {plan.intensity.minutesPerSession} min
             </span>
             <span className="inline-flex items-center gap-2">
               <CalendarDaysIcon className="size-4" aria-hidden="true" />
@@ -668,28 +665,31 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
 
           <div className="mt-6">
             <MissionAction {...props} />
-          </div>
-
-          <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/25 bg-[var(--info-surface)] p-4">
-            <ScoutMark className="mt-0.5 size-9 shrink-0" />
-            <p className="text-sm leading-6">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               {learning.status === "complete"
-                ? "Your answers changed what Scout recommends next."
-                : learning.lesson.tutorOpening}
+                ? `Done. Scout reranked all 12 skills; ${currentRecommendation.label} now has the highest practice-priority total. The dated calendar did not change.`
+                : `Finish the steps below. Each scored answer updates ${learning.mastery.label}; after the set, Scout reranks all 12 skills.`}
             </p>
           </div>
 
-          <MissionProgress steps={learning.mission.steps} />
-          <LaterToday {...props} />
-
-          {learning.status === "complete" ? (
-            <div className="mt-5 flex items-center gap-3 rounded-lg bg-[var(--coach-surface)] px-4 py-3">
-              <StarIcon className="size-5 text-[var(--scout-coral)]" />
-              <p className="text-sm font-semibold">
-                Plan updated from your latest answers.
-              </p>
+          {learning.status !== "complete" ? (
+            <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/25 bg-[var(--info-surface)] p-4">
+              <ScoutMark className="mt-0.5 size-9 shrink-0" />
+              <div>
+                <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
+                  Why this is next
+                </p>
+                <p className="mt-1 text-sm leading-6">
+                  {assignmentIsCurrentRecommendation
+                    ? `${currentSkill.label} currently has a ${Math.round(currentSkill.learnedProbability * 100)}% BKT estimate from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. Its priority total is ${currentRecommendation.priorityScore}/100. The largest factors are ${topFactors.map((factor) => `${factor.label.toLowerCase()} (+${factor.points})`).join(" and ") || "the fixed ranking rules"}. Your ACT goal is not part of this ranking.`
+                    : `This assignment is already in progress, so Scout will not replace it. The current ranking now places ${currentRecommendation.label} next with a priority total of ${currentRecommendation.priorityScore}/100.`}
+                </p>
+              </div>
             </div>
           ) : null}
+
+          <MissionProgress steps={learning.mission.steps} />
+          <LaterToday {...props} />
         </section>
 
         <WeeklySummary {...props} />

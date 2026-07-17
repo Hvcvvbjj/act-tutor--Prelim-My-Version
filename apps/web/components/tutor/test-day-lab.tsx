@@ -41,19 +41,23 @@ async function labRequest(
   })
   const payload = (await response.json()) as SessionResponse
   if (!response.ok)
-    throw new Error(payload.error ?? "The Test Day Lab request failed.")
+    throw new Error(payload.error ?? "The timed-practice request failed.")
   return payload.session
 }
 
 export function TestDayLab({
   extendedTime = false,
+  initialMode = "sprint",
+  initialSection = "english",
 }: {
   extendedTime?: boolean
+  initialMode?: ExamLabMode
+  initialSection?: CoreSection
 }) {
   const [screen, setScreen] = useState<LabScreen>("loading")
   const [session, setSession] = useState<ExamLabSessionPayload | null>(null)
-  const [mode, setMode] = useState<ExamLabMode>("sprint")
-  const [section, setSection] = useState<CoreSection>("english")
+  const [mode, setMode] = useState<ExamLabMode>(initialMode)
+  const [section, setSection] = useState<CoreSection>(initialSection)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
@@ -67,7 +71,7 @@ export function TestDayLab({
     fetch("/api/exam-lab", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok)
-          throw new Error("Could not load Test Day Lab progress.")
+          throw new Error("Could not load timed-practice progress.")
         return (await response.json()) as SessionResponse
       })
       .then(({ session: resumed }) => {
@@ -84,7 +88,7 @@ export function TestDayLab({
         setError(
           caught instanceof Error
             ? caught.message
-            : "Could not load Test Day Lab progress."
+            : "Could not load timed-practice progress."
         )
         setScreen("setup")
       })
@@ -203,7 +207,7 @@ export function TestDayLab({
         section,
         timeMultiplier: extendedTime ? 1.5 : 1,
       })
-      if (!started) throw new Error("The Test Day Lab session is missing.")
+      if (!started) throw new Error("The timed-practice session is missing.")
       setSession(started)
       setScreen("runner")
       setSaveStatus("saved")
@@ -212,7 +216,7 @@ export function TestDayLab({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Could not start the Test Day Lab."
+          : "Could not start timed practice."
       )
     } finally {
       setBusy(false)
@@ -294,7 +298,7 @@ export function TestDayLab({
       await saveQueue.current
       const completed = await labRequest("POST", { action: "finalize" })
       if (!completed?.result)
-        throw new Error("The Test Day Lab report is missing.")
+        throw new Error("The timed-practice report is missing.")
       setSession(completed)
       setScreen("results")
     } catch (caught) {
@@ -320,7 +324,7 @@ export function TestDayLab({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Could not reset the Test Day Lab."
+          : "Could not reset timed practice."
       )
     } finally {
       setBusy(false)
@@ -332,7 +336,7 @@ export function TestDayLab({
       <main className="flex min-h-[60svh] items-center justify-center">
         <div className="text-center">
           <LoaderCircleIcon className="mx-auto size-8 animate-spin text-primary" />
-          <p className="mt-4 font-semibold">Loading Test Day Lab…</p>
+          <p className="mt-4 font-semibold">Loading timed practice…</p>
         </div>
       </main>
     )
@@ -344,7 +348,7 @@ export function TestDayLab({
         <div className="mx-auto max-w-6xl px-5 pt-6 sm:px-8">
           <Alert className="bg-background">
             <CircleAlertIcon />
-            <AlertTitle>Test Day Lab issue</AlertTitle>
+            <AlertTitle>Timed practice could not continue</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>

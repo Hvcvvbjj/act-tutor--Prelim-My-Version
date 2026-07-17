@@ -6,6 +6,8 @@ import {
   type CalibrationBankInput,
 } from "@act-tutor/server"
 
+import { sessionDocumentStore } from "./session-document-store.server"
+
 const storePath =
   process.env.CALIBRATION_SESSION_STORE_PATH ??
   join(process.cwd(), ".data", "calibration-sessions.json")
@@ -17,5 +19,5 @@ export const CALIBRATION_BANK: CalibrationBankInput = {
 }
 
 export const calibrationSessions = new FileAdaptiveCalibrationRepository(
-  storePath
+  sessionDocumentStore("calibration-sessions", storePath)
 )

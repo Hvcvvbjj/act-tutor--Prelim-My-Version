@@ -61,7 +61,8 @@ describe("Scout server policy", () => {
     })
     expect(answer.receipt.intent).toBe("calibration-definition")
     expect(answer.receipt.assistanceMode).toBe("study")
-    expect(answer.explanation).toContain("planning range")
+    expect(answer.explanation).toContain("80% model interval")
+    expect(answer.explanation).toContain("Neither is an ACT score range")
   })
 
   it("abstains when selected text is outside reviewed server context", () => {
@@ -161,11 +162,11 @@ describe("Scout server policy", () => {
     })
 
     expect(followup.source).toContain("Follow-up")
-    expect(followup.example).toContain("eight questions")
+    expect(followup.example).toContain("theta units")
     expect(followup.receipt.checks).toContain("server-conversation-history")
   })
 
-  it("makes every explanation preference change the response", () => {
+  it("does not append generic prose for unrelated explanation preferences", () => {
     const request = { question: "Give me an example", screen: "today" } as const
     const normal = answerFor({ request, preferences, learning, exam: null })
     const detailed = answerFor({
@@ -193,10 +194,38 @@ describe("Scout server policy", () => {
       exam: null,
     })
 
-    expect(detailed.explanation).not.toBe(normal.explanation)
-    expect(advanced.explanation).not.toBe(normal.explanation)
-    expect(sports.example).not.toBe(normal.example)
-    expect(technical.explanation).not.toBe(normal.explanation)
-    expect(technical.technical).not.toBe(normal.technical)
+    expect(detailed.explanation).toBe(normal.explanation)
+    expect(advanced.summary).not.toBe(normal.summary)
+    expect(advanced.explanation).toBe(normal.explanation)
+    expect(sports.example).toBe(normal.example)
+    expect(technical.explanation).toBe(normal.explanation)
+    expect(technical.technical).toBe(normal.technical)
+  })
+
+  it("answers Timed Practice prompts from its real modes and sync boundary", () => {
+    const choose = answerFor({
+      request: {
+        question: "Which timed practice should I choose?",
+        screen: "lab",
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+    const results = answerFor({
+      request: {
+        question: "What will Scout do with my results?",
+        screen: "lab",
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+
+    expect(choose.explanation).toContain("18–25 questions")
+    expect(choose.explanation).toContain("66 English, Math, and Reading")
+    expect(results.explanation).toContain(
+      "does not update Today, My Week, or the skill web"
+    )
   })
 })

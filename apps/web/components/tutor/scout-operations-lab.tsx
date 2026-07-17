@@ -1,11 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import {
-  BrainCircuitIcon,
-  GaugeIcon,
-  ShieldCheckIcon,
-} from "lucide-react"
+import { BrainCircuitIcon, GaugeIcon, ShieldCheckIcon } from "lucide-react"
 
 import { ScoutCoach } from "@/components/tutor/scout"
 import { useScoutContext } from "@/components/tutor/scout-assistant"
@@ -23,9 +19,17 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
   const { openScout } = useScoutContext()
   const tabs = useMemo(
     () => [
-      { id: "learner" as const, label: "Learner model", icon: BrainCircuitIcon },
+      {
+        id: "learner" as const,
+        label: "Skill estimates",
+        icon: BrainCircuitIcon,
+      },
       { id: "act" as const, label: "ACT strategy", icon: GaugeIcon },
-      { id: "trust" as const, label: "Trust & data", icon: ShieldCheckIcon },
+      {
+        id: "trust" as const,
+        label: "Developer diagnostics",
+        icon: ShieldCheckIcon,
+      },
     ],
     []
   )
@@ -34,19 +38,22 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
     <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
       <header className="grid gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
         <div>
-          <p className="ink-label text-primary">Evidence and data</p>
+          <p className="ink-label text-primary">Evidence and developer tools</p>
           <h1 className="mt-3 max-w-5xl font-heading text-6xl leading-[0.92] font-black tracking-[-0.04em] sm:text-8xl">
-            Scout has to show its work.
+            Inspect stored values and fixed decision rules.
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-            See what Scout knows, what is still uncertain, how ACT timing works,
-            and what data is saved. Nothing here gives a guest teacher controls.
+            Skill estimates shows the values Scout stores for this learner. ACT
+            strategy shows current format and timing. Developer diagnostics
+            compares fixed decision rules, inspects saved decision records, and
+            displays imported summary metrics. It does not decide which model
+            teaches better.
           </p>
         </div>
         <ScoutCoach
           mood="thinking"
-          message="I’ll show what I know, what I’m guessing, and what would change my mind."
-          detail="Nothing here silently changes today’s unfinished lesson."
+          message="Nothing on this page changes your data unless you save a correction or choose delete."
+          detail="Every estimate should name its input, calculation, and limit."
         />
       </header>
 
@@ -69,7 +76,9 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
           variant="ghost"
           className="ml-auto"
           onClick={() =>
-            openScout("Explain these evidence and data tools and tell me where to start.")
+            openScout(
+              "Explain these evidence and data tools and tell me where to start."
+            )
           }
         >
           Ask Scout about this

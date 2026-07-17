@@ -42,7 +42,10 @@ import {
 
 import { AuthoredLessonComposer, type LessonComposer } from "./lesson-composer";
 import type { CalibrationKnowledgeEvidence } from "./adaptive-calibration-repository";
-import { AtomicJsonRepository } from "./atomic-json-repository";
+import {
+  AtomicJsonRepository,
+  type JsonDocumentStore,
+} from "./atomic-json-repository";
 
 export interface LearningBankInput {
   version: string;
@@ -615,11 +618,10 @@ function missionSummary(
                 : (() => {
                     const learnDone = session.lessonComplete;
                     const practiceDone = complete;
-                    const repairDone = practiceDone && unresolvedMistakes === 0;
                     return [
                       {
                         id: "learn" as const,
-                        label: "Learn the rule",
+                        label: "Read one rule and one worked example",
                         state: learnDone
                           ? ("done" as const)
                           : ("current" as const),
@@ -628,7 +630,7 @@ function missionSummary(
                       },
                       {
                         id: "practice" as const,
-                        label: "Practice the rule",
+                        label: `Answer ${questions.length} scored ${questions.length === 1 ? "question" : "questions"}`,
                         state: practiceDone
                           ? ("done" as const)
                           : learnDone
@@ -636,27 +638,6 @@ function missionSummary(
                             : ("queued" as const),
                         progress: session.answers.length,
                         total: questions.length,
-                      },
-                      {
-                        id: "repair" as const,
-                        label: "Fix one missed question",
-                        state: repairDone
-                          ? ("done" as const)
-                          : practiceDone
-                            ? ("current" as const)
-                            : ("queued" as const),
-                        progress: repairDone ? 1 : 0,
-                        total: 1,
-                      },
-                      {
-                        id: "checkpoint" as const,
-                        label: "Take a 3-question quiz",
-                        state:
-                          practiceDone && repairDone
-                            ? ("current" as const)
-                            : ("queued" as const),
-                        progress: 0,
-                        total: 3,
                       },
                     ];
                   })();
@@ -977,6 +958,7 @@ function makeInitialKnowledgeStates(
   bank: LearningBankInput,
   diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult> = [],
   scoreEstimate?: number | null,
+  sectionScores?: LessonPlanContext["sectionScores"],
 ) {
   const diagnostics = new Map(
     diagnosticSkillResults.map((result) => [result.skill, result]),
@@ -987,9 +969,25 @@ function makeInitialKnowledgeStates(
       createInitialKnowledgeState(
         skill,
         diagnostics.get(skill.diagnosticSkill),
-        scoreEstimate,
+        sectionScores?.[skill.section] ?? scoreEstimate,
       ),
     ]),
+  );
+}
+
+function sameScoreContext(
+  left: LessonPlanContext | undefined,
+  right: LessonPlanContext,
+) {
+  if (!left || left.currentScore !== right.currentScore) return false;
+  const leftSections = left.sectionScores;
+  const rightSections = right.sectionScores;
+  if (!leftSections && !rightSections) return true;
+  if (!leftSections || !rightSections) return false;
+  return (
+    leftSections.english === rightSections.english &&
+    leftSections.math === rightSections.math &&
+    leftSections.reading === rightSections.reading
   );
 }
 
@@ -1009,6 +1007,7 @@ function ensureLearningTwin(
     bank,
     profile.diagnosticSkillResults,
     session.planContext?.currentScore,
+    session.planContext?.sectionScores,
   );
   const events: LearningTwinEvent[] = [];
   for (const answer of session.answers) {
@@ -1048,8 +1047,8 @@ function isComplete(session: StoredLearningSession) {
 }
 
 export class FileLearningSessionRepository extends AtomicJsonRepository<LearningStoreFile> {
-  constructor(filePath: string) {
-    super(filePath, EMPTY_STORE, (store) => {
+  constructor(source: string | JsonDocumentStore) {
+    super(source, EMPTY_STORE, (store) => {
       if (store.version !== 1 || !store.sessions) {
         throw new Error("Unsupported learning store format.");
       }
@@ -1082,11 +1081,30 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const existing = sessionId ? store.sessions[sessionId] : undefined;
       if (existing) {
         try {
+          if (!sameScoreContext(existing.planContext, input.plan)) {
+            throw new RangeError(
+              "The score baseline changed; start a new learner model.",
+            );
+          }
           const needsLearningTwinMigration =
             !existing.planContext || !existing.learningTwinBySkill;
-          existing.planContext ??= input.plan;
           assertSessionMatchesBank(existing, bank);
-          if (needsLearningTwinMigration) await this.writeStore(store);
+          const planContextChanged =
+            JSON.stringify(existing.planContext) !== JSON.stringify(input.plan);
+          if (planContextChanged) {
+            existing.planContext = input.plan;
+            existing.lesson = await lessonComposer.compose({
+              baseLesson: getLesson(bank, existing.todaySkill),
+              skill: getSkill(bank, existing.todaySkill),
+              diagnosticSkillResults:
+                ensureProfile(existing).diagnosticSkillResults,
+              plan: input.plan,
+            });
+            existing.updatedAt = new Date().toISOString();
+          }
+          if (needsLearningTwinMigration || planContextChanged) {
+            await this.writeStore(store);
+          }
           return {
             sessionId: existing.id,
             payload: toPayload(
@@ -1108,6 +1126,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         bank,
         input.diagnosticSkillResults,
         input.plan.currentScore,
+        input.plan.sectionScores,
       );
       const initialRecommendation = recommendKnowledgeState(
         Object.values(learningTwinBySkill),
@@ -1201,6 +1220,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         bank,
         input.diagnosticSkillResults,
         input.plan.currentScore,
+        input.plan.sectionScores,
       );
       const anchor =
         [...input.diagnosticSkillResults].sort(
@@ -1232,6 +1252,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.answers = [];
       session.masteryBySkill = masteryBySkill;
       session.learningTwinBySkill = learningTwinBySkill;
+      session.learningTwinEvents = [];
       session.decisionHistory = [];
       session.futureTask = {
         todaySkill: nextSkill,

@@ -5,6 +5,8 @@ import dynamic from "next/dynamic"
 import type {
   AnswerConfidence,
   CalibrationLearningBaseline,
+  CoreSection,
+  ExamLabMode,
   LearningActionRequest,
   LearningAnswerRequest,
   LearningSessionPayload,
@@ -53,10 +55,7 @@ const ScoutOperationsLab = dynamic(
   {
     loading: () => (
       <main className="mx-auto max-w-3xl px-5 py-20">
-        <ScoutCoach
-          mood="thinking"
-          message="Opening your evidence and data tools…"
-        />
+        <ScoutCoach mood="thinking" message="Opening your data and settings…" />
       </main>
     ),
   }
@@ -122,39 +121,50 @@ function Brand() {
 }
 
 function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
-  const provisional = plan.evidence.source === "rapid_diagnostic"
-  if (provisional) {
-    return (
-      <div className="rounded-lg border px-3 py-2">
-        <p className="text-xs font-semibold text-muted-foreground">
-          Quick Check plan
-        </p>
-        <p className="mt-0.5 text-sm font-bold">
-          Goal ACT <span className="text-primary">{plan.draft.goal}</span>
-        </p>
-      </div>
-    )
-  }
+  const isInternalProxy =
+    plan.evidence.source === "rapid_diagnostic" ||
+    plan.evidence.source === "starter_diagnostic"
   return (
     <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
       <div>
         <p className="text-base leading-none font-black tabular-nums">
-          {plan.currentComposite} <span className="text-xs font-normal text-muted-foreground">now</span>
+          {plan.currentComposite}{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            {isInternalProxy ? "internal proxy" : "reported baseline"}
+          </span>
         </p>
       </div>
-      <ArrowRightIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+      <ArrowRightIcon
+        className="size-4 text-muted-foreground"
+        aria-hidden="true"
+      />
       <div>
         <p className="text-base leading-none font-black text-primary tabular-nums">
-          {plan.draft.goal} <span className="text-xs font-normal text-muted-foreground">goal</span>
+          {plan.draft.goal}{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            goal
+          </span>
         </p>
       </div>
     </div>
   )
 }
 
-function AccessibleTestDayLab() {
+function AccessibleTestDayLab({
+  initialMode,
+  initialSection,
+}: {
+  initialMode: ExamLabMode
+  initialSection: CoreSection
+}) {
   const { accommodations } = useScoutContext()
-  return <TestDayLab extendedTime={accommodations.extendedTime} />
+  return (
+    <TestDayLab
+      extendedTime={accommodations.extendedTime}
+      initialMode={initialMode}
+      initialSection={initialSection}
+    />
+  )
 }
 
 function MobileScoutDock({ onOpen }: { onOpen: () => void }) {
@@ -188,8 +198,8 @@ function MobileOverflow({
   if (!open) return null
   return (
     <div
+      id="mobile-more-destinations"
       className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
-      role="menu"
       aria-label="More destinations"
     >
       <Button
@@ -201,7 +211,7 @@ function MobileOverflow({
           onClose()
         }}
       >
-        <FlaskConicalIcon /> Test Lab
+        <FlaskConicalIcon /> Timed practice
       </Button>
       <Button
         type="button"
@@ -242,8 +252,8 @@ function DesktopOverflow({
   if (!open) return null
   return (
     <div
+      id="desktop-more-destinations"
       className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-56 rounded-xl border bg-background p-2 shadow-xl md:block"
-      role="menu"
       aria-label="More destinations"
     >
       <Button
@@ -293,6 +303,18 @@ export function Dashboard({
   const [activeTab, setActiveTab] = useState(
     representativeDemo || plan.adaptiveBaselineRequired ? "calibrate" : "today"
   )
+  const [labLaunch, setLabLaunch] = useState<{
+    mode: ExamLabMode
+    section: CoreSection
+    key: number
+  }>({ mode: "sprint", section: "english", key: 0 })
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeTab, workspaceOpen])
 
   const refreshLearningSession = useCallback(async () => {
     try {
@@ -347,6 +369,7 @@ export function Dashboard({
       diagnosticSkillResults: diagnostic?.skillResults ?? [],
       goalScore: plan.draft.goal,
       currentScore: plan.currentComposite,
+      sectionScores: plan.evidence.planningBaseline ?? undefined,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
       studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
@@ -375,6 +398,7 @@ export function Dashboard({
   }, [
     diagnostic?.skillResults,
     plan.currentComposite,
+    plan.evidence.planningBaseline,
     plan.draft.goal,
     plan.draft.preferredSection,
     plan.intensity.daysUntilTest,
@@ -514,6 +538,7 @@ export function Dashboard({
     return {
       goalScore: plan.draft.goal,
       currentScore: plan.currentComposite,
+      sectionScores: plan.evidence.planningBaseline ?? undefined,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
       studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
@@ -580,6 +605,20 @@ export function Dashboard({
   async function launchPlanTask(task: StudyPlanTask) {
     if (!learning) return
     if (task.kind === "rehearsal") {
+      setLabLaunch((current) => ({
+        mode: "core",
+        section: "english",
+        key: current.key + 1,
+      }))
+      setActiveTab("lab")
+      return
+    }
+    if (task.kind === "timed") {
+      setLabLaunch((current) => ({
+        mode: "section",
+        section: task.section ?? "english",
+        key: current.key + 1,
+      }))
       setActiveTab("lab")
       return
     }
@@ -601,6 +640,17 @@ export function Dashboard({
       }
       return
     }
+    if (task.kind === "review" && task.skill) {
+      if (
+        await startMissionAction(
+          { action: "start_retention", skill: task.skill },
+          true
+        )
+      ) {
+        setActiveTab("today")
+      }
+      return
+    }
     if (task.skill) {
       if (
         await startMissionAction(
@@ -613,6 +663,66 @@ export function Dashboard({
     }
   }
 
+  if (plan.adaptiveBaselineRequired) {
+    return (
+      <ScoutProvider activeTab="calibrate" learning={learning}>
+        <div className="min-h-svh bg-background">
+          <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+            <div className="mx-auto flex min-h-16 max-w-[86rem] items-center justify-between gap-4 px-4 py-2 sm:px-7">
+              <Brand />
+              <div className="flex items-center gap-3">
+                <p className="hidden max-w-md text-right text-xs leading-5 text-muted-foreground sm:block">
+                  No plan or skill profile is shown until these answers replace
+                  the temporary setup placeholder.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEditPlan}
+                  aria-label="Edit goal and study schedule"
+                >
+                  <PencilLineIcon />
+                </Button>
+              </div>
+            </div>
+          </header>
+
+          {learningError ? (
+            <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
+              <Alert className="bg-background" role="alert">
+                <InfoIcon />
+                <AlertTitle>Scout could not finish that change</AlertTitle>
+                <AlertDescription>{learningError}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          {learning ? (
+            <AdaptiveCalibrationLab
+              representativeDemo={false}
+              learning={learning}
+              onLearningTwinUpdated={refreshLearningSession}
+              onInspectLearningTwin={() => undefined}
+              onReturnToToday={() => undefined}
+              onStartFullDiagnostic={onStartFullDiagnostic}
+              adaptiveBaselineRequired
+              onUseAdaptiveBaseline={applyAdaptiveBaseline}
+            />
+          ) : (
+            <main className="mx-auto max-w-3xl px-5 py-20">
+              <ScoutCoach
+                mood="thinking"
+                message="Scout is loading your 8–12 question starting check."
+                detail="The rest of the app stays hidden until this check creates the first internal planning baseline."
+              />
+            </main>
+          )}
+        </div>
+      </ScoutProvider>
+    )
+  }
+
   return (
     <ScoutProvider activeTab={activeTab} learning={learning}>
       <Tabs
@@ -621,7 +731,7 @@ export function Dashboard({
           setActiveTab(value)
           setMoreOpen(false)
         }}
-        className="min-h-svh gap-0 bg-transparent pb-24 md:pb-0"
+        className="min-h-svh scroll-pb-24 gap-0 bg-transparent pb-24 md:scroll-pb-0 md:pb-0"
       >
         <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
           <div className="mx-auto grid min-h-16 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
@@ -633,17 +743,17 @@ export function Dashboard({
                 aria-label="Study navigation"
               >
                 <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="plan">Plan</TabsTrigger>
+                <TabsTrigger value="plan">My week</TabsTrigger>
                 <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
-                <TabsTrigger value="progress">Skills</TabsTrigger>
-                <TabsTrigger value="lab">Test Lab</TabsTrigger>
+                <TabsTrigger value="progress">Progress</TabsTrigger>
+                <TabsTrigger value="lab">Timed practice</TabsTrigger>
               </TabsList>
               <div className="relative">
                 <Button
                   type="button"
                   variant="ghost"
                   aria-expanded={moreOpen}
-                  aria-haspopup="menu"
+                  aria-controls="desktop-more-destinations"
                   onClick={() => setMoreOpen((current) => !current)}
                 >
                   More <EllipsisIcon data-icon="inline-end" />
@@ -664,55 +774,13 @@ export function Dashboard({
                 variant="ghost"
                 size="icon"
                 onClick={onEditPlan}
-                aria-label="Edit score plan"
+                aria-label="Edit goal and study schedule"
               >
                 <PencilLineIcon />
               </Button>
             </div>
           </div>
         </header>
-
-        <nav
-          className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
-          aria-label="Primary study navigation"
-        >
-          <TabsList className="grid h-auto w-full grid-cols-6 rounded-none bg-transparent p-0">
-            <TabsTrigger value="today" className="min-h-14 px-1 text-[0.68rem]">
-              Today
-            </TabsTrigger>
-            <TabsTrigger value="plan" className="min-h-14 px-1 text-[0.68rem]">
-              Plan
-            </TabsTrigger>
-            <TabsTrigger
-              value="calibrate"
-              className="min-h-14 px-1 text-[0.68rem]"
-            >
-              Check
-            </TabsTrigger>
-            <TabsTrigger
-              value="progress"
-              className="min-h-14 px-1 text-[0.68rem]"
-            >
-              Skills
-            </TabsTrigger>
-            <MobileScoutDock onOpen={() => setMoreOpen(false)} />
-            <Button
-              type="button"
-              variant={moreOpen ? "secondary" : "ghost"}
-              className="min-h-14 rounded-none px-1 text-[0.68rem]"
-              aria-expanded={moreOpen}
-              aria-haspopup="menu"
-              onClick={() => setMoreOpen((current) => !current)}
-            >
-              <EllipsisIcon /> More
-            </Button>
-          </TabsList>
-        </nav>
-        <MobileOverflow
-          open={moreOpen}
-          onNavigate={setActiveTab}
-          onClose={() => setMoreOpen(false)}
-        />
 
         {learningError ? (
           <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
@@ -776,7 +844,7 @@ export function Dashboard({
               <div className="mx-auto max-w-2xl py-20">
                 <ScoutCoach
                   mood="thinking"
-                  message="Scout is choosing the best work for today…"
+                  message="Scout is loading today’s lesson…"
                 />
                 {learningError ? (
                   <Alert className="mt-7 bg-background">
@@ -802,7 +870,7 @@ export function Dashboard({
             <main className="mx-auto max-w-3xl px-5 py-20">
               <ScoutCoach
                 mood="thinking"
-                message="Scout is matching your study days to your test date."
+                message="Scout is loading your study week."
               />
             </main>
           )}
@@ -816,14 +884,14 @@ export function Dashboard({
               onInspectLearningTwin={() => setActiveTab("progress")}
               onReturnToToday={() => setActiveTab("today")}
               onStartFullDiagnostic={onStartFullDiagnostic}
-              adaptiveBaselineRequired={plan.adaptiveBaselineRequired === true}
+              adaptiveBaselineRequired={false}
               onUseAdaptiveBaseline={applyAdaptiveBaseline}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
               <ScoutCoach
                 mood="thinking"
-                message="Scout is getting your Quick Check ready."
+                message="Scout is loading your starting-point check."
               />
             </main>
           )}
@@ -839,10 +907,14 @@ export function Dashboard({
           />
         </TabsContent>
         <TabsContent value="lab">
-          <AccessibleTestDayLab />
+          <AccessibleTestDayLab
+            key={labLaunch.key}
+            initialMode={labLaunch.mode}
+            initialSection={labLaunch.section}
+          />
         </TabsContent>
-        <TabsContent value="control">
-          {learning ? (
+        {activeTab === "control" && learning ? (
+          <div>
             <ScoutOperationsLab
               plan={plan}
               learning={learning}
@@ -865,8 +937,60 @@ export function Dashboard({
               }
               onDeleteData={deleteLearnerData}
             />
-          ) : null}
-        </TabsContent>
+          </div>
+        ) : null}
+
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          aria-label="Primary study navigation"
+        >
+          <div className="grid w-full grid-cols-6">
+            <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
+              <TabsTrigger
+                value="today"
+                className="min-h-14 px-1 text-[0.68rem]"
+              >
+                Today
+              </TabsTrigger>
+              <TabsTrigger
+                value="plan"
+                className="min-h-14 px-1 text-[0.68rem]"
+              >
+                Week
+              </TabsTrigger>
+              <TabsTrigger
+                value="calibrate"
+                className="min-h-14 px-1 text-[0.68rem]"
+              >
+                Check
+              </TabsTrigger>
+              <TabsTrigger
+                value="progress"
+                className="min-h-14 px-1 text-[0.68rem]"
+              >
+                Progress
+              </TabsTrigger>
+            </TabsList>
+            <div className="col-span-2 grid grid-cols-2">
+              <MobileScoutDock onOpen={() => setMoreOpen(false)} />
+              <Button
+                type="button"
+                variant={moreOpen ? "secondary" : "ghost"}
+                className="min-h-14 rounded-none px-1 text-[0.68rem]"
+                aria-expanded={moreOpen}
+                aria-controls="mobile-more-destinations"
+                onClick={() => setMoreOpen((current) => !current)}
+              >
+                <EllipsisIcon /> More
+              </Button>
+            </div>
+          </div>
+        </nav>
+        <MobileOverflow
+          open={moreOpen}
+          onNavigate={setActiveTab}
+          onClose={() => setMoreOpen(false)}
+        />
       </Tabs>
     </ScoutProvider>
   )

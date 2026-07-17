@@ -3,6 +3,10 @@ node_modules/
 
 # builds and test output
 .next/
+.open-next/
+.wrangler/
+/dist/
+.pnpm-store/
 out/
 coverage/
 playwright-report/

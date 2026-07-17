@@ -31,34 +31,92 @@ export function ScoutMark({
         className
       )}
       role="img"
-      aria-label={`Scout tutor is ${mood}`}
+      aria-label={`Mr. Kim tutor is ${mood}`}
     >
       <svg
         viewBox="0 0 120 120"
         className="size-full drop-shadow-sm"
         aria-hidden="true"
       >
-        <path d="M15 27 43 39 31 67Z" fill="var(--scout-coral)" />
-        <path d="m105 27-28 12 12 28Z" fill="var(--scout-coral)" />
-        <path d="m15 27 22 5 6 7Z" fill="var(--scout-sun)" />
-        <path d="m105 27-22 5-6 7Z" fill="var(--scout-sun)" />
-        <path d="m60 24 35 23-8 45-27 18-27-18-8-45Z" fill="var(--primary)" />
+        <path d="M21 53 29 48v23l-6-3Z" fill="var(--scout-coral)" />
+        <path d="m99 53-8-5v23l6-3Z" fill="var(--scout-coral)" />
+        <path d="m60 22 34 22-7 43-27 16-27-16-7-43Z" fill="var(--scout-sun)" />
         <path
-          d="m25 47 35 12-27 33Z"
-          fill="color-mix(in srgb, var(--primary), #ffffff 18%)"
+          d="m26 44 34 14-27 29Z"
+          fill="color-mix(in srgb, var(--scout-sun), var(--scout-coral) 11%)"
         />
         <path
-          d="m95 47-35 12 27 33Z"
-          fill="color-mix(in srgb, var(--primary), #000000 12%)"
+          d="m94 44-34 14 27 29Z"
+          fill="color-mix(in srgb, var(--scout-sun), var(--foreground) 6%)"
         />
-        <path d="m60 59 27 33-27 18-27-18Z" fill="var(--scout-paper)" />
-        <path d="m51 66 9 8-9 5-7-6Z" fill="var(--foreground)" />
-        <path d="m69 66-9 8 9 5 7-6Z" fill="var(--foreground)" />
-        <circle cx="51" cy="71" r="2.5" fill="var(--scout-mint)" />
-        <circle cx="69" cy="71" r="2.5" fill="var(--scout-mint)" />
-        <path d="m54 89 6 5 6-5-6-4Z" fill="var(--scout-coral)" />
-        <path d="m83 25 5-14 5 2-7 15Z" fill="var(--scout-sun)" />
-        <path d="m88 11 2-5 5 2-2 5Z" fill="var(--foreground)" />
+        <path
+          d="m26 44 7-18 27-10 29 8 5 20-17-9-9-10-20 10-12 9Z"
+          fill="var(--foreground)"
+        />
+        <path d="m77 35 17 9-5 21-6-15Z" fill="var(--foreground)" />
+
+        <path
+          d="m33 59 6-5h13l5 5-4 13-14 1-6-7Zm54 0-6-5H68l-5 5 4 13 14 1 6-7Z"
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="4.5"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M57 61h6"
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+        />
+
+        {mood === "thinking" ? (
+          <>
+            <path d="m37 48 13-3 4 3-16 3Z" fill="var(--foreground)" />
+            <path d="m67 47 14 1 2 4-16-2Z" fill="var(--foreground)" />
+            <circle cx="46" cy="64" r="4" fill="var(--foreground)" />
+            <circle cx="74" cy="64" r="4" fill="var(--foreground)" />
+            <circle cx="47.5" cy="62.5" r="1.5" fill="var(--scout-mint)" />
+            <circle cx="75.5" cy="62.5" r="1.5" fill="var(--scout-mint)" />
+            <path d="m54 91 6-2 6 2-6 3Z" fill="var(--scout-coral)" />
+          </>
+        ) : mood === "correct" ? (
+          <>
+            <path d="m37 47 15-2 3 4-17 2Z" fill="var(--foreground)" />
+            <path d="m65 49 3-4 15 2-1 4Z" fill="var(--foreground)" />
+            <path
+              d="m40 64 6 4 7-4m14 0 7 4 6-4"
+              fill="none"
+              stroke="var(--foreground)"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path d="m51 89 9 8 10-9-10 4Z" fill="var(--scout-coral)" />
+          </>
+        ) : mood === "repair" ? (
+          <>
+            <path d="m37 46 16 4-2 4-15-5Z" fill="var(--foreground)" />
+            <path d="m67 50 16-4 1 3-15 5Z" fill="var(--foreground)" />
+            <circle cx="46" cy="65" r="4" fill="var(--foreground)" />
+            <circle cx="74" cy="65" r="4" fill="var(--foreground)" />
+            <circle cx="47" cy="63.5" r="1.5" fill="var(--scout-mint)" />
+            <circle cx="75" cy="63.5" r="1.5" fill="var(--scout-mint)" />
+            <path d="m52 94 8-5 8 5-8-2Z" fill="var(--scout-coral)" />
+          </>
+        ) : (
+          <>
+            <path d="m37 48 15-2 3 4-17 2Z" fill="var(--foreground)" />
+            <path d="m65 50 3-4 15 2-1 4Z" fill="var(--foreground)" />
+            <circle cx="46" cy="64" r="4" fill="var(--foreground)" />
+            <circle cx="74" cy="64" r="4" fill="var(--foreground)" />
+            <circle cx="47.5" cy="62.5" r="1.5" fill="var(--scout-mint)" />
+            <circle cx="75.5" cy="62.5" r="1.5" fill="var(--scout-mint)" />
+            <path d="m51 89 9 6 10-7-10 3Z" fill="var(--scout-coral)" />
+          </>
+        )}
+
+        <path d="m56 72 4 8 5-2-5 6Z" fill="var(--scout-coral)" />
       </svg>
       {mood === "correct" ? (
         <SparklesIcon
@@ -92,11 +150,9 @@ export function ScoutCoach({
       <ScoutMark mood={mood} className="size-12" />
       <div className="relative rounded-lg border border-primary/25 bg-[var(--info-surface)] px-4 py-3">
         <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
-          Scout says
+          Mr. Kim says
         </p>
-        <p className="mt-1.5 text-sm leading-6">
-          {message ?? MOOD_COPY[mood]}
-        </p>
+        <p className="mt-1.5 text-sm leading-6">{message ?? MOOD_COPY[mood]}</p>
         {detail ? (
           <>
             <Button

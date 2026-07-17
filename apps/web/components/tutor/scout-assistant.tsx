@@ -308,26 +308,26 @@ export function ScoutProvider({
     if (activeTab === "progress")
       return [
         "Why is this skill next?",
-        "What would change the plan?",
-        "What does confidence mean?",
+        "How do I improve this skill?",
+        "What will make me ready to move on?",
       ]
     if (activeTab === "calibrate")
       return [
-        "Why this question?",
-        "When will the check stop?",
-        "Explain the estimate simply",
+        "Why did you pick this question?",
+        "How many questions are left?",
+        "What happens when I finish?",
       ]
     if (activeTab === "plan")
       return [
-        "Why this schedule?",
-        "What tradeoff did Scout make?",
-        "What if I miss a day?",
+        "Why is this on my schedule?",
+        "How can I fit this into my week?",
+        "What happens if I miss a day?",
       ]
     if (activeTab === "lab")
       return [
-        "What can you help with here?",
-        "How should I pace myself?",
-        "What happens after review?",
+        "Which timed practice should I choose?",
+        "How should I pace this?",
+        "What will Scout do with my results?",
       ]
     return [
       "Give me a hint",
@@ -462,7 +462,7 @@ export function ScoutProvider({
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-2xl font-black">Ask Scout</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
-                  Context: {activeTab}
+                  You&apos;re viewing: {activeTab}
                 </p>
               </div>
               <Button
@@ -477,7 +477,10 @@ export function ScoutProvider({
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <p className="text-sm leading-6 text-muted-foreground">
-                Ask about this screen, your plan, or the skill you are learning.
+                Scout can explain the current lesson, practice answer, skill
+                estimate, Quick Check state, or dated-plan rules when that
+                server context is available. It cannot see which calendar card
+                you selected or read arbitrary text elsewhere on the screen.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {prompts.map((prompt) => (
@@ -492,87 +495,81 @@ export function ScoutProvider({
                   </Button>
                 ))}
               </div>
-              {messages.map((message) => (
-                <div key={message.id} className="mt-6">
-                  <p className="ml-8 border-r-4 border-foreground bg-muted px-4 py-3 text-sm font-semibold">
-                    {message.question}
-                  </p>
-                  <article className="mt-3 border-l-4 border-primary bg-[var(--info-surface)] p-5">
-                    <p className="font-heading text-2xl font-black">
-                      {message.answer.summary}
+              <div role="log" aria-live="polite" aria-label="Scout answers">
+                {messages.map((message) => (
+                  <div key={message.id} className="mt-6">
+                    <p className="ml-8 border-r-4 border-foreground bg-muted px-4 py-3 text-sm font-semibold">
+                      {message.question}
                     </p>
-                    <p className="mt-3 text-sm leading-6">
-                      {message.answer.explanation}
-                    </p>
-                    {message.answer.example ? (
+                    <article className="mt-3 border-l-4 border-primary bg-[var(--info-surface)] p-5">
+                      <p className="font-heading text-2xl font-black">
+                        {message.answer.summary}
+                      </p>
+                      <p className="mt-3 text-sm leading-6">
+                        {message.answer.explanation}
+                      </p>
+                      {message.answer.example ? (
+                        <div className="mt-4 border-t border-foreground/20 pt-4">
+                          <p className="ink-label text-muted-foreground">
+                            Example
+                          </p>
+                          <p className="mt-2 text-sm leading-6">
+                            {message.answer.example}
+                          </p>
+                        </div>
+                      ) : null}
                       <div className="mt-4 border-t border-foreground/20 pt-4">
-                        <p className="ink-label text-muted-foreground">
-                          Example
-                        </p>
-                        <p className="mt-2 text-sm leading-6">
-                          {message.answer.example}
+                        <p className="ink-label text-primary">Do this next</p>
+                        <p className="mt-2 text-sm font-semibold">
+                          {message.answer.nextAction}
                         </p>
                       </div>
-                    ) : null}
-                    <div className="mt-4 border-t border-foreground/20 pt-4">
-                      <p className="ink-label text-primary">Do this next</p>
-                      <p className="mt-2 text-sm font-semibold">
-                        {message.answer.nextAction}
-                      </p>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2 border-t border-foreground/20 pt-4">
-                      {[
-                        "Explain more simply",
-                        "Give me another example",
-                        "Let me try one",
-                        "Show the rule",
-                        "Why does this matter?",
-                      ].map((action) => (
-                        <Button
-                          key={action}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void ask(action)}
-                        >
-                          {action}
-                        </Button>
-                      ))}
-                    </div>
-                    <details className="mt-4 text-xs text-muted-foreground">
-                      <summary className="cursor-pointer font-bold text-foreground">
-                        Source, permissions, and technical detail
-                      </summary>
-                      <p className="mt-2">Source: {message.answer.source}</p>
-                      <p className="mt-1">{message.answer.technical}</p>
-                      {message.answer.receipt ? (
-                        <>
-                          <p className="mt-1">
-                            Permission:{" "}
-                            {message.answer.receipt.permissions.join(", ")}
-                          </p>
-                          <p className="mt-1">
-                            Checks: {message.answer.receipt.checks.join(" · ")}
-                          </p>
-                        </>
-                      ) : null}
-                    </details>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() =>
-                        speak(
-                          `${message.answer.summary} ${message.answer.explanation}`
-                        )
-                      }
-                    >
-                      <Volume2Icon /> Read aloud
-                    </Button>
-                  </article>
-                </div>
-              ))}
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-foreground/20 pt-4">
+                        {[
+                          "Explain more simply",
+                          "Give me another example",
+                          "Show the rule",
+                          "Why does this matter?",
+                        ].map((action) => (
+                          <Button
+                            key={action}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void ask(action)}
+                          >
+                            {action}
+                          </Button>
+                        ))}
+                      </div>
+                      <details className="mt-4 text-xs text-muted-foreground">
+                        <summary className="cursor-pointer font-bold text-foreground">
+                          How this answer was made
+                        </summary>
+                        <p className="mt-2">Source: {message.answer.source}</p>
+                        <p className="mt-1">{message.answer.technical}</p>
+                        <p className="mt-1">
+                          This answer used fixed response rules, not a model
+                          reading the whole visible screen.
+                        </p>
+                      </details>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() =>
+                          speak(
+                            `${message.answer.summary} ${message.answer.explanation}`
+                          )
+                        }
+                      >
+                        <Volume2Icon /> Read aloud
+                      </Button>
+                    </article>
+                  </div>
+                ))}
+              </div>
               {assistantError ? (
                 <p
                   className="mt-4 text-sm font-semibold text-destructive"
@@ -602,14 +599,14 @@ export function ScoutProvider({
                 rows={3}
                 maxLength={500}
                 className="mt-2 w-full border-2 border-foreground bg-background p-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                placeholder="Why is this lesson next?"
+                placeholder="Why is this my next lesson?"
               />
               <Button
                 type="submit"
                 className="mt-3 w-full"
                 disabled={busy || !question.trim()}
               >
-                <SendIcon /> {busy ? "Checking the evidence…" : "Ask Scout"}
+                <SendIcon /> {busy ? "Getting an answer…" : "Ask Scout"}
               </Button>
             </form>
           </aside>

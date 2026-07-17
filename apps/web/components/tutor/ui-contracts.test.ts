@@ -25,7 +25,7 @@ describe("mobile navigation contract", () => {
     expect(mobileNav).toContain('value="progress"')
     expect(mobileNav).toContain("<MobileScoutDock")
     expect(mobileNav).toContain("More")
-    expect(dashboard).toContain("Test Lab")
+    expect(dashboard).toContain("Timed practice")
     expect(dashboard).toContain("Evidence & data")
     expect(dashboard).toContain("Learning settings")
   })

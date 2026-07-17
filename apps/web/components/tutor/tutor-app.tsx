@@ -241,6 +241,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   const [plan, setPlan] = useState<GeneratedPlan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [storageReady, setStorageReady] = useState(false)
+  const [welcomeComplete, setWelcomeComplete] = useState(false)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -515,7 +516,12 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         }
         createPlan()
       }}
-      onJudgeDemo={() => void launchJudgeDemo()}
+      showWelcome={!welcomeComplete}
+      onDismissWelcome={() => setWelcomeComplete(true)}
+      onJudgeDemo={() => {
+        setWelcomeComplete(true)
+        void launchJudgeDemo()
+      }}
       onUpdate={updateDraft}
     />
   )

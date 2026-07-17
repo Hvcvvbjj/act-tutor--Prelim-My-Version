@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
+    "build:sites": "pnpm --filter web build:sites && node scripts/stage-sites-build.mjs",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r --if-present test",
@@ -17,6 +19,8 @@
     "check:release": "pnpm check && pnpm test:e2e"
   },
   "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
     "typescript": "^5.9.3",
     "vitest": "3.2.4"
   }

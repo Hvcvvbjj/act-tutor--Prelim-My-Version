@@ -344,11 +344,18 @@ export function TrustView({
               display; it does not derive or verify those metrics from raw
               assessment events. Files stay in this browser.
             </p>
+            <label
+              htmlFor="group-metric-files"
+              className="mt-4 block text-sm font-semibold"
+            >
+              Choose JSON files
+            </label>
             <input
+              id="group-metric-files"
               type="file"
               accept="application/json,.json"
               multiple
-              className="mt-4 block w-full text-sm"
+              className="mt-2 block w-full text-sm"
               onChange={(event) => void importGroupMetrics(event.target.files)}
             />
             {groupMetricError ? (
@@ -397,9 +404,11 @@ export function TrustView({
               </div>
             ) : (
               <div className="mt-4 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-4">
-                <p className="font-bold">No unsupported fairness claim</p>
+                <p className="font-bold">No group metrics loaded</p>
                 <p className="mt-2 text-sm leading-6">
-                  {learning.trustReport.abstentions[0]}
+                  Scout has not run a fairness audit. Uploaded JSON is only
+                  averaged for display; without it, this panel makes no claim
+                  about group performance. {learning.trustReport.abstentions[0]}
                 </p>
               </div>
             )}
@@ -409,7 +418,7 @@ export function TrustView({
           <p className="ink-label text-muted-foreground">Model abstention</p>
           <div className="mt-4 border-l-4 border-primary bg-[var(--info-surface)] p-5">
             <p className="font-bold">
-              Scout says “not enough evidence” on purpose.
+              Mr. Kim says “not enough evidence” on purpose.
             </p>
             <p className="mt-2 text-sm leading-6">
               {learning.trustReport.abstentions[1]}

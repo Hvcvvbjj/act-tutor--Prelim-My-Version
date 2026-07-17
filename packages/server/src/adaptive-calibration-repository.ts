@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 
 import {
   ADAPTIVE_CALIBRATION_MODEL,
@@ -21,6 +19,11 @@ import {
   type PracticeDifficulty,
   type AnswerConfidence,
 } from "@act-tutor/core";
+
+import {
+  resolveJsonDocumentStore,
+  type JsonDocumentStore,
+} from "./atomic-json-repository";
 
 export interface CalibrationBankInput {
   id: string;
@@ -291,54 +294,41 @@ function applyAnswer(
 }
 
 export class FileAdaptiveCalibrationRepository {
-  constructor(private readonly filePath: string) {}
+  private readonly store: JsonDocumentStore;
+
+  constructor(source: string | JsonDocumentStore) {
+    this.store = resolveJsonDocumentStore(source);
+  }
 
   private async readStore(): Promise<CalibrationStoreFile> {
-    try {
-      const parsed = JSON.parse(
-        await readFile(this.filePath, "utf8"),
-      ) as CalibrationStoreFile;
-      if (parsed.version !== 1 || !parsed.sessions)
-        throw new Error("Unsupported calibration store format.");
-      return parsed;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        return structuredClone(EMPTY_STORE);
-      throw error;
-    }
+    const value = await this.store.read();
+    if (value === null) return structuredClone(EMPTY_STORE);
+    const parsed = value as CalibrationStoreFile;
+    if (parsed.version !== 1 || !parsed.sessions)
+      throw new Error("Unsupported calibration store format.");
+    return parsed;
   }
 
   private async writeStore(store: CalibrationStoreFile) {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporaryPath, `${JSON.stringify(store, null, 2)}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await rename(temporaryPath, this.filePath);
-    } catch (error) {
-      await unlink(temporaryPath).catch(() => undefined);
-      throw error;
-    }
+    await this.store.write(store);
   }
 
   private async transact<T>(
     operation: (store: CalibrationStoreFile) => Promise<T> | T,
   ): Promise<T> {
-    const previous = queues.get(this.filePath) ?? Promise.resolve();
+    const previous = queues.get(this.store.key) ?? Promise.resolve();
     let release: () => void = () => {};
     const current = new Promise<void>((resolve) => {
       release = resolve;
     });
     const tail = previous.then(() => current);
-    queues.set(this.filePath, tail);
+    queues.set(this.store.key, tail);
     await previous;
     try {
       return await operation(await this.readStore());
     } finally {
       release();
-      if (queues.get(this.filePath) === tail) queues.delete(this.filePath);
+      if (queues.get(this.store.key) === tail) queues.delete(this.store.key);
     }
   }
 

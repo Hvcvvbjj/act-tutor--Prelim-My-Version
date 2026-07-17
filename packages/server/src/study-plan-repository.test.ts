@@ -173,4 +173,32 @@ describe("FileStudyPlanRepository", () => {
     expect(replacement.sessionId).not.toBe(first.sessionId);
     await expect(repo.get(first.sessionId)).rejects.toThrow("not found");
   });
+
+  it("rebases same-window availability and skills without losing the session", async () => {
+    const { repo } = await repository();
+    const first = await repo.getOrCreate(null, INPUT);
+    const completedTask = first.plan.tasks[0];
+    await repo.setTaskStatus(first.sessionId, completedTask.id, "complete");
+
+    const rebased = await repo.getOrCreate(first.sessionId, {
+      ...INPUT,
+      availability: {
+        entries: [
+          { weekday: "tue", minutes: 45 },
+          { weekday: "sat", minutes: 30 },
+        ],
+      },
+      skills: SKILLS.map((skill) =>
+        skill.skill === "linear"
+          ? { ...skill, mastery: 0.82, evidence: 8 }
+          : skill,
+      ),
+    });
+
+    expect(rebased.sessionId).toBe(first.sessionId);
+    expect(rebased.plan.forecast.weeklyCapacity).toBe(75);
+    expect(
+      rebased.plan.tasks.find((task) => task.id === completedTask.id)?.status,
+    ).toBe("complete");
+  });
 });

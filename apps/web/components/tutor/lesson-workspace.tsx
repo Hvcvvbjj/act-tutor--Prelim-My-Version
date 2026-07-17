@@ -43,13 +43,6 @@ interface LessonWorkspaceProps {
 
 const SECTION_SHORT_LABELS = ["Learn", "Example", "Rule", "Try it"] as const
 
-const SKILL_LEVEL_LABEL = {
-  new: "Just starting",
-  building: "Learning",
-  steady: "Getting there",
-  secure: "Strong",
-} as const
-
 function GenerationStamp({ learning }: { learning: LearningSessionPayload }) {
   const ai = learning.lesson.generation.mode === "ai"
   return (
@@ -91,14 +84,30 @@ function LessonStage({
 >) {
   const section = learning.lesson.sections[activeSection]
   const isLast = activeSection === learning.lesson.sections.length - 1
+  const sectionHeadingRef = useRef<HTMLHeadingElement>(null)
   const { accommodations, explanationPreferences } = useScoutContext()
-  const [explanationMode, setExplanationMode] = useState<
-    "standard" | "short" | "analogy" | "visual"
-  >(explanationPreferences.depth === "quick" ? "short" : "standard")
+  const [explanationMode, setExplanationMode] = useState<"standard" | "short">(
+    explanationPreferences.depth === "quick" ? "short" : "standard"
+  )
   const [teachBack, setTeachBack] = useState(learning.teachBack?.response ?? "")
   const [feedbackState, setFeedbackState] = useState<
     "idle" | "pending" | "saved" | "failed"
   >("idle")
+  const currentSkill =
+    learning.learningTwin.skills.find(
+      (skill) => skill.skill === learning.todaySkill
+    ) ?? learning.learningTwin.skills[0]
+  const currentRecommendation = learning.learningTwin.recommendation
+  const assignmentIsCurrentRecommendation =
+    currentRecommendation.skill === learning.todaySkill
+  const topFactors = [...currentRecommendation.contributions]
+    .filter((factor) => factor.points > 0)
+    .sort((left, right) => right.points - left.points)
+    .slice(0, 2)
+
+  useEffect(() => {
+    sectionHeadingRef.current?.focus()
+  }, [activeSection])
   async function saveFeedback(helpful: boolean) {
     setFeedbackState("pending")
     setFeedbackState(
@@ -108,19 +117,7 @@ function LessonStage({
   const displayExplanation =
     explanationMode === "short"
       ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
-      : explanationMode === "analogy"
-        ? `Think of this like ${
-            explanationPreferences.exampleStyle === "sports"
-              ? "checking the rule before the play counts"
-              : explanationPreferences.exampleStyle === "gaming"
-                ? "checking the game mechanic before choosing a move"
-                : explanationPreferences.exampleStyle === "school"
-                  ? "showing the rule before writing the final answer"
-                  : "checking a road sign before choosing a turn"
-          }. ${section.explanation}`
-        : explanationMode === "visual"
-          ? `Picture three boxes: NOTICE → APPLY THE RULE → CHECK THE CHOICE. ${section.explanation}`
-          : section.explanation
+      : section.explanation
 
   return (
     <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_17rem]">
@@ -134,7 +131,11 @@ function LessonStage({
             {Math.max(2, Math.round(learning.lesson.minutes / 4))} min
           </span>
         </div>
-        <h2 className="mt-4 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] sm:text-4xl">
+        <h2
+          ref={sectionHeadingRef}
+          tabIndex={-1}
+          className="mt-4 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] outline-none sm:text-4xl"
+        >
           {section.title}
         </h2>
         <p className="mt-5 max-w-3xl text-base leading-8 sm:text-lg">
@@ -144,13 +145,14 @@ function LessonStage({
           <summary className="cursor-pointer text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
             Change how Scout explains this
           </summary>
-          <div className="mt-3 flex flex-wrap gap-2" aria-label="Explanation style">
+          <div
+            className="mt-3 flex flex-wrap gap-2"
+            aria-label="Explanation style"
+          >
             {(
               [
                 ["standard", "Normal"],
                 ["short", "Concise"],
-                ["analogy", "Analogy"],
-                ["visual", "Visual steps"],
               ] as const
             ).map(([value, label]) => (
               <Button
@@ -158,6 +160,7 @@ function LessonStage({
                 type="button"
                 size="sm"
                 variant={explanationMode === value ? "secondary" : "outline"}
+                aria-pressed={explanationMode === value}
                 onClick={() => setExplanationMode(value)}
               >
                 {label}
@@ -201,35 +204,21 @@ function LessonStage({
             <div className="py-4 sm:pr-5">
               <p className="ink-label text-primary">Solution that works</p>
               <p className="mt-2 text-sm leading-6">
-                {learning.lesson.workedExample.answer}. It follows this rule: {learning.lesson.concept}
+                {learning.lesson.workedExample.answer}. It follows this rule:{" "}
+                {learning.lesson.concept}
               </p>
             </div>
             <div className="py-4 sm:pl-5">
-              <p className="ink-label text-[var(--scout-coral)]">Tempting wrong path</p>
+              <p className="ink-label text-[var(--scout-coral-text)]">
+                Tempting wrong path
+              </p>
               <p className="mt-2 text-sm leading-6">
-                {learning.lesson.trap} Compare the exact decision, not just how the answer sounds.
+                {learning.lesson.trap} Compare the exact decision, not just how
+                the answer sounds.
               </p>
             </div>
           </div>
         ) : null}
-        {section.id === "guided-example" ? (
-          <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-5">
-            <p className="ink-label text-primary">
-              Your {explanationPreferences.exampleStyle} example
-            </p>
-            <p className="mt-2 text-sm leading-6">
-              {explanationPreferences.exampleStyle === "sports"
-                ? "Picture a game recap: first identify the exact play, then apply the rule, then check whether the conclusion matches what happened."
-                : explanationPreferences.exampleStyle === "gaming"
-                  ? "Picture a game choice: identify the mechanic being tested, apply its rule, then reject any option that adds a move the rules do not allow."
-                  : explanationPreferences.exampleStyle === "school"
-                    ? "Picture explaining this at the board: name the rule, show the first decision, and check the final choice against the original prompt."
-                    : "Picture checking directions before a turn: notice the sign, use the rule it gives you, and make sure the choice follows it."}
-              {" "}For this lesson, the rule is: {learning.lesson.concept}
-            </p>
-          </div>
-        ) : null}
-
         {section.id === "decision-rule" ? (
           <ol className="mt-7 border-y-2 border-foreground">
             {learning.lesson.strategyChecklist.map((step, index) => (
@@ -255,11 +244,22 @@ function LessonStage({
               </p>
             </div>
             <div className="mt-5 border-2 border-foreground bg-[var(--info-surface)] p-5">
-              <p className="ink-label text-primary">Teach it back</p>
+              <label
+                htmlFor="lesson-teach-back"
+                className="ink-label text-primary"
+              >
+                Explain it in your own words
+              </label>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Explain the rule, why it works, and one example. Scout scores the explanation against those three parts.
+                Write the rule, why it works, and one example.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                This check looks only for a lesson keyword, a why/because
+                phrase, and an example cue. It does not verify that your
+                explanation is correct.
               </p>
               <textarea
+                id="lesson-teach-back"
                 value={teachBack}
                 onChange={(event) => setTeachBack(event.target.value)}
                 rows={4}
@@ -273,21 +273,34 @@ function LessonStage({
                 disabled={teachBack.trim().length < 20 || submitting}
                 onClick={() => onTeachBack(teachBack)}
               >
-                Check my explanation
+                Check for three required parts
               </Button>
               {learning.teachBack ? (
                 <div className="mt-4 border-t pt-4">
                   <p className="font-bold">
-                    Rubric: {learning.teachBack.score}/{learning.teachBack.maxScore}
+                    Pattern check: {learning.teachBack.score}/
+                    {learning.teachBack.maxScore} parts
                   </p>
                   <ul className="mt-2 grid gap-1 text-sm">
-                    {learning.teachBack.rubric.map((item) => (
+                    {learning.teachBack.rubric.map((item, index) => (
                       <li key={item.label}>
-                        {item.met ? "✓" : "○"} {item.label}
+                        {item.met ? "✓" : "○"}{" "}
+                        {[
+                          "Includes a keyword from the lesson rule",
+                          "Includes a why/because phrase",
+                          "Includes an example cue",
+                        ][index] ?? item.label}
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-sm">{learning.teachBack.feedback}</p>
+                  <p className="mt-2 text-sm">
+                    {learning.teachBack.score === 3
+                      ? "All three text patterns were found."
+                      : learning.teachBack.score === 2
+                        ? "Two text patterns were found. Add the missing part shown above."
+                        : "One or none of the text patterns were found. Use the prompt above to add the missing parts."}{" "}
+                    This still does not confirm that the explanation is correct.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -340,30 +353,41 @@ function LessonStage({
       </section>
 
       <aside className="border-t bg-[var(--rail)] px-5 py-7 lg:border-t-0 lg:border-l lg:px-6">
-        <p className="ink-label text-muted-foreground">Why this lesson</p>
-        <p className="mt-3 text-sm leading-6">{learning.lesson.whyAssigned}</p>
+        <p className="ink-label text-muted-foreground">Why Scout picked this</p>
+        <p className="mt-3 text-sm leading-6">
+          {currentSkill && assignmentIsCurrentRecommendation
+            ? `${currentSkill.label} currently has a ${Math.round(currentSkill.learnedProbability * 100)}% BKT estimate from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "response" : "responses"}. Its practice-priority total is ${currentRecommendation.priorityScore}/100. The largest factors are ${topFactors.map((factor) => `${factor.label.toLowerCase()} (+${factor.points})`).join(" and ") || "the fixed ranking rules"}. Your ACT goal is not part of this ranking.`
+            : `This assignment was already in progress, so Scout kept it open. The current ranking now puts ${currentRecommendation.label} next at ${currentRecommendation.priorityScore}/100.`}
+        </p>
         <div className="mt-6 border-y py-5">
-          <p className="ink-label text-muted-foreground">Lesson level</p>
+          <p className="ink-label text-muted-foreground">Lesson depth</p>
           <p className="mt-2 font-heading text-2xl font-bold capitalize">
             {learning.lesson.depth}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Foundation: no matching diagnostic evidence or under 45% correct.
+            Standard: 45–79%. Stretch: at least 80% and a goal of 30 or higher.
+            Ordinary practice does not change this lesson-depth label.
           </p>
         </div>
         <p className="ink-label mt-6 text-muted-foreground">Common trap</p>
         <p className="mt-3 text-sm leading-6">{learning.lesson.trap}</p>
-        <div className="mt-6">
-          <GenerationStamp learning={learning} />
-        </div>
         <details className="mt-6 border-t pt-5">
           <summary className="cursor-pointer font-bold">
-            Why you can trust this lesson
+            How this lesson was checked
           </summary>
+          <div className="mt-4">
+            <GenerationStamp learning={learning} />
+          </div>
           <dl className="mt-4 grid gap-4 text-sm leading-6">
             <div>
               <dt className="ink-label text-muted-foreground">Skill goal</dt>
               <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
             </div>
             <div>
-              <dt className="ink-label text-muted-foreground">Evidence questions</dt>
+              <dt className="ink-label text-muted-foreground">
+                Evidence questions
+              </dt>
               <dd className="mt-1 break-words">
                 {learning.lessonReceipt.evidenceQuestionIds.length
                   ? learning.lessonReceipt.evidenceQuestionIds.join(", ")
@@ -371,7 +395,9 @@ function LessonStage({
               </dd>
             </div>
             <div>
-              <dt className="ink-label text-muted-foreground">Generator status</dt>
+              <dt className="ink-label text-muted-foreground">
+                Generator status
+              </dt>
               <dd className="mt-1">{learning.lessonReceipt.generatorStatus}</dd>
             </div>
             <div>
@@ -405,6 +431,14 @@ function LessonStage({
               <li key={check}>{check}</li>
             ))}
           </ul>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            {learning.lessonReceipt.validationResult ===
+            "automated-checks-passed"
+              ? "These automated checks verify required fields, the approved rule token, and blocked phrases. They do not verify every instructional claim."
+              : learning.lessonReceipt.validationResult === "human-reviewed"
+                ? "This receipt records a saved teacher review; it does not show when or how thoroughly each claim was checked."
+                : "The generated draft did not pass the automated gate, so Scout used the reviewed fallback lesson."}
+          </p>
           <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
             <Button
               type="button"
@@ -459,8 +493,23 @@ function PracticeStage({
 >) {
   const answered = learning.answeredQuestionIds.length
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
+  const currentSkill =
+    learning.learningTwin.skills.find(
+      (skill) => skill.skill === (currentQuestion?.skill ?? learning.todaySkill)
+    ) ??
+    learning.learningTwin.skills.find(
+      (skill) => skill.skill === learning.todaySkill
+    ) ??
+    learning.learningTwin.skills[0]
+  const currentRecommendation = learning.learningTwin.recommendation
+  const currentEstimate = currentSkill
+    ? Math.round(currentSkill.learnedProbability * 100)
+    : null
   const progress = Math.round((answered / learning.questions.length) * 100)
   const feedback = learning.lastFeedback
+  const feedbackQuestion = feedback
+    ? learning.questions.find((question) => question.id === feedback.questionId)
+    : null
   const practiceLabel =
     learning.mode === "repair"
       ? "Retry"
@@ -488,7 +537,7 @@ function PracticeStage({
   const [initialChoice, setInitialChoice] = useState("")
   const [hintLevel, setHintLevel] = useState(0)
   const [explanationStyle, setExplanationStyle] = useState<
-    "step-by-step" | "compare" | "simple" | "analogy" | "visual"
+    "step-by-step" | "compare" | "simple"
   >("step-by-step")
   const startedAt = useRef<number | null>(null)
 
@@ -497,27 +546,27 @@ function PracticeStage({
   }, [currentQuestion?.id])
 
   if (learning.status === "complete") {
+    const completionSkill =
+      learning.learningTwin.skills.find(
+        (skill) => skill.skill === feedbackQuestion?.skill
+      ) ?? currentSkill
+    const testedSkills = learning.learningTwin.skills.filter((skill) =>
+      learning.questions.some((question) => question.skill === skill.skill)
+    )
+    const latestDelta = completionSkill?.lastUpdate
+      ? Math.round(completionSkill.lastUpdate.delta * 100)
+      : null
+    const nextReview = learning.lastFeedback?.review
     return (
       <section className="px-5 py-10 sm:px-8 sm:py-12">
         <ScoutCoach
           mood="correct"
           message={
-            learning.mode === "repair"
-              ? "Nice fix. Scout will bring this skill back later so it sticks."
-              : learning.mode === "checkpoint"
-                ? "Quiz complete. Scout updated all three skills from your answers."
-                : learning.mode === "retention"
-                  ? "Retention check complete. Scout now knows whether the skill lasted."
-                  : learning.mode === "challenge"
-                    ? "Mastery challenge complete. Strong results let you skip needless repetition."
-                    : learning.mode === "recovery"
-                      ? "Recovery complete. Missed days did not erase your progress."
-                : learning.lastFeedback?.isExitTicket &&
-                    !learning.lastFeedback.correct
-                  ? "The exit ticket exposed a gap. Scout switched explanations and scheduled another check instead of pretending the lesson worked."
-                  : "Practice complete. Your exit ticket updated the next study session and review date."
+            testedSkills.length > 1
+              ? `Practice complete. Scout updated the ${testedSkills.length} tested skill estimates and reranked all 12 skills.`
+              : `Practice complete. Scout updated ${completionSkill?.label ?? "the answered skill"}'s BKT estimate and reranked all 12 skills.`
           }
-          detail={learning.futureTask.reason}
+          detail="This practice did not rewrite the dated My Week calendar."
         />
         <h2 className="mt-8 font-heading text-5xl leading-none font-black tracking-[-0.03em]">
           {learning.mode === "repair"
@@ -530,34 +579,66 @@ function PracticeStage({
                   ? "Challenge complete."
                   : learning.mode === "recovery"
                     ? "Recovery complete."
-              : "Practice complete."}
+                    : "Practice complete."}
         </h2>
         <p className="mt-5 max-w-2xl text-lg leading-8">
-          Scout now estimates your {learning.mastery.label} skill at{" "}
-          {Math.round(learning.mastery.mastery * 100)}%, based on{" "}
-          {learning.mastery.evidence} scored{" "}
-          {learning.mastery.evidence === 1 ? "answer" : "answers"}.
+          {completionSkill ? (
+            <>
+              {testedSkills.length > 1 ? "The last answered skill was " : ""}
+              {completionSkill.label}. Its internal estimate is now{" "}
+              <strong>
+                {Math.round(completionSkill.learnedProbability * 100)}%
+              </strong>
+              , based on {completionSkill.evidenceCount} scored{" "}
+              {completionSkill.evidenceCount === 1 ? "response" : "responses"}{" "}
+              in this model. This is not percent correct or an ACT score.
+            </>
+          ) : (
+            "Scout saved the practice answers, but no matching skill estimate was available to display."
+          )}
         </p>
         <dl className="mt-8 grid max-w-3xl border-y-2 border-foreground sm:grid-cols-3 sm:divide-x-2 sm:divide-foreground">
           <div className="px-4 py-5 first:pl-0">
-            <dt className="ink-label text-muted-foreground">Skill level</dt>
-            <dd className="mt-2 font-heading text-3xl font-bold capitalize">
-              {SKILL_LEVEL_LABEL[learning.mastery.band]}
+            <dt className="ink-label text-muted-foreground">
+              Last answer’s model change
+            </dt>
+            <dd className="mt-2 font-heading text-3xl font-bold">
+              {latestDelta === null
+                ? "No update"
+                : `${latestDelta > 0 ? "+" : ""}${latestDelta} points`}
             </dd>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Change in BKT probability from the latest scored response.
+            </p>
           </div>
           <div className="px-4 py-5">
-            <dt className="ink-label text-muted-foreground">Next review</dt>
-            <dd className="mt-2 font-heading text-3xl font-bold">
-              {learning.mastery.nextReviewAt
-                ? formatCalendarDate(learning.mastery.nextReviewAt.slice(0, 10))
+            <dt className="ink-label text-muted-foreground">
+              Last answer’s review date
+            </dt>
+            <dd className="mt-2 font-heading text-2xl font-bold">
+              {nextReview?.nextReviewAt
+                ? formatCalendarDate(nextReview.nextReviewAt.slice(0, 10))
                 : "Pending"}
             </dd>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {nextReview
+                ? `${nextReview.intervalDays}-day review rule from the latest answer.`
+                : "No review decision was returned with the latest answer."}
+            </p>
           </div>
           <div className="px-4 py-5 last:pr-0">
-            <dt className="ink-label text-muted-foreground">What comes next</dt>
+            <dt className="ink-label text-muted-foreground">
+              Highest practice priority
+            </dt>
             <dd className="mt-2 text-sm leading-6 font-semibold">
-              {learning.futureTask.reason}
+              {currentRecommendation.label} ·{" "}
+              {currentRecommendation.priorityScore}
+              /100
             </dd>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              This is a fixed ranking total, not a predicted score. It does not
+              alter My Week automatically.
+            </p>
           </div>
         </dl>
       </section>
@@ -607,7 +688,7 @@ function PracticeStage({
               <label
                 key={choice.id}
                 className={cn(
-                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors hover:border-primary sm:text-base",
+                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:border-primary sm:text-base",
                   selectedChoice === choice.id && "border-primary bg-secondary"
                 )}
               >
@@ -646,6 +727,7 @@ function PracticeStage({
                 key={value}
                 type="button"
                 variant={confidence === value ? "secondary" : "outline"}
+                aria-pressed={confidence === value}
                 size="sm"
                 onClick={() => setConfidence(value)}
               >
@@ -654,16 +736,18 @@ function PracticeStage({
             ))}
           </div>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            A correct guess counts less than a correct answer you felt sure
-            about. Scout uses that difference when it updates the skill.
+            This does not change whether your answer is right or which question
+            comes next in this set. It only scales the matching skill update:
+            Sure 100%, Unsure 78%, or Guessing 48%.
           </p>
         </div>
         {reviewing ? (
           <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-4">
             <p className="font-bold">One last look before scoring</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Keep your choice or change it. Scout records a self-correction
-              separately from a first-try answer.
+              Keep your choice or change it before Scout checks the answer. A
+              changed choice applies an additional 82% multiplier to the skill
+              update.
             </p>
           </div>
         ) : null}
@@ -712,8 +796,8 @@ function PracticeStage({
           {submitting
             ? "Checking your answer…"
             : reviewing
-              ? "Score this answer"
-              : "Review my choice"}
+              ? "Check answer"
+              : "Review answer"}
         </Button>
       </div>
 
@@ -741,12 +825,8 @@ function PracticeStage({
                 : explanationStyle === "step-by-step"
                   ? `First, name the rule: ${learning.lesson.strategyChecklist[0]} Then compare that rule with your choice. ${feedback.rationale}`
                   : explanationStyle === "compare"
-                    ? `The correct choice follows this rule: ${learning.lesson.concept} Your choice points to this issue: ${feedback.misconception ?? "it does not satisfy the rule"}.`
-                    : explanationStyle === "analogy"
-                      ? `Treat the rule like a checkpoint: the choice does not pass unless every required part is present. ${feedback.rationale}`
-                      : explanationStyle === "visual"
-                        ? `NOTICE → NAME THE RULE → TEST EACH CHOICE. The mismatch happened at the rule check: ${feedback.rationale}`
-                        : `Look for this: ${learning.lesson.transferPrompt} ${feedback.rationale}`}
+                    ? `You chose ${feedbackQuestion?.choices.find((choice) => choice.id === feedback.selectedChoiceId)?.text ?? feedback.selectedChoiceId}. The correct choice is ${feedbackQuestion?.choices.find((choice) => choice.id === feedback.correctChoiceId)?.text ?? feedback.correctChoiceId}. The deciding rule is: ${learning.lesson.concept} ${feedback.rationale}`
+                    : `${feedback.rationale} Rule to use: ${learning.lesson.concept}`}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -761,8 +841,6 @@ function PracticeStage({
                   ["step-by-step", "Step by step"],
                   ["compare", "Compare choices"],
                   ["simple", "Simpler"],
-                  ["analogy", "Analogy"],
-                  ["visual", "Visual steps"],
                 ] as const
               ).map(([value, label]) => (
                 <Button
@@ -779,25 +857,39 @@ function PracticeStage({
           </div>
         ) : null}
         {feedback ? (
-          <p className="mt-4 text-xs leading-5 text-muted-foreground">
-            Evidence weight: {Math.round(feedback.evidenceWeight * 100)}% ·{" "}
-            {feedback.confidence} ·{" "}
-            {feedback.selfCorrected
-              ? "self-corrected before scoring"
-              : "first choice kept"}
-          </p>
+          <details className="mt-4 text-xs leading-5 text-muted-foreground">
+            <summary className="cursor-pointer font-semibold text-foreground">
+              How Scout used this answer
+            </summary>
+            <p className="mt-2">
+              Update multiplier: {Math.round(feedback.evidenceWeight * 100)}%.
+              This is the confidence multiplier (Sure 100%, Unsure 78%, or
+              Guessing 48%) multiplied by 82% when you changed your choice
+              before checking, or by 100% when you kept it. Correctness selects
+              the model&apos;s correct-answer or wrong-answer calculation; the
+              multiplier controls how strongly that calculation changes the
+              prior estimate.
+            </p>
+          </details>
         ) : null}
         <div className="mt-7 border-t pt-5">
-          <p className="ink-label text-muted-foreground">
-            Current skill estimate
-          </p>
-          <p className="mt-2 font-heading text-4xl font-black tabular-nums">
-            {Math.round(learning.mastery.mastery * 100)}%
+          <p className="ink-label text-muted-foreground">Current skill model</p>
+          <p className="mt-2 font-heading text-3xl font-black">
+            {currentEstimate === null ? "Unavailable" : `${currentEstimate}%`}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {learning.mastery.label} ·{" "}
-            {SKILL_LEVEL_LABEL[learning.mastery.band]}
+            {currentSkill?.label ?? "No matching skill"}
           </p>
+          <details className="mt-3 text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-semibold text-foreground">
+              What this number means
+            </summary>
+            <p className="mt-2">
+              {currentSkill
+                ? `This is BKT P(learned) from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "response" : "responses"}. It is not percent correct or an ACT score.`
+                : "Scout did not return a matching BKT state for this question."}
+            </p>
+          </details>
         </div>
       </aside>
     </section>
@@ -824,7 +916,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                         ? "Three-minute study"
                         : "Today’s lesson"}
           </p>
-          <p className="mt-1 truncate text-base font-bold sm:text-lg">
+          <h1 className="mt-1 text-base leading-snug font-bold break-words sm:text-lg">
             {props.learning.mode === "repair"
               ? `Try again: ${props.learning.mastery.label}`
               : props.learning.mode === "checkpoint"
@@ -836,7 +928,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                     : props.learning.mode === "recovery"
                       ? "Two-skill reset"
                       : props.learning.lesson.title}
-          </p>
+          </h1>
         </div>
         {!props.learning.lessonComplete ? (
           <nav
@@ -851,6 +943,9 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                 key={label}
                 type="button"
                 variant={props.activeSection === index ? "secondary" : "ghost"}
+                aria-current={
+                  props.activeSection === index ? "step" : undefined
+                }
                 size="sm"
                 className={cn(
                   "text-foreground",

@@ -168,7 +168,7 @@ function QuestionView({
           <label
             key={choice.id}
             className={cn(
-              "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color] hover:-translate-y-0.5 hover:border-foreground sm:text-base",
+              "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:-translate-y-0.5 hover:border-foreground sm:text-base",
               answers[question.id] === choice.id &&
                 "border-primary bg-secondary"
             )}
@@ -266,7 +266,7 @@ function ReviewView({
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         Correctness is still hidden. Check every response, then submit once to
-        create your estimated baseline.
+        create an internal planning baseline.
       </p>
 
       <ol className="mt-9 border-y">
@@ -337,20 +337,25 @@ function ResultsView({
 }) {
   const hasStrengths = result.strengths.length > 0
   const hasFocusSkills = result.focusSkills.length > 0
+  const rangeMargin = result.calibrationVersion === "rapid-v1" ? 2 : 6
 
   return (
     <section>
       <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
       <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-        Your estimated range is {result.compositeRange.low}–
+        Your internal planning range is {result.compositeRange.low}–
         {result.compositeRange.high}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        Scout will use {result.compositeRange.estimate} as your starting point.
-        Your estimate will get more accurate as you answer practice questions.
+        Scout will use {result.compositeRange.estimate} as its starting planning
+        number. This diagnostic result stays fixed; later practice answers
+        update separate skill estimates.
       </p>
 
-      <dl className="mt-10 grid grid-cols-3 divide-x border-y py-6 text-center">
+      <p className="ink-label mt-10 text-muted-foreground">
+        Internal section planning ranges
+      </p>
+      <dl className="mt-3 grid grid-cols-3 divide-x border-y py-6 text-center">
         {result.sectionResults.map((section) => (
           <div key={section.section} className="px-2">
             <dt className="text-sm text-muted-foreground">
@@ -409,14 +414,23 @@ function ResultsView({
 
       <Alert className="mt-10 bg-[var(--info-surface)]">
         <ShieldCheckIcon />
-        <AlertTitle>
-          Estimated practice range—not an official ACT score
-        </AlertTitle>
+        <AlertTitle>How this planning number is calculated</AlertTitle>
         <AlertDescription>
-          This original 66-question half-length form follows the enhanced ACT
-          section proportions, but it is not an official ACT administration.
-          Scout will keep adjusting your plan as you finish lessons, practice
-          sets, and check-ins.
+          <p>
+            For each section, Scout calculates{" "}
+            <code className="font-mono text-xs text-foreground">
+              round(1 + ((correct + 1) / (total + 2)) × 35)
+            </code>
+            , then shows a range of ±{rangeMargin} points, clipped to 1–36. The
+            Composite midpoint is the rounded average of the English, Math, and
+            Reading midpoints; its low and high values use the three section
+            lows and highs.
+          </p>
+          <p className="mt-2">
+            This is an internal conversion from raw correctness on original
+            practice questions. It is not ACT-equated, not a statistical
+            confidence interval, and not an official ACT score.
+          </p>
         </AlertDescription>
       </Alert>
 

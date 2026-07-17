@@ -1,5 +1,5 @@
 import type { DiagnosticSkillResult } from "./diagnostic";
-import type { CoreSection } from "./types";
+import type { CoreSection, CoreSectionScores } from "./types";
 import type { DailyMissionSummary, LearningSessionMode } from "./mission";
 import type { LearningTwinSnapshot } from "./learning-twin";
 
@@ -72,6 +72,7 @@ export interface PersonalizedLessonContent extends LessonContent {
 export interface LessonPlanContext {
   goalScore: number;
   currentScore: number;
+  sectionScores?: CoreSectionScores;
   daysUntilTest: number;
   minutesPerSession: number;
   studyDaysPerWeek?: number;
@@ -207,9 +208,7 @@ export interface LessonTrustReceipt {
   evidenceQuestionIds: ReadonlyArray<string>;
   generatorStatus: string;
   validationResult:
-    | "automated-checks-passed"
-    | "human-reviewed"
-    | "reviewed-fallback";
+    "automated-checks-passed" | "human-reviewed" | "reviewed-fallback";
   validationChecks: ReadonlyArray<string>;
   deliveredAs: "generated" | "human-reviewed" | "reviewed-fallback";
 }
