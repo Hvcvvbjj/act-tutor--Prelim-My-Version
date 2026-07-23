@@ -61,13 +61,13 @@ export function DiagnosticIntro({
           <section>
             <p className="ink-label text-primary">No ACT score yet</p>
             <h1 className="mt-3 font-heading text-5xl leading-[0.95] font-black tracking-[-0.035em] sm:text-7xl">
-              Create an internal planning baseline.
+              Find your starting point.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">
-              This 66-question original practice form converts raw correctness
-              into internal English, Math, and Reading planning numbers for your{" "}
-              {goal} goal on {formatCalendarDate(testDate)}. It is not
-              ACT-equated and does not produce an official score.
+              This original 66-question practice form estimates English, Math,
+              and Reading starting points for the study plan leading to your
+              goal of {goal} on {formatCalendarDate(testDate)}. It does not
+              produce an official ACT score or score prediction.
             </p>
 
             <div className="mt-10 border-y-2 border-foreground py-7">
@@ -96,7 +96,7 @@ export function DiagnosticIntro({
               className="mt-8 max-w-2xl"
               mood="ready"
               message="This form gives Scout more observations than Quick Check, but guessing and question mix can still affect the result. You can save and return."
-              detail="Questions are original and use ACT-style passage and four-choice formats. The result is an internal planning proxy, not an official ACT score."
+              detail="Questions are original and use ACT-style passage and four-choice formats. The result is a planning baseline, not an official ACT score."
             />
 
             <Alert className="mt-8 max-w-2xl bg-[var(--info-surface)]">

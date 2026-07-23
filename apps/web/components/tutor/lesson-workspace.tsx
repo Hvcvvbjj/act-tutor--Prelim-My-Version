@@ -39,6 +39,7 @@ interface LessonWorkspaceProps {
     responseSeconds: number
   }) => void
   onClose: () => void
+  canViewTechnicalDetails: boolean
 }
 
 const SECTION_SHORT_LABELS = ["Learn", "Example", "Rule", "Try it"] as const
@@ -72,6 +73,7 @@ function LessonStage({
   onCompleteLesson,
   onTeachBack,
   onLessonFeedback,
+  canViewTechnicalDetails,
 }: Pick<
   LessonWorkspaceProps,
   | "learning"
@@ -81,6 +83,7 @@ function LessonStage({
   | "onCompleteLesson"
   | "onTeachBack"
   | "onLessonFeedback"
+  | "canViewTechnicalDetails"
 >) {
   const section = learning.lesson.sections[activeSection]
   const isLast = activeSection === learning.lesson.sections.length - 1
@@ -100,10 +103,6 @@ function LessonStage({
   const currentRecommendation = learning.learningTwin.recommendation
   const assignmentIsCurrentRecommendation =
     currentRecommendation.skill === learning.todaySkill
-  const topFactors = [...currentRecommendation.contributions]
-    .filter((factor) => factor.points > 0)
-    .sort((left, right) => right.points - left.points)
-    .slice(0, 2)
 
   useEffect(() => {
     sectionHeadingRef.current?.focus()
@@ -254,9 +253,9 @@ function LessonStage({
                 Write the rule, why it works, and one example.
               </p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                This check looks only for a lesson keyword, a why/because
-                phrase, and an example cue. It does not verify that your
-                explanation is correct.
+                This quick check looks for the rule, a reason, and an example.
+                It checks structure, not whether the explanation itself is
+                correct.
               </p>
               <textarea
                 id="lesson-teach-back"
@@ -299,7 +298,8 @@ function LessonStage({
                       : learning.teachBack.score === 2
                         ? "Two text patterns were found. Add the missing part shown above."
                         : "One or none of the text patterns were found. Use the prompt above to add the missing parts."}{" "}
-                    This still does not confirm that the explanation is correct.
+                    This checks structure only; it does not grade whether the
+                    explanation is correct.
                   </p>
                 </div>
               ) : null}
@@ -356,8 +356,8 @@ function LessonStage({
         <p className="ink-label text-muted-foreground">Why Scout picked this</p>
         <p className="mt-3 text-sm leading-6">
           {currentSkill && assignmentIsCurrentRecommendation
-            ? `${currentSkill.label} currently has a ${Math.round(currentSkill.learnedProbability * 100)}% BKT estimate from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "response" : "responses"}. Its practice-priority total is ${currentRecommendation.priorityScore}/100. The largest factors are ${topFactors.map((factor) => `${factor.label.toLowerCase()} (+${factor.points})`).join(" and ") || "the fixed ranking rules"}. Your ACT goal is not part of this ranking.`
-            : `This assignment was already in progress, so Scout kept it open. The current ranking now puts ${currentRecommendation.label} next at ${currentRecommendation.priorityScore}/100.`}
+            ? `Scout chose ${currentSkill.label} because your recent answers and amount of practice show it needs attention next. Your ACT goal does not affect this choice.`
+            : `This assignment was already in progress, so Scout kept it open. Finish it before moving to ${currentRecommendation.label}.`}
         </p>
         <div className="mt-6 border-y py-5">
           <p className="ink-label text-muted-foreground">Lesson depth</p>
@@ -365,113 +365,175 @@ function LessonStage({
             {learning.lesson.depth}
           </p>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Foundation: no matching diagnostic evidence or under 45% correct.
-            Standard: 45–79%. Stretch: at least 80% and a goal of 30 or higher.
-            Ordinary practice does not change this lesson-depth label.
+            {learning.lesson.depth === "foundation"
+              ? "Starts with the core rule and a clear worked example."
+              : learning.lesson.depth === "standard"
+                ? "Uses the core rule with moderate ACT-style variation."
+                : "Uses harder wording with less step-by-step support."}
           </p>
+          {canViewTechnicalDetails ? (
+            <details className="mt-3 text-xs leading-5 text-muted-foreground">
+              <summary className="cursor-pointer font-semibold text-foreground">
+                How Scout chose this level
+              </summary>
+              <p className="mt-2">
+                Foundation means no matching check evidence or under 45%
+                correct. Standard means 45–79%. Stretch means at least 80% with
+                a goal of 30 or higher. Regular practice does not change this
+                label.
+              </p>
+            </details>
+          ) : null}
         </div>
         <p className="ink-label mt-6 text-muted-foreground">Common trap</p>
         <p className="mt-3 text-sm leading-6">{learning.lesson.trap}</p>
-        <details className="mt-6 border-t pt-5">
-          <summary className="cursor-pointer font-bold">
-            How this lesson was checked
-          </summary>
-          <div className="mt-4">
-            <GenerationStamp learning={learning} />
-          </div>
-          <dl className="mt-4 grid gap-4 text-sm leading-6">
-            <div>
-              <dt className="ink-label text-muted-foreground">Skill goal</dt>
-              <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
+        {canViewTechnicalDetails ? (
+          <details className="mt-6 border-t pt-5">
+            <summary className="cursor-pointer font-bold">
+              How this lesson was checked
+            </summary>
+            <div className="mt-4">
+              <GenerationStamp learning={learning} />
             </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">
-                Evidence questions
-              </dt>
-              <dd className="mt-1 break-words">
-                {learning.lessonReceipt.evidenceQuestionIds.length
-                  ? learning.lessonReceipt.evidenceQuestionIds.join(", ")
-                  : "No prior scored question; baseline evidence used"}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">
-                Generator status
-              </dt>
-              <dd className="mt-1">{learning.lessonReceipt.generatorStatus}</dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Delivered as</dt>
-              <dd className="mt-1 font-semibold">
-                {learning.lessonReceipt.deliveredAs === "generated"
-                  ? "Generated lesson"
-                  : learning.lessonReceipt.deliveredAs === "human-reviewed"
-                    ? "Teacher-reviewed lesson"
-                    : "Reviewed fallback lesson"}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Reviewed rule</dt>
-              <dd className="mt-1">{learning.lessonReceipt.approvedRule}</dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Content check</dt>
-              <dd className="mt-1 font-semibold">
-                {learning.lessonReceipt.validationResult ===
-                "automated-checks-passed"
-                  ? "Automated checks passed"
-                  : learning.lessonReceipt.validationResult === "human-reviewed"
-                    ? "Teacher review saved"
-                    : "Reviewed fallback used"}
-              </dd>
-            </div>
-          </dl>
-          <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-            {learning.lessonReceipt.validationChecks.map((check) => (
-              <li key={check}>{check}</li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            {learning.lessonReceipt.validationResult ===
-            "automated-checks-passed"
-              ? "These automated checks verify required fields, the approved rule token, and blocked phrases. They do not verify every instructional claim."
-              : learning.lessonReceipt.validationResult === "human-reviewed"
-                ? "This receipt records a saved teacher review; it does not show when or how thoroughly each claim was checked."
-                : "The generated draft did not pass the automated gate, so Scout used the reviewed fallback lesson."}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={feedbackState === "pending"}
-              onClick={() => void saveFeedback(true)}
-            >
-              This explanation helped
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={feedbackState === "pending"}
-              onClick={() => void saveFeedback(false)}
-            >
-              Still confusing
-            </Button>
-          </div>
-          {feedbackState !== "idle" ? (
-            <p
-              className="mt-2 text-xs font-semibold"
-              role={feedbackState === "failed" ? "alert" : "status"}
-            >
-              {feedbackState === "pending"
-                ? "Saving feedback…"
-                : feedbackState === "saved"
-                  ? "Feedback saved."
-                  : "Feedback was not saved. Try again."}
+            <dl className="mt-4 grid gap-4 text-sm leading-6">
+              <div>
+                <dt className="ink-label text-muted-foreground">Skill goal</dt>
+                <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
+              </div>
+              <div>
+                <dt className="ink-label text-muted-foreground">
+                  Evidence questions
+                </dt>
+                <dd className="mt-1 break-words">
+                  {learning.lessonReceipt.evidenceQuestionIds.length
+                    ? learning.lessonReceipt.evidenceQuestionIds.join(", ")
+                    : "No prior scored question; baseline evidence used"}
+                </dd>
+              </div>
+              <div>
+                <dt className="ink-label text-muted-foreground">
+                  Generator status
+                </dt>
+                <dd className="mt-1">
+                  {learning.lessonReceipt.generatorStatus}
+                </dd>
+              </div>
+              <div>
+                <dt className="ink-label text-muted-foreground">
+                  Delivered as
+                </dt>
+                <dd className="mt-1 font-semibold">
+                  {learning.lessonReceipt.deliveredAs === "generated"
+                    ? "Generated lesson"
+                    : learning.lessonReceipt.deliveredAs === "human-reviewed"
+                      ? "Teacher-reviewed lesson"
+                      : "Reviewed fallback lesson"}
+                </dd>
+              </div>
+              <div>
+                <dt className="ink-label text-muted-foreground">
+                  Reviewed rule
+                </dt>
+                <dd className="mt-1">{learning.lessonReceipt.approvedRule}</dd>
+              </div>
+              <div>
+                <dt className="ink-label text-muted-foreground">
+                  Content check
+                </dt>
+                <dd className="mt-1 font-semibold">
+                  {learning.lessonReceipt.validationResult ===
+                  "automated-checks-passed"
+                    ? "Automated checks passed"
+                    : learning.lessonReceipt.validationResult ===
+                        "human-reviewed"
+                      ? "Teacher review saved"
+                      : "Reviewed fallback used"}
+                </dd>
+              </div>
+            </dl>
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+              {learning.lessonReceipt.validationChecks.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              {learning.lessonReceipt.validationResult ===
+              "automated-checks-passed"
+                ? "These automated checks verify required fields, the approved rule token, and blocked phrases. They do not verify every instructional claim."
+                : learning.lessonReceipt.validationResult === "human-reviewed"
+                  ? "This receipt records a saved teacher review; it does not show when or how thoroughly each claim was checked."
+                  : "The generated draft did not pass the automated gate, so Scout used the reviewed fallback lesson."}
             </p>
-          ) : null}
-        </details>
+            <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={feedbackState === "pending"}
+                onClick={() => void saveFeedback(true)}
+              >
+                This explanation helped
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={feedbackState === "pending"}
+                onClick={() => void saveFeedback(false)}
+              >
+                Still confusing
+              </Button>
+            </div>
+            {feedbackState !== "idle" ? (
+              <p
+                className="mt-2 text-xs font-semibold"
+                role={feedbackState === "failed" ? "alert" : "status"}
+              >
+                {feedbackState === "pending"
+                  ? "Saving feedback…"
+                  : feedbackState === "saved"
+                    ? "Feedback saved."
+                    : "Feedback was not saved. Try again."}
+              </p>
+            ) : null}
+          </details>
+        ) : (
+          <div className="mt-6 border-t pt-5">
+            <p className="text-sm font-bold">Was this explanation helpful?</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={feedbackState === "pending"}
+                onClick={() => void saveFeedback(true)}
+              >
+                This explanation helped
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={feedbackState === "pending"}
+                onClick={() => void saveFeedback(false)}
+              >
+                Still confusing
+              </Button>
+            </div>
+            {feedbackState !== "idle" ? (
+              <p
+                className="mt-2 text-xs font-semibold"
+                role={feedbackState === "failed" ? "alert" : "status"}
+              >
+                {feedbackState === "pending"
+                  ? "Saving feedback…"
+                  : feedbackState === "saved"
+                    ? "Feedback saved."
+                    : "Feedback was not saved. Try again."}
+              </p>
+            ) : null}
+          </div>
+        )}
       </aside>
     </div>
   )
@@ -483,6 +545,7 @@ function PracticeStage({
   submitting,
   onChoiceChange,
   onSubmitAnswer,
+  canViewTechnicalDetails,
 }: Pick<
   LessonWorkspaceProps,
   | "learning"
@@ -490,6 +553,7 @@ function PracticeStage({
   | "submitting"
   | "onChoiceChange"
   | "onSubmitAnswer"
+  | "canViewTechnicalDetails"
 >) {
   const answered = learning.answeredQuestionIds.length
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
@@ -563,10 +627,10 @@ function PracticeStage({
           mood="correct"
           message={
             testedSkills.length > 1
-              ? `Practice complete. Scout updated the ${testedSkills.length} tested skill estimates and reranked all 12 skills.`
-              : `Practice complete. Scout updated ${completionSkill?.label ?? "the answered skill"}'s BKT estimate and reranked all 12 skills.`
+              ? `Practice complete. Scout updated the ${testedSkills.length} skills you practiced and chose what to study next.`
+              : `Practice complete. Scout updated its estimate for ${completionSkill?.label ?? "the skill you practiced"} and chose what to study next.`
           }
-          detail="This practice did not rewrite the dated My Week calendar."
+          detail="Your dated My week calendar stays the same."
         />
         <h2 className="mt-8 font-heading text-5xl leading-none font-black tracking-[-0.03em]">
           {learning.mode === "repair"
@@ -585,13 +649,13 @@ function PracticeStage({
           {completionSkill ? (
             <>
               {testedSkills.length > 1 ? "The last answered skill was " : ""}
-              {completionSkill.label}. Its internal estimate is now{" "}
+              {completionSkill.label}. Scout&apos;s practice estimate is now{" "}
               <strong>
                 {Math.round(completionSkill.learnedProbability * 100)}%
               </strong>
               , based on {completionSkill.evidenceCount} scored{" "}
-              {completionSkill.evidenceCount === 1 ? "response" : "responses"}{" "}
-              in this model. This is not percent correct or an ACT score.
+              {completionSkill.evidenceCount === 1 ? "answer" : "answers"}. This
+              is not percent correct or an ACT score.
             </>
           ) : (
             "Scout saved the practice answers, but no matching skill estimate was available to display."
@@ -600,7 +664,7 @@ function PracticeStage({
         <dl className="mt-8 grid max-w-3xl border-y-2 border-foreground sm:grid-cols-3 sm:divide-x-2 sm:divide-foreground">
           <div className="px-4 py-5 first:pl-0">
             <dt className="ink-label text-muted-foreground">
-              Last answer’s model change
+              Last skill change
             </dt>
             <dd className="mt-2 font-heading text-3xl font-bold">
               {latestDelta === null
@@ -608,13 +672,11 @@ function PracticeStage({
                 : `${latestDelta > 0 ? "+" : ""}${latestDelta} points`}
             </dd>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Change in BKT probability from the latest scored response.
+              How much the latest answer changed this skill estimate.
             </p>
           </div>
           <div className="px-4 py-5">
-            <dt className="ink-label text-muted-foreground">
-              Last answer’s review date
-            </dt>
+            <dt className="ink-label text-muted-foreground">Next review</dt>
             <dd className="mt-2 font-heading text-2xl font-bold">
               {nextReview?.nextReviewAt
                 ? formatCalendarDate(nextReview.nextReviewAt.slice(0, 10))
@@ -622,22 +684,18 @@ function PracticeStage({
             </dd>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {nextReview
-                ? `${nextReview.intervalDays}-day review rule from the latest answer.`
-                : "No review decision was returned with the latest answer."}
+                ? `Scheduled from the latest answer using Scout’s ${nextReview.intervalDays}-day review rule.`
+                : "Scout has not scheduled the next review yet."}
             </p>
           </div>
           <div className="px-4 py-5 last:pr-0">
-            <dt className="ink-label text-muted-foreground">
-              Highest practice priority
-            </dt>
+            <dt className="ink-label text-muted-foreground">Study next</dt>
             <dd className="mt-2 text-sm leading-6 font-semibold">
-              {currentRecommendation.label} ·{" "}
-              {currentRecommendation.priorityScore}
-              /100
+              {currentRecommendation.label}
             </dd>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              This is a fixed ranking total, not a predicted score. It does not
-              alter My Week automatically.
+              Scout chose this from your recent answers and amount of practice.
+              It does not alter My week automatically.
             </p>
           </div>
         </dl>
@@ -736,18 +794,17 @@ function PracticeStage({
             ))}
           </div>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            This does not change whether your answer is right or which question
-            comes next in this set. It only scales the matching skill update:
-            Sure 100%, Unsure 78%, or Guessing 48%.
+            Confidence never changes whether your answer is right. It only
+            changes how strongly Scout adjusts this skill estimate.
           </p>
         </div>
         {reviewing ? (
           <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-4">
             <p className="font-bold">One last look before scoring</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Keep your choice or change it before Scout checks the answer. A
-              changed choice applies an additional 82% multiplier to the skill
-              update.
+              Keep your choice or change it before Scout checks the answer.
+              Changing it is okay; Scout will make a smaller adjustment to this
+              skill estimate.
             </p>
           </div>
         ) : null}
@@ -813,7 +870,7 @@ function PracticeStage({
           }
           detail={feedback?.rationale ?? learning.lesson.transferPrompt}
         />
-        {feedback ? (
+        {feedback && canViewTechnicalDetails ? (
           <Alert className="mt-7 bg-background">
             {feedback.correct ? <CheckCircle2Icon /> : <CircleAlertIcon />}
             <AlertTitle>
@@ -873,7 +930,9 @@ function PracticeStage({
           </details>
         ) : null}
         <div className="mt-7 border-t pt-5">
-          <p className="ink-label text-muted-foreground">Current skill model</p>
+          <p className="ink-label text-muted-foreground">
+            Current skill estimate
+          </p>
           <p className="mt-2 font-heading text-3xl font-black">
             {currentEstimate === null ? "Unavailable" : `${currentEstimate}%`}
           </p>
@@ -886,8 +945,8 @@ function PracticeStage({
             </summary>
             <p className="mt-2">
               {currentSkill
-                ? `This is BKT P(learned) from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "response" : "responses"}. It is not percent correct or an ACT score.`
-                : "Scout did not return a matching BKT state for this question."}
+                ? `Scout built this from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. It is not percent correct or an ACT score.`
+                : "Scout could not find a matching skill estimate for this question."}
             </p>
           </details>
         </div>

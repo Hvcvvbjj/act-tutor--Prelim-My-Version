@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 interface DiagnosticRunnerProps {
   onBack: () => void
   onComplete: (result: DiagnosticResult) => void
+  canViewTechnicalDetails: boolean
 }
 
 type RunnerPhase = "questions" | "review" | "results"
@@ -266,7 +267,7 @@ function ReviewView({
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         Correctness is still hidden. Check every response, then submit once to
-        create an internal planning baseline.
+        build your study starting point.
       </p>
 
       <ol className="mt-9 border-y">
@@ -331,9 +332,11 @@ function ReviewView({
 function ResultsView({
   result,
   onComplete,
+  canViewTechnicalDetails,
 }: {
   result: DiagnosticResult
   onComplete: () => void
+  canViewTechnicalDetails: boolean
 }) {
   const hasStrengths = result.strengths.length > 0
   const hasFocusSkills = result.focusSkills.length > 0
@@ -343,17 +346,18 @@ function ResultsView({
     <section>
       <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
       <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-        Your internal planning range is {result.compositeRange.low}–
+        Your practice starting range is {result.compositeRange.low}–
         {result.compositeRange.high}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        Scout will use {result.compositeRange.estimate} as its starting planning
-        number. This diagnostic result stays fixed; later practice answers
-        update separate skill estimates.
+        Scout will use {result.compositeRange.estimate} as a study-planning
+        estimate. It comes from this original practice diagnostic—not an
+        official ACT score or score prediction. Later practice answers update
+        separate skill estimates.
       </p>
 
       <p className="ink-label mt-10 text-muted-foreground">
-        Internal section planning ranges
+        Practice-based section ranges
       </p>
       <dl className="mt-3 grid grid-cols-3 divide-x border-y py-6 text-center">
         {result.sectionResults.map((section) => (
@@ -412,27 +416,29 @@ function ResultsView({
         </div>
       </div>
 
-      <Alert className="mt-10 bg-[var(--info-surface)]">
-        <ShieldCheckIcon />
-        <AlertTitle>How this planning number is calculated</AlertTitle>
-        <AlertDescription>
-          <p>
-            For each section, Scout calculates{" "}
-            <code className="font-mono text-xs text-foreground">
-              round(1 + ((correct + 1) / (total + 2)) × 35)
-            </code>
-            , then shows a range of ±{rangeMargin} points, clipped to 1–36. The
-            Composite midpoint is the rounded average of the English, Math, and
-            Reading midpoints; its low and high values use the three section
-            lows and highs.
-          </p>
-          <p className="mt-2">
-            This is an internal conversion from raw correctness on original
-            practice questions. It is not ACT-equated, not a statistical
-            confidence interval, and not an official ACT score.
-          </p>
-        </AlertDescription>
-      </Alert>
+      {canViewTechnicalDetails ? (
+        <Alert className="mt-10 bg-[var(--info-surface)]">
+          <ShieldCheckIcon />
+          <AlertTitle>How this planning number is calculated</AlertTitle>
+          <AlertDescription>
+            <p>
+              For each section, Scout calculates{" "}
+              <code className="font-mono text-xs text-foreground">
+                round(1 + ((correct + 1) / (total + 2)) × 35)
+              </code>
+              , then shows a range of ±{rangeMargin} points, clipped to 1–36.
+              The Composite midpoint is the rounded average of the English,
+              Math, and Reading midpoints; its low and high values use the three
+              section lows and highs.
+            </p>
+            <p className="mt-2">
+              This is an internal conversion from raw correctness on original
+              practice questions. It is not ACT-equated, not a statistical
+              confidence interval, and not an official ACT score.
+            </p>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Button type="button" size="xl" className="mt-8" onClick={onComplete}>
         Build my study plan
@@ -445,6 +451,7 @@ function ResultsView({
 export function DiagnosticRunner({
   onBack,
   onComplete,
+  canViewTechnicalDetails,
 }: DiagnosticRunnerProps) {
   const [form, setForm] = useState<DiagnosticFormPublic | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -715,7 +722,11 @@ export function DiagnosticRunner({
             onSubmit={submitDiagnostic}
           />
         ) : result ? (
-          <ResultsView result={result} onComplete={() => onComplete(result)} />
+          <ResultsView
+            result={result}
+            onComplete={() => onComplete(result)}
+            canViewTechnicalDetails={canViewTechnicalDetails}
+          />
         ) : null}
       </main>
     </div>

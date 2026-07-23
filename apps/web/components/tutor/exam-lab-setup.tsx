@@ -76,8 +76,9 @@ export function ExamLabSetup({
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
             Choose a quick quiz, one section, or a half-length practice test.
             You&apos;ll get raw accuracy, time per question, a confidence
-            breakdown, and a suggested next action. In this build, the result
-            stays in Timed Practice and does not change Today or My Week.
+            breakdown, and a suggested next action. Timed Practice results stay
+            separate from your study plan, so they do not change Today or My
+            week.
           </p>
 
           <div
@@ -217,7 +218,7 @@ export function ExamLabSetup({
                 ],
                 [
                   GaugeIcon,
-                  "Mark confidence honestly: Guess, Unsure, or Sure.",
+                  "Mark confidence honestly: Sure, Unsure, or Guessing.",
                 ],
                 [
                   ShieldCheckIcon,
@@ -239,9 +240,9 @@ export function ExamLabSetup({
             </ol>
           </section>
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            This uses original practice content. The report includes an internal
-            1–36 conversion from raw accuracy; it is not ACT-equated or an
-            official ACT score.
+            This uses original practice content. The report includes a rough
+            1–36 practice estimate from your accuracy; it is not an official or
+            ACT-equated score.
           </p>
         </aside>
       </div>

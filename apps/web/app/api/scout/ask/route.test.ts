@@ -61,8 +61,9 @@ describe("Scout server policy", () => {
     })
     expect(answer.receipt.intent).toBe("calibration-definition")
     expect(answer.receipt.assistanceMode).toBe("study")
-    expect(answer.explanation).toContain("80% model interval")
-    expect(answer.explanation).toContain("Neither is an ACT score range")
+    expect(answer.summary).toContain("estimate is still shaky")
+    expect(answer.explanation).toContain("middle 80%")
+    expect(answer.explanation).toContain("not ACT score points")
   })
 
   it("abstains when selected text is outside reviewed server context", () => {

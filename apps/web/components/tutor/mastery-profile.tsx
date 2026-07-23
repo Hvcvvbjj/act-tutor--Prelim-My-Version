@@ -53,9 +53,9 @@ const PRIOR_COPY = {
 } as const
 
 const CONFIDENCE_COPY = {
-  exploring: "Exploring: fewer than 3 scored answers",
-  forming: "Forming: 3–6 answers, or 7+ with high estimate entropy",
-  stable: "Stable: at least 7 answers and entropy at or below 0.82",
+  exploring: "Early estimate · fewer than 3 answers",
+  forming: "Developing estimate · more evidence will help",
+  stable: "Steadier estimate · at least 7 answers",
 } as const
 
 function percent(value: number) {
@@ -351,11 +351,13 @@ export function MasteryProfile({
   recommendation,
   selectedSkill,
   onSelect,
+  canViewTechnicalDetails,
 }: {
   skills: ReadonlyArray<KnowledgeState>
   recommendation: LearningTwinRecommendation
   selectedSkill: string
   onSelect: (skill: string) => void
+  canViewTechnicalDetails: boolean
 }) {
   const selected =
     skills.find((skill) => skill.skill === selectedSkill) ?? skills[0]
@@ -388,16 +390,16 @@ export function MasteryProfile({
             id="mastery-profile-title"
             className="mt-2 font-heading text-3xl font-black sm:text-4xl"
           >
-            Current skill-estimate profile
+            Your skill practice picture
           </h2>
           <p
             id="mastery-profile-description"
             className="mt-3 max-w-3xl text-sm leading-6 text-white/75"
           >
-            Each spoke is one ACT skill. Farther from the center means Scout’s
-            model currently assigns a higher probability that you have learned
-            that skill. This is not percent correct, an ACT score, or a score
-            prediction.
+            Each spoke is one ACT skill. Farther from the center means Scout is
+            more ready to give you harder practice in that skill. These are
+            study estimates—not percent correct, ACT scores, or score
+            predictions.
           </p>
         </div>
 
@@ -432,17 +434,15 @@ export function MasteryProfile({
             )}
             <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
               <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                Current next-skill ranking
+                Study next
               </p>
               <p className="mt-2 font-heading text-2xl font-black">
                 {recommendation.label}
               </p>
               <p className="mt-2 text-sm leading-6 text-white/70">
-                Priority {recommendation.priorityScore}/100 from fixed factors:
-                predicted chance on a medium question, estimate entropy, answer
-                count, and whether the latest answer was missed. Your ACT goal
-                is not used in this ranking. This does not predict how finishing
-                an open assignment will change the ranking.
+                Scout chose this skill from your recent answers, amount of
+                practice, and where another question would help most. Your ACT
+                goal does not affect this choice.
               </p>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/65">
@@ -462,17 +462,17 @@ export function MasteryProfile({
       <section className="mt-10" aria-labelledby="exact-skill-values">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
           <div>
-            <p className="ink-label text-primary">Exact values</p>
+            <p className="ink-label text-primary">Skill details</p>
             <h2
               id="exact-skill-values"
               className="mt-2 font-heading text-3xl font-black sm:text-4xl"
             >
-              Select a skill to inspect it.
+              Choose a skill for details.
             </h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            The radar helps compare the shape. These rows are the precise data
-            view and work with keyboard or touch.
+            The chart gives a quick comparison. Choose any row for its starting
+            point, answer count, and latest change.
           </p>
         </div>
         <div className="mt-5">
@@ -511,7 +511,7 @@ export function MasteryProfile({
               {percent(selected.learnedProbability)}
             </p>
             <p className="mt-1 text-xs font-bold text-muted-foreground">
-              BKT learned-probability estimate
+              Skill practice estimate
             </p>
           </div>
         </div>
@@ -530,14 +530,14 @@ export function MasteryProfile({
             </dd>
           </div>
           <div>
-            <dt className="ink-label text-muted-foreground">Evidence label</dt>
+            <dt className="ink-label text-muted-foreground">Estimate status</dt>
             <dd className="mt-2 text-sm leading-6 font-semibold">
               {CONFIDENCE_COPY[selected.confidence]}
             </dd>
           </div>
           <div>
             <dt className="ink-label text-muted-foreground">
-              Predicted correct · medium item
+              Medium-question estimate
             </dt>
             <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
               {percent(selected.predictedCorrectProbability)}
@@ -566,34 +566,46 @@ export function MasteryProfile({
               </p>
             )}
           </div>
-          <div>
-            <div className="flex items-end justify-between gap-4">
+          {canViewTechnicalDetails ? (
+            <details>
+              <summary className="cursor-pointer font-heading text-xl font-black outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                How Scout chose this skill (technical details)
+              </summary>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Ranking score: {priority}/100. This is not an ACT score or a
+                probability.
+              </p>
+              <ol className="mt-3 divide-y border-y">
+                {contributions.map((item) => (
+                  <li
+                    key={item.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-bold">{item.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.explanation}
+                      </p>
+                    </div>
+                    <span className="font-heading text-2xl font-black tabular-nums">
+                      +{item.points}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          ) : (
+            <div>
               <h3 className="font-heading text-xl font-black">
-                Practice-priority calculation
+                Why this is next
               </h3>
-              <span className="font-heading text-3xl font-black tabular-nums">
-                {priority}/100
-              </span>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Scout chose {recommendation.label} from your recent answers, how
+                much practice supports the estimate, and where one more question
+                would be most useful.
+              </p>
             </div>
-            <ol className="mt-3 divide-y border-y">
-              {contributions.map((item) => (
-                <li
-                  key={item.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-bold">{item.label}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {item.explanation}
-                    </p>
-                  </div>
-                  <span className="font-heading text-2xl font-black tabular-nums">
-                    +{item.points}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
+          )}
         </div>
       </section>
     </figure>

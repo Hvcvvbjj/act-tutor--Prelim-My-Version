@@ -7,6 +7,7 @@ import type {
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
+import { syncLinkedSession } from "@/lib/auth.server"
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
 import { examDebriefComposer, examLabSessions } from "@/lib/exam-lab.server"
 
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
       )
       const response = NextResponse.json({ session: started.payload })
       setSessionCookie(response, started.sessionId)
+      await syncLinkedSession(request, "examLab", started.sessionId)
       return response
     }
     if (body.action === "advance_section") {
@@ -175,6 +177,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(SESSION_COOKIE)?.value
     if (sessionId) await examLabSessions.reset(sessionId)
+    await syncLinkedSession(request, "examLab", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(SESSION_COOKIE)
     return response

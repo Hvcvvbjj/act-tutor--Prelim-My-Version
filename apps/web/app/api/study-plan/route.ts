@@ -9,6 +9,7 @@ import type {
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
+import { syncLinkedSession } from "@/lib/auth.server"
 import { studyPlanSessions } from "@/lib/study-plan.server"
 
 export const runtime = "nodejs"
@@ -186,6 +187,7 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json({ plan: started.plan })
       response.headers.set("Cache-Control", "no-store")
       setSessionCookie(response, started.sessionId)
+      await syncLinkedSession(request, "studyPlan", started.sessionId)
       return response
     }
 
@@ -238,6 +240,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(SESSION_COOKIE)?.value
     if (sessionId) await studyPlanSessions.reset(sessionId)
+    await syncLinkedSession(request, "studyPlan", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(SESSION_COOKIE)
     return response

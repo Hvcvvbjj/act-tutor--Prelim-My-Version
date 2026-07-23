@@ -38,11 +38,10 @@ class SitesJsonDocumentStore implements JsonDocumentStore {
   }
 
   private async database(): Promise<D1DatabaseLike | null> {
+    if (process.env.NODE_ENV !== "production") return null
     try {
       const context = await getCloudflareContext({ async: true })
-      return (
-        context.env as CloudflareEnv & { DB?: D1DatabaseLike }
-      ).DB ?? null
+      return (context.env as CloudflareEnv & { DB?: D1DatabaseLike }).DB ?? null
     } catch {
       return null
     }

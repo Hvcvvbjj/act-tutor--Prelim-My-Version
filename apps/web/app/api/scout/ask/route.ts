@@ -15,6 +15,7 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
+import { syncLinkedSession } from "@/lib/auth.server"
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { examLabSessions } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
@@ -430,11 +431,11 @@ export function answerFor(input: {
     source = `Scored Test Lab review for ${review.questionId}`
   } else if (intent === "calibration-definition") {
     summary = calibration
-      ? `The displayed ±${calibration.estimate.standardError.toFixed(2)} is one standard error in theta units.`
-      : "Quick Check reports standard error in internal theta units."
+      ? `Here, “margin of error” means Scout’s estimate is still about ±${calibration.estimate.standardError.toFixed(2)} on its internal scale.`
+      : "Here, “margin of error” means Scout’s estimate is still shaky."
     explanation = calibration
-      ? `The shaded band is a separate 80% model interval from theta ${calibration.estimate.interval80.low.toFixed(2)} to ${calibration.estimate.interval80.high.toFixed(2)}. The items use preset easy, medium, and hard parameters assigned in this app, not national calibration. Neither value is an ACT score range.`
-      : "The ± value is one standard error. The shaded band is an 80% model interval. Neither is an ACT score range, and Scout cannot read a current Quick Check session from this request."
+      ? `A smaller ± number means the estimate is settling down. The shaded band shows the middle 80% of values Scout considers plausible, from ${calibration.estimate.interval80.low.toFixed(2)} to ${calibration.estimate.interval80.high.toFixed(2)} on its internal scale. These are not ACT score points, and the app uses preset question difficulty rather than national calibration.`
+      : "A smaller ± number means Scout is less unsure. The shaded band shows the middle 80% of values Scout considers plausible. Both use Scout’s internal scale, not ACT score points, and Scout cannot read a current Quick Check session from this request."
     example = calibration
       ? `Current theta ${calibration.estimate.theta.toFixed(2)} is displayed as ${calibration.estimate.readinessIndex}/100 using round((theta + 3) ÷ 6 × 100). That display is not ACT readiness.`
       : null
@@ -467,7 +468,7 @@ export function answerFor(input: {
         ? "I can explain the calendar rules, but I cannot see which assignment you selected."
         : "I cannot read the dated calendar for this answer."
       explanation = studyPlan
-        ? `The current calendar contains ${studyPlan.forecast.scheduledMinutes} minutes before test day. Skills are ranked from lower BKT estimate, fewer scored answers, planned section-score movement, a due stored-review date, and the current Today/Next flag. The time check compares those minutes with a rough ${studyPlan.forecast.recommendedMinutes}-minute product target; it does not prove the goal is reachable.`
+        ? `The current calendar contains ${studyPlan.forecast.scheduledMinutes} minutes before test day. Scout considers lower skill estimates, fewer scored answers, section goals, reviews that are due, and whether work is marked Today or Next. The time check compares those minutes with a rough ${studyPlan.forecast.recommendedMinutes}-minute target; it does not prove the goal is reachable.`
         : "Open “Why this assignment is here” on My week. That panel stores the specific skill estimate, answer count, section target movement, review status, and fixed phase rule used for the selected task."
       example = null
       nextAction =
@@ -477,11 +478,11 @@ export function answerFor(input: {
         : "Capability boundary: no dated-plan context available"
     } else {
       summary = `${nextSkill} is the current next skill.`
-      explanation = `${planReason} The total uses predicted chance on a medium item × 52, estimate entropy × 24, evidence scarcity × 14, and a recent miss worth 10. The ACT goal is not part of this ranking.`
+      explanation = `${planReason} Scout combines four fixed signals: your estimated chance on a medium question, how settled the estimate is, how many answers support it, and whether you recently missed one. Your ACT goal is not part of this ranking.`
       example = null
       nextAction =
-        "Open Progress and select the skill to inspect all four point values."
-      source = "Server BKT recommendation and fixed priority formula"
+        "Open Progress and choose the skill to see the details behind this choice."
+      source = "Server learning recommendation and fixed ranking rules"
     }
   } else if (intent === "estimate") {
     const selectedState = learning?.learningTwin.skills.find(
@@ -491,10 +492,10 @@ export function answerFor(input: {
       ? `${selectedState.label} is ${Math.round(selectedState.learnedProbability * 100)}% from ${selectedState.evidenceCount} scored ${selectedState.evidenceCount === 1 ? "answer" : "answers"}.`
       : "Scout does not have enough scored evidence for a skill estimate yet."
     explanation = selectedState
-      ? `This is a BKT learned-probability estimate, not percent correct or an ACT score. Its starting source is ${selectedState.priorSource}; ${selectedState.confidence} is a rule based on answer count and entropy, not a statistical confidence interval.`
+      ? `This is Scout’s practice estimate, not percent correct or an ACT score. The technical method is Bayesian Knowledge Tracing (BKT), which updates one skill at a time from scored answers. Its starting source is ${selectedState.priorSource}; the estimate-status label comes from answer count and how settled the estimate is.`
       : "No current skill state was available."
     nextAction =
-      "Open the Evidence Timeline to see the answers behind the estimate."
+      "Open Progress and choose the skill to see the answers behind the estimate."
     source = "Server learning state"
   } else if (intent === "hint") {
     summary = "Start by naming the rule before comparing choices."
@@ -582,6 +583,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json(session.state)
     response.headers.set("Cache-Control", "no-store")
     setScoutCookie(response, session.sessionId)
+    await syncLinkedSession(request, "scout", session.sessionId)
     return response
   } catch (error) {
     return errorResponse(error)
@@ -600,6 +602,7 @@ export async function PATCH(request: NextRequest) {
     const response = NextResponse.json(state)
     response.headers.set("Cache-Control", "no-store")
     setScoutCookie(response, session.sessionId)
+    await syncLinkedSession(request, "scout", session.sessionId)
     return response
   } catch (error) {
     return errorResponse(error)
@@ -653,6 +656,7 @@ export async function POST(request: NextRequest) {
     })
     response.headers.set("Cache-Control", "no-store")
     setScoutCookie(response, scout.sessionId)
+    await syncLinkedSession(request, "scout", scout.sessionId)
     return response
   } catch (error) {
     return errorResponse(error)
@@ -663,6 +667,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(SCOUT_COOKIE)?.value
     if (sessionId) await scoutSessions.reset(sessionId)
+    await syncLinkedSession(request, "scout", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(SCOUT_COOKIE)
     return response

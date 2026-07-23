@@ -7,6 +7,7 @@ import {
 import { type NextRequest, NextResponse } from "next/server"
 
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
+import { syncLinkedSession } from "@/lib/auth.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { lessonComposer } from "@/lib/lesson-composer.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -242,6 +243,7 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json(session.payload)
       response.headers.set("Cache-Control", "no-store")
       setSessionCookie(response, session.sessionId)
+      await syncLinkedSession(request, "learning", session.sessionId)
       return response
     }
 
@@ -412,6 +414,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(SESSION_COOKIE)?.value
     if (sessionId) await learningSessions.reset(sessionId)
+    await syncLinkedSession(request, "learning", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(SESSION_COOKIE)
     return response

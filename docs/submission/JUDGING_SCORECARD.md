@@ -69,7 +69,7 @@ Do not spend the video explaining implementation jargon before showing the model
 - Clean `pnpm check` output before submission.
 - Production build route list.
 - Browser console with no app errors.
-- Mobile screenshot of the Learning Twin and teaching workspace.
+- Mobile screenshot of Progress and the teaching workspace.
 
 ### Remaining submission risk
 

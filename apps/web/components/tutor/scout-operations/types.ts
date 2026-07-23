@@ -6,6 +6,7 @@ export interface ScoutOperationsLabProps {
   plan: GeneratedPlan
   learning: LearningSessionPayload
   busy: boolean
+  canViewTechnicalDetails: boolean
   onCorrectModel: (input: {
     skill: string
     kind: "too-high" | "too-low" | "wrong-misconception"

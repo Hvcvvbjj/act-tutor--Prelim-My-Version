@@ -24,18 +24,19 @@ Working in the current slice:
 - a four-stage Daily Mission loop: personalized lesson, five-question focused set, replayable mistake repair, and a three-skill mixed checkpoint;
 - server-earned XP, levels, daily/longest streaks, twelve-skill mastery map, due-review queue, and a persistent mistake notebook;
 - lesson completion, immediate trusted feedback, mastery updates, spaced review scheduling, direct skill selection, and visible next-session regeneration.
-- a persistent 12-skill Bayesian Learning Twin that updates P(Learned), predicted next-answer accuracy, uncertainty, and the next-skill recommendation after every server-scored response;
+- a persistent 12-skill Bayesian learning model that updates each skill estimate, predicted next-answer accuracy, uncertainty, and the next recommendation after every server-scored response;
 - an 8–12 item adaptive **Precision Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual planning projections;
 - a one-click judge demo that lands on the last Quick Check question and shows—in plain English—what one answer changed and what Scout deliberately held steady;
+- keyboard answer shortcuts for Quick Check and a copyable plain-text weekly agenda for taking the plan into a calendar, notes app, or message;
 - a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 - a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
 - exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, teach-back scoring, alternate teaching styles, and question-exposure protection;
-- an Evidence & Data workspace for bounded learner-model corrections, ACT pacing advice and manual score scenarios, model-choice explanations, an honest imported group-metric viewer, single-learner question history, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
+- a Learning data workspace for bounded learner-model corrections, ACT pacing advice and manual score scenarios, model-choice explanations, an honest imported group-metric viewer, single-learner question history, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
 
 Still placeholders or future milestones:
 
@@ -376,12 +377,12 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 - Planned next: Supabase Postgres with anonymous auth and Row Level Security, Vercel previews, and broader browser coverage.
 - Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with schema and grounding checks plus reviewed fallbacks.
 - Implemented evidence-acquisition model: a Bayesian 2PL IRT Precision Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.
-- Implemented learning model: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from diagnostic, calibration, and practice evidence and expose their probabilities, uncertainty, parameters, and recommendation features in the Learning Twin.
+- Implemented learning model: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from diagnostic, calibration, and practice evidence. Progress uses plain-language estimates by default; exact parameters and recommendation rules remain available in technical details and Learning data.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
 The three layers have deliberately different jobs: **IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.** Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because both probabilistic models and reviewed lessons run locally.
 
-For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the internal planning index, matching skill estimate, and next-lesson decision together—including when Scout holds the plan steady instead of overreacting. The seven preloaded answers are clearly labeled examples.
+For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the question-match index, matching skill estimate, and next-lesson decision together—including when Scout holds the plan steady instead of overreacting. The seven preloaded answers are clearly labeled examples.
 
 ## Planning documents
 
@@ -395,13 +396,12 @@ For the fastest product tour, click **See one answer change the plan** on the fi
 
 ## Hackathon demo target
 
-The first onboarding screen includes **Preview the adaptive demo**, which loads a clearly labeled representative diagnostic profile without an account or API key. The competition-facing two-minute path is:
+The first onboarding screen includes **See one answer change the plan**, which loads a clearly labeled representative diagnostic profile without an account or API key. The competition-facing two-minute path is:
 
-1. Show the diagnostic-driven Daily Mission.
-2. Open **Calibrate**, answer one ACT-shaped item, and show the ability estimate, uncertainty, and precision stop rule move live.
-3. Open **Progress** and show that the same trusted response entered the Bayesian Learning Twin evidence ledger.
-4. Inspect P(Learned), P(Correct next), uncertainty, and the exact next-skill feature contributions.
-5. Open the personalized lesson and show the AI-personalized or reviewed-fallback generation stamp.
+1. Answer the final ACT-shaped **Quick Check** item and show the three-part proof replay.
+2. Choose **View my skills** and show the same answer in **Recent scored answers**.
+3. Show the plain-language skill estimate and **Study next** recommendation; expand technical details only if a judge asks.
+4. Open **Today**, start the personalized lesson, and show the AI-personalized or reviewed-fallback generation stamp.
 
 Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Test Day Lab, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
 

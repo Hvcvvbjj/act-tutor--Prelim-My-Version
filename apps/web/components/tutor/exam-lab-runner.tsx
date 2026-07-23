@@ -292,7 +292,13 @@ export function ExamLabRunner({
               How sure are you?
             </legend>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              {(["guess", "unsure", "sure"] as const).map((confidence) => (
+              {(
+                [
+                  ["guess", "Guessing"],
+                  ["unsure", "Unsure"],
+                  ["sure", "Sure"],
+                ] as const
+              ).map(([confidence, label]) => (
                 <Button
                   key={confidence}
                   type="button"
@@ -301,7 +307,6 @@ export function ExamLabRunner({
                       ? "default"
                       : "outline"
                   }
-                  className="capitalize"
                   aria-pressed={
                     response?.confidence === confidence &&
                     Boolean(response.choiceId)
@@ -309,7 +314,7 @@ export function ExamLabRunner({
                   onClick={() => onConfidence(confidence)}
                   disabled={!response?.choiceId}
                 >
-                  {confidence}
+                  {label}
                 </Button>
               ))}
             </div>

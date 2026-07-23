@@ -101,10 +101,12 @@ export function ScoutProvider({
   children,
   activeTab,
   learning,
+  canViewTechnicalDetails = false,
 }: {
   children: ReactNode
   activeTab: string
   learning: LearningSessionPayload | null
+  canViewTechnicalDetails?: boolean
 }) {
   const [accommodations, setAccommodations] =
     useState<AccommodationPreferences>(() =>
@@ -270,7 +272,10 @@ export function ScoutProvider({
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
     const focusable = () =>
       Array.from(activePanel.querySelectorAll<HTMLElement>(selector)).filter(
-        (element) => !element.hidden && element.getClientRects().length > 0
+        (element) =>
+          !element.hidden &&
+          !element.matches(":disabled") &&
+          element.getClientRects().length > 0
       )
     focusable()[0]?.focus()
     function onKeyDown(event: KeyboardEvent) {
@@ -285,14 +290,18 @@ export function ScoutProvider({
       if (controls.length === 0) return
       const first = controls[0]
       const last = controls.at(-1)
-      if (!activePanel.contains(document.activeElement)) {
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null
+      if (!activeElement || !controls.includes(activeElement)) {
         event.preventDefault()
         const wrapTarget = event.shiftKey ? last : first
         wrapTarget?.focus()
-      } else if (event.shiftKey && document.activeElement === first) {
+      } else if (event.shiftKey && activeElement === first) {
         event.preventDefault()
         last?.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && activeElement === last) {
         event.preventDefault()
         first.focus()
       }
@@ -542,17 +551,21 @@ export function ScoutProvider({
                           </Button>
                         ))}
                       </div>
-                      <details className="mt-4 text-xs text-muted-foreground">
-                        <summary className="cursor-pointer font-bold text-foreground">
-                          How this answer was made
-                        </summary>
-                        <p className="mt-2">Source: {message.answer.source}</p>
-                        <p className="mt-1">{message.answer.technical}</p>
-                        <p className="mt-1">
-                          This answer used fixed response rules, not a model
-                          reading the whole visible screen.
-                        </p>
-                      </details>
+                      {canViewTechnicalDetails ? (
+                        <details className="mt-4 text-xs text-muted-foreground">
+                          <summary className="cursor-pointer font-bold text-foreground">
+                            How this answer was made
+                          </summary>
+                          <p className="mt-2">
+                            Source: {message.answer.source}
+                          </p>
+                          <p className="mt-1">{message.answer.technical}</p>
+                          <p className="mt-1">
+                            This answer used fixed response rules, not a model
+                            reading the whole visible screen.
+                          </p>
+                        </details>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -624,7 +637,7 @@ export function ScoutProvider({
             className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-5"
             role="dialog"
             aria-modal="true"
-            aria-label="Learning accommodations"
+            aria-label="Learning settings"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b-2 border-foreground pb-4">
@@ -639,7 +652,7 @@ export function ScoutProvider({
                 variant="ghost"
                 size="icon"
                 onClick={() => setToolsOpen(false)}
-                aria-label="Close accommodations"
+                aria-label="Close learning settings"
               >
                 <XIcon />
               </Button>
@@ -661,7 +674,6 @@ export function ScoutProvider({
                     onCheckedChange={(enabled) =>
                       saveAccommodation(key, enabled)
                     }
-                    aria-label={label}
                   />
                 </label>
               ))}
@@ -729,7 +741,9 @@ export function ScoutProvider({
                       Use fewer technical terms
                     </span>
                     <span className="mt-1 block text-sm text-muted-foreground">
-                      Technical model details stay available in drawers.
+                      {canViewTechnicalDetails
+                        ? "Technical model details stay available in judge-only drawers."
+                        : "Keeps explanations focused on direct, learner-facing language."}
                     </span>
                   </span>
                   <Switch
@@ -737,7 +751,6 @@ export function ScoutProvider({
                     onCheckedChange={(enabled) =>
                       saveExplanationPreference("fewerTechnicalTerms", enabled)
                     }
-                    aria-label="Use fewer technical terms"
                   />
                 </label>
               </div>

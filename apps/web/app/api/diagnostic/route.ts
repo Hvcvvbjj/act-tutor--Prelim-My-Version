@@ -2,6 +2,7 @@ import type { DiagnosticAnswer } from "@act-tutor/core"
 import type { SaveDiagnosticProgress } from "@act-tutor/server"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { syncLinkedSession } from "@/lib/auth.server"
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
 import { diagnosticSessions } from "@/lib/diagnostic-sessions.server"
 
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json(session.payload)
     response.headers.set("Cache-Control", "no-store")
     setSessionCookie(response, session.sessionId)
+    await syncLinkedSession(request, "diagnostic", session.sessionId)
     return response
   } catch (error) {
     return errorResponse(error)
@@ -146,6 +148,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(SESSION_COOKIE)?.value
     if (sessionId) await diagnosticSessions.reset(sessionId)
+    await syncLinkedSession(request, "diagnostic", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(SESSION_COOKIE)
     return response

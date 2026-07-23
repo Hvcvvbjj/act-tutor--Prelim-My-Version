@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import {
   buildPlanIntensity,
   calendarDaysUntil,
@@ -15,24 +16,68 @@ import {
   type CalibrationLearningBaseline,
 } from "@act-tutor/core"
 
-import { Dashboard } from "@/components/tutor/dashboard"
-import { DiagnosticIntro } from "@/components/tutor/diagnostic-intro"
-import { DiagnosticRunner } from "@/components/tutor/diagnostic-runner"
 import { Onboarding } from "@/components/tutor/onboarding"
 import type { GeneratedPlan, PlacementDraft } from "@/components/tutor/types"
+import {
+  GUEST_VIEWER,
+  type AuthViewer,
+  type SavedTutorPlan,
+} from "@/lib/auth-types"
 import { addCalendarDaysFrom } from "@/lib/dates"
 
 const STORAGE_KEY = "ai-act-tutor-placement-v1"
 
+function TutorSurfaceLoading({ message }: { message: string }) {
+  return (
+    <div
+      className="flex min-h-svh items-center justify-center bg-background px-5 text-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="w-full max-w-xl border-y-2 border-foreground py-10">
+        <p className="ink-label text-primary">Scout is getting ready</p>
+        <p className="mt-3 font-heading text-4xl leading-none font-black sm:text-5xl">
+          {message}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+const loadDashboard = () =>
+  import("@/components/tutor/dashboard").then((module) => module.Dashboard)
+const loadDiagnosticIntro = () =>
+  import("@/components/tutor/diagnostic-intro").then(
+    (module) => module.DiagnosticIntro
+  )
+const loadDiagnosticRunner = () =>
+  import("@/components/tutor/diagnostic-runner").then(
+    (module) => module.DiagnosticRunner
+  )
+
+const Dashboard = dynamic(loadDashboard, {
+  loading: () => <TutorSurfaceLoading message="Opening your study plan…" />,
+})
+const DiagnosticIntro = dynamic(loadDiagnosticIntro, {
+  loading: () => (
+    <TutorSurfaceLoading message="Opening your starting diagnostic…" />
+  ),
+})
+const DiagnosticRunner = dynamic(loadDiagnosticRunner, {
+  loading: () => <TutorSurfaceLoading message="Preparing your questions…" />,
+})
+
 interface TutorAppProps {
   today: string
   initialTestDate: string
+  initialViewer?: AuthViewer
 }
 
 function initialDraft(initialTestDate: string): PlacementDraft {
   return {
     goal: 30,
     priorScoreChoice: "scores",
+    startingCheckChoice: "take",
     composite: 24,
     english: 26,
     math: 20,
@@ -54,6 +99,9 @@ function isPlacementDraft(value: unknown): value is PlacementDraft {
     (draft.priorScoreChoice === "scores" ||
       draft.priorScoreChoice === "composite_only" ||
       draft.priorScoreChoice === "never") &&
+    (draft.startingCheckChoice === undefined ||
+      draft.startingCheckChoice === "take" ||
+      draft.startingCheckChoice === "skip") &&
     typeof draft.composite === "number" &&
     typeof draft.english === "number" &&
     typeof draft.math === "number" &&
@@ -99,6 +147,94 @@ function weakestSection(scores: CoreSectionScores): CoreSection {
   return (Object.entries(scores) as Array<[CoreSection, number]>).reduce(
     (weakest, entry) => (entry[1] < weakest[1] ? entry : weakest)
   )[0]
+}
+
+function makeGeneratedPlan(input: {
+  today: string
+  draft: PlacementDraft
+  evidence: NormalizedScoreEvidence
+  baseline: CoreSectionScores
+  currentComposite: number
+  diagnosticResult?: DiagnosticResult
+  adaptiveBaselineRequired?: boolean
+  baselineSkipped?: boolean
+}): GeneratedPlan {
+  const daysUntilTest = calendarDaysUntil(input.today, input.draft.testDate)
+  if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
+    throw new RangeError("Choose a test date after today.")
+  }
+
+  const target = selectTargetVector({
+    current: input.baseline,
+    goalComposite: input.draft.goal,
+    opportunityWeights: {
+      english:
+        (36 - input.baseline.english) *
+        (input.draft.preferredSection === "english" ? 1.35 : 1),
+      math:
+        (36 - input.baseline.math) *
+        (input.draft.preferredSection === "math" ? 1.35 : 1),
+      reading:
+        (36 - input.baseline.reading) *
+        (input.draft.preferredSection === "reading" ? 1.35 : 1),
+    },
+  })
+  const intensity = buildPlanIntensity({
+    daysUntilTest,
+    current: input.baseline,
+    target: target.scores,
+    studyDaysPerWeek: input.draft.studyDaysPerWeek,
+    minutesPerSession: input.draft.minutesPerSession,
+  })
+
+  return {
+    today: input.today,
+    draft: input.draft,
+    evidence: input.evidence,
+    target,
+    intensity,
+    currentComposite: input.currentComposite,
+    weakestSection: weakestSection(input.baseline),
+    ...(input.diagnosticResult
+      ? { diagnosticResult: input.diagnosticResult }
+      : {}),
+    ...(input.adaptiveBaselineRequired
+      ? { adaptiveBaselineRequired: true }
+      : {}),
+    ...(input.baselineSkipped ? { baselineSkipped: true } : {}),
+  }
+}
+
+function savedPlanFrom(plan: GeneratedPlan): SavedTutorPlan {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    draft: plan.draft,
+    evidence: plan.evidence,
+    currentComposite: plan.currentComposite,
+    adaptiveBaselineRequired: plan.adaptiveBaselineRequired === true,
+    baselineSkipped: plan.baselineSkipped === true,
+  }
+}
+
+function restoredPlanFrom(
+  today: string,
+  savedPlan: SavedTutorPlan | null
+): GeneratedPlan | null {
+  if (!savedPlan?.evidence.planningBaseline) return null
+  try {
+    return makeGeneratedPlan({
+      today,
+      draft: savedPlan.draft,
+      evidence: savedPlan.evidence,
+      baseline: savedPlan.evidence.planningBaseline,
+      currentComposite: savedPlan.currentComposite,
+      adaptiveBaselineRequired: savedPlan.adaptiveBaselineRequired,
+      baselineSkipped: savedPlan.baselineSkipped,
+    })
+  } catch {
+    return null
+  }
 }
 
 const JUDGE_DEMO_SKILLS: ReadonlyArray<DiagnosticSkillResult> = [
@@ -230,18 +366,28 @@ function judgeDemoDiagnostic(): DiagnosticResult {
   }
 }
 
-export function TutorApp({ today, initialTestDate }: TutorAppProps) {
-  const [draft, setDraft] = useState<PlacementDraft>(() =>
-    initialDraft(initialTestDate)
+export function TutorApp({
+  today,
+  initialTestDate,
+  initialViewer = GUEST_VIEWER,
+}: TutorAppProps) {
+  const [restoredAtLoad] = useState(() =>
+    restoredPlanFrom(today, initialViewer.savedPlan)
+  )
+  const [draft, setDraft] = useState<PlacementDraft>(
+    () => restoredAtLoad?.draft ?? initialDraft(initialTestDate)
   )
   const [step, setStep] = useState(1)
   const [surface, setSurface] = useState<
     "onboarding" | "dashboard" | "diagnostic" | "diagnostic-runner"
-  >("onboarding")
-  const [plan, setPlan] = useState<GeneratedPlan | null>(null)
+  >(restoredAtLoad ? "dashboard" : "onboarding")
+  const [plan, setPlan] = useState<GeneratedPlan | null>(restoredAtLoad)
+  const [viewer, setViewer] = useState<AuthViewer>(initialViewer)
   const [error, setError] = useState<string | null>(null)
   const [storageReady, setStorageReady] = useState(false)
-  const [welcomeComplete, setWelcomeComplete] = useState(false)
+  const [welcomeComplete, setWelcomeComplete] = useState(
+    Boolean(restoredAtLoad)
+  )
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -252,7 +398,11 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
             version?: number
             draft?: unknown
           }
-          if (parsed.version === 1 && isPlacementDraft(parsed.draft)) {
+          if (
+            !restoredAtLoad &&
+            parsed.version === 1 &&
+            isPlacementDraft(parsed.draft)
+          ) {
             setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
           }
         }
@@ -264,7 +414,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     }, 0)
 
     return () => window.clearTimeout(timeout)
-  }, [initialTestDate])
+  }, [initialTestDate, restoredAtLoad])
 
   useEffect(() => {
     if (!storageReady) return
@@ -284,51 +434,70 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     baseline: CoreSectionScores,
     currentComposite: number,
     diagnosticResult?: DiagnosticResult,
-    placementDraft: PlacementDraft = draft
+    placementDraft: PlacementDraft = draft,
+    options: {
+      adaptiveBaselineRequired?: boolean
+      baselineSkipped?: boolean
+      save?: boolean
+    } = {}
   ) {
-    const daysUntilTest = calendarDaysUntil(today, placementDraft.testDate)
-    if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
-      throw new RangeError("Choose a test date after today.")
-    }
-
-    const target = selectTargetVector({
-      current: baseline,
-      goalComposite: placementDraft.goal,
-      opportunityWeights: {
-        english:
-          (36 - baseline.english) *
-          (placementDraft.preferredSection === "english" ? 1.35 : 1),
-        math:
-          (36 - baseline.math) *
-          (placementDraft.preferredSection === "math" ? 1.35 : 1),
-        reading:
-          (36 - baseline.reading) *
-          (placementDraft.preferredSection === "reading" ? 1.35 : 1),
-      },
-    })
-    const intensity = buildPlanIntensity({
-      daysUntilTest,
-      current: baseline,
-      target: target.scores,
-      studyDaysPerWeek: placementDraft.studyDaysPerWeek,
-      minutesPerSession: placementDraft.minutesPerSession,
-    })
-
-    setPlan({
+    const nextPlan = makeGeneratedPlan({
       today,
       draft: placementDraft,
       evidence,
-      target,
-      intensity,
+      baseline,
       currentComposite,
-      weakestSection: weakestSection(baseline),
-      ...(diagnosticResult ? { diagnosticResult } : {}),
+      diagnosticResult,
+      adaptiveBaselineRequired: options.adaptiveBaselineRequired,
+      baselineSkipped: options.baselineSkipped,
     })
+    setPlan(nextPlan)
     setSurface("dashboard")
     setError(null)
+    if (options.save !== false) void persistPlan(nextPlan)
+  }
+
+  async function persistPlan(nextPlan: GeneratedPlan) {
+    if (viewer.role !== "learner") return
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_plan",
+          savedPlan: savedPlanFrom(nextPlan),
+        }),
+      })
+      const payload = (await response.json()) as {
+        viewer?: AuthViewer
+        error?: string
+      }
+      if (!response.ok || !payload.viewer) {
+        throw new Error(payload.error ?? "The plan could not be saved.")
+      }
+      setViewer(payload.viewer)
+    } catch {
+      setError(
+        "Your plan is open, but Scout could not sync it to your account yet."
+      )
+    }
+  }
+
+  function handleViewerChange(nextViewer: AuthViewer) {
+    setViewer(nextViewer)
+    const restored = restoredPlanFrom(today, nextViewer.savedPlan)
+    if (restored) {
+      setDraft(restored.draft)
+      setPlan(restored)
+      setSurface("dashboard")
+      setWelcomeComplete(true)
+      setError(null)
+    }
   }
 
   function createPlan() {
+    void loadDashboard()
     try {
       const daysUntilTest = calendarDaysUntil(today, draft.testDate)
       if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
@@ -336,16 +505,22 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
       }
 
       if (draft.priorScoreChoice === "never") {
-        const evidence = normalizeCurrentScore({
-          kind: "composite_only",
-          composite: 18,
-        })
+        const evidence: NormalizedScoreEvidence = {
+          source: "not_taken",
+          reportedComposite: null,
+          calculatedComposite: null,
+          reportedSections: null,
+          planningBaseline: { english: 18, math: 18, reading: 18 },
+          science: null,
+          confidence: "none",
+          compositeDifference: null,
+        }
         const baseline = evidence.planningBaseline
         if (!baseline) throw new Error("Could not start the adaptive baseline.")
-        buildPlanFromEvidence(evidence, baseline, 18, undefined, draft)
-        setPlan((current) =>
-          current ? { ...current, adaptiveBaselineRequired: true } : current
-        )
+        buildPlanFromEvidence(evidence, baseline, 18, undefined, draft, {
+          adaptiveBaselineRequired: draft.startingCheckChoice === "take",
+          baselineSkipped: draft.startingCheckChoice === "skip",
+        })
         return
       }
 
@@ -389,6 +564,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   }
 
   function useAdaptiveBaseline(payload: CalibrationLearningBaseline) {
+    void loadDashboard()
     const baseline = payload.sections
     const composite = payload.composite
     const evidence: NormalizedScoreEvidence = {
@@ -405,6 +581,11 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   }
 
   async function launchJudgeDemo() {
+    if (!viewer.technicalDetails) {
+      setError("Sign in with the judge account to open the technical demo.")
+      return
+    }
+    void loadDashboard()
     try {
       const [learningResponse, calibrationResponse] = await Promise.all([
         fetch("/api/learning", { method: "DELETE" }),
@@ -416,6 +597,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
       const demoDraft: PlacementDraft = {
         goal: 31,
         priorScoreChoice: "scores",
+        startingCheckChoice: "take",
         composite: 24,
         english: 22,
         math: 25,
@@ -450,8 +632,14 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     return (
       <Dashboard
         plan={plan}
+        viewer={viewer}
+        savedPlan={savedPlanFrom(plan)}
+        onViewerChange={handleViewerChange}
         onEditPlan={startOver}
-        onStartFullDiagnostic={() => setSurface("diagnostic")}
+        onStartFullDiagnostic={() => {
+          void loadDiagnosticIntro()
+          setSurface("diagnostic")
+        }}
         onUseAdaptiveBaseline={useAdaptiveBaseline}
       />
     )
@@ -463,7 +651,10 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         goal={draft.goal}
         testDate={draft.testDate}
         onBack={startOver}
-        onStart={() => setSurface("diagnostic-runner")}
+        onStart={() => {
+          void loadDiagnosticRunner()
+          setSurface("diagnostic-runner")
+        }}
       />
     )
   }
@@ -472,6 +663,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
     return (
       <DiagnosticRunner
         onBack={() => setSurface("diagnostic")}
+        canViewTechnicalDetails={viewer.technicalDetails}
         onComplete={(result) => {
           try {
             const evidence = diagnosticResultToEvidence(result)
@@ -497,6 +689,8 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
   return (
     <Onboarding
       draft={draft}
+      viewer={viewer}
+      savedPlan={plan ? savedPlanFrom(plan) : null}
       error={error}
       step={step}
       today={today}
@@ -522,6 +716,7 @@ export function TutorApp({ today, initialTestDate }: TutorAppProps) {
         setWelcomeComplete(true)
         void launchJudgeDemo()
       }}
+      onViewerChange={handleViewerChange}
       onUpdate={updateDraft}
     />
   )

@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+import {
+  AuthRequestError,
+  requireJudge,
+  syncLinkedSession,
+} from "@/lib/auth.server"
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -30,7 +35,7 @@ function errorResponse(error: unknown) {
           ? error.message
           : "The Quick Check could not be completed.",
     },
-    { status: 400 }
+    { status: error instanceof AuthRequestError ? error.status : 400 }
   )
 }
 
@@ -63,6 +68,7 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.json(session.payload)
     response.headers.set("Cache-Control", "no-store")
     setSessionCookie(response, session.sessionId)
+    await syncLinkedSession(request, "calibration", session.sessionId)
     return response
   } catch (error) {
     return errorResponse(error)
@@ -73,6 +79,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
     if (body.action === "seed_demo") {
+      await requireJudge(request)
       const existing = request.cookies.get(CALIBRATION_COOKIE)?.value
       if (existing) await calibrationSessions.reset(existing)
       const seeded =
@@ -87,6 +94,7 @@ export async function POST(request: NextRequest) {
       })
       response.headers.set("Cache-Control", "no-store")
       setSessionCookie(response, seeded.sessionId)
+      await syncLinkedSession(request, "calibration", seeded.sessionId)
       return response
     }
 
@@ -131,6 +139,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = request.cookies.get(CALIBRATION_COOKIE)?.value
     if (sessionId) await calibrationSessions.reset(sessionId)
+    await syncLinkedSession(request, "calibration", null)
     const response = NextResponse.json({ reset: true })
     response.cookies.delete(CALIBRATION_COOKIE)
     return response

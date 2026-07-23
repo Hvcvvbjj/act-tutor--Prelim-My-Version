@@ -11,6 +11,7 @@ export function LearnerModelView({
   onCorrectModel,
   onStartChallenge,
   onStartRecovery,
+  canViewTechnicalDetails,
 }: Pick<
   ScoutOperationsLabProps,
   | "learning"
@@ -18,6 +19,7 @@ export function LearnerModelView({
   | "onCorrectModel"
   | "onStartChallenge"
   | "onStartRecovery"
+  | "canViewTechnicalDetails"
 >) {
   const [correctionKind, setCorrectionKind] = useState<
     "too-high" | "too-low" | "wrong-misconception"
@@ -81,37 +83,32 @@ export function LearnerModelView({
             </div>
           </div>
           <p className="mt-5 text-sm leading-6 font-semibold">
-            The percentage is this skill’s BKT learned-probability estimate. The
-            answer count is literal evidence volume. Neither is an ACT score,
-            and Scout does not calculate a statistical confidence interval for
-            the skill.
+            The percentage is Scout’s practice estimate for this skill. The
+            answer count shows how much scored work supports it. Neither number
+            is an ACT score or percent correct.
           </p>
         </div>
         <div className="py-7 lg:pl-8">
           <p className="ink-label text-muted-foreground">What Scout notices</p>
           <dl className="mt-4 divide-y border-y text-sm leading-6">
             <div className="py-3">
-              <dt className="font-bold">Pacing signal</dt>
+              <dt className="font-bold">Pacing note</dt>
               <dd className="text-muted-foreground">
                 {report.responseTime.interpretation}
               </dd>
             </div>
             <div className="py-3">
-              <dt className="font-bold">Two-answer cross-skill record</dt>
+              <dt className="font-bold">Recent answer pattern</dt>
+              <dd className="text-muted-foreground">{report.transferSignal}</dd>
+            </div>
+            <div className="py-3">
+              <dt className="font-bold">Next review</dt>
               <dd className="text-muted-foreground">
-                {report.transferSignal} This records two adjacent answers; it
-                does not prove learning transferred between skills.
+                {report.decaySignal} This comes from Scout’s saved review date.
               </dd>
             </div>
             <div className="py-3">
-              <dt className="font-bold">Stored review date</dt>
-              <dd className="text-muted-foreground">
-                {report.decaySignal} This comes from the saved next-review date,
-                not a fitted forgetting model.
-              </dd>
-            </div>
-            <div className="py-3">
-              <dt className="font-bold">Explore next</dt>
+              <dt className="font-bold">Worth checking next</dt>
               <dd className="text-muted-foreground">
                 {report.explorationQuestion}
               </dd>
@@ -121,23 +118,25 @@ export function LearnerModelView({
       </section>
 
       <section>
-        <p className="ink-label text-primary">Wrong-answer labels</p>
+        <p className="ink-label text-primary">Missed-answer notes</p>
         <h2 className="mt-2 font-heading text-4xl font-black">
-          Labels attached to choices you missed.
+          Review labels from missed choices.
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Each wrong choice has an authored label. Scout stores that label and
-          the question ID; it does not diagnose why you chose the answer.
+          Scout stores the label written for each wrong choice and the question
+          it came from. It does not assume why you chose that answer.
         </p>
         {report.misconceptions.length ? (
           <div className="mt-6 overflow-x-auto border-y-2 border-foreground">
             <table className="w-full min-w-[42rem] text-left text-sm">
               <thead className="bg-foreground text-background">
                 <tr>
-                  <th className="px-4 py-3">Misconception</th>
+                  <th className="px-4 py-3">Reason label</th>
                   <th className="px-4 py-3">Skill</th>
                   <th className="px-4 py-3">Seen</th>
-                  <th className="px-4 py-3">Evidence</th>
+                  {canViewTechnicalDetails ? (
+                    <th className="px-4 py-3">Question ID</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -146,9 +145,11 @@ export function LearnerModelView({
                     <td className="px-4 py-3 font-semibold">{item.label}</td>
                     <td className="px-4 py-3">{item.skillLabel}</td>
                     <td className="px-4 py-3">{item.count}×</td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {item.latestQuestionId}
-                    </td>
+                    {canViewTechnicalDetails ? (
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {item.latestQuestionId}
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -156,7 +157,7 @@ export function LearnerModelView({
           </div>
         ) : (
           <p className="mt-5 border-y py-5 text-sm text-muted-foreground">
-            No unresolved wrong-answer label is stored yet.
+            No unresolved missed-answer label is stored yet.
           </p>
         )}
         {report.prerequisiteConfusion ? (
@@ -175,12 +176,12 @@ export function LearnerModelView({
             Scout got this wrong about me
           </p>
           <h2 className="mt-2 font-heading text-3xl font-black">
-            Correct the model.
+            Tell Scout what it got wrong.
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Your correction is saved separately from scored answers. Scout
-            allows one bounded adjustment per skill and BKT model version in
-            this build. New answers do not unlock a second manual correction.
+            Your note is saved separately from scored answers. You can make one
+            manual adjustment for each skill in the current skill profile; new
+            practice answers still update the estimate normally.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {(
@@ -232,7 +233,7 @@ export function LearnerModelView({
             {busy
               ? "Saving correction…"
               : alreadyCorrected
-                ? "Correction saved for this model"
+                ? "Correction already saved for this skill"
                 : "Save correction"}
           </Button>
         </div>
@@ -248,8 +249,8 @@ export function LearnerModelView({
                   <p className="mt-1 text-muted-foreground">{item.note}</p>
                   <p className="mt-1 font-mono text-xs">
                     {Math.round(item.before * 100)}% →{" "}
-                    {Math.round(item.after * 100)}%{" · "}
-                    {item.modelVersion}
+                    {Math.round(item.after * 100)}%
+                    {canViewTechnicalDetails ? ` · ${item.modelVersion}` : ""}
                   </p>
                 </li>
               ))}
@@ -266,13 +267,16 @@ export function LearnerModelView({
         <div>
           <p className="ink-label text-primary">Effort versus progress</p>
           <h2 className="mt-2 font-heading text-3xl font-black">
-            {learning.mission.progress.totalAnswered} answers ·{" "}
-            {Math.round(averageMastery * 100)}% average skill estimate
+            {learning.mission.progress.totalAnswered}{" "}
+            {learning.mission.progress.totalAnswered === 1
+              ? "answer"
+              : "answers"}{" "}
+            · {Math.round(averageMastery * 100)}% average skill estimate
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            “Stable” is a fixed evidence label, not proof of mastery. It means
-            at least 7 scored answers and estimate entropy at or below 0.82.{" "}
-            Current stable count:{" "}
+            “Steadier” means Scout has at least seven answers and the estimate
+            is no longer changing sharply. It is not proof of mastery. Current
+            steadier count:{" "}
             {
               learning.learningTwin.skills.filter(
                 (skill) => skill.confidence === "stable"

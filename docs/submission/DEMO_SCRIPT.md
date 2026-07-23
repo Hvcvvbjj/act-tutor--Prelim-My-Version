@@ -39,13 +39,13 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 ### 0:43–1:08 — Inspect the decision
 
-**Do:** Click **Open My Skills**.
+**Do:** Click **View my skills**.
 
-**Say:** “The numbers are not decoration. Every scored answer is saved in the evidence history. The skill model ranks what to teach from the size of the gap, how unsure it is, how much evidence it has, and whether the student just missed one.”
+**Say:** “The numbers are not decoration. Every scored answer appears in Recent scored answers. Scout ranks what to teach from the size of the gap, how unsure it is, how much practice supports the estimate, and whether the student just missed one.”
 
-**Show:** Ratios and percent, the newest Quick Check event, P(Learned), predicted next-answer chance, and the Punctuation and commas recommendation.
+**Show:** Ratios and percent, the newest Quick Check event, its skill practice estimate, and the Punctuation and commas **Study next** recommendation.
 
-**Say:** “Under the hood, IRT chooses what to ask and Bayesian Knowledge Tracing chooses what to teach. Judges can inspect the handoff instead of trusting an AI claim.”
+**Say:** “Under the hood, IRT chooses what to ask and Bayesian Knowledge Tracing chooses what to teach. The exact method stays available in technical details, so judges can inspect the handoff instead of trusting an AI claim.”
 
 ### 1:08–1:40 — Personalized teaching
 

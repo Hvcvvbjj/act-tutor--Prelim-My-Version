@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import type {
   AnswerConfidence,
@@ -15,6 +15,7 @@ import type {
 } from "@act-tutor/core"
 import {
   ArrowRightIcon,
+  CircleGaugeIcon,
   EllipsisIcon,
   FlaskConicalIcon,
   InfoIcon,
@@ -23,21 +24,18 @@ import {
   ShieldCheckIcon,
 } from "lucide-react"
 
-import { AdaptivePlanStudio } from "@/components/tutor/adaptive-plan-studio"
-import { AdaptiveCalibrationLab } from "@/components/tutor/adaptive-calibration-lab"
+import { AccountAccess } from "@/components/tutor/account-access"
 import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
-import { LessonWorkspace } from "@/components/tutor/lesson-workspace"
-import { LearningTwinLab } from "@/components/tutor/learning-twin-lab"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import {
   ScoutProvider,
   useScoutContext,
 } from "@/components/tutor/scout-assistant"
-import { TestDayLab } from "@/components/tutor/test-day-lab"
 import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { AuthViewer, SavedTutorPlan } from "@/lib/auth-types"
 import {
   cacheLearningSession,
   deleteRemoteScoutData,
@@ -47,22 +45,108 @@ import {
   readCachedLearningSession,
 } from "@/lib/learning-client"
 
-const ScoutOperationsLab = dynamic(
-  () =>
-    import("@/components/tutor/scout-operations-lab").then(
-      (module) => module.ScoutOperationsLab
-    ),
-  {
-    loading: () => (
-      <main className="mx-auto max-w-3xl px-5 py-20">
-        <ScoutCoach mood="thinking" message="Opening your data and settings…" />
-      </main>
-    ),
+function DashboardSurfaceLoading({ message }: { message: string }) {
+  return (
+    <div
+      className="mx-auto max-w-3xl px-5 py-20"
+      role="status"
+      aria-live="polite"
+    >
+      <ScoutCoach mood="thinking" message={message} />
+    </div>
+  )
+}
+
+const loadAdaptivePlanStudio = () =>
+  import("@/components/tutor/adaptive-plan-studio").then(
+    (module) => module.AdaptivePlanStudio
+  )
+const loadAdaptiveCalibrationLab = () =>
+  import("@/components/tutor/adaptive-calibration-lab").then(
+    (module) => module.AdaptiveCalibrationLab
+  )
+const loadLessonWorkspace = () =>
+  import("@/components/tutor/lesson-workspace").then(
+    (module) => module.LessonWorkspace
+  )
+const loadLearningTwinLab = () =>
+  import("@/components/tutor/learning-twin-lab").then(
+    (module) => module.LearningTwinLab
+  )
+const loadTestDayLab = () =>
+  import("@/components/tutor/test-day-lab").then((module) => module.TestDayLab)
+const loadScoutOperationsLab = () =>
+  import("@/components/tutor/scout-operations-lab").then(
+    (module) => module.ScoutOperationsLab
+  )
+
+const AdaptivePlanStudio = dynamic(loadAdaptivePlanStudio, {
+  loading: () => <DashboardSurfaceLoading message="Opening your study week…" />,
+})
+const AdaptiveCalibrationLab = dynamic(loadAdaptiveCalibrationLab, {
+  loading: () => <DashboardSurfaceLoading message="Opening Quick Check…" />,
+})
+const LessonWorkspace = dynamic(loadLessonWorkspace, {
+  loading: () => <DashboardSurfaceLoading message="Opening your lesson…" />,
+})
+const LearningTwinLab = dynamic(loadLearningTwinLab, {
+  loading: () => <DashboardSurfaceLoading message="Opening your progress…" />,
+})
+const TestDayLab = dynamic(loadTestDayLab, {
+  loading: () => <DashboardSurfaceLoading message="Opening timed practice…" />,
+})
+const ScoutOperationsLab = dynamic(loadScoutOperationsLab, {
+  loading: () => <DashboardSurfaceLoading message="Opening Learning data…" />,
+})
+
+function preloadDashboardSurface(value: string) {
+  switch (value) {
+    case "plan":
+      void loadAdaptivePlanStudio()
+      break
+    case "calibrate":
+      void loadAdaptiveCalibrationLab()
+      break
+    case "progress":
+      void loadLearningTwinLab()
+      break
+    case "lab":
+      void loadTestDayLab()
+      break
+    case "control":
+      void loadScoutOperationsLab()
+      break
   }
-)
+}
+
+function DashboardTab({
+  value,
+  className,
+  children,
+}: {
+  value: string
+  className?: string
+  children: ReactNode
+}) {
+  const preload = () => preloadDashboardSurface(value)
+  return (
+    <TabsTrigger
+      value={value}
+      className={className}
+      onPointerEnter={preload}
+      onPointerDown={preload}
+      onFocus={preload}
+    >
+      {children}
+    </TabsTrigger>
+  )
+}
 
 interface DashboardProps {
   plan: GeneratedPlan
+  viewer: AuthViewer
+  savedPlan: SavedTutorPlan
+  onViewerChange: (viewer: AuthViewer) => void
   onEditPlan: () => void
   onStartFullDiagnostic: () => void
   onUseAdaptiveBaseline: (payload: CalibrationLearningBaseline) => void
@@ -123,14 +207,15 @@ function Brand() {
 function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   const isInternalProxy =
     plan.evidence.source === "rapid_diagnostic" ||
-    plan.evidence.source === "starter_diagnostic"
+    plan.evidence.source === "starter_diagnostic" ||
+    plan.evidence.source === "not_taken"
   return (
     <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
       <div>
         <p className="text-base leading-none font-black tabular-nums">
           {plan.currentComposite}{" "}
           <span className="text-xs font-normal text-muted-foreground">
-            {isInternalProxy ? "internal proxy" : "reported baseline"}
+            {isInternalProxy ? "planning baseline" : "reported baseline"}
           </span>
         </p>
       </div>
@@ -153,9 +238,11 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
 function AccessibleTestDayLab({
   initialMode,
   initialSection,
+  canViewTechnicalDetails,
 }: {
   initialMode: ExamLabMode
   initialSection: CoreSection
+  canViewTechnicalDetails: boolean
 }) {
   const { accommodations } = useScoutContext()
   return (
@@ -163,6 +250,7 @@ function AccessibleTestDayLab({
       extendedTime={accommodations.extendedTime}
       initialMode={initialMode}
       initialSection={initialSection}
+      canViewTechnicalDetails={canViewTechnicalDetails}
     />
   )
 }
@@ -206,6 +294,9 @@ function MobileOverflow({
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        onPointerEnter={() => preloadDashboardSurface("lab")}
+        onPointerDown={() => preloadDashboardSurface("lab")}
+        onFocus={() => preloadDashboardSurface("lab")}
         onClick={() => {
           onNavigate("lab")
           onClose()
@@ -217,12 +308,15 @@ function MobileOverflow({
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        onPointerEnter={() => preloadDashboardSurface("control")}
+        onPointerDown={() => preloadDashboardSurface("control")}
+        onFocus={() => preloadDashboardSurface("control")}
         onClick={() => {
           onNavigate("control")
           onClose()
         }}
       >
-        <ShieldCheckIcon /> Evidence & data
+        <ShieldCheckIcon /> Learning data
       </Button>
       <Button
         type="button"
@@ -260,12 +354,29 @@ function DesktopOverflow({
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        onPointerEnter={() => preloadDashboardSurface("lab")}
+        onPointerDown={() => preloadDashboardSurface("lab")}
+        onFocus={() => preloadDashboardSurface("lab")}
+        onClick={() => {
+          onNavigate("lab")
+          onClose()
+        }}
+      >
+        <FlaskConicalIcon /> Timed practice
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        onPointerEnter={() => preloadDashboardSurface("control")}
+        onPointerDown={() => preloadDashboardSurface("control")}
+        onFocus={() => preloadDashboardSurface("control")}
         onClick={() => {
           onNavigate("control")
           onClose()
         }}
       >
-        <ShieldCheckIcon /> Evidence & data
+        <ShieldCheckIcon /> Learning data
       </Button>
       <Button
         type="button"
@@ -284,12 +395,16 @@ function DesktopOverflow({
 
 export function Dashboard({
   plan,
+  viewer,
+  savedPlan,
+  onViewerChange,
   onEditPlan,
   onStartFullDiagnostic,
   onUseAdaptiveBaseline,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
-  const representativeDemo = diagnostic?.formId === "scout-judge-demo"
+  const representativeDemo =
+    viewer.technicalDetails && diagnostic?.formId === "scout-judge-demo"
   const startingSkill =
     diagnostic?.focusSkills[0]?.skill ??
     SECTION_FALLBACK_SKILLS[plan.weakestSection]
@@ -341,7 +456,7 @@ export function Dashboard({
       const result = await flushOfflineAnswerQueue()
       if (result.lastQuarantineReason) {
         setLearningError(
-          `A saved answer was not applied: ${result.lastQuarantineReason} It is quarantined in Evidence & data for review.`
+          `A saved answer was not applied: ${result.lastQuarantineReason} It is available in Learning data for review.`
         )
       } else if (result.lastTransientReason) {
         setLearningError(
@@ -580,6 +695,7 @@ export function Dashboard({
     body: MissionStartAction,
     openWorkspace = false
   ) {
+    if (openWorkspace) void loadLessonWorkspace()
     setSubmitting(true)
     try {
       const request: LearningActionRequest = { ...planRequestFields(), ...body }
@@ -605,6 +721,7 @@ export function Dashboard({
   async function launchPlanTask(task: StudyPlanTask) {
     if (!learning) return
     if (task.kind === "rehearsal") {
+      void loadTestDayLab()
       setLabLaunch((current) => ({
         mode: "core",
         section: "english",
@@ -614,6 +731,7 @@ export function Dashboard({
       return
     }
     if (task.kind === "timed") {
+      void loadTestDayLab()
       setLabLaunch((current) => ({
         mode: "section",
         section: task.section ?? "english",
@@ -624,6 +742,7 @@ export function Dashboard({
     }
     if (learning.status !== "complete") {
       if (task.skill && task.skill === learning.todaySkill) {
+        void loadLessonWorkspace()
         setWorkspaceOpen(true)
         setActiveTab("today")
         return
@@ -665,9 +784,13 @@ export function Dashboard({
 
   if (plan.adaptiveBaselineRequired) {
     return (
-      <ScoutProvider activeTab="calibrate" learning={learning}>
+      <ScoutProvider
+        activeTab="calibrate"
+        learning={learning}
+        canViewTechnicalDetails={viewer.technicalDetails}
+      >
         <div className="min-h-svh bg-background">
-          <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
             <div className="mx-auto flex min-h-16 max-w-[86rem] items-center justify-between gap-4 px-4 py-2 sm:px-7">
               <Brand />
               <div className="flex items-center gap-3">
@@ -684,6 +807,11 @@ export function Dashboard({
                 >
                   <PencilLineIcon />
                 </Button>
+                <AccountAccess
+                  viewer={viewer}
+                  savedPlan={savedPlan}
+                  onViewerChange={onViewerChange}
+                />
               </div>
             </div>
           </header>
@@ -708,13 +836,14 @@ export function Dashboard({
               onStartFullDiagnostic={onStartFullDiagnostic}
               adaptiveBaselineRequired
               onUseAdaptiveBaseline={applyAdaptiveBaseline}
+              canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
               <ScoutCoach
                 mood="thinking"
                 message="Scout is loading your 8–12 question starting check."
-                detail="The rest of the app stays hidden until this check creates the first internal planning baseline."
+                detail="The rest of the app stays hidden until this check creates your first planning baseline."
               />
             </main>
           )}
@@ -724,16 +853,21 @@ export function Dashboard({
   }
 
   return (
-    <ScoutProvider activeTab={activeTab} learning={learning}>
+    <ScoutProvider
+      activeTab={activeTab}
+      learning={learning}
+      canViewTechnicalDetails={viewer.technicalDetails}
+    >
       <Tabs
         value={activeTab}
         onValueChange={(value) => {
+          preloadDashboardSurface(value)
           setActiveTab(value)
           setMoreOpen(false)
         }}
         className="min-h-svh scroll-pb-24 gap-0 bg-transparent pb-24 md:scroll-pb-0 md:pb-0"
       >
-        <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+        <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
           <div className="mx-auto grid min-h-16 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
             <Brand />
             <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
@@ -742,11 +876,10 @@ export function Dashboard({
                 className="bg-transparent"
                 aria-label="Study navigation"
               >
-                <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="plan">My week</TabsTrigger>
-                <TabsTrigger value="calibrate">Quick Check</TabsTrigger>
-                <TabsTrigger value="progress">Progress</TabsTrigger>
-                <TabsTrigger value="lab">Timed practice</TabsTrigger>
+                <DashboardTab value="today">Today</DashboardTab>
+                <DashboardTab value="plan">My week</DashboardTab>
+                <DashboardTab value="calibrate">Quick Check</DashboardTab>
+                <DashboardTab value="progress">Progress</DashboardTab>
               </TabsList>
               <div className="relative">
                 <Button
@@ -778,6 +911,12 @@ export function Dashboard({
               >
                 <PencilLineIcon />
               </Button>
+              <AccountAccess
+                viewer={viewer}
+                savedPlan={savedPlan}
+                onViewerChange={onViewerChange}
+                className="max-w-40 px-2 sm:max-w-52"
+              />
             </div>
           </div>
         </header>
@@ -788,6 +927,34 @@ export function Dashboard({
               <InfoIcon />
               <AlertTitle>Scout could not finish that change</AlertTitle>
               <AlertDescription>{learningError}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
+
+        {plan.baselineSkipped ? (
+          <div className="mx-auto w-full max-w-[86rem] px-4 pt-4 sm:px-7">
+            <Alert className="border-primary bg-[var(--info-surface)]">
+              <CircleGaugeIcon />
+              <AlertTitle>Your starter plan uses a temporary 18.</AlertTitle>
+              <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  That number is not your ACT score. Take the 8–12 question
+                  Quick Check whenever you want Scout to replace it with
+                  answer-based starting points.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 bg-background"
+                  onClick={() => {
+                    void loadAdaptiveCalibrationLab()
+                    setActiveTab("calibrate")
+                  }}
+                >
+                  Take Quick Check
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Button>
+              </AlertDescription>
             </Alert>
           </div>
         ) : null}
@@ -807,13 +974,18 @@ export function Dashboard({
                 onLessonFeedback={submitLessonFeedback}
                 onSubmitAnswer={submitAnswer}
                 onClose={() => setWorkspaceOpen(false)}
+                canViewTechnicalDetails={viewer.technicalDetails}
               />
             ) : learning ? (
               <DailyMissionHub
                 plan={plan}
                 learning={learning}
                 busy={submitting}
-                onOpenWorkspace={() => setWorkspaceOpen(true)}
+                canViewTechnicalDetails={viewer.technicalDetails}
+                onOpenWorkspace={() => {
+                  void loadLessonWorkspace()
+                  setWorkspaceOpen(true)
+                }}
                 onStartNext={() => startMissionAction({ action: "start_next" })}
                 onStartSkill={(skill) =>
                   startMissionAction({ action: "start_skill", skill })
@@ -859,12 +1031,13 @@ export function Dashboard({
         </TabsContent>
 
         <TabsContent value="plan">
-          {learning ? (
+          {activeTab !== "plan" ? null : learning ? (
             <AdaptivePlanStudio
               plan={plan}
               learning={learning}
               busy={submitting}
               onLaunchTask={launchPlanTask}
+              canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
@@ -876,7 +1049,7 @@ export function Dashboard({
           )}
         </TabsContent>
         <TabsContent value="calibrate">
-          {learning ? (
+          {activeTab !== "calibrate" ? null : learning ? (
             <AdaptiveCalibrationLab
               representativeDemo={representativeDemo}
               learning={learning}
@@ -886,6 +1059,7 @@ export function Dashboard({
               onStartFullDiagnostic={onStartFullDiagnostic}
               adaptiveBaselineRequired={false}
               onUseAdaptiveBaseline={applyAdaptiveBaseline}
+              canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">
@@ -897,21 +1071,28 @@ export function Dashboard({
           )}
         </TabsContent>
         <TabsContent value="progress">
-          <LearningTwinLab
-            plan={plan}
-            learning={learning}
-            onOpenLesson={() => {
-              setWorkspaceOpen(true)
-              setActiveTab("today")
-            }}
-          />
+          {activeTab === "progress" ? (
+            <LearningTwinLab
+              plan={plan}
+              learning={learning}
+              onOpenLesson={() => {
+                void loadLessonWorkspace()
+                setWorkspaceOpen(true)
+                setActiveTab("today")
+              }}
+              canViewTechnicalDetails={viewer.technicalDetails}
+            />
+          ) : null}
         </TabsContent>
         <TabsContent value="lab">
-          <AccessibleTestDayLab
-            key={labLaunch.key}
-            initialMode={labLaunch.mode}
-            initialSection={labLaunch.section}
-          />
+          {activeTab === "lab" ? (
+            <AccessibleTestDayLab
+              key={labLaunch.key}
+              initialMode={labLaunch.mode}
+              initialSection={labLaunch.section}
+              canViewTechnicalDetails={viewer.technicalDetails}
+            />
+          ) : null}
         </TabsContent>
         {activeTab === "control" && learning ? (
           <div>
@@ -936,6 +1117,7 @@ export function Dashboard({
                 )
               }
               onDeleteData={deleteLearnerData}
+              canViewTechnicalDetails={viewer.technicalDetails}
             />
           </div>
         ) : null}
@@ -946,30 +1128,30 @@ export function Dashboard({
         >
           <div className="grid w-full grid-cols-6">
             <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
-              <TabsTrigger
+              <DashboardTab
                 value="today"
                 className="min-h-14 px-1 text-[0.68rem]"
               >
                 Today
-              </TabsTrigger>
-              <TabsTrigger
+              </DashboardTab>
+              <DashboardTab
                 value="plan"
                 className="min-h-14 px-1 text-[0.68rem]"
               >
                 Week
-              </TabsTrigger>
-              <TabsTrigger
+              </DashboardTab>
+              <DashboardTab
                 value="calibrate"
                 className="min-h-14 px-1 text-[0.68rem]"
               >
                 Check
-              </TabsTrigger>
-              <TabsTrigger
+              </DashboardTab>
+              <DashboardTab
                 value="progress"
                 className="min-h-14 px-1 text-[0.68rem]"
               >
                 Progress
-              </TabsTrigger>
+              </DashboardTab>
             </TabsList>
             <div className="col-span-2 grid grid-cols-2">
               <MobileScoutDock onOpen={() => setMoreOpen(false)} />

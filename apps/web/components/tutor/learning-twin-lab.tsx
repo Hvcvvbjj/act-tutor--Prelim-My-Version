@@ -20,6 +20,7 @@ interface LearningTwinLabProps {
   plan: GeneratedPlan
   learning: LearningSessionPayload | null
   onOpenLesson: () => void
+  canViewTechnicalDetails: boolean
 }
 
 function percent(value: number) {
@@ -32,7 +33,9 @@ function AnswerHistory({ learning }: { learning: LearningSessionPayload }) {
     <section className="mt-12" aria-labelledby="answer-history-title">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
         <div>
-          <p className="ink-label text-primary">Inputs that changed the web</p>
+          <p className="ink-label text-primary">
+            Answers that changed your estimates
+          </p>
           <h2
             id="answer-history-title"
             className="mt-2 font-heading text-3xl font-black sm:text-4xl"
@@ -73,8 +76,8 @@ function AnswerHistory({ learning }: { learning: LearningSessionPayload }) {
                 </p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Estimate {percent(event.learnedBefore)} →{" "}
-                  {percent(event.learnedAfter)} · answer weight{" "}
-                  {Math.round(event.informationWeight * 100)}% · {event.source}
+                  {percent(event.learnedAfter)} ·{" "}
+                  {event.source === "calibration" ? "Quick Check" : "Practice"}
                 </p>
               </div>
               <time className="font-mono text-xs font-bold text-muted-foreground">
@@ -91,7 +94,7 @@ function AnswerHistory({ learning }: { learning: LearningSessionPayload }) {
           <ScoutCoach
             mood="thinking"
             message="No practice or Quick Check answer has changed a skill yet."
-            detail="The web currently shows starting estimates from skill-check answers, the section planning baseline, or a neutral 50% prior."
+            detail="The chart currently shows starting estimates from check answers, the section planning baseline, or a neutral 50% starting point."
           />
         </div>
       )}
@@ -184,6 +187,7 @@ export function LearningTwinLab({
   plan,
   learning,
   onOpenLesson,
+  canViewTechnicalDetails,
 }: LearningTwinLabProps) {
   const recommendation = learning?.learningTwin?.recommendation
   const skills = learning?.learningTwin?.skills
@@ -216,14 +220,14 @@ export function LearningTwinLab({
             <GaugeIcon className="size-6" aria-hidden="true" />
             <p className="ink-label">Your progress</p>
           </div>
-          <h1 className="mt-4 max-w-5xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
-            See the 12 skills Scout is tracking.
+          <h1 className="mt-4 max-w-5xl font-heading text-4xl leading-[0.96] font-black tracking-[-0.03em] sm:text-6xl">
+            See how your 12 skills are developing.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            A skill changes after a scored practice or Quick Check answer for
-            that skill, or after you save a model correction in Evidence & data.
-            Select any row below the web to see its starting source, answer
-            count, last change, and exact priority calculation.
+            A skill estimate changes after a scored practice or Quick Check
+            answer for that skill, or after you save a correction in Learning
+            data. Choose any skill to see where it started, how many answers
+            support it, and its latest change.
           </p>
         </div>
 
@@ -238,8 +242,8 @@ export function LearningTwinLab({
           </p>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             {learning.status === "complete"
-              ? `${current.label} is the last assignment you completed. Scout’s current next-skill ranking is ${recommendation.label}; open Today to start what comes next.`
-              : "This button continues the assignment already in progress. The web shows Scout’s current ranking; it does not predict how finishing this assignment will change that ranking or replace unfinished work."}
+              ? `${current.label} is the last assignment you completed. Scout recommends ${recommendation.label} next; open Today when you are ready.`
+              : "Continue the assignment already in progress. Scout will keep it in place until you finish it."}
           </p>
           {learning.status !== "complete" ? (
             <Button
@@ -260,23 +264,24 @@ export function LearningTwinLab({
         recommendation={recommendation}
         selectedSkill={effectiveSelected}
         onSelect={setSelectedSkill}
+        canViewTechnicalDetails={canViewTechnicalDetails}
       />
 
       <AnswerHistory learning={learning} />
-      <TechnicalMethod />
+      {canViewTechnicalDetails ? <TechnicalMethod /> : null}
 
       <Alert className="mt-10 bg-[var(--info-surface)]">
         <ShieldCheckIcon />
         <AlertTitle>What these numbers do—and do not—mean</AlertTitle>
         <AlertDescription>
-          The percentages rank practice inside Scout. They are not official ACT
-          scores, percent correct, or promises that a target is reachable.
+          Scout uses these percentages to choose practice. They are not official
+          ACT scores, percent correct, or promises that a target is reachable.
           {plan.evidence.source === "rapid_diagnostic"
             ? plan.diagnosticResult
-              ? ` Your full diagnostic created a fixed internal planning proxy for a goal of ${plan.draft.goal}.`
-              : ` Your Quick Check created an internal planning proxy for a goal of ${plan.draft.goal}.`
+              ? ` Your full diagnostic created a fixed planning baseline for a goal of ${plan.draft.goal}.`
+              : ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
             : ` Your plan starts from Composite ${plan.currentComposite} and a goal of ${plan.draft.goal}.`}{" "}
-          The skill-priority formula itself does not use that goal.
+          Your ACT goal shapes the schedule, not the order of skills here.
         </AlertDescription>
       </Alert>
     </main>

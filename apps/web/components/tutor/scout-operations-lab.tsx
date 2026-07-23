@@ -21,45 +21,49 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
     () => [
       {
         id: "learner" as const,
-        label: "Skill estimates",
+        label: "Skill progress",
         icon: BrainCircuitIcon,
       },
       { id: "act" as const, label: "ACT strategy", icon: GaugeIcon },
-      {
-        id: "trust" as const,
-        label: "Developer diagnostics",
-        icon: ShieldCheckIcon,
-      },
+      ...(props.canViewTechnicalDetails
+        ? [
+            {
+              id: "trust" as const,
+              label: "Technical details",
+              icon: ShieldCheckIcon,
+            },
+          ]
+        : []),
     ],
-    []
+    [props.canViewTechnicalDetails]
   )
 
   return (
     <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
       <header className="grid gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
         <div>
-          <p className="ink-label text-primary">Evidence and developer tools</p>
-          <h1 className="mt-3 max-w-5xl font-heading text-6xl leading-[0.92] font-black tracking-[-0.04em] sm:text-8xl">
-            Inspect stored values and fixed decision rules.
+          <p className="ink-label text-primary">Learning data</p>
+          <h1 className="mt-3 max-w-5xl font-heading text-4xl leading-[0.96] font-black tracking-[-0.03em] sm:text-6xl">
+            See what Scout knows about your learning.
           </h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-            Skill estimates shows the values Scout stores for this learner. ACT
-            strategy shows current format and timing. Developer diagnostics
-            compares fixed decision rules, inspects saved decision records, and
-            displays imported summary metrics. It does not decide which model
-            teaches better.
+          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+            Review your skill estimates, pacing notes, saved corrections, and
+            ACT strategy.
+            {props.canViewTechnicalDetails
+              ? " Judge view also shows the fixed rules and evidence receipts behind Scout’s choices."
+              : " Everything here is written for learners, so you can focus on what to do next."}
           </p>
         </div>
         <ScoutCoach
           mood="thinking"
           message="Nothing on this page changes your data unless you save a correction or choose delete."
-          detail="Every estimate should name its input, calculation, and limit."
+          detail="You can review the information, correct an estimate, or delete your data."
         />
       </header>
 
       <nav
-        className="sticky top-20 z-10 -mx-4 flex gap-2 overflow-x-auto border-b-2 border-foreground bg-background px-4 py-4 sm:-mx-7 sm:px-7"
-        aria-label="Evidence and data sections"
+        className="sticky top-20 z-10 -mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto border-b-2 border-foreground bg-background px-4 py-4 sm:-mx-7 sm:px-7 [&::-webkit-scrollbar]:hidden"
+        aria-label="Learning data sections"
       >
         {tabs.map(({ id, label, icon: Icon }) => (
           <Button
@@ -77,18 +81,20 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
           className="ml-auto"
           onClick={() =>
             openScout(
-              "Explain these evidence and data tools and tell me where to start."
+              "Explain my learning data in regular English and tell me where to start."
             )
           }
         >
-          Ask Scout about this
+          Ask Scout about my data
         </Button>
       </nav>
 
       <div className="pt-9">
         {view === "learner" ? <LearnerModelView {...props} /> : null}
         {view === "act" ? <ActStrategyView {...props} /> : null}
-        {view === "trust" ? <TrustView {...props} /> : null}
+        {view === "trust" && props.canViewTechnicalDetails ? (
+          <TrustView {...props} />
+        ) : null}
       </div>
     </main>
   )

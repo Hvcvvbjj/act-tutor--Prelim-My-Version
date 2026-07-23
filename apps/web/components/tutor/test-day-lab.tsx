@@ -49,10 +49,12 @@ export function TestDayLab({
   extendedTime = false,
   initialMode = "sprint",
   initialSection = "english",
+  canViewTechnicalDetails = false,
 }: {
   extendedTime?: boolean
   initialMode?: ExamLabMode
   initialSection?: CoreSection
+  canViewTechnicalDetails?: boolean
 }) {
   const [screen, setScreen] = useState<LabScreen>("loading")
   const [session, setSession] = useState<ExamLabSessionPayload | null>(null)
@@ -386,7 +388,11 @@ export function TestDayLab({
           onSubmit={finalize}
         />
       ) : screen === "results" && session ? (
-        <ExamLabReport session={session} onNewRun={reset} />
+        <ExamLabReport
+          session={session}
+          onNewRun={reset}
+          canViewTechnicalDetails={canViewTechnicalDetails}
+        />
       ) : null}
     </>
   )

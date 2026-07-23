@@ -21,6 +21,7 @@ import {
   ChevronRightIcon,
   CircleIcon,
   Clock3Icon,
+  CopyIcon,
   DumbbellIcon,
   GaugeIcon,
   HistoryIcon,
@@ -46,6 +47,7 @@ interface AdaptivePlanStudioProps {
   learning: LearningSessionPayload
   busy: boolean
   onLaunchTask: (task: StudyPlanTask) => void
+  canViewTechnicalDetails: boolean
 }
 
 type PlanResponse = { plan: AdaptiveStudyPlan } | { error: string }
@@ -108,18 +110,18 @@ const TASK_META: Record<
 
 const HEALTH_COPY = {
   "on-track": {
-    label: "At least 95%",
-    title: "Scheduled minutes meet Scout’s rough internal time target.",
+    label: "Time target met",
+    title: "Your schedule meets Scout’s rough time target.",
     className: "text-primary",
   },
   tight: {
-    label: "72–94%",
-    title: "Scheduled minutes cover part of Scout’s rough internal target.",
+    label: "More time may help",
+    title: "Your schedule covers most of Scout’s rough time target.",
     className: "text-[var(--scout-coral-text)]",
   },
   "under-capacity": {
-    label: "Below 72%",
-    title: "Scheduled minutes are below Scout’s rough internal target.",
+    label: "Add study time",
+    title: "Your schedule may be too light for this plan.",
     className: "text-destructive",
   },
 } as const
@@ -171,6 +173,28 @@ function daysBetween(start: string, end: string) {
       new Date(`${start}T00:00:00.000Z`).getTime()) /
       86_400_000
   )
+}
+
+function studyWeekShareText(plan: AdaptiveStudyPlan, weekStart: string) {
+  const weekEnd = addCalendarDaysFrom(weekStart, 6)
+  const tasks = [...tasksForStudyWeek(plan.tasks, weekStart)].sort(
+    (left, right) =>
+      left.date.localeCompare(right.date) || left.id.localeCompare(right.id)
+  )
+  const taskLines = tasks.map((task) => {
+    const status = task.status === "complete" ? " · done" : ""
+    return `${longWeekday(task.date)}, ${shortDate(task.date)} — ${TASK_META[task.kind].label}: ${task.title} (${task.minutes} min${status})`
+  })
+
+  return [
+    "Scout ACT study week",
+    `${shortDate(weekStart)}–${shortDate(weekEnd)}`,
+    "",
+    ...(taskLines.length ? taskLines : ["No study tasks scheduled this week."]),
+    "",
+    `ACT test day: ${formatCalendarDate(plan.testDate)}`,
+    "Practice plan only—not an official ACT score prediction.",
+  ].join("\n")
 }
 
 function AvailabilityEditor({
@@ -522,11 +546,13 @@ function TaskInspector({
   learning,
   busy,
   onLaunch,
+  canViewTechnicalDetails,
 }: {
   task: StudyPlanTask | null
   learning: LearningSessionPayload
   busy: boolean
   onLaunch: (task: StudyPlanTask) => void
+  canViewTechnicalDetails: boolean
 }) {
   if (!task) {
     return (
@@ -605,12 +631,14 @@ function TaskInspector({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {task.reason}
         </p>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          This sentence was stored when the task was scheduled. It names the
-          displayed skill inputs and phase rule, but it does not preserve a
-          numeric trace of every ranking weight or tie-break. Those fixed rules
-          are listed at the bottom of this page.
-        </p>
+        {canViewTechnicalDetails ? (
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            This sentence was stored when the task was scheduled. It names the
+            displayed skill inputs and phase rule, but it does not preserve a
+            numeric trace of every ranking weight or tie-break. Those fixed
+            rules are listed at the bottom of this page.
+          </p>
+        ) : null}
       </details>
 
       <div className="mt-6 border-b-2 border-foreground pb-5">
@@ -668,6 +696,7 @@ export function AdaptivePlanStudio({
   learning,
   busy: parentBusy,
   onLaunchTask,
+  canViewTechnicalDetails,
 }: AdaptivePlanStudioProps) {
   const [adaptivePlan, setAdaptivePlan] = useState<AdaptiveStudyPlan | null>(
     null
@@ -677,6 +706,9 @@ export function AdaptivePlanStudio({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [changingTaskId, setChangingTaskId] = useState<string | null>(null)
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  )
   const initializedKey = `${plan.today}:${plan.draft.testDate}:${plan.currentComposite}:${plan.draft.goal}:${plan.intensity.studyDaysPerWeek}:${plan.intensity.minutesPerSession}`
   const initializedRef = useRef<string | null>(null)
   const syncedSkillsRef = useRef<string | null>(null)
@@ -797,6 +829,24 @@ export function AdaptivePlanStudio({
   const selectedTask =
     adaptivePlan?.tasks.find((task) => task.id === selectedTaskId) ?? null
 
+  function showWeek(nextWeek: string) {
+    setWeekStart(nextWeek)
+    setCopyStatus("idle")
+  }
+
+  async function copyWeek() {
+    if (!adaptivePlan) return
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable")
+      await navigator.clipboard.writeText(
+        studyWeekShareText(adaptivePlan, weekStart)
+      )
+      setCopyStatus("copied")
+    } catch {
+      setCopyStatus("error")
+    }
+  }
+
   async function updateAvailability(
     entries: ReadonlyArray<StudyAvailabilityEntry>
   ) {
@@ -848,7 +898,7 @@ export function AdaptivePlanStudio({
         today: plan.today,
       })
       setAdaptivePlan(nextPlan)
-      setWeekStart(studyWeekStart(nextPlan.today))
+      showWeek(studyWeekStart(nextPlan.today))
       setError(null)
     } catch (caught) {
       setError(
@@ -919,12 +969,9 @@ export function AdaptivePlanStudio({
             Your study plan, week by week.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            This calendar fills only the weekdays and minutes you allow.
-            Assignments are ranked from the 12 BKT skill estimates,
-            scored-answer counts, stored review dates, and planned
-            English/Math/Reading score movement. Choose an assignment to see the
-            input values stored in its explanation; the complete fixed weights
-            and tie-break rules are listed below the calendar.
+            Scout fills only the days and minutes you allow, then prioritizes
+            skills that need practice and reviews that are coming due. Choose
+            any assignment to see why it is on your calendar.
           </p>
         </div>
         <dl className="grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-4 text-center lg:min-w-[30rem]">
@@ -951,29 +998,31 @@ export function AdaptivePlanStudio({
 
       <section className="mt-6 border-l-4 border-primary bg-[var(--info-surface)] p-5">
         <p className="ink-label text-primary">
-          Rough time-rule check ·{" "}
-          {Math.round(adaptivePlan.forecast.capacityRatio * 100)}%
+          Study-time check ·{" "}
+          {Math.round(adaptivePlan.forecast.capacityRatio * 100)}% of target
         </p>
         <h2 className="mt-2 font-heading text-2xl font-bold">{health.title}</h2>
         <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-          Scout’s rough target is {adaptivePlan.forecast.recommendedMinutes}{" "}
-          total minutes before test day. The calendar currently contains{" "}
-          {adaptivePlan.forecast.scheduledMinutes} minutes. This comparison is a
-          product rule, not evidence that the ACT goal is reachable.
+          Scout’s rough rule recommends{" "}
+          {adaptivePlan.forecast.recommendedMinutes} minutes before test day.
+          You have scheduled {adaptivePlan.forecast.scheduledMinutes}. This is a
+          planning check—not proof that your ACT goal is reachable.
         </p>
-        <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
-          <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            Show the exact rough-time formula
-          </summary>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            120 base minutes + 25 minutes for every planned section-score point
-            across English, Math, and Reading + 15 minutes for every skill
-            estimate below 65%. Current result:{" "}
-            {adaptivePlan.forecast.recommendedMinutes} minutes. These weights
-            are fixed in code and are not a research-based time-to-score
-            conversion.
-          </p>
-        </details>
+        {canViewTechnicalDetails ? (
+          <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
+            <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              See how Scout calculated this target
+            </summary>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              120 base minutes + 25 minutes for every planned section-score
+              point across English, Math, and Reading + 15 minutes for every
+              skill estimate below 65%. Current result:{" "}
+              {adaptivePlan.forecast.recommendedMinutes} minutes. These weights
+              are fixed in code and are not a research-based time-to-score
+              conversion.
+            </p>
+          </details>
+        ) : null}
       </section>
 
       <MilestoneRail plan={adaptivePlan} />
@@ -1007,8 +1056,17 @@ export function AdaptivePlanStudio({
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => void copyWeek()}
+                aria-describedby="copy-week-status"
+              >
+                {copyStatus === "copied" ? <CheckIcon /> : <CopyIcon />}
+                {copyStatus === "copied" ? "Week copied" : "Copy week"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 size="icon"
-                onClick={() => setWeekStart(shiftStudyWeek(weekStart, -1))}
+                onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
                 disabled={!canGoBack}
                 aria-label="Previous study week"
               >
@@ -1017,7 +1075,7 @@ export function AdaptivePlanStudio({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setWeekStart(firstWeek)}
+                onClick={() => showWeek(firstWeek)}
                 disabled={weekStart === firstWeek}
               >
                 This week
@@ -1026,7 +1084,7 @@ export function AdaptivePlanStudio({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setWeekStart(shiftStudyWeek(weekStart, 1))}
+                onClick={() => showWeek(shiftStudyWeek(weekStart, 1))}
                 disabled={!canGoForward}
                 aria-label="Next study week"
               >
@@ -1034,6 +1092,22 @@ export function AdaptivePlanStudio({
               </Button>
             </div>
           </div>
+          <p id="copy-week-status" className="sr-only" aria-live="polite">
+            {copyStatus === "copied"
+              ? "This study week was copied to your clipboard."
+              : copyStatus === "error"
+                ? "Scout could not copy this week. Check your browser clipboard permission."
+                : "Copy the visible study week as plain text."}
+          </p>
+          {copyStatus === "error" ? (
+            <p
+              className="mb-4 text-sm font-semibold text-destructive"
+              role="alert"
+            >
+              Copying was blocked. Check your browser&apos;s clipboard
+              permission.
+            </p>
+          ) : null}
           <WeekPlanner
             plan={adaptivePlan}
             weekStart={weekStart}
@@ -1069,6 +1143,7 @@ export function AdaptivePlanStudio({
                 learning={learning}
                 busy={busy}
                 onLaunch={onLaunchTask}
+                canViewTechnicalDetails={canViewTechnicalDetails}
               />
               <div className="mt-7">
                 <AvailabilityEditor
@@ -1085,57 +1160,61 @@ export function AdaptivePlanStudio({
               learning={learning}
               busy={busy}
               onLaunch={onLaunchTask}
+              canViewTechnicalDetails={canViewTechnicalDetails}
             />
           )}
         </aside>
       </div>
 
-      <footer className="mt-10 border-t-2 border-foreground pt-6">
-        <details>
-          <summary className="cursor-pointer font-heading text-xl font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            Calendar generator rules
-          </summary>
-          <div className="mt-5 grid gap-5 md:grid-cols-3">
-            <div className="flex gap-3">
-              <RouteIcon
-                className="mt-1 shrink-0 text-primary"
-                aria-hidden="true"
-              />
-              <p className="text-sm leading-6">
-                <strong>Calendar:</strong>{" "}
-                {adaptivePlan.forecast.scheduledMinutes} minutes are split only
-                across the allowed weekdays before test day. A day with more
-                than 35 minutes is split into two or three assignments.
-              </p>
+      {canViewTechnicalDetails ? (
+        <footer className="mt-10 border-t-2 border-foreground pt-6">
+          <details>
+            <summary className="cursor-pointer font-heading text-xl font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              Calendar generator rules
+            </summary>
+            <div className="mt-5 grid gap-5 md:grid-cols-3">
+              <div className="flex gap-3">
+                <RouteIcon
+                  className="mt-1 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <p className="text-sm leading-6">
+                  <strong>Calendar:</strong>{" "}
+                  {adaptivePlan.forecast.scheduledMinutes} minutes are split
+                  only across the allowed weekdays before test day. A day with
+                  more than 35 minutes is split into two or three assignments.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <SparklesIcon
+                  className="mt-1 shrink-0 text-[var(--scout-coral)]"
+                  aria-hidden="true"
+                />
+                <p className="text-sm leading-6">
+                  <strong>Skill score:</strong> (1 − skill estimate) × 0.48 for
+                  a lesson or × 0.40 otherwise; evidence scarcity × 0.28 for a
+                  lesson or × 0.12 otherwise; section movement ÷ 35 × 0.30; a
+                  due review × 0.42 for review or × 0.08 otherwise; and the
+                  stored Today/Next flag × 0.35. Evidence scarcity is 1 − min(1,
+                  scored answers ÷ 6). Equal totals sort by skill name.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <LockKeyholeIcon className="mt-1 shrink-0" aria-hidden="true" />
+                <p className="text-sm leading-6">
+                  <strong>Assignment choice:</strong> the first slot uses the
+                  stored Today/Next skill when its flag is above zero. Later
+                  slots rotate through sections in this order: largest target
+                  movement, second-largest, largest again, then third-largest.
+                  Within that section, the generator alternates between the top
+                  two ranked skills. AI lesson text does not choose dates or
+                  tasks.
+                </p>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <SparklesIcon
-                className="mt-1 shrink-0 text-[var(--scout-coral)]"
-                aria-hidden="true"
-              />
-              <p className="text-sm leading-6">
-                <strong>Skill score:</strong> (1 − BKT estimate) × 0.48 for a
-                lesson or × 0.40 otherwise; evidence scarcity × 0.28 for a
-                lesson or × 0.12 otherwise; section movement ÷ 35 × 0.30; a due
-                review × 0.42 for review or × 0.08 otherwise; and the stored
-                Today/Next flag × 0.35. Evidence scarcity is 1 − min(1, scored
-                answers ÷ 6). Equal totals sort by skill name.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <LockKeyholeIcon className="mt-1 shrink-0" aria-hidden="true" />
-              <p className="text-sm leading-6">
-                <strong>Assignment choice:</strong> the first slot uses the
-                stored Today/Next skill when its flag is above zero. Later slots
-                rotate through sections in this order: largest target movement,
-                second-largest, largest again, then third-largest. Within that
-                section, the generator alternates between the top two ranked
-                skills. AI lesson text does not choose dates or tasks.
-              </p>
-            </div>
-          </div>
-        </details>
-      </footer>
+          </details>
+        </footer>
+      ) : null}
     </main>
   )
 }

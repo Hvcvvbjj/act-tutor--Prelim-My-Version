@@ -1,4 +1,14 @@
+import { fileURLToPath } from "node:url"
+
 import { defineConfig, devices } from "@playwright/test"
+
+for (const envFile of [".env.local", ".env.e2e.local"]) {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL(envFile, import.meta.url)))
+  } catch {
+    // CI can provide the same values directly without local env files.
+  }
+}
 
 export default defineConfig({
   testDir: "./e2e",

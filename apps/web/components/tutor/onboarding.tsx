@@ -9,10 +9,12 @@ import {
   MinusIcon,
   PlayCircleIcon,
   PlusIcon,
+  SkipForwardIcon,
   TargetIcon,
   TrendingUpIcon,
 } from "lucide-react"
 
+import { AccountAccess } from "@/components/tutor/account-access"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import type { PlacementDraft } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
@@ -29,10 +31,13 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { formatCalendarDate } from "@/lib/dates"
+import type { AuthViewer, SavedTutorPlan } from "@/lib/auth-types"
 import { cn } from "@/lib/utils"
 
 interface OnboardingProps {
   draft: PlacementDraft
+  viewer: AuthViewer
+  savedPlan: SavedTutorPlan | null
   error: string | null
   step: number
   today: string
@@ -41,6 +46,7 @@ interface OnboardingProps {
   onDismissWelcome: () => void
   onJudgeDemo: () => void
   showWelcome: boolean
+  onViewerChange: (viewer: AuthViewer) => void
   onUpdate: (update: Partial<PlacementDraft>) => void
 }
 
@@ -50,19 +56,23 @@ const STEP_COPY = [
   {
     title: "Choose your ACT goal",
     description:
-      "Choose the Composite you want to work toward. Scout raises English, Math, and Reading targets by whole points until their rounded average reaches your goal. Among the combinations with the smallest total squared increase, your focus preference breaks ties. This is a scheduling target, not a score prediction.",
+      "Pick the Composite score you want to work toward. Scout uses it to set section targets and shape your schedule. This is a planning goal—not a score prediction.",
+    technical:
+      "Scout raises English, Math, and Reading targets by whole points. It chooses the combination whose rounded average reaches your goal with the smallest total squared increase; your focus preference breaks ties.",
     next: "Add my starting score",
   },
   {
     title: "Add your latest ACT scores",
     description:
       "Enter scores from one recent official or practice ACT. Section scores drive the plan. If you only know your Composite, Scout uses it as a temporary starting point for all three sections.",
+    technical: null,
     next: "Set my schedule",
   },
   {
     title: "Make a schedule you can keep",
     description:
       "Pick a test date, study days, and minutes. Scout fills only those study blocks. The date changes the mix of lessons, reviews, and timed practice; this schedule does not prove the goal is achievable.",
+    technical: null,
     next: "Create my first plan",
   },
 ] as const
@@ -189,7 +199,9 @@ function PlanSummary({
             <dt className="text-sm text-muted-foreground">Starting point</dt>
             <dd className="text-lg font-bold">
               {draft.priorScoreChoice === "never"
-                ? "Short check next"
+                ? draft.startingCheckChoice === "skip"
+                  ? "Starter plan"
+                  : "Short check next"
                 : draft.composite}
             </dd>
           </div>
@@ -218,6 +230,8 @@ function PlanSummary({
 
 export function Onboarding({
   draft,
+  viewer,
+  savedPlan,
   error,
   step,
   today,
@@ -226,6 +240,7 @@ export function Onboarding({
   onDismissWelcome,
   onJudgeDemo,
   showWelcome,
+  onViewerChange,
   onUpdate,
 }: OnboardingProps) {
   const stepCopy = STEP_COPY[step - 1] ?? STEP_COPY[0]
@@ -233,11 +248,18 @@ export function Onboarding({
   if (showWelcome) {
     return (
       <div className="min-h-svh bg-background text-foreground">
-        <header className="flex h-16 items-center gap-2.5 border-b px-5 sm:px-8">
-          <ScoutMark className="size-9" />
-          <p className="font-heading text-xl font-black tracking-tight">
-            SCOUT <span className="text-primary">ACT</span>
-          </p>
+        <header className="flex min-h-16 items-center justify-between gap-4 border-b px-5 py-2 sm:px-8">
+          <div className="flex items-center gap-2.5">
+            <ScoutMark className="size-9" />
+            <p className="font-heading text-xl font-black tracking-tight">
+              SCOUT <span className="text-primary">ACT</span>
+            </p>
+          </div>
+          <AccountAccess
+            viewer={viewer}
+            savedPlan={savedPlan}
+            onViewerChange={onViewerChange}
+          />
         </header>
 
         <main className="mx-auto flex w-full max-w-5xl items-center px-5 py-10 sm:min-h-[calc(100svh-4rem)] sm:px-8 sm:py-14">
@@ -259,14 +281,12 @@ export function Onboarding({
                 </h1>
                 <p className="mt-5 max-w-3xl text-lg leading-8">
                   I&apos;ll be your ACT study coach from here on out. Tell me
-                  your goal, your latest scores if you have them, and when you
-                  can study. I&apos;ll turn those inputs into your first weekly
-                  schedule.
+                  your goal, where you&apos;re starting, and when you can study.
+                  I&apos;ll build a first-week plan you can adjust.
                 </p>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                  After each scored practice answer, I update the matching skill
-                  estimate and may reorder future practice. Skill percentages
-                  are practice estimates, not ACT scores.
+                  As you practice, I use your answers to choose what to teach
+                  next. Skill percentages are study estimates—not ACT scores.
                 </p>
 
                 <div className="mt-7 border-l-4 border-primary bg-[var(--info-surface)] px-5 py-4">
@@ -282,15 +302,17 @@ export function Onboarding({
                     Set up my plan
                     <ArrowRightIcon data-icon="inline-end" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={onJudgeDemo}
-                    className="h-auto justify-start px-0 font-bold sm:px-4"
-                  >
-                    <PlayCircleIcon data-icon="inline-start" />
-                    Preview Scout with sample answers
-                  </Button>
+                  {viewer.technicalDetails ? (
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={onJudgeDemo}
+                      className="h-auto justify-start px-0 font-bold sm:px-4"
+                    >
+                      <PlayCircleIcon data-icon="inline-start" />
+                      Open the judge demo
+                    </Button>
+                  ) : null}
                 </div>
                 <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />
@@ -306,11 +328,18 @@ export function Onboarding({
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex h-16 items-center gap-2.5 border-b px-5 sm:px-8">
-        <ScoutMark className="size-9" />
-        <p className="font-heading text-xl font-black tracking-tight">
-          SCOUT <span className="text-primary">ACT</span>
-        </p>
+      <header className="flex min-h-16 items-center justify-between gap-4 border-b px-5 py-2 sm:px-8">
+        <div className="flex items-center gap-2.5">
+          <ScoutMark className="size-9" />
+          <p className="font-heading text-xl font-black tracking-tight">
+            SCOUT <span className="text-primary">ACT</span>
+          </p>
+        </div>
+        <AccountAccess
+          viewer={viewer}
+          savedPlan={savedPlan}
+          onViewerChange={onViewerChange}
+        />
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-5 py-7 sm:px-8 sm:py-10">
@@ -327,6 +356,16 @@ export function Onboarding({
             <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
               {stepCopy.description}
             </p>
+            {viewer.technicalDetails && stepCopy.technical ? (
+              <details className="mt-4 max-w-2xl border-l-2 border-primary/35 pl-4 text-sm">
+                <summary className="cursor-pointer font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                  How Scout sets section targets
+                </summary>
+                <p className="mt-2 leading-6 text-muted-foreground">
+                  {stepCopy.technical}
+                </p>
+              </details>
+            ) : null}
 
             <div
               key={step}
@@ -496,12 +535,70 @@ export function Onboarding({
                       ) : null}
                     </div>
                   ) : (
-                    <ScoutCoach
-                      className="mt-6 max-w-2xl"
-                      mood="ready"
-                      message="No scores yet? Start with an 8–12 question check."
-                      detail="To open the check, Scout temporarily sets English, Math, and Reading to 18. That is not your result. When you finish and build the plan, your answers replace those placeholders."
-                    />
+                    <div className="mt-6 max-w-2xl">
+                      <ScoutCoach
+                        mood="ready"
+                        message="Choose whether to take the starting check now."
+                        detail="The 8–12 question check gives Scout a better starting point. You can also skip it, open a temporary starter plan, and take Quick Check later."
+                      />
+                      <RadioGroup
+                        value={draft.startingCheckChoice}
+                        onValueChange={(value) =>
+                          onUpdate({
+                            startingCheckChoice:
+                              value as PlacementDraft["startingCheckChoice"],
+                          })
+                        }
+                        className="mt-4 grid gap-3"
+                        aria-label="Starting check choice"
+                      >
+                        <FieldLabel
+                          className={cn(
+                            "cursor-pointer rounded-xl border p-4",
+                            draft.startingCheckChoice === "take" &&
+                              "border-primary bg-secondary"
+                          )}
+                        >
+                          <Field orientation="horizontal">
+                            <RadioGroupItem value="take" />
+                            <FieldContent>
+                              <span className="font-semibold">
+                                Take the 8–12 question starting check
+                              </span>
+                              <FieldDescription>
+                                Recommended. Your answers replace every
+                                temporary starting number before the plan opens.
+                              </FieldDescription>
+                            </FieldContent>
+                          </Field>
+                        </FieldLabel>
+                        <FieldLabel
+                          className={cn(
+                            "cursor-pointer rounded-xl border p-4",
+                            draft.startingCheckChoice === "skip" &&
+                              "border-primary bg-secondary"
+                          )}
+                        >
+                          <Field orientation="horizontal">
+                            <RadioGroupItem value="skip" />
+                            <FieldContent>
+                              <span className="flex items-center gap-2 font-semibold">
+                                <SkipForwardIcon
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
+                                Skip for now
+                              </span>
+                              <FieldDescription>
+                                Opens a starter plan using 18 as a temporary
+                                planning number—not your score. Quick Check
+                                stays available whenever you are ready.
+                              </FieldDescription>
+                            </FieldContent>
+                          </Field>
+                        </FieldLabel>
+                      </RadioGroup>
+                    </div>
                   )}
                 </FieldSet>
               ) : null}
@@ -634,14 +731,14 @@ export function Onboarding({
               ) : null}
             </div>
 
-            <div className="mt-8 flex max-w-2xl gap-3">
+            <div className="mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
               {step > 1 ? (
                 <Button
                   type="button"
                   size="xl"
                   variant="outline"
                   onClick={onBack}
-                  className="min-w-28"
+                  className="w-full sm:w-auto sm:min-w-28"
                 >
                   <ArrowLeftIcon data-icon="inline-start" />
                   Back
@@ -651,11 +748,13 @@ export function Onboarding({
                 type="button"
                 size="xl"
                 onClick={onContinue}
-                className="flex-1"
+                className="w-full sm:flex-1"
               >
                 {step === 3
                   ? draft.priorScoreChoice === "never"
-                    ? "Take my starting check"
+                    ? draft.startingCheckChoice === "skip"
+                      ? "Create my starter plan"
+                      : "Take my starting check"
                     : stepCopy.next
                   : stepCopy.next}
                 <ArrowRightIcon data-icon="inline-end" />
@@ -675,15 +774,17 @@ export function Onboarding({
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />
                   No account needed.
                 </p>
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={onJudgeDemo}
-                  className="h-auto px-0 font-bold"
-                >
-                  <PlayCircleIcon data-icon="inline-start" />
-                  Preview Scout with sample answers
-                </Button>
+                {viewer.technicalDetails ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={onJudgeDemo}
+                    className="h-auto px-0 font-bold"
+                  >
+                    <PlayCircleIcon data-icon="inline-start" />
+                    Open the judge demo
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </section>

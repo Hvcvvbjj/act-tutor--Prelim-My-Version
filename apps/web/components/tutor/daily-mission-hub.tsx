@@ -40,6 +40,7 @@ interface DailyMissionHubProps {
   onStartChallenge: (skill?: string) => void
   onStartMicro: (skill?: string) => void
   onStartRecovery: () => void
+  canViewTechnicalDetails: boolean
 }
 
 const STEP_META = {
@@ -348,7 +349,8 @@ function WeeklySummary(props: DailyMissionHubProps) {
   const provisional = plan.adaptiveBaselineRequired === true
   const isInternalProxy =
     plan.evidence.source === "rapid_diagnostic" ||
-    plan.evidence.source === "starter_diagnostic"
+    plan.evidence.source === "starter_diagnostic" ||
+    plan.evidence.source === "not_taken"
   return (
     <aside className="rounded-xl border bg-background p-5 lg:sticky lg:top-24">
       <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
@@ -385,9 +387,15 @@ function WeeklySummary(props: DailyMissionHubProps) {
           />
           <div>
             <dt className="font-bold">
-              {learning.mission.progress.currentStreak} day streak
+              {learning.mission.progress.currentStreak === 0
+                ? "No streak yet"
+                : `${learning.mission.progress.currentStreak}-day streak`}
             </dt>
-            <dd className="text-sm text-muted-foreground">Keep it going</dd>
+            <dd className="text-sm text-muted-foreground">
+              {learning.mission.progress.currentStreak === 0
+                ? "Start with today’s lesson"
+                : "Keep it going"}
+            </dd>
           </div>
         </div>
       </dl>
@@ -413,7 +421,7 @@ function WeeklySummary(props: DailyMissionHubProps) {
               </p>
               <p className="text-sm text-muted-foreground">
                 {isInternalProxy
-                  ? "Internal planning proxy · not an ACT score"
+                  ? "Planning baseline · not an ACT score"
                   : "Reported planning baseline"}
               </p>
             </div>
@@ -434,11 +442,9 @@ function WeeklySummary(props: DailyMissionHubProps) {
           <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
         </summary>
         <p className="pb-5 text-sm leading-6 text-muted-foreground">
-          Each scored answer updates only its tested skill. Scout then reranks
-          all 12 skills with four fixed factors: predicted chance on a medium
-          item, estimate entropy, answer count, and a recent miss. The highest
-          total becomes the next recommended skill; this does not recalculate an
-          ACT score.
+          {props.canViewTechnicalDetails
+            ? "Each scored answer updates only its tested skill. Scout then reranks all 12 skills with four fixed factors: predicted chance on a medium item, how uncertain the estimate is, answer count, and a recent miss. The highest total becomes the next recommended skill; this does not recalculate an ACT score."
+            : "Each scored answer updates the skill it tested. Scout then checks your recent answers and amount of practice to choose what should come next. This does not recalculate an ACT score."}
         </p>
       </details>
       <PaceControls {...props} />
@@ -628,10 +634,6 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
   if (!currentSkill) return null
   const assignmentIsCurrentRecommendation =
     currentRecommendation.skill === learning.todaySkill
-  const topFactors = [...currentRecommendation.contributions]
-    .filter((factor) => factor.points > 0)
-    .sort((left, right) => right.points - left.points)
-    .slice(0, 2)
   return (
     <div className="space-y-6 pb-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
@@ -655,7 +657,7 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <Clock3Icon className="size-4" aria-hidden="true" />
-              Usual study block: {plan.intensity.minutesPerSession} min
+              {plan.intensity.minutesPerSession}-minute study block
             </span>
             <span className="inline-flex items-center gap-2">
               <CalendarDaysIcon className="size-4" aria-hidden="true" />
@@ -667,8 +669,8 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
             <MissionAction {...props} />
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
               {learning.status === "complete"
-                ? `Done. Scout reranked all 12 skills; ${currentRecommendation.label} now has the highest practice-priority total. The dated calendar did not change.`
-                : `Finish the steps below. Each scored answer updates ${learning.mastery.label}; after the set, Scout reranks all 12 skills.`}
+                ? `Done. Scout used your answers to choose ${currentRecommendation.label} next. Your dated calendar stays the same.`
+                : "Finish these steps. After practice, Scout uses your answers to choose what to study next."}
             </p>
           </div>
 
@@ -681,8 +683,8 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
                 </p>
                 <p className="mt-1 text-sm leading-6">
                   {assignmentIsCurrentRecommendation
-                    ? `${currentSkill.label} currently has a ${Math.round(currentSkill.learnedProbability * 100)}% BKT estimate from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. Its priority total is ${currentRecommendation.priorityScore}/100. The largest factors are ${topFactors.map((factor) => `${factor.label.toLowerCase()} (+${factor.points})`).join(" and ") || "the fixed ranking rules"}. Your ACT goal is not part of this ranking.`
-                    : `This assignment is already in progress, so Scout will not replace it. The current ranking now places ${currentRecommendation.label} next with a priority total of ${currentRecommendation.priorityScore}/100.`}
+                    ? `Scout chose ${currentSkill.label} because your recent answers and amount of practice show it needs attention next. Your ACT goal does not affect this choice.`
+                    : `You already started this assignment, so Scout kept it in place. Finish it before moving to ${currentRecommendation.label}.`}
                 </p>
               </div>
             </div>

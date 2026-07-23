@@ -6,11 +6,13 @@ import type {
 } from "@act-tutor/core"
 
 export type PriorScoreChoice = "scores" | "composite_only" | "never"
+export type StartingCheckChoice = "take" | "skip"
 export type DashboardTab = "today" | "plan" | "progress"
 
 export interface PlacementDraft {
   goal: number
   priorScoreChoice: PriorScoreChoice
+  startingCheckChoice: StartingCheckChoice
   composite: number
   english: number
   math: number
@@ -33,4 +35,5 @@ export interface GeneratedPlan {
   weakestSection: "english" | "math" | "reading"
   diagnosticResult?: DiagnosticResult
   adaptiveBaselineRequired?: boolean
+  baselineSkipped?: boolean
 }

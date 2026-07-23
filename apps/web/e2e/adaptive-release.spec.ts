@@ -11,6 +11,19 @@ interface CalibrationPayload {
   currentQuestion: CalibrationQuestion | null
 }
 
+async function openStarterPlan(page: import("@playwright/test").Page) {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Set up my plan" }).click()
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
+  await page.getByRole("radio", { name: /Skip for now/ }).check()
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+  await page.getByRole("button", { name: "Create my starter plan" }).click()
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toBeVisible()
+}
+
 test("Quick Check atomically replaces the temporary server lesson and Today mission", async ({
   request,
 }) => {
@@ -87,14 +100,32 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
   expect(persisted.lesson.skill).toBe(rebased.learning.todaySkill)
 })
 
+test("mobile onboarding actions stay within the viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Set up my plan" }).click()
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }))
+      )
+      .toEqual({ scrollWidth: width, viewportWidth: width })
+  }
+})
+
 test("mobile study navigation fits and Scout behaves as a focus-trapped bottom sheet", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 760 })
-  await page.goto("/")
-  await page
-    .getByRole("button", { name: "See one answer change the plan" })
-    .click()
+  await openStarterPlan(page)
   const primaryNavigation = page.getByRole("navigation", {
     name: "Primary study navigation",
   })
@@ -130,7 +161,8 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
     .getByLabel("Your question")
     .fill("What does margin of error mean in regular English?")
   await dialog.getByRole("button", { name: "Ask Scout", exact: true }).click()
-  await expect(dialog).toContainText(/planning range/i)
+  await expect(dialog).toContainText(/not ACT score points/i)
+  await expect(dialog.getByText("How this answer was made")).toHaveCount(0)
 
   for (let index = 0; index < 12; index += 1) {
     await page.keyboard.press("Tab")
@@ -142,4 +174,114 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await page.keyboard.press("Escape")
   await expect(dialog).toBeHidden()
   await expect(launcher).toBeFocused()
+
+  await primaryNavigation.getByRole("button", { name: "More" }).click()
+  await page.getByRole("button", { name: "Learning settings" }).click()
+  const settings = page.getByRole("dialog", { name: "Learning settings" })
+  await expect(settings).toBeVisible()
+  await expect(
+    settings.getByRole("switch", {
+      name: "Reduced motion Stops nonessential movement.",
+      exact: true,
+    })
+  ).toBeVisible()
+  await expect(
+    settings.getByRole("switch", {
+      name: "Use fewer technical terms Keeps explanations focused on direct, learner-facing language.",
+      exact: true,
+    })
+  ).toBeVisible()
+  await settings
+    .getByRole("button", { name: "Close learning settings" })
+    .click()
+  await expect(settings).toBeHidden()
+})
+
+test("a learner can save the skipped-check plan and restore it after sign-in", async ({
+  page,
+}) => {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 10_000)}`
+  const username = `learner-${suffix}`
+  const password = "SaveMyPlan!2026"
+
+  await openStarterPlan(page)
+  await page.getByRole("button", { name: "Sign in / save progress" }).click()
+  const account = page.getByRole("dialog", {
+    name: "Welcome back.",
+  })
+  await account.getByRole("tab", { name: "Create account" }).click()
+  const createAccount = page.getByRole("dialog", {
+    name: "Keep your Scout progress.",
+  })
+  await createAccount.getByLabel("Your name").fill("E2E Learner")
+  await createAccount.getByLabel("Username").fill(username)
+  await createAccount.getByLabel("Password").fill(password)
+  await createAccount
+    .getByRole("button", { name: "Create account and save this plan" })
+    .click()
+
+  await expect(page.getByRole("button", { name: "E2E Learner" })).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "More" }).click()
+  await page.getByRole("button", { name: "Learning data" }).click()
+  await expect(
+    page.getByRole("button", { name: "Technical details" })
+  ).toHaveCount(0)
+
+  await page.getByRole("button", { name: "E2E Learner" }).click()
+  const savedAccount = page.getByRole("dialog", {
+    name: "Your progress is saved.",
+  })
+  await savedAccount.getByRole("button", { name: "Sign out" }).click()
+  await expect(
+    page.getByRole("button", { name: "Sign in / save progress" })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Sign in / save progress" }).click()
+  const signIn = page.getByRole("dialog", { name: "Welcome back." })
+  await signIn.getByLabel("Username").fill(username)
+  await signIn.getByLabel("Password").fill(password)
+  await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toBeVisible()
+})
+
+test("the server-verified judge account reveals the technical review layer", async ({
+  page,
+}) => {
+  const judgeUsername = process.env.SCOUT_JUDGE_USERNAME
+  const judgePassword = process.env.SCOUT_E2E_JUDGE_PASSWORD
+  expect(
+    judgeUsername,
+    "Set SCOUT_JUDGE_USERNAME for the judge flow."
+  ).toBeTruthy()
+  expect(
+    judgePassword,
+    "Set SCOUT_E2E_JUDGE_PASSWORD for the judge flow."
+  ).toBeTruthy()
+
+  await page.goto("/")
+  await page.getByRole("button", { name: "Sign in / save progress" }).click()
+  const signIn = page.getByRole("dialog", { name: "Welcome back." })
+  await signIn.getByLabel("Username").fill(judgeUsername!)
+  await signIn.getByLabel("Password").fill(judgePassword!)
+  await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  await expect(page.getByRole("button", { name: "Judge view" })).toBeVisible()
+  await page.getByRole("button", { name: "Open the judge demo" }).click()
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
+  await expect(
+    page.getByText("How Scout chose this question", { exact: false })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "More" }).click()
+  await page.getByRole("button", { name: "Learning data" }).click()
+  await expect(
+    page.getByRole("button", { name: "Technical details" })
+  ).toBeVisible()
 })

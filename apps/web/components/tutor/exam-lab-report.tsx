@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 interface ExamLabReportProps {
   session: ExamLabSessionPayload
   onNewRun: () => void
+  canViewTechnicalDetails: boolean
 }
 
 const SECTION_LABEL = {
@@ -57,15 +58,23 @@ function MetricBar({
   )
 }
 
-export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
+export function ExamLabReport({
+  session,
+  onNewRun,
+  canViewTechnicalDetails,
+}: ExamLabReportProps) {
   const result = session.result
   if (!result) return null
   const questionMap = new Map(
     session.questions.map((question) => [question.id, question])
   )
   const estimateLabel = result.practiceEstimate.composite
-    ? "Internal Composite display"
-    : "Internal section display"
+    ? canViewTechnicalDetails
+      ? "Internal Composite display"
+      : "Practice score range"
+    : canViewTechnicalDetails
+      ? "Internal section display"
+      : "Practice score range"
   const estimateMargin = result.mode === "sprint" ? 4 : 3
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
@@ -102,26 +111,33 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
               </p>
             </div>
           </div>
-          <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
-            <summary className="cursor-pointer font-semibold">
-              How the 1–36 display is calculated
-            </summary>
-            <p className="mt-3 text-muted-foreground">
-              Each section uses{" "}
-              <code className="font-mono text-xs text-foreground">
-                round(1 + ((correct + 1) / (total + 2)) × 35)
-              </code>
-              .{" "}
-              {result.practiceEstimate.composite
-                ? "Because this run includes English, Math, and Reading, the midpoint is the rounded average of the three section displays."
-                : "Because this run includes one section, the midpoint is that section display."}
+          {canViewTechnicalDetails ? (
+            <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
+              <summary className="cursor-pointer font-semibold">
+                How the 1–36 display is calculated
+              </summary>
+              <p className="mt-3 text-muted-foreground">
+                Each section uses{" "}
+                <code className="font-mono text-xs text-foreground">
+                  round(1 + ((correct + 1) / (total + 2)) × 35)
+                </code>
+                .{" "}
+                {result.practiceEstimate.composite
+                  ? "Because this run includes English, Math, and Reading, the midpoint is the rounded average of the three section displays."
+                  : "Because this run includes one section, the midpoint is that section display."}
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                The shown range is the midpoint ±{estimateMargin}, clipped to
+                1–36. This is an internal conversion from raw correctness—not an
+                ACT-equated score or a statistical confidence interval.
+              </p>
+            </details>
+          ) : (
+            <p className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6 text-muted-foreground">
+              This practice range is a rough summary of this run, not an
+              official ACT-equated score or score prediction.
             </p>
-            <p className="mt-2 text-muted-foreground">
-              The shown range is the midpoint ±{estimateMargin}, clipped to
-              1–36. This is an internal conversion from raw correctness—not an
-              ACT-equated score or a statistical confidence interval.
-            </p>
-          </details>
+          )}
         </div>
         <aside className="lg:pt-8">
           <ScoutCoach
@@ -129,26 +145,28 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
             message={result.debrief.headline}
             detail={result.debrief.summary}
           />
-          <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
-            <summary className="cursor-pointer font-semibold">
-              How this summary was made
-            </summary>
-            <p className="mt-3 inline-flex items-center gap-2 font-semibold">
-              {result.debrief.generation.mode === "ai" ? (
-                <SparklesIcon className="text-primary" />
-              ) : (
-                <CheckCircle2Icon className="text-primary" />
-              )}
-              {result.debrief.generation.mode === "ai"
-                ? `AI-written report · ${result.debrief.generation.model}`
-                : "Reviewed report"}
-            </p>
-            <p className="mt-2 text-muted-foreground">
-              {result.debrief.generation.mode === "ai"
-                ? "AI received only aggregate results—not the answer key or question text."
-                : "A reviewed fallback assembled this summary from aggregate results; no AI model was used."}
-            </p>
-          </details>
+          {canViewTechnicalDetails ? (
+            <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
+              <summary className="cursor-pointer font-semibold">
+                How this summary was made
+              </summary>
+              <p className="mt-3 inline-flex items-center gap-2 font-semibold">
+                {result.debrief.generation.mode === "ai" ? (
+                  <SparklesIcon className="text-primary" />
+                ) : (
+                  <CheckCircle2Icon className="text-primary" />
+                )}
+                {result.debrief.generation.mode === "ai"
+                  ? `AI-written report · ${result.debrief.generation.model}`
+                  : "Reviewed report"}
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                {result.debrief.generation.mode === "ai"
+                  ? "AI received only aggregate results—not the answer key or question text."
+                  : "A reviewed fallback assembled this summary from aggregate results; no AI model was used."}
+              </p>
+            </details>
+          ) : null}
         </aside>
       </section>
 
@@ -184,7 +202,10 @@ export function ExamLabReport({ session, onNewRun }: ExamLabReportProps) {
               </div>
               <MetricBar value={section.accuracy * 100} />
               <p className="mt-3 text-sm text-muted-foreground">
-                Internal display · {section.correct}/{section.total} correct ·{" "}
+                {canViewTechnicalDetails
+                  ? "Internal display"
+                  : "Practice estimate"}{" "}
+                · {section.correct}/{section.total} correct ·{" "}
                 {Math.round(section.averageSeconds)}s average
               </p>
             </div>

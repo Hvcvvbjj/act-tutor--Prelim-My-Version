@@ -12,9 +12,9 @@ ACT preparation usually fails in one of two directions: a static calendar treats
 
 Scout begins with three inputs: goal score, current score or section scores, and test date. A learner without prior scores takes an original 66-question half-length diagnostic across English, Math, and Reading. That baseline becomes a skill-level route rather than a single opaque score. An 8–12 item adaptive Precision Check can then refine uncertainty by selecting the unanswered ACT-shaped item with the most Fisher information while preserving section coverage.
 
-From there Scout builds a dated study plan, assigns an individualized lesson, serves ACT-shaped practice, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and timed Test Day Lab rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
+From there Scout builds a dated study plan that learners can copy as a plain-text weekly agenda, assigns an individualized lesson, serves ACT-shaped practice with optional keyboard shortcuts, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and timed Test Day Lab rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
 
-The Precision Check and Learning Twin make both adaptive decisions visible. Students can inspect:
+Quick Check, Progress, and Learning data make both adaptive decisions visible. Students can inspect:
 
 - the current ability estimate, 80% interval, standard error, and item information;
 - why the next item beat the other top candidates;
@@ -85,4 +85,4 @@ TypeScript, Next.js, React, Tailwind CSS, Base UI, pnpm, Vitest, two-parameter l
 
 ## Try the judge path
 
-Run the app, then choose **Preview the adaptive demo** on the first screen. It loads a clearly labeled representative diagnostic profile and opens the complete product without requiring an account or API key.
+Run the app, then choose **See one answer change the plan** on the first screen. It loads a clearly labeled representative diagnostic profile and opens the complete product without requiring an account or API key.
