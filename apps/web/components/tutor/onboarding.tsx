@@ -271,33 +271,25 @@ export function Onboarding({
               <ScoutMark className="size-24 sm:size-28" />
               <div className="min-w-0">
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                  Meet your study coach
+                  Meet Mr. Kim, your study coach
                 </p>
                 <h1
                   id="scout-welcome-title"
-                  className="mt-3 max-w-3xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl"
+                  className="mt-3 max-w-4xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-6xl lg:text-7xl"
                 >
-                  Hey, I&apos;m Mr. Kim.
+                  A study plan that changes when your answers do.
                 </h1>
                 <p className="mt-5 max-w-3xl text-lg leading-8">
-                  I&apos;ll be your ACT study coach from here on out. Tell me
-                  your goal, where you&apos;re starting, and when you can study.
-                  I&apos;ll build a first-week plan you can adjust.
+                  Tell me your goal, where you&apos;re starting, and when you
+                  can study. I&apos;ll turn that into a first week you can
+                  actually follow.
                 </p>
                 <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                  As you practice, I use your answers to choose what to teach
-                  next. Skill percentages are study estimates—not ACT scores.
+                  Then every scored answer helps me choose what to teach next.
+                  Skill percentages are study estimates—not ACT scores.
                 </p>
 
-                <div className="mt-7 border-l-4 border-primary bg-[var(--info-surface)] px-5 py-4">
-                  <p className="font-bold">No score yet? That&apos;s okay.</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    I&apos;ll start with an 8–12 question check across English,
-                    Math, and Reading.
-                  </p>
-                </div>
-
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Button type="button" size="xl" onClick={onDismissWelcome}>
                     Set up my plan
                     <ArrowRightIcon data-icon="inline-end" />
@@ -314,10 +306,49 @@ export function Onboarding({
                     </Button>
                   ) : null}
                 </div>
-                <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
+                <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />
                   No account needed.
                 </p>
+
+                <ol
+                  aria-label="How Scout personalizes your plan"
+                  className="mt-7 grid border-y-2 border-foreground sm:grid-cols-3"
+                >
+                  {[
+                    {
+                      number: "01",
+                      title: "Set your direction",
+                      detail: "Goal score, test date, and study time.",
+                    },
+                    {
+                      number: "02",
+                      title: "Show what you know",
+                      detail:
+                        "Use recent scores or take an 8–12 question check.",
+                    },
+                    {
+                      number: "03",
+                      title: "Get the next lesson",
+                      detail: "Scout updates what to study after scored work.",
+                    },
+                  ].map((item) => (
+                    <li
+                      key={item.number}
+                      className="grid grid-cols-[2.25rem_1fr] gap-x-3 border-b py-4 last:border-b-0 sm:block sm:border-r sm:border-b-0 sm:px-4 sm:first:pl-0 sm:last:border-r-0"
+                    >
+                      <span className="font-mono text-xs font-black text-primary">
+                        {item.number}
+                      </span>
+                      <div>
+                        <p className="font-bold">{item.title}</p>
+                        <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                          {item.detail}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </div>
           </section>
