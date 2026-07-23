@@ -138,6 +138,12 @@ export interface ExamLabSessionPayload {
   result: ExamLabResult | null;
 }
 
+export interface ExamLabInterpretationReadiness {
+  answered: number;
+  minimumAnswered: number;
+  sufficient: boolean;
+}
+
 const SECTION_ORDER: ReadonlyArray<CoreSection> = ["english", "math", "reading"];
 const CONFIDENCE_ORDER: ReadonlyArray<ExamConfidence> = ["guess", "unsure", "sure"];
 
@@ -151,6 +157,15 @@ function practiceEstimate(correct: number, total: number) {
 
 function average(values: ReadonlyArray<number>) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+export function examLabInterpretationReadiness(
+  result: Pick<ExamLabScoredResult, "mode" | "total" | "unanswered">,
+): ExamLabInterpretationReadiness {
+  const answered = Math.max(0, result.total - result.unanswered);
+  const target = result.mode === "sprint" ? 8 : Math.max(8, Math.ceil(result.total * 0.8));
+  const minimumAnswered = Math.min(result.total, target);
+  return { answered, minimumAnswered, sufficient: answered >= minimumAnswered };
 }
 
 export function toPublicExamQuestion(question: DiagnosticQuestionSecure): DiagnosticQuestionPublic {
@@ -329,6 +344,23 @@ export function buildAuthoredExamDebrief(
   result: ExamLabScoredResult,
   generatedAt = new Date().toISOString(),
 ): ExamDebrief {
+  const readiness = examLabInterpretationReadiness(result);
+  if (!readiness.sufficient) {
+    return {
+      headline: "Finish more questions before changing your plan.",
+      summary: `You answered ${readiness.answered} of ${result.total} questions. Scout needs at least ${readiness.minimumAnswered} answered questions from this run before it suggests a skill or interprets your pacing.`,
+      wins: [
+        "Your completed answers are available in the question review.",
+        "Scout did not treat blank answers as proof of a skill weakness.",
+      ],
+      priorities: [
+        `Start another run and answer at least ${readiness.minimumAnswered} questions before using the result to choose a lesson.`,
+        "Keep marking Guessing, Unsure, or Sure so the completed run can compare confidence with correctness.",
+      ],
+      nextAction: `Start another timed-practice run and answer at least ${readiness.minimumAnswered} questions before using its score range or study recommendation.`,
+      generation: { mode: "authored-fallback", provider: "Reviewed debrief engine", model: null, generatedAt },
+    };
+  }
   const topSection = [...result.sections].sort((left, right) => right.accuracy - left.accuracy)[0];
   const focus = result.focusSkills[0];
   const pacingCopy =

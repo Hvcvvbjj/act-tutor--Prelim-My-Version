@@ -191,4 +191,12 @@ describe("practice timing contract", () => {
     expect(timerEffect).toBeLessThan(choiceHandler)
     expect(workspace).toContain("}, [currentQuestion?.id])")
   })
+
+  it("withholds score interpretation until a timed-practice run is usable", async () => {
+    const report = await source("components/tutor/exam-lab-report.tsx")
+    expect(report).toContain("examLabInterpretationReadiness")
+    expect(report).toContain("Practice score range")
+    expect(report).toContain("Not shown")
+    expect(report).toContain("Finish more before using this result")
+  })
 })

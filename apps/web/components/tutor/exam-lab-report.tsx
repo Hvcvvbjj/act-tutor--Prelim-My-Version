@@ -1,6 +1,9 @@
 "use client"
 
-import type { ExamLabSessionPayload } from "@act-tutor/core"
+import {
+  examLabInterpretationReadiness,
+  type ExamLabSessionPayload,
+} from "@act-tutor/core"
 import {
   ArrowRightIcon,
   BrainCircuitIcon,
@@ -68,6 +71,7 @@ export function ExamLabReport({
   const questionMap = new Map(
     session.questions.map((question) => [question.id, question])
   )
+  const readiness = examLabInterpretationReadiness(result)
   const estimateLabel = result.practiceEstimate.composite
     ? canViewTechnicalDetails
       ? "Internal Composite display"
@@ -92,14 +96,30 @@ export function ExamLabReport({
 
           <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-[1.2fr_0.8fr] sm:divide-x-2 sm:divide-foreground">
             <div className="py-6 sm:pr-8">
-              <p className="ink-label text-muted-foreground">{estimateLabel}</p>
-              <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
-                {result.practiceEstimate.low}–{result.practiceEstimate.high}
+              <p className="ink-label text-muted-foreground">
+                {readiness.sufficient ? estimateLabel : "Practice score range"}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Midpoint {result.practiceEstimate.estimate} · calculated from
-                raw correctness
-              </p>
+              {readiness.sufficient ? (
+                <>
+                  <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
+                    {result.practiceEstimate.low}–{result.practiceEstimate.high}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Midpoint {result.practiceEstimate.estimate} · calculated
+                    from raw correctness
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 font-heading text-4xl font-black">
+                    Not shown
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {readiness.answered} answered · at least{" "}
+                    {readiness.minimumAnswered} needed
+                  </p>
+                </>
+              )}
             </div>
             <div className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8">
               <p className="ink-label text-muted-foreground">Answers correct</p>
@@ -111,7 +131,19 @@ export function ExamLabReport({
               </p>
             </div>
           </div>
-          {canViewTechnicalDetails ? (
+          {!readiness.sufficient ? (
+            <Alert className="mt-5 bg-[var(--coach-surface)]">
+              <CircleAlertIcon />
+              <AlertTitle>Finish more before using this result</AlertTitle>
+              <AlertDescription>
+                Your answers and timing are still available below. Scout is
+                withholding the score range and study recommendation because
+                this run has only {readiness.answered} completed answer
+                {readiness.answered === 1 ? "" : "s"}. That is not enough to
+                interpret responsibly.
+              </AlertDescription>
+            </Alert>
+          ) : canViewTechnicalDetails ? (
             <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
               <summary className="cursor-pointer font-semibold">
                 How the 1–36 display is calculated
@@ -141,11 +173,19 @@ export function ExamLabReport({
         </div>
         <aside className="lg:pt-8">
           <ScoutCoach
-            mood="correct"
-            message={result.debrief.headline}
-            detail={result.debrief.summary}
+            mood={readiness.sufficient ? "correct" : "repair"}
+            message={
+              readiness.sufficient
+                ? result.debrief.headline
+                : "Finish more questions before changing your plan."
+            }
+            detail={
+              readiness.sufficient
+                ? result.debrief.summary
+                : `You answered ${readiness.answered} of ${result.total}. Complete at least ${readiness.minimumAnswered} before Scout suggests a skill or interprets your pacing.`
+            }
           />
-          {canViewTechnicalDetails ? (
+          {readiness.sufficient && canViewTechnicalDetails ? (
             <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
               <summary className="cursor-pointer font-semibold">
                 How this summary was made
@@ -196,16 +236,18 @@ export function ExamLabReport({
                 <h3 className="font-heading text-3xl font-bold">
                   {SECTION_LABEL[section.section]}
                 </h3>
-                <span className="font-heading text-4xl font-black text-primary">
-                  {section.practiceEstimate}
-                </span>
+                {readiness.sufficient ? (
+                  <span className="font-heading text-4xl font-black text-primary">
+                    {section.practiceEstimate}
+                  </span>
+                ) : null}
               </div>
               <MetricBar value={section.accuracy * 100} />
               <p className="mt-3 text-sm text-muted-foreground">
-                {canViewTechnicalDetails
-                  ? "Internal display"
-                  : "Practice estimate"}{" "}
-                · {section.correct}/{section.total} correct ·{" "}
+                {readiness.sufficient
+                  ? `${canViewTechnicalDetails ? "Internal display" : "Practice estimate"} · `
+                  : ""}
+                {section.correct}/{section.total} correct ·{" "}
                 {Math.round(section.averageSeconds)}s average
               </p>
             </div>
@@ -316,7 +358,11 @@ export function ExamLabReport({
       </div>
 
       <section
-        className="mt-14 border-t-2 border-foreground pt-7"
+        className={cn(
+          "mt-14 border-t-2 border-foreground pt-7",
+          !readiness.sufficient && "hidden"
+        )}
+        aria-hidden={!readiness.sufficient}
         aria-labelledby="skills-title"
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -369,7 +415,11 @@ export function ExamLabReport({
       </section>
 
       <section
-        className="mt-14 grid gap-8 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-7 lg:grid-cols-2 lg:px-8"
+        className={cn(
+          "mt-14 grid gap-8 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-7 lg:grid-cols-2 lg:px-8",
+          !readiness.sufficient && "hidden"
+        )}
+        aria-hidden={!readiness.sufficient}
         aria-labelledby="debrief-title"
       >
         <div>

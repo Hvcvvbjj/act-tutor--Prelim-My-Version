@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DiagnosticFormSecure } from "./diagnostic";
 import {
   buildAuthoredExamDebrief,
+  examLabInterpretationReadiness,
   scoreExamLab,
   selectExamLabQuestions,
   type ExamLabResponse,
@@ -43,12 +44,33 @@ describe("Exam Lab scoring", () => {
     expect(result.flagged).toBe(1);
     expect(result.overconfidentMisses).toBe(1);
     expect(result.practiceEstimate.composite).toBe(true);
+    expect(examLabInterpretationReadiness(result)).toEqual({
+      answered: 2,
+      minimumAnswered: 3,
+      sufficient: false,
+    });
     expect(result.review).toHaveLength(3);
   });
 
-  it("builds an actionable deterministic debrief", () => {
+  it("withholds interpretation and recommendations from incomplete work", () => {
     const result = scoreExamLab("sprint", form.questions, {});
     const debrief = buildAuthoredExamDebrief(result, "2026-07-12T12:00:00.000Z");
+    expect(debrief.headline).toContain("Finish more questions");
+    expect(debrief.summary).toContain("answered 0 of 3");
+    expect(debrief.nextAction).toContain("answer at least 3");
+    expect(debrief.generation.mode).toBe("authored-fallback");
+  });
+
+  it("builds an actionable deterministic debrief from enough answers", () => {
+    const responses: Record<string, ExamLabResponse> = Object.fromEntries(
+      form.questions.map((question) => [
+        question.id,
+        { choiceId: question.correctChoiceId, confidence: "sure", flagged: false, elapsedSeconds: question.expectedSeconds },
+      ]),
+    );
+    const result = scoreExamLab("sprint", form.questions, responses);
+    const debrief = buildAuthoredExamDebrief(result, "2026-07-12T12:00:00.000Z");
+    expect(examLabInterpretationReadiness(result).sufficient).toBe(true);
     expect(debrief.priorities).toHaveLength(2);
     expect(debrief.nextAction).toContain("Start a short");
     expect(debrief.generation.mode).toBe("authored-fallback");

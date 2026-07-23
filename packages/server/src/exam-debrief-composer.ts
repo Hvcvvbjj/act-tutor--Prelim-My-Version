@@ -1,5 +1,6 @@
 import {
   buildAuthoredExamDebrief,
+  examLabInterpretationReadiness,
   type ExamDebrief,
   type ExamLabScoredResult,
 } from "@act-tutor/core";
@@ -57,6 +58,7 @@ function aggregateForModel(result: ExamLabScoredResult) {
   return {
     mode: result.mode,
     overall: { correct: result.correct, total: result.total, unanswered: result.unanswered },
+    interpretationReadiness: examLabInterpretationReadiness(result),
     practiceEstimate: result.practiceEstimate,
     sections: result.sections,
     focusSkills: result.focusSkills,
@@ -78,6 +80,7 @@ export class OpenAICompatibleExamDebriefComposer implements ExamDebriefComposer 
 
   async compose(result: ExamLabScoredResult): Promise<ExamDebrief> {
     const fallback = buildAuthoredExamDebrief(result);
+    if (!examLabInterpretationReadiness(result).sufficient) return fallback;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {

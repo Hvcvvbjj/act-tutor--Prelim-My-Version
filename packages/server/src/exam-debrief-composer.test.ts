@@ -13,7 +13,10 @@ const form = {
     content: { status: "published", license: "original", reviewer: "r", reviewedAt: "2026-07-12" },
   }],
 } as DiagnosticFormSecure;
-const scored = scoreExamLab("section", form.questions, {});
+const scored = scoreExamLab("section", form.questions, {
+  q: { choiceId: "a", confidence: "sure", flagged: false, elapsedSeconds: 35 },
+});
+const incomplete = scoreExamLab("section", form.questions, {});
 
 describe("OpenAICompatibleExamDebriefComposer", () => {
   it("accepts a validated aggregate-only debrief", async () => {
@@ -36,5 +39,16 @@ describe("OpenAICompatibleExamDebriefComposer", () => {
       fetchImplementation: vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), { status: 200 })) as unknown as typeof fetch,
     });
     expect((await composer.compose(scored)).generation.mode).toBe("authored-fallback");
+  });
+
+  it("does not ask a model to interpret an incomplete run", async () => {
+    const fetchMock = vi.fn(async () => new Response("unexpected"));
+    const composer = new OpenAICompatibleExamDebriefComposer({
+      baseUrl: "http://model.test/v1", model: "qwen",
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+    });
+    const result = await composer.compose(incomplete);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.headline).toContain("Finish more questions");
   });
 });
