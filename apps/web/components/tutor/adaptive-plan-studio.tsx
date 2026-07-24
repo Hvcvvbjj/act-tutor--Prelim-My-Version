@@ -40,6 +40,7 @@ import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { addCalendarDaysFrom, formatCalendarDate } from "@/lib/dates"
+import { studyTaskLaunchDecision } from "@/lib/study-task-routing"
 import { cn } from "@/lib/utils"
 
 interface AdaptivePlanStudioProps {
@@ -564,22 +565,21 @@ function TaskInspector({
   }
   const meta = TASK_META[task.kind]
   const Icon = meta.icon
-  const sameMission = task.skill !== null && task.skill === learning.todaySkill
+  const launchDecision = studyTaskLaunchDecision(task, learning)
   const canSwitch =
-    learning.status === "complete" ||
-    sameMission ||
-    task.kind === "rehearsal" ||
-    task.kind === "timed"
+    launchDecision.type !== "blocked" && launchDecision.type !== "unavailable"
   const launchLabel =
-    task.kind === "rehearsal" || task.kind === "timed"
+    launchDecision.type === "timed-practice"
       ? "Open timed practice"
-      : !canSwitch
+      : launchDecision.type === "blocked"
         ? "Finish your current task first"
-        : sameMission && learning.status !== "complete"
-          ? "Continue this task"
-          : task.kind === "checkpoint"
-            ? "Start progress check"
-            : "Start this task"
+        : launchDecision.type === "unavailable"
+          ? "Task unavailable"
+          : launchDecision.type === "continue-current"
+            ? "Continue this task"
+            : launchDecision.type === "start-checkpoint"
+              ? "Start progress check"
+              : "Start this task"
   return (
     <section aria-labelledby="task-inspector-title">
       <div className="flex items-center gap-3">

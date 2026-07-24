@@ -44,6 +44,7 @@ import {
   loadLearningSession,
   readCachedLearningSession,
 } from "@/lib/learning-client"
+import { studyTaskLaunchDecision } from "@/lib/study-task-routing"
 
 function DashboardSurfaceLoading({ message }: { message: string }) {
   return (
@@ -719,49 +720,40 @@ export function Dashboard({
 
   async function launchPlanTask(task: StudyPlanTask) {
     if (!learning) return
-    if (task.kind === "rehearsal") {
+    const decision = studyTaskLaunchDecision(task, learning)
+    if (decision.type === "timed-practice") {
       void loadTestDayLab()
       setLabLaunch((current) => ({
-        mode: "core",
-        section: "english",
+        mode: decision.mode,
+        section: decision.section,
         key: current.key + 1,
       }))
       setActiveTab("lab")
       return
     }
-    if (task.kind === "timed") {
-      void loadTestDayLab()
-      setLabLaunch((current) => ({
-        mode: "section",
-        section: task.section ?? "english",
-        key: current.key + 1,
-      }))
-      setActiveTab("lab")
+    if (decision.type === "continue-current") {
+      void loadLessonWorkspace()
+      setWorkspaceOpen(true)
+      setActiveTab("today")
       return
     }
-    if (learning.status !== "complete") {
-      if (task.skill && task.skill === learning.todaySkill) {
-        void loadLessonWorkspace()
-        setWorkspaceOpen(true)
-        setActiveTab("today")
-        return
-      }
+    if (decision.type === "blocked") {
       setLearningError(
         "Finish your current task before starting a different one."
       )
       setActiveTab("today")
       return
     }
-    if (task.kind === "checkpoint") {
+    if (decision.type === "start-checkpoint") {
       if (await startMissionAction({ action: "start_checkpoint" }, true)) {
         setActiveTab("today")
       }
       return
     }
-    if (task.kind === "review" && task.skill) {
+    if (decision.type === "start-retention") {
       if (
         await startMissionAction(
-          { action: "start_retention", skill: task.skill },
+          { action: "start_retention", skill: decision.skill },
           true
         )
       ) {
@@ -769,16 +761,20 @@ export function Dashboard({
       }
       return
     }
-    if (task.skill) {
+    if (decision.type === "start-skill") {
       if (
         await startMissionAction(
-          { action: "start_skill", skill: task.skill },
+          { action: "start_skill", skill: decision.skill },
           true
         )
       ) {
         setActiveTab("today")
       }
+      return
     }
+    setLearningError(
+      "This calendar task is missing the study details it needs."
+    )
   }
 
   if (plan.adaptiveBaselineRequired) {

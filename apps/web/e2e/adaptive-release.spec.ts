@@ -285,6 +285,29 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("a calendar review cannot masquerade as the current lesson", async ({
+  page,
+}) => {
+  await openStarterPlan(page)
+  await page.getByRole("tab", { name: "My week" }).click()
+
+  const sentenceReview = page.getByRole("button", {
+    name: /Review · \d+m Sentence boundaries review/,
+  })
+  for (let week = 0; week < 6 && (await sentenceReview.count()) === 0; week++) {
+    await page.getByRole("button", { name: "Next study week" }).click()
+  }
+
+  await expect(sentenceReview).toBeVisible()
+  await sentenceReview.click()
+  await expect(
+    page.getByRole("button", { name: "Finish your current task first" })
+  ).toBeDisabled()
+  await expect(
+    page.getByRole("button", { name: "Continue this task" })
+  ).toHaveCount(0)
+})
+
 test("incomplete timed practice does not count blank questions as completed-answer misses", async ({
   page,
 }) => {
