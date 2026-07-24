@@ -405,7 +405,7 @@ export function ScoutProvider({
   return (
     <ScoutContext.Provider value={value}>
       {children}
-      <div className="fixed right-6 bottom-6 z-40 hidden items-center gap-2 sm:flex print:hidden">
+      <div className="fixed right-6 bottom-6 z-40 hidden items-center gap-2 md:flex print:hidden">
         {selectedText ? (
           <Button
             type="button"

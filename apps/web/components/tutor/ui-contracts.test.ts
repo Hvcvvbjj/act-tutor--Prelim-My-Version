@@ -68,7 +68,8 @@ describe("Scout drawer accessibility contract", () => {
     expect(assistant).toContain("lastFocusRef.current?.focus()")
     expect(assistant).toContain('aria-modal="true"')
     expect(assistant).toContain("right-6 bottom-6")
-    expect(assistant).toContain("hidden items-center gap-2 sm:flex")
+    expect(assistant).toContain("hidden items-center gap-2 md:flex")
+    expect(assistant).not.toContain("hidden items-center gap-2 sm:flex")
   })
 
   it("uses one clear accessible name for learning settings controls", async () => {

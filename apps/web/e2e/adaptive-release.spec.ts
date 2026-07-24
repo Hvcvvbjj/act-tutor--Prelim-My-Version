@@ -149,6 +149,10 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
       .toEqual({ scrollWidth: width, viewportWidth: width })
   }
 
+  await page.setViewportSize({ width: 700, height: 800 })
+  await expect(page.getByRole("button", { name: "Ask Scout" })).toHaveCount(1)
+  await page.setViewportSize({ width: 390, height: 844 })
+
   const launcher = page.getByRole("button", { name: "Ask Scout" }).first()
   await launcher.click()
   const dialog = page.getByRole("dialog", { name: "Ask Scout" })
