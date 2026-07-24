@@ -9,7 +9,7 @@ async function source(path: string) {
 }
 
 describe("mobile navigation contract", () => {
-  it("keeps four primary mobile tabs, docks Scout, and moves secondary tools to More", async () => {
+  it("keeps four primary mobile tabs, puts Scout in the header, and moves secondary tools to More", async () => {
     const dashboard = await source("components/tutor/dashboard.tsx")
     const mobileNav = dashboard.slice(
       dashboard.indexOf('aria-label="Primary study navigation"'),
@@ -23,7 +23,15 @@ describe("mobile navigation contract", () => {
     expect(mobileNav).toContain('value="plan"')
     expect(mobileNav).toContain('value="calibrate"')
     expect(mobileNav).toContain('value="progress"')
-    expect(mobileNav).toContain("<MobileScoutDock")
+    expect(mobileNav).not.toContain("<MobileScoutDock")
+    expect(dashboard).toContain(
+      "<MobileScoutDock onOpen={() => setMoreOpen(false)} />"
+    )
+    expect(dashboard).toContain("grid-cols-5")
+    expect(dashboard).toContain("MessageCircleIcon")
+    expect(dashboard).toContain(
+      'aria-current={moreActive ? "page" : undefined}'
+    )
     expect(mobileNav).toContain("More")
     expect(dashboard).toContain("Timed practice")
     expect(dashboard).toContain("Learning data")

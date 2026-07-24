@@ -1004,8 +1004,7 @@ export function AdaptiveCalibrationLab({
               <p className="ink-label">Why this question?</p>
             </div>
             <h3 className="mt-3 font-heading text-xl leading-snug font-black sm:text-2xl">
-              This {question.skillLabel} question gives Scout the clearest next
-              signal.
+              {`This ${question.skillLabel.toLocaleLowerCase()} question gives Scout the clearest next signal.`}
             </h3>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               It helps Scout learn what to teach next while keeping section

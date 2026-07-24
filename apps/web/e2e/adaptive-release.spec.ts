@@ -270,9 +270,10 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(
     primaryNavigation.getByRole("tab", { name: "Check" })
   ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Ask Scout" })).toBeVisible()
   await expect(
     primaryNavigation.getByRole("button", { name: "Ask Scout" })
-  ).toBeVisible()
+  ).toHaveCount(0)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -316,8 +317,19 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(dialog).toBeHidden()
   await expect(launcher).toBeFocused()
 
-  await primaryNavigation.getByRole("button", { name: "More" }).click()
-  await page.getByRole("button", { name: "Learning settings" }).click()
+  const moreButton = primaryNavigation.getByRole("button", { name: "More" })
+  const moreMenu = page.getByRole("menu", { name: "More destinations" })
+  await moreButton.click()
+  await expect(moreMenu.getByRole("menuitem")).toHaveCount(3)
+  await page.keyboard.press("Escape")
+  await expect(moreMenu).toBeHidden()
+
+  await moreButton.click()
+  await moreMenu.getByRole("menuitem", { name: "Timed practice" }).click()
+  await expect(moreButton).toHaveAttribute("aria-current", "page")
+
+  await moreButton.click()
+  await moreMenu.getByRole("menuitem", { name: "Learning settings" }).click()
   const settings = page.getByRole("dialog", { name: "Learning settings" })
   await expect(settings).toBeVisible()
   await expect(
@@ -475,7 +487,7 @@ test("incomplete timed practice does not count blank questions as completed-answ
   expect(result.unanswered).toBe(result.total - 1)
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("button", { name: "Timed practice" }).click()
+  await page.getByRole("menuitem", { name: "Timed practice" }).click()
 
   const accuracy = page.getByTestId("timed-practice-answer-accuracy")
   await expect(accuracy).toContainText("Completed answers correct")
@@ -525,7 +537,7 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
   ).toBeVisible()
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("button", { name: "Learning data" }).click()
+  await page.getByRole("menuitem", { name: "Learning data" }).click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toHaveCount(0)
@@ -582,7 +594,7 @@ test("the server-verified judge account reveals the technical review layer", asy
   ).toBeVisible()
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("button", { name: "Learning data" }).click()
+  await page.getByRole("menuitem", { name: "Learning data" }).click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toBeVisible()

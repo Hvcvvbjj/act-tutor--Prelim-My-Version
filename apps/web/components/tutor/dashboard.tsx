@@ -15,10 +15,11 @@ import type {
 } from "@act-tutor/core"
 import {
   ArrowRightIcon,
+  ChevronDownIcon,
   CircleGaugeIcon,
-  EllipsisIcon,
   FlaskConicalIcon,
   InfoIcon,
+  MessageCircleIcon,
   PencilLineIcon,
   Settings2Icon,
   ShieldCheckIcon,
@@ -262,14 +263,15 @@ function MobileScoutDock({ onOpen }: { onOpen: () => void }) {
     <Button
       type="button"
       variant="ghost"
-      className="min-h-14 rounded-none px-1 text-[0.68rem]"
+      size="icon"
+      className="md:hidden"
       aria-label="Ask Scout"
       onClick={() => {
         onOpen()
         openScout()
       }}
     >
-      <ScoutMark className="size-8" />
+      <MessageCircleIcon />
     </Button>
   )
 }
@@ -286,51 +288,63 @@ function MobileOverflow({
   const { openSettings } = useScoutContext()
   if (!open) return null
   return (
-    <div
-      id="mobile-more-destinations"
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
-      aria-label="More destinations"
-    >
-      <Button
+    <>
+      <button
         type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        onPointerEnter={() => preloadDashboardSurface("lab")}
-        onPointerDown={() => preloadDashboardSurface("lab")}
-        onFocus={() => preloadDashboardSurface("lab")}
-        onClick={() => {
-          onNavigate("lab")
-          onClose()
-        }}
+        className="fixed inset-0 z-[44] bg-transparent md:hidden"
+        aria-label="Close More destinations"
+        onClick={onClose}
+      />
+      <div
+        id="mobile-more-destinations"
+        className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
+        role="menu"
+        aria-label="More destinations"
       >
-        <FlaskConicalIcon /> Timed practice
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        onPointerEnter={() => preloadDashboardSurface("control")}
-        onPointerDown={() => preloadDashboardSurface("control")}
-        onFocus={() => preloadDashboardSurface("control")}
-        onClick={() => {
-          onNavigate("control")
-          onClose()
-        }}
-      >
-        <ShieldCheckIcon /> Learning data
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        onClick={() => {
-          openSettings()
-          onClose()
-        }}
-      >
-        <Settings2Icon /> Learning settings
-      </Button>
-    </div>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 w-full justify-start"
+          role="menuitem"
+          onPointerEnter={() => preloadDashboardSurface("lab")}
+          onPointerDown={() => preloadDashboardSurface("lab")}
+          onFocus={() => preloadDashboardSurface("lab")}
+          onClick={() => {
+            onNavigate("lab")
+            onClose()
+          }}
+        >
+          <FlaskConicalIcon /> Timed practice
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 w-full justify-start"
+          role="menuitem"
+          onPointerEnter={() => preloadDashboardSurface("control")}
+          onPointerDown={() => preloadDashboardSurface("control")}
+          onFocus={() => preloadDashboardSurface("control")}
+          onClick={() => {
+            onNavigate("control")
+            onClose()
+          }}
+        >
+          <ShieldCheckIcon /> Learning data
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 w-full justify-start"
+          role="menuitem"
+          onClick={() => {
+            openSettings()
+            onClose()
+          }}
+        >
+          <Settings2Icon /> Learning settings
+        </Button>
+      </div>
+    </>
   )
 }
 
@@ -349,12 +363,14 @@ function DesktopOverflow({
     <div
       id="desktop-more-destinations"
       className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-56 rounded-xl border bg-background p-2 shadow-xl md:block"
+      role="menu"
       aria-label="More destinations"
     >
       <Button
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        role="menuitem"
         onPointerEnter={() => preloadDashboardSurface("lab")}
         onPointerDown={() => preloadDashboardSurface("lab")}
         onFocus={() => preloadDashboardSurface("lab")}
@@ -369,6 +385,7 @@ function DesktopOverflow({
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        role="menuitem"
         onPointerEnter={() => preloadDashboardSurface("control")}
         onPointerDown={() => preloadDashboardSurface("control")}
         onFocus={() => preloadDashboardSurface("control")}
@@ -383,6 +400,7 @@ function DesktopOverflow({
         type="button"
         variant="ghost"
         className="min-h-11 w-full justify-start"
+        role="menuitem"
         onClick={() => {
           openSettings()
           onClose()
@@ -430,6 +448,15 @@ export function Dashboard({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [activeTab, workspaceOpen])
+
+  useEffect(() => {
+    if (!moreOpen) return
+    const closeMoreOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false)
+    }
+    window.addEventListener("keydown", closeMoreOnEscape)
+    return () => window.removeEventListener("keydown", closeMoreOnEscape)
+  }, [moreOpen])
 
   const refreshLearningSession = useCallback(async () => {
     try {
@@ -847,6 +874,8 @@ export function Dashboard({
     )
   }
 
+  const moreActive = activeTab === "lab" || activeTab === "control"
+
   return (
     <ScoutProvider
       activeTab={activeTab}
@@ -879,12 +908,22 @@ export function Dashboard({
               <div className="relative">
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant={moreOpen || moreActive ? "secondary" : "ghost"}
                   aria-expanded={moreOpen}
+                  aria-haspopup="menu"
                   aria-controls="desktop-more-destinations"
+                  aria-current={moreActive ? "page" : undefined}
                   onClick={() => setMoreOpen((current) => !current)}
                 >
-                  More <EllipsisIcon data-icon="inline-end" />
+                  More{" "}
+                  <ChevronDownIcon
+                    className={
+                      moreOpen
+                        ? "rotate-180 transition-transform"
+                        : "transition-transform"
+                    }
+                    data-icon="inline-end"
+                  />
                 </Button>
                 <DesktopOverflow
                   open={moreOpen}
@@ -894,6 +933,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="flex items-center gap-3 justify-self-end">
+              <MobileScoutDock onOpen={() => setMoreOpen(false)} />
               <div className="hidden sm:block">
                 <ScoreRoute plan={plan} />
               </div>
@@ -1123,7 +1163,7 @@ export function Dashboard({
           className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl md:hidden"
           aria-label="Primary study navigation"
         >
-          <div className="grid w-full grid-cols-6">
+          <div className="grid w-full grid-cols-5">
             <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
               <DashboardTab
                 value="today"
@@ -1150,19 +1190,25 @@ export function Dashboard({
                 Progress
               </DashboardTab>
             </TabsList>
-            <div className="col-span-2 grid grid-cols-2">
-              <MobileScoutDock onOpen={() => setMoreOpen(false)} />
-              <Button
-                type="button"
-                variant={moreOpen ? "secondary" : "ghost"}
-                className="min-h-14 rounded-none px-1 text-[0.68rem]"
-                aria-expanded={moreOpen}
-                aria-controls="mobile-more-destinations"
-                onClick={() => setMoreOpen((current) => !current)}
-              >
-                <EllipsisIcon /> More
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant={moreOpen || moreActive ? "secondary" : "ghost"}
+              className="min-h-14 rounded-none px-1 text-[0.68rem]"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              aria-controls="mobile-more-destinations"
+              aria-current={moreActive ? "page" : undefined}
+              onClick={() => setMoreOpen((current) => !current)}
+            >
+              <ChevronDownIcon
+                className={
+                  moreOpen
+                    ? "rotate-180 transition-transform"
+                    : "transition-transform"
+                }
+              />{" "}
+              More
+            </Button>
           </div>
         </nav>
         <MobileOverflow
