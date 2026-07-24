@@ -440,6 +440,7 @@ export function AdaptiveCalibrationLab({
   const [error, setError] = useState<string | null>(null)
   const [showLatestAnswer, setShowLatestAnswer] = useState(false)
   const [proof, setProof] = useState<AdaptiveProof | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const initialLoad = useRef<Promise<AdaptiveCalibrationPayload> | null>(null)
 
   useEffect(() => {
@@ -478,7 +479,13 @@ export function AdaptiveCalibrationLab({
     return () => {
       active = false
     }
-  }, [onLearningTwinUpdated, representativeDemo])
+  }, [loadAttempt, onLearningTwinUpdated, representativeDemo])
+
+  function retryInitialLoad() {
+    initialLoad.current = null
+    setError(null)
+    setLoadAttempt((current) => current + 1)
+  }
 
   const shortcutChoiceKey =
     payload?.currentQuestion?.choices.map((choice) => choice.id).join("|") ?? ""
@@ -606,6 +613,14 @@ export function AdaptiveCalibrationLab({
             <CircleAlertIcon />
             <AlertTitle>Quick Check unavailable</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={retryInitialLoad}
+            >
+              Try Quick Check again
+            </Button>
           </Alert>
         ) : null}
       </main>

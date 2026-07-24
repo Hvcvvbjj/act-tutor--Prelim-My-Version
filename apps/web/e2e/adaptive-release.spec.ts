@@ -24,6 +24,48 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   ).toBeVisible()
 }
 
+test("Quick Check recovers after its first request fails", async ({
+  page,
+  request,
+}) => {
+  await request.delete("/api/calibration")
+  let failedInitialLoad = false
+  await page.route("**/api/calibration", async (route) => {
+    if (route.request().method() === "GET" && !failedInitialLoad) {
+      failedInitialLoad = true
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "Quick Check is temporarily unavailable.",
+        }),
+      })
+      return
+    }
+    await route.continue()
+  })
+
+  await page.goto("/")
+  await page
+    .getByRole("button", { name: "See one answer change the plan" })
+    .click()
+
+  const quickCheckError = page
+    .getByRole("alert")
+    .filter({ hasText: "Quick Check unavailable" })
+  await expect(quickCheckError).toContainText("Quick Check unavailable")
+  await expect(quickCheckError).toContainText(
+    "Quick Check is temporarily unavailable."
+  )
+  await page.getByRole("button", { name: "Try Quick Check again" }).click()
+
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Try Quick Check again" })
+  ).toHaveCount(0)
+  await request.delete("/api/calibration")
+})
+
 test("a guest can open the one-answer demo and see the adaptive proof", async ({
   page,
 }) => {
