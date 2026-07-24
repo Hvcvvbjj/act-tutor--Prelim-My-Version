@@ -403,8 +403,7 @@ export function Dashboard({
   onUseAdaptiveBaseline,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
-  const representativeDemo =
-    viewer.technicalDetails && diagnostic?.formId === "scout-judge-demo"
+  const representativeDemo = diagnostic?.formId === "scout-judge-demo"
   const startingSkill =
     diagnostic?.focusSkills[0]?.skill ??
     SECTION_FALLBACK_SKILLS[plan.weakestSection]
@@ -1059,7 +1058,9 @@ export function Dashboard({
               onStartFullDiagnostic={onStartFullDiagnostic}
               adaptiveBaselineRequired={false}
               onUseAdaptiveBaseline={applyAdaptiveBaseline}
-              canViewTechnicalDetails={viewer.technicalDetails}
+              canViewTechnicalDetails={
+                viewer.technicalDetails || representativeDemo
+              }
             />
           ) : (
             <main className="mx-auto max-w-3xl px-5 py-20">

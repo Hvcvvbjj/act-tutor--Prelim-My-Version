@@ -453,7 +453,7 @@ export function AdaptiveCalibrationLab({
             next = await calibrationRequest("GET")
           }
           if (representativeDemo && next.responseCount === 0) {
-            next = await calibrationRequest("POST", { action: "seed_demo" })
+            next = await calibrationRequest("POST", { action: "seed_preview" })
             if (next.learningTwinUpdated) await onLearningTwinUpdated()
           }
           return next

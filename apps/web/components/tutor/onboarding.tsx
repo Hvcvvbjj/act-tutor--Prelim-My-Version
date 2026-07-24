@@ -294,17 +294,15 @@ export function Onboarding({
                     Set up my plan
                     <ArrowRightIcon data-icon="inline-end" />
                   </Button>
-                  {viewer.technicalDetails ? (
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={onJudgeDemo}
-                      className="h-auto justify-start px-0 font-bold sm:px-4"
-                    >
-                      <PlayCircleIcon data-icon="inline-start" />
-                      Open the judge demo
-                    </Button>
-                  ) : null}
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={onJudgeDemo}
+                    className="h-auto justify-start px-0 font-bold sm:px-4"
+                  >
+                    <PlayCircleIcon data-icon="inline-start" />
+                    See one answer change the plan
+                  </Button>
                 </div>
                 <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />

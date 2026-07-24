@@ -111,7 +111,8 @@ describe("learner-facing model language", () => {
     expect(onboarding).toContain(
       "This is a planning goal—not a score prediction"
     )
-    expect(onboarding.match(/Open the judge demo/g)).toHaveLength(2)
+    expect(onboarding).toContain("See one answer change the plan")
+    expect(onboarding).toContain("Open the judge demo")
     expect(onboarding).toContain("viewer.technicalDetails")
     expect(onboarding).toContain("Skip for now")
     expect(onboarding).toContain("Create my starter plan")

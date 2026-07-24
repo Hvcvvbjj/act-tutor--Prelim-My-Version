@@ -232,4 +232,20 @@ describe.sequential("optional learner and judge accounts", () => {
       error: "Judge access is required for this demo control.",
     })
   })
+
+  it("allows the labeled one-answer preview without an account", async () => {
+    const response = await calibrationPost(
+      new NextRequest("http://localhost/api/calibration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed_preview" }),
+      })
+    )
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      representativeDemo: true,
+      responseCount: 7,
+      status: "in_progress",
+    })
+  })
 })

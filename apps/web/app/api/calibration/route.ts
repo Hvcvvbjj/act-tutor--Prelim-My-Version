@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
-    if (body.action === "seed_demo") {
-      await requireJudge(request)
+    if (body.action === "seed_demo" || body.action === "seed_preview") {
+      if (body.action === "seed_demo") await requireJudge(request)
       const existing = request.cookies.get(CALIBRATION_COOKIE)?.value
       if (existing) await calibrationSessions.reset(existing)
       const seeded =

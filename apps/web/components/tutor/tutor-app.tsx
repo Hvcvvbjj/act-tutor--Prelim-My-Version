@@ -640,10 +640,6 @@ export function TutorApp({
   }
 
   async function launchJudgeDemo() {
-    if (!viewer.technicalDetails) {
-      setError("Sign in with the judge account to open the technical demo.")
-      return
-    }
     void loadDashboard()
     try {
       const [learningResponse, calibrationResponse] = await Promise.all([

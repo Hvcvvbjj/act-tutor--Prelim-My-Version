@@ -24,6 +24,33 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   ).toBeVisible()
 }
 
+test("a guest can open the one-answer demo and see the adaptive proof", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page
+    .getByRole("button", { name: "See one answer change the plan" })
+    .click()
+
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
+  await expect(page.getByText("7 of up to 12 answered")).toBeVisible()
+
+  await page.keyboard.press("b")
+  await expect(page.getByRole("radio", { name: "B 12" })).toBeChecked()
+  await page.getByRole("button", { name: "Check my answer" }).click()
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Correct—Scout adjusted your next steps.",
+    })
+  ).toBeVisible()
+  await expect(page.getByText("1 · Question match")).toBeVisible()
+  await expect(page.getByText("2 · Ratios and percent estimate")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Sign in / save progress" })
+  ).toBeVisible()
+})
+
 test("Quick Check atomically replaces the temporary server lesson and Today mission", async ({
   request,
 }) => {
@@ -291,7 +318,9 @@ test("the server-verified judge account reveals the technical review layer", asy
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
 
   await expect(page.getByRole("button", { name: "Judge view" })).toBeVisible()
-  await page.getByRole("button", { name: "Open the judge demo" }).click()
+  await page
+    .getByRole("button", { name: "See one answer change the plan" })
+    .click()
   await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
   await expect(
     page.getByText("How Scout chose this question", { exact: false })
