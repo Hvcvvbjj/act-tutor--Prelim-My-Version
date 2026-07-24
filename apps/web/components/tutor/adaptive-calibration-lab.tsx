@@ -211,7 +211,7 @@ function AdaptiveProofReplay({
           </div>
           <h2
             id="adaptive-proof-heading"
-            className="mt-3 max-w-4xl font-heading text-4xl leading-[0.92] font-black tracking-[-0.035em] sm:text-7xl"
+            className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl"
           >
             {proof.correct
               ? "Correct—Scout adjusted your next steps."
@@ -644,7 +644,7 @@ export function AdaptiveCalibrationLab({
             <CrosshairIcon className="size-5" aria-hidden="true" />
             <p className="ink-label">Quick Check</p>
           </div>
-          <h1 className="mt-3 font-heading text-4xl leading-[0.9] font-black tracking-[-0.035em] sm:text-6xl">
+          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             A short check to choose your first lessons.
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -750,7 +750,7 @@ export function AdaptiveCalibrationLab({
         <section className="mt-8 grid gap-8 border-y-2 border-foreground py-10 lg:grid-cols-[1fr_0.8fr]">
           <div>
             <p className="ink-label text-primary">Quick Check complete</p>
-            <h2 className="mt-3 font-heading text-5xl font-black sm:text-6xl">
+            <h2 className="mt-3 font-heading text-4xl font-black sm:text-5xl">
               You’re ready for your first lessons.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">

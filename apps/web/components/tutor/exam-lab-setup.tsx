@@ -70,7 +70,7 @@ export function ExamLabSetup({
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:gap-16">
         <section>
           <p className="ink-label text-primary">Timed practice</p>
-          <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
+          <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             Practice the test before test day.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">

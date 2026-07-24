@@ -646,7 +646,7 @@ export function DiagnosticRunner({
         <div className="flex items-center gap-3">
           <ScoutMark className="size-11" />
           <div>
-            <p className="font-heading text-xl font-black tracking-tight sm:text-2xl">
+            <p className="font-brand text-xl font-black tracking-tight sm:text-2xl">
               SCOUT ACT
             </p>
             <p className="text-sm text-muted-foreground">{form.title}</p>

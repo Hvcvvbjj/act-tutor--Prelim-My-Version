@@ -48,7 +48,7 @@ export function DiagnosticIntro({
     <div className="min-h-svh bg-background text-foreground">
       <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
         <ScoutMark className="size-11" />
-        <p className="font-heading text-2xl font-black tracking-tight">
+        <p className="font-brand text-2xl font-black tracking-tight">
           SCOUT ACT
         </p>
       </header>
@@ -60,7 +60,7 @@ export function DiagnosticIntro({
         <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
           <section>
             <p className="ink-label text-primary">No ACT score yet</p>
-            <h1 className="mt-3 font-heading text-5xl leading-[0.95] font-black tracking-[-0.035em] sm:text-7xl">
+            <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
               Find your starting point.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">

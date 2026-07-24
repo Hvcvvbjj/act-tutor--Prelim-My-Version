@@ -220,7 +220,7 @@ export function LearningTwinLab({
             <GaugeIcon className="size-6" aria-hidden="true" />
             <p className="ink-label">Your progress</p>
           </div>
-          <h1 className="mt-4 max-w-5xl font-heading text-4xl leading-[0.96] font-black tracking-[-0.03em] sm:text-6xl">
+          <h1 className="mt-4 max-w-5xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             See how your 12 skills are developing.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">

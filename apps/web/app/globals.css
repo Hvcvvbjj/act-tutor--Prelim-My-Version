@@ -3,7 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --font-heading: var(--font-archivo);
+  --font-brand: var(--font-archivo);
+  --font-heading: var(--font-geist);
   --font-mono: var(--font-geist-mono);
   --font-sans: var(--font-geist);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -147,7 +148,7 @@
     background-color: var(--background);
     box-shadow:
       0 1px 0 rgb(16 33 63 / 0.04),
-      0 18px 48px rgb(16 33 63 / 0.07);
+      0 8px 24px rgb(16 33 63 / 0.06);
   }
 
   .ink-label {
@@ -165,7 +166,7 @@
     );
   }
 
-  .font-heading {
+  .font-brand {
     font-stretch: 94%;
   }
 }

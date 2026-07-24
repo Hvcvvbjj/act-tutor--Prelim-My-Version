@@ -465,7 +465,7 @@ function SkillRow({
     <button
       type="button"
       className={cn(
-        "grid w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-4 border-b py-3 text-left hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed",
+        "grid w-full grid-cols-[minmax(0,1fr)_3rem] items-center gap-4 border-b py-3 text-left last:border-b-0 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed",
         current && "bg-secondary"
       )}
       onClick={() => props.onStartSkill(skill.skill)}
@@ -490,7 +490,9 @@ function SkillRow({
           />
         </span>
       </span>
-      <span className="text-xl font-black tabular-nums">{percent}</span>
+      <span className="text-right text-sm font-bold text-muted-foreground tabular-nums">
+        {percent}%
+      </span>
     </button>
   )
 }
@@ -599,9 +601,12 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
             Finish today&apos;s assignment before switching skills.
           </p>
         </div>
-        <div className="mt-5 grid gap-7 lg:grid-cols-3">
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {(["english", "math", "reading"] as const).map((section) => (
-            <div key={section}>
+            <div
+              key={section}
+              className="rounded-xl border border-border/80 bg-card p-4"
+            >
               <h3 className="flex items-center gap-2 border-b pb-3 font-bold">
                 <span
                   className="size-2.5 rounded-full"
@@ -647,7 +652,7 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
             </span>
           </div>
 
-          <h1 className="mt-4 max-w-3xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.025em] sm:text-5xl">
+          <h1 className="mt-4 max-w-3xl font-heading text-3xl leading-[1.08] font-black tracking-[-0.025em] sm:text-4xl">
             {missionCopy.title}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -675,11 +680,11 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           </div>
 
           {learning.status !== "complete" ? (
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-[var(--info-surface)] p-4">
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/15 bg-secondary/70 p-4">
               <ScoutMark className="mt-0.5 size-9 shrink-0" />
               <div>
                 <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-                  Why this is next
+                  Why Scout picked this
                 </p>
                 <p className="mt-1 text-sm leading-6">
                   {assignmentIsCurrentRecommendation

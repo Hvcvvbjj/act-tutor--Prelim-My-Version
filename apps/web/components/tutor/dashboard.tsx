@@ -197,8 +197,8 @@ async function rebaseLearningSession(
 function Brand() {
   return (
     <div className="flex items-center gap-2.5">
-      <ScoutMark className="size-9" />
-      <p className="font-heading text-xl leading-none font-black tracking-[-0.02em]">
+      <ScoutMark className="size-8" />
+      <p className="font-brand text-lg leading-none font-black tracking-[-0.02em]">
         SCOUT <span className="text-primary">ACT</span>
       </p>
     </div>
@@ -786,7 +786,7 @@ export function Dashboard({
       >
         <div className="min-h-svh bg-[var(--canvas)]">
           <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
-            <div className="mx-auto flex min-h-16 max-w-[86rem] items-center justify-between gap-4 px-4 py-2 sm:px-7">
+            <div className="mx-auto flex min-h-14 max-w-[86rem] items-center justify-between gap-4 px-4 py-1.5 sm:px-7">
               <Brand />
               <div className="flex items-center gap-3">
                 <p className="hidden max-w-md text-right text-xs leading-5 text-muted-foreground sm:block">
@@ -863,7 +863,7 @@ export function Dashboard({
         className="min-h-svh scroll-pb-24 gap-0 bg-[var(--canvas)] pb-24 md:scroll-pb-0 md:pb-0"
       >
         <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
-          <div className="mx-auto grid min-h-16 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
+          <div className="mx-auto grid min-h-14 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-1.5 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
             <Brand />
             <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
               <TabsList

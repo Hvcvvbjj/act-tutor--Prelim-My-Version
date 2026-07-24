@@ -117,7 +117,7 @@ function errorForScore(error: string | null, label: string) {
 function StepTracker({ step }: { step: number }) {
   return (
     <nav aria-label="Setup progress" className="mx-auto max-w-3xl">
-      <ol className="grid grid-cols-3">
+      <ol className="grid grid-cols-3 gap-2">
         {STEP_LABELS.map((label, index) => {
           const number = index + 1
           const active = number === step
@@ -126,34 +126,26 @@ function StepTracker({ step }: { step: number }) {
             <li
               key={label}
               aria-current={active ? "step" : undefined}
-              className="relative flex items-center justify-center gap-2 px-1 text-sm sm:gap-3 sm:text-base"
+              className="min-w-0"
             >
-              {index > 0 ? (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute top-1/2 right-[calc(50%+3.25rem)] left-0 h-px -translate-y-1/2",
-                    complete || active ? "bg-primary" : "bg-border"
-                  )}
-                />
-              ) : null}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "block h-1.5 rounded-full",
+                  active || complete ? "bg-primary" : "bg-border"
+                )}
+              />
               <span
                 className={cn(
-                  "relative z-10 flex size-8 items-center justify-center rounded-full border bg-background text-sm font-bold",
-                  active && "border-primary bg-primary text-primary-foreground",
-                  complete && "border-primary text-primary",
-                  !active && !complete && "text-muted-foreground"
+                  "mt-2 hidden truncate text-sm font-semibold sm:block",
+                  active
+                    ? "text-primary"
+                    : complete
+                      ? "text-foreground"
+                      : "text-muted-foreground"
                 )}
               >
-                {number}
-              </span>
-              <span
-                className={cn(
-                  "relative z-10 hidden bg-background px-1 font-semibold sm:inline",
-                  active ? "text-primary" : "text-foreground"
-                )}
-              >
-                {label}
+                {number}. {label}
               </span>
             </li>
           )
@@ -247,11 +239,11 @@ export function Onboarding({
 
   if (showWelcome) {
     return (
-      <div className="min-h-svh bg-background text-foreground">
-        <header className="flex min-h-16 items-center justify-between gap-4 border-b px-5 py-2 sm:px-8">
+      <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+        <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
           <div className="flex items-center gap-2.5">
-            <ScoutMark className="size-9" />
-            <p className="font-heading text-xl font-black tracking-tight">
+            <ScoutMark className="size-8" />
+            <p className="font-brand text-lg font-black tracking-tight">
               SCOUT <span className="text-primary">ACT</span>
             </p>
           </div>
@@ -262,20 +254,20 @@ export function Onboarding({
           />
         </header>
 
-        <main className="mx-auto flex w-full max-w-5xl items-center px-5 py-10 sm:min-h-[calc(100svh-4rem)] sm:px-8 sm:py-14">
+        <main className="mx-auto flex w-full max-w-5xl items-center px-5 py-8 sm:min-h-[calc(100svh-3.5rem)] sm:px-8 sm:py-12">
           <section
             aria-labelledby="scout-welcome-title"
-            className="w-full border-y-2 border-foreground py-8 sm:py-12"
+            className="paper-panel w-full rounded-2xl border border-border/80 bg-card p-6 sm:p-9 lg:p-10"
           >
-            <div className="grid items-start gap-7 lg:grid-cols-[8rem_minmax(0,1fr)] lg:gap-10">
-              <ScoutMark className="size-24 sm:size-28" />
+            <div className="grid items-start gap-7 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-9">
+              <ScoutMark className="size-20 sm:size-24" />
               <div className="min-w-0">
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
                   Meet Mr. Kim, your study coach
                 </p>
                 <h1
                   id="scout-welcome-title"
-                  className="mt-3 max-w-4xl font-heading text-5xl leading-[0.98] font-black tracking-[-0.025em] sm:text-6xl"
+                  className="mt-3 max-w-4xl font-heading text-4xl leading-[1.04] font-black tracking-[-0.025em] sm:text-5xl"
                 >
                   A study plan that changes when your answers do.
                 </h1>
@@ -311,7 +303,7 @@ export function Onboarding({
 
                 <ol
                   aria-label="How Scout personalizes your plan"
-                  className="mt-7 grid border-y-2 border-foreground sm:grid-cols-3"
+                  className="mt-7 grid gap-3 sm:grid-cols-3"
                 >
                   {[
                     {
@@ -333,7 +325,7 @@ export function Onboarding({
                   ].map((item) => (
                     <li
                       key={item.number}
-                      className="grid grid-cols-[2.25rem_1fr] gap-x-3 border-b py-4 last:border-b-0 sm:block sm:border-r sm:border-b-0 sm:px-4 sm:first:pl-0 sm:last:border-r-0"
+                      className="grid grid-cols-[2.25rem_1fr] gap-x-3 rounded-xl bg-muted/70 p-4 sm:block"
                     >
                       <span className="font-mono text-xs font-black text-primary">
                         {item.number}
@@ -356,11 +348,11 @@ export function Onboarding({
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <header className="flex min-h-16 items-center justify-between gap-4 border-b px-5 py-2 sm:px-8">
+    <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
         <div className="flex items-center gap-2.5">
-          <ScoutMark className="size-9" />
-          <p className="font-heading text-xl font-black tracking-tight">
+          <ScoutMark className="size-8" />
+          <p className="font-brand text-lg font-black tracking-tight">
             SCOUT <span className="text-primary">ACT</span>
           </p>
         </div>
@@ -375,7 +367,7 @@ export function Onboarding({
         <StepTracker step={step} />
 
         <div className="mt-9 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
-          <section className="min-w-0">
+          <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-8">
             <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
               Step {step} of 3 · {STEP_LABELS[step - 1]}
             </p>

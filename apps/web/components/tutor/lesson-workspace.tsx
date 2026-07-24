@@ -635,7 +635,7 @@ function PracticeStage({
           }
           detail="Your dated My week calendar stays the same."
         />
-        <h2 className="mt-8 font-heading text-5xl leading-none font-black tracking-[-0.03em]">
+        <h2 className="mt-8 font-heading text-4xl leading-tight font-black tracking-[-0.03em]">
           {learning.mode === "repair"
             ? "Mistake fixed."
             : learning.mode === "checkpoint"

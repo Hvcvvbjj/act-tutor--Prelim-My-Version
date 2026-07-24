@@ -43,7 +43,7 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
       <header className="grid gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
         <div>
           <p className="ink-label text-primary">Learning data</p>
-          <h1 className="mt-3 max-w-5xl font-heading text-4xl leading-[0.96] font-black tracking-[-0.03em] sm:text-6xl">
+          <h1 className="mt-3 max-w-5xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             See what Scout knows about your learning.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">

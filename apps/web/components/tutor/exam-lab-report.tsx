@@ -89,7 +89,7 @@ export function ExamLabReport({
       <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)] lg:gap-16">
         <div>
           <p className="ink-label text-primary">Timed-practice results</p>
-          <h1 className="mt-3 font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-7xl">
+          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             Here&apos;s what happened under the clock.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">

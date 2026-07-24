@@ -67,16 +67,22 @@ describe("shared visual system contract", () => {
     const buttons = await source("components/ui/button.tsx")
     const tabs = await source("components/ui/tabs.tsx")
     const mission = await source("components/tutor/daily-mission-hub.tsx")
+    const onboarding = await source("components/tutor/onboarding.tsx")
 
     expect(layout).toContain("Archivo")
     expect(layout).not.toContain("Barlow_Condensed")
-    expect(styles).toContain("--font-heading: var(--font-archivo)")
+    expect(styles).toContain("--font-brand: var(--font-archivo)")
+    expect(styles).toContain("--font-heading: var(--font-geist)")
     expect(styles).toContain("--canvas: #f6f8fb")
     expect(buttons).toContain('"h-9 gap-2 px-3.5')
     expect(tabs).toContain("group-data-horizontal/tabs:h-9")
     expect(tabs).toContain("data-active:text-primary")
     expect(mission).toContain(
       "paper-panel min-w-0 rounded-2xl border border-border/80 bg-card"
+    )
+    expect(onboarding).toContain("grid grid-cols-3 gap-2")
+    expect(onboarding).toContain(
+      "paper-panel w-full rounded-2xl border border-border/80 bg-card"
     )
   })
 })
