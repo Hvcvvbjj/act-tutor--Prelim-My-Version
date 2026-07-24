@@ -285,6 +285,94 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("incomplete timed practice does not count blank questions as completed-answer misses", async ({
+  page,
+}) => {
+  await openStarterPlan(page)
+  await page.request.delete("/api/exam-lab")
+
+  const startedResponse = await page.request.post("/api/exam-lab", {
+    data: {
+      action: "start",
+      mode: "sprint",
+      section: "english",
+      timeMultiplier: 1,
+    },
+  })
+  expect(startedResponse.ok()).toBeTruthy()
+  const started = (await startedResponse.json()) as {
+    session: {
+      questions: ReadonlyArray<{
+        id: string
+        choices: ReadonlyArray<{ id: string }>
+      }>
+    }
+  }
+  const firstQuestion = started.session.questions[0]
+  if (!firstQuestion) throw new Error("Timed practice returned no questions.")
+
+  const saveResponse = await page.request.patch("/api/exam-lab", {
+    data: {
+      responses: {
+        [firstQuestion.id]: {
+          choiceId: firstQuestion.choices[0].id,
+          confidence: "sure",
+          flagged: false,
+          elapsedSeconds: 20,
+        },
+      },
+      currentIndex: 0,
+      phase: "questions",
+    },
+  })
+  expect(saveResponse.ok()).toBeTruthy()
+  expect(
+    (
+      await page.request.post("/api/exam-lab", {
+        data: { action: "review" },
+      })
+    ).ok()
+  ).toBeTruthy()
+  const finalizedResponse = await page.request.post("/api/exam-lab", {
+    data: { action: "finalize" },
+  })
+  expect(finalizedResponse.ok()).toBeTruthy()
+  const finalized = (await finalizedResponse.json()) as {
+    session: {
+      result: {
+        correct: number
+        total: number
+        unanswered: number
+        review: ReadonlyArray<{
+          section: "english" | "math" | "reading"
+          selectedChoiceId: string | null
+        }>
+      }
+    }
+  }
+  const result = finalized.session.result
+  expect(result.total).toBeGreaterThan(1)
+  expect(result.unanswered).toBe(result.total - 1)
+
+  await page.getByRole("button", { name: "More" }).click()
+  await page.getByRole("button", { name: "Timed practice" }).click()
+
+  const accuracy = page.getByTestId("timed-practice-answer-accuracy")
+  await expect(accuracy).toContainText("Completed answers correct")
+  await expect(accuracy).toContainText(`${result.correct} of 1`)
+  await expect(accuracy).toContainText(`${result.unanswered} unanswered`)
+  await expect(accuracy).not.toContainText("%")
+
+  const answeredSection = result.review.find(
+    (answer) => answer.selectedChoiceId !== null
+  )?.section
+  if (!answeredSection)
+    throw new Error("Timed practice did not preserve the completed answer.")
+  await expect(
+    page.getByTestId(`timed-practice-section-${answeredSection}`)
+  ).toContainText(`${result.correct}/1 completed answer`)
+})
+
 test("a learner can save the skipped-check plan and restore it after sign-in", async ({
   page,
 }) => {

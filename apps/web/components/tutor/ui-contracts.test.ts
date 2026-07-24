@@ -200,5 +200,7 @@ describe("practice timing contract", () => {
     expect(report).toContain("Practice score range")
     expect(report).toContain("Not shown")
     expect(report).toContain("Finish more before using this result")
+    expect(report).toContain("Completed answers correct")
+    expect(report).toContain("not included above")
   })
 })

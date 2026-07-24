@@ -72,6 +72,10 @@ export function ExamLabReport({
     session.questions.map((question) => [question.id, question])
   )
   const readiness = examLabInterpretationReadiness(result)
+  const completedAnswerSummary =
+    readiness.answered > 0
+      ? `${result.correct} of ${readiness.answered}`
+      : "None yet"
   const estimateLabel = result.practiceEstimate.composite
     ? canViewTechnicalDetails
       ? "Internal Composite display"
@@ -121,13 +125,24 @@ export function ExamLabReport({
                 </>
               )}
             </div>
-            <div className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8">
-              <p className="ink-label text-muted-foreground">Answers correct</p>
-              <p className="mt-2 font-heading text-6xl font-black tabular-nums">
-                {Math.round(result.accuracy * 100)}%
+            <div
+              data-testid="timed-practice-answer-accuracy"
+              className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8"
+            >
+              <p className="ink-label text-muted-foreground">
+                {readiness.sufficient
+                  ? "Answers correct"
+                  : "Completed answers correct"}
+              </p>
+              <p className="mt-2 font-heading text-5xl font-black tabular-nums sm:text-6xl">
+                {readiness.sufficient
+                  ? `${Math.round(result.accuracy * 100)}%`
+                  : completedAnswerSummary}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {result.correct}/{result.total} · {result.unanswered} unanswered
+                {readiness.sufficient
+                  ? `${result.correct}/${result.total} total · ${result.unanswered} unanswered`
+                  : `${result.unanswered} unanswered · not included above`}
               </p>
             </div>
           </div>
@@ -227,31 +242,49 @@ export function ExamLabReport({
           <TargetIcon className="text-primary" aria-hidden="true" />
         </div>
         <div className="mt-6 grid border-t lg:grid-cols-3 lg:divide-x">
-          {result.sections.map((section) => (
-            <div
-              key={section.section}
-              className="border-b px-0 py-5 first:pl-0 last:pr-0 lg:px-6"
-            >
-              <div className="flex items-baseline justify-between gap-4">
-                <h3 className="font-heading text-3xl font-bold">
-                  {SECTION_LABEL[section.section]}
-                </h3>
-                {readiness.sufficient ? (
-                  <span className="font-heading text-4xl font-black text-primary">
-                    {section.practiceEstimate}
-                  </span>
-                ) : null}
+          {result.sections.map((section) => {
+            const completed = result.review.filter(
+              (answer) =>
+                answer.section === section.section &&
+                answer.selectedChoiceId !== null
+            ).length
+            const unanswered = section.total - completed
+            const completedAccuracy = completed
+              ? section.correct / completed
+              : 0
+            return (
+              <div
+                key={section.section}
+                data-testid={`timed-practice-section-${section.section}`}
+                className="border-b px-0 py-5 first:pl-0 last:pr-0 lg:px-6"
+              >
+                <div className="flex items-baseline justify-between gap-4">
+                  <h3 className="font-heading text-3xl font-bold">
+                    {SECTION_LABEL[section.section]}
+                  </h3>
+                  {readiness.sufficient ? (
+                    <span className="font-heading text-4xl font-black text-primary">
+                      {section.practiceEstimate}
+                    </span>
+                  ) : null}
+                </div>
+                <MetricBar
+                  value={
+                    (readiness.sufficient
+                      ? section.accuracy
+                      : completedAccuracy) * 100
+                  }
+                />
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {readiness.sufficient
+                    ? `${canViewTechnicalDetails ? "Internal display" : "Practice estimate"} · ${section.correct}/${section.total} total correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
+                    : completed
+                      ? `${section.correct}/${completed} completed answer${completed === 1 ? "" : "s"} correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
+                      : `No completed answers · ${unanswered} unanswered`}
+                </p>
               </div>
-              <MetricBar value={section.accuracy * 100} />
-              <p className="mt-3 text-sm text-muted-foreground">
-                {readiness.sufficient
-                  ? `${canViewTechnicalDetails ? "Internal display" : "Practice estimate"} · `
-                  : ""}
-                {section.correct}/{section.total} correct ·{" "}
-                {Math.round(section.averageSeconds)}s average
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
