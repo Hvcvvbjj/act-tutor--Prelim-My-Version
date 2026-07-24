@@ -637,7 +637,7 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
   return (
     <div className="space-y-6 pb-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <section className="min-w-0 rounded-xl border bg-background p-5 sm:p-7 lg:p-8">
+        <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-7 lg:p-8">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
               {missionCopy.label}
@@ -675,7 +675,7 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           </div>
 
           {learning.status !== "complete" ? (
-            <div className="mt-6 flex items-start gap-3 rounded-lg border border-primary/25 bg-[var(--info-surface)] p-4">
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-[var(--info-surface)] p-4">
               <ScoutMark className="mt-0.5 size-9 shrink-0" />
               <div>
                 <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">

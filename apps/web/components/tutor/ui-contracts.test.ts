@@ -60,6 +60,27 @@ describe("mobile navigation contract", () => {
   })
 })
 
+describe("shared visual system contract", () => {
+  it("uses readable display type and consistent control sizing", async () => {
+    const layout = await source("app/layout.tsx")
+    const styles = await source("app/globals.css")
+    const buttons = await source("components/ui/button.tsx")
+    const tabs = await source("components/ui/tabs.tsx")
+    const mission = await source("components/tutor/daily-mission-hub.tsx")
+
+    expect(layout).toContain("Archivo")
+    expect(layout).not.toContain("Barlow_Condensed")
+    expect(styles).toContain("--font-heading: var(--font-archivo)")
+    expect(styles).toContain("--canvas: #f6f8fb")
+    expect(buttons).toContain('"h-9 gap-2 px-3.5')
+    expect(tabs).toContain("group-data-horizontal/tabs:h-9")
+    expect(tabs).toContain("data-active:text-primary")
+    expect(mission).toContain(
+      "paper-panel min-w-0 rounded-2xl border border-border/80 bg-card"
+    )
+  })
+})
+
 describe("Scout drawer accessibility contract", () => {
   it("traps focus, closes on Escape, returns focus, and avoids a mobile floating launcher", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")

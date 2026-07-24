@@ -3,7 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
-  --font-heading: var(--font-barlow-condensed);
+  --font-heading: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
   --font-sans: var(--font-geist);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -90,6 +90,7 @@
   --scout-paper: #ffffff;
   --coach-surface: #fff6d8;
   --coach-shadow: #10213f;
+  --canvas: #f6f8fb;
 }
 
 @layer base {
@@ -106,6 +107,20 @@
     @apply bg-background text-foreground;
     min-width: 320px;
     overflow-x: clip;
+    font-feature-settings:
+      "kern" 1,
+      "liga" 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   button:not(:disabled),
@@ -130,7 +145,9 @@
 @layer components {
   .paper-panel {
     background-color: var(--background);
-    box-shadow: 0 12px 32px rgb(16 33 63 / 0.08);
+    box-shadow:
+      0 1px 0 rgb(16 33 63 / 0.04),
+      0 18px 48px rgb(16 33 63 / 0.07);
   }
 
   .ink-label {
@@ -146,6 +163,10 @@
       transparent 67%,
       rgb(246 201 69 / 0.7) 67%
     );
+  }
+
+  .font-heading {
+    font-stretch: 94%;
   }
 }
 

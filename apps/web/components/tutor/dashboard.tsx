@@ -211,7 +211,7 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
     plan.evidence.source === "starter_diagnostic" ||
     plan.evidence.source === "not_taken"
   return (
-    <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background px-3.5 py-2">
       <div>
         <p className="text-base leading-none font-black tabular-nums">
           {plan.currentComposite}{" "}
@@ -784,8 +784,8 @@ export function Dashboard({
         learning={learning}
         canViewTechnicalDetails={viewer.technicalDetails}
       >
-        <div className="min-h-svh bg-background">
-          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+        <div className="min-h-svh bg-[var(--canvas)]">
+          <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
             <div className="mx-auto flex min-h-16 max-w-[86rem] items-center justify-between gap-4 px-4 py-2 sm:px-7">
               <Brand />
               <div className="flex items-center gap-3">
@@ -860,9 +860,9 @@ export function Dashboard({
           setActiveTab(value)
           setMoreOpen(false)
         }}
-        className="min-h-svh scroll-pb-24 gap-0 bg-transparent pb-24 md:scroll-pb-0 md:pb-0"
+        className="min-h-svh scroll-pb-24 gap-0 bg-[var(--canvas)] pb-24 md:scroll-pb-0 md:pb-0"
       >
-        <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+        <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
           <div className="mx-auto grid min-h-16 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
             <Brand />
             <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
@@ -1120,7 +1120,7 @@ export function Dashboard({
         ) : null}
 
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl md:hidden"
           aria-label="Primary study navigation"
         >
           <div className="grid w-full grid-cols-6">

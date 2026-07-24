@@ -275,7 +275,7 @@ export function Onboarding({
                 </p>
                 <h1
                   id="scout-welcome-title"
-                  className="mt-3 max-w-4xl font-heading text-5xl leading-[0.94] font-black tracking-[-0.035em] sm:text-6xl lg:text-7xl"
+                  className="mt-3 max-w-4xl font-heading text-5xl leading-[0.98] font-black tracking-[-0.025em] sm:text-6xl"
                 >
                   A study plan that changes when your answers do.
                 </h1>
