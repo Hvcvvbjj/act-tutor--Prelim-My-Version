@@ -994,7 +994,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
         </div>
         {!props.learning.lessonComplete ? (
           <nav
-            className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto"
+            className="order-3 grid w-full grid-cols-4 gap-1 sm:order-none sm:flex sm:w-auto"
             aria-label="Lesson stages"
           >
             {SECTION_SHORT_LABELS.slice(
@@ -1010,7 +1010,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                 }
                 size="sm"
                 className={cn(
-                  "text-foreground",
+                  "min-w-0 px-1.5 text-xs text-foreground sm:px-3 sm:text-[0.8rem]",
                   props.activeSection === index && "text-secondary-foreground"
                 )}
                 onClick={() => props.onSectionChange(index)}

@@ -406,6 +406,52 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(settings).toBeHidden()
 })
 
+test("all lesson stages stay visible and reachable on narrow phones", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await openStarterPlan(page)
+  await page.getByRole("button", { name: "Start lesson" }).click()
+
+  const stages = page.getByRole("navigation", { name: "Lesson stages" })
+  const stageButtons = stages.getByRole("button")
+  await expect(stageButtons).toHaveCount(4)
+
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect
+      .poll(() =>
+        stages.evaluate((element) => element.scrollWidth - element.clientWidth)
+      )
+      .toBe(0)
+
+    const stageLayout = await stages.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return {
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        left: bounds.left,
+        right: bounds.right,
+      }
+    })
+    expect(stageLayout.scrollWidth).toBe(stageLayout.clientWidth)
+
+    for (const button of await stageButtons.all()) {
+      await expect(button).toBeVisible()
+      const bounds = await button.boundingBox()
+      expect(bounds).not.toBeNull()
+      expect(bounds!.x).toBeGreaterThanOrEqual(stageLayout.left)
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(stageLayout.right)
+    }
+  }
+
+  for (const name of ["2. Example", "3. Rule", "4. Try it"]) {
+    const stage = stages.getByRole("button", { name })
+    await stage.click()
+    await expect(stage).toHaveAttribute("aria-current", "step")
+  }
+})
+
 test("a guest plan survives a refresh on the same device", async ({ page }) => {
   await openStarterPlan(page)
   await page.reload()
