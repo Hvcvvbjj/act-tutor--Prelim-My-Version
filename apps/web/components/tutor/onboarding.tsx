@@ -254,34 +254,34 @@ export function Onboarding({
           />
         </header>
 
-        <main className="mx-auto flex w-full max-w-5xl items-center px-5 py-8 sm:min-h-[calc(100svh-3.5rem)] sm:px-8 sm:py-12">
+        <main className="mx-auto flex w-full max-w-5xl items-center px-4 py-4 sm:min-h-[calc(100svh-3.5rem)] sm:px-8 sm:py-12">
           <section
             aria-labelledby="scout-welcome-title"
-            className="paper-panel w-full rounded-2xl border border-border/80 bg-card p-6 sm:p-9 lg:p-10"
+            className="paper-panel w-full rounded-2xl border border-border/80 bg-card p-5 sm:p-9 lg:p-10"
           >
-            <div className="grid items-start gap-7 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-9">
-              <ScoutMark className="size-20 sm:size-24" />
+            <div className="grid items-start gap-4 sm:gap-7 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-9">
+              <ScoutMark className="size-14 sm:size-24" />
               <div className="min-w-0">
-                <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
+                <p className="text-[0.6875rem] leading-4 font-bold tracking-[0.12em] text-primary uppercase sm:text-xs">
                   Meet Mr. Kim, your study coach
                 </p>
                 <h1
                   id="scout-welcome-title"
-                  className="mt-3 max-w-4xl font-heading text-4xl leading-[1.04] font-black tracking-[-0.025em] sm:text-5xl"
+                  className="mt-2 max-w-4xl font-heading text-[2rem] leading-[1.03] font-black tracking-[-0.025em] sm:mt-3 sm:text-5xl"
                 >
                   A study plan that changes when your answers do.
                 </h1>
-                <p className="mt-5 max-w-3xl text-lg leading-8">
+                <p className="mt-4 max-w-3xl text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8">
                   Tell me your goal, where you&apos;re starting, and when you
                   can study. I&apos;ll turn that into a first week you can
                   actually follow.
                 </p>
-                <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:mt-4 sm:text-base sm:leading-7">
                   Then every scored answer helps me choose what to teach next.
                   Skill percentages are study estimates—not ACT scores.
                 </p>
 
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:items-center">
                   <Button type="button" size="xl" onClick={onDismissWelcome}>
                     Set up my plan
                     <ArrowRightIcon data-icon="inline-end" />
@@ -290,20 +290,20 @@ export function Onboarding({
                     type="button"
                     variant="link"
                     onClick={onJudgeDemo}
-                    className="h-auto justify-start px-0 font-bold sm:px-4"
+                    className="h-auto justify-start px-0 text-left font-bold whitespace-normal sm:px-4"
                   >
                     <PlayCircleIcon data-icon="inline-start" />
                     See one answer change the plan
                   </Button>
                 </div>
-                <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground sm:mt-4">
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />
                   No account needed.
                 </p>
 
                 <ol
                   aria-label="How Scout personalizes your plan"
-                  className="mt-7 grid gap-3 sm:grid-cols-3"
+                  className="mt-5 grid gap-3 sm:mt-7 sm:grid-cols-3"
                 >
                   {[
                     {

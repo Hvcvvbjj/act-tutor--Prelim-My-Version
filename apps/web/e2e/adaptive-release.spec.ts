@@ -24,6 +24,37 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   ).toBeVisible()
 }
 
+test("mobile welcome keeps both first-run actions in view", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await page.goto("/")
+
+  const setupAction = page.getByRole("button", { name: "Set up my plan" })
+  const demoAction = page.getByRole("button", {
+    name: "See one answer change the plan",
+  })
+  await expect(setupAction).toBeVisible()
+  await expect(demoAction).toBeVisible()
+
+  for (const action of [setupAction, demoAction]) {
+    const box = await action.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.y).toBeGreaterThanOrEqual(0)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(740)
+  }
+
+  await page.addStyleTag({ content: ":root { font-size: 20px !important; }" })
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ scrollWidth: 320, viewportWidth: 320 })
+})
+
 test("Quick Check recovers after its first request fails", async ({
   page,
   request,
