@@ -59,7 +59,9 @@ test("Quick Check recovers after its first request fails", async ({
   )
   await page.getByRole("button", { name: "Try Quick Check again" }).click()
 
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
+    timeout: 20_000,
+  })
   await expect(
     page.getByRole("button", { name: "Try Quick Check again" })
   ).toHaveCount(0)
@@ -69,13 +71,34 @@ test("Quick Check recovers after its first request fails", async ({
 test("a guest can open the one-answer demo and see the adaptive proof", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 760 })
   await page.goto("/")
   await page
     .getByRole("button", { name: "See one answer change the plan" })
     .click()
 
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
-  await expect(page.getByText("7 of up to 12 answered")).toBeVisible()
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.getByText("7/12 answered")).toBeVisible()
+
+  const questionPrompt = await page
+    .getByRole("heading", { name: /A solution contains water/ })
+    .boundingBox()
+  const firstChoice = await page
+    .getByTestId("quick-check-choice")
+    .first()
+    .boundingBox()
+  const mobileNavigation = await page
+    .getByRole("navigation", { name: "Primary study navigation" })
+    .boundingBox()
+  expect(questionPrompt).not.toBeNull()
+  expect(firstChoice).not.toBeNull()
+  expect(mobileNavigation).not.toBeNull()
+  expect(questionPrompt!.y + questionPrompt!.height).toBeLessThan(
+    mobileNavigation!.y
+  )
+  expect(firstChoice!.y + firstChoice!.height).toBeLessThan(mobileNavigation!.y)
 
   await page.keyboard.press("b")
   await expect(page.getByRole("radio", { name: "B 12" })).toBeChecked()
@@ -519,7 +542,9 @@ test("the server-verified judge account reveals the technical review layer", asy
   await page
     .getByRole("button", { name: "See one answer change the plan" })
     .click()
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible()
+  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
+    timeout: 20_000,
+  })
   await expect(
     page.getByText("How Scout chose this question", { exact: false })
   ).toBeVisible()

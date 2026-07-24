@@ -635,49 +635,76 @@ export function AdaptiveCalibrationLab({
 
   return (
     <main
-      className="mx-auto w-full max-w-[100rem] px-4 py-8 sm:px-7 lg:py-10"
+      className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-7 sm:py-7 lg:py-8"
       data-representative-demo={representativeDemo ? "true" : "false"}
     >
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-6">
-        <div>
-          <div className="flex items-center gap-3 text-primary">
-            <CrosshairIcon className="size-5" aria-hidden="true" />
-            <p className="ink-label">Quick Check</p>
+      <section
+        className="paper-panel rounded-2xl border border-border/80 bg-card p-4 sm:p-6"
+        aria-labelledby="quick-check-heading"
+      >
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center">
+          <div>
+            <div className="hidden items-center gap-3 text-primary sm:flex">
+              <CrosshairIcon className="size-5" aria-hidden="true" />
+              <p className="ink-label">Adaptive starting point</p>
+            </div>
+            <h1
+              id="quick-check-heading"
+              className="font-heading text-3xl leading-tight font-black tracking-[-0.025em] sm:mt-2 sm:text-4xl"
+            >
+              Quick Check
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
+              Answer 8–12 questions. Scout may stop after eight once English,
+              Math, and Reading are covered. The result chooses lessons—not an
+              ACT score.
+            </p>
           </div>
-          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-            A short check to choose your first lessons.
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Answer 8–12 questions across English, Math, and Reading. Scout may
-            finish after eight once it has enough information from every
-            section; otherwise it asks up to 12. The result chooses your first
-            lessons—it is not an ACT score.
-          </p>
+
+          <div className="rounded-xl bg-muted/75 px-4 py-2.5 sm:py-3">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="ink-label hidden text-muted-foreground sm:block">
+                  Time remaining
+                </p>
+                <p className="text-lg font-black sm:mt-1 sm:text-xl">
+                  About{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(
+                      (payload.maximumItems - payload.responseCount) * 1.5
+                    )
+                  )}{" "}
+                  min
+                </p>
+              </div>
+              <p className="text-right text-xs whitespace-nowrap text-muted-foreground">
+                {payload.responseCount}/{payload.maximumItems} answered
+              </p>
+            </div>
+            <div
+              className="mt-2 h-1.5 overflow-hidden rounded-full bg-border sm:mt-3"
+              aria-hidden="true"
+            >
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    (payload.responseCount / payload.maximumItems) * 100
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
         </div>
-        <div className="min-w-64 border-l-2 border-foreground pl-5">
-          <p className="ink-label text-muted-foreground">Time and progress</p>
-          <p className="mt-1 font-heading text-3xl font-black">
-            About{" "}
-            {Math.max(
-              1,
-              Math.ceil((payload.maximumItems - payload.responseCount) * 1.5)
-            )}{" "}
-            min left
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {payload.responseCount} of up to {payload.maximumItems} answered
-          </p>
-        </div>
-      </div>
+      </section>
 
       {payload.representativeDemo ? (
-        <Alert className="mt-6 border-2 border-primary bg-secondary">
+        <Alert className="mt-3 border-primary/50 bg-secondary px-4 py-3">
           <ScanSearchIcon />
           <AlertTitle>Seven sample answers are loaded</AlertTitle>
-          <AlertDescription>
-            Answer this last question to see how Scout responds. The first seven
-            answers are preview data, not a real student&apos;s work.
-          </AlertDescription>
+          <AlertDescription>Answer once to watch Scout react.</AlertDescription>
         </Alert>
       ) : null}
 
@@ -842,8 +869,11 @@ export function AdaptiveCalibrationLab({
           </div>
         </section>
       ) : (
-        <div className="mt-8 grid border-y-2 border-foreground lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.55fr)]">
-          <section className="py-8 lg:border-r-2 lg:border-foreground lg:pr-7">
+        <div
+          className="paper-panel mt-4 grid overflow-hidden rounded-2xl border border-border/80 bg-card lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.55fr)]"
+          data-testid="quick-check-question-card"
+        >
+          <section className="px-2.5 py-5 sm:p-7 lg:border-r lg:border-border/80">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="ink-label text-primary">
                 Question {payload.responseCount + 1} of {payload.maximumItems}
@@ -852,13 +882,10 @@ export function AdaptiveCalibrationLab({
                 {SECTION_LABELS[question.section]} · {question.difficulty}
               </p>
             </div>
-            <h2 className="mt-4 font-heading text-4xl leading-none font-black sm:text-5xl">
-              Your next question
-            </h2>
             {question.stimulus ? (
               <article
                 data-testid="quick-check-stimulus"
-                className="mt-6 border-y-2 border-foreground bg-[var(--rail)] px-5 py-5 text-sm leading-7 lg:max-h-72 lg:overflow-y-auto"
+                className="mt-5 rounded-xl border border-border/80 bg-muted/65 px-4 py-4 text-sm leading-7 sm:px-5 lg:max-h-72 lg:overflow-y-auto"
               >
                 {question.passageTitle ? (
                   <p className="mb-3 font-heading text-2xl font-black">
@@ -873,27 +900,27 @@ export function AdaptiveCalibrationLab({
                 {question.lineReference}
               </p>
             ) : null}
-            <p className="mt-6 text-xl leading-8 font-bold">
+            <h2 className="mt-5 text-lg leading-7 font-bold sm:text-xl sm:leading-8">
               {question.prompt}
-            </p>
+            </h2>
             <RadioGroup
               value={selectedChoice}
               onValueChange={setSelectedChoice}
               aria-label={`Answer choices for Quick Check question ${payload.responseCount + 1}`}
-              className="mt-6 gap-3"
+              className="mt-5 gap-2.5"
             >
               {question.choices.map((choice, index) => (
                 <label
                   key={choice.id}
                   data-testid="quick-check-choice"
                   className={cn(
-                    "grid cursor-pointer grid-cols-[2.4rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:-translate-y-0.5 hover:border-foreground",
+                    "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6 transition-[background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:border-primary hover:bg-muted/50",
                     selectedChoice === choice.id &&
-                      "border-primary bg-secondary"
+                      "border-primary bg-secondary ring-1 ring-primary/20"
                   )}
                 >
                   <VisuallyHiddenRadioGroupItem value={choice.id} />
-                  <strong className="font-mono text-lg text-primary">
+                  <strong className="font-mono text-base text-primary">
                     {String.fromCharCode(65 + index)}
                   </strong>
                   <span className="min-w-0">{choice.text}</span>
@@ -903,7 +930,7 @@ export function AdaptiveCalibrationLab({
             <p className="mt-3 hidden text-xs font-semibold text-muted-foreground sm:block">
               Keyboard: 1–4 or A–D chooses an answer.
             </p>
-            <div className="mt-5 border-y-2 border-foreground py-4">
+            <div className="mt-4 border-t border-border pt-4">
               <p
                 id="quick-check-confidence-label"
                 className="ink-label text-muted-foreground"
@@ -938,7 +965,7 @@ export function AdaptiveCalibrationLab({
               </div>
               <p
                 id="quick-check-confidence-help"
-                className="mt-2 text-xs text-muted-foreground"
+                className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground"
               >
                 Confidence never changes whether your answer is right. It only
                 changes how strongly Scout adjusts this skill estimate.
@@ -954,7 +981,7 @@ export function AdaptiveCalibrationLab({
             <Button
               type="button"
               size="xl"
-              className="mt-6 w-full"
+              className="mt-4 w-full"
               disabled={!selectedChoice || busy}
               onClick={() => void submitAnswer()}
             >
@@ -971,21 +998,21 @@ export function AdaptiveCalibrationLab({
             </p>
           </section>
 
-          <aside className="border-t-2 border-foreground py-8 lg:border-t-0 lg:pl-7">
+          <aside className="border-t border-border/80 bg-muted/35 p-5 sm:p-7 lg:border-t-0">
             <div className="flex items-center gap-3 text-primary">
               <CrosshairIcon className="size-5" aria-hidden="true" />
               <p className="ink-label">Why this question?</p>
             </div>
-            <p className="mt-4 font-heading text-3xl leading-tight font-black">
+            <h3 className="mt-3 font-heading text-xl leading-snug font-black sm:text-2xl">
               This {question.skillLabel} question gives Scout the clearest next
               signal.
-            </p>
+            </h3>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               It helps Scout learn what to teach next while keeping section
               coverage balanced. Your ACT goal does not affect this choice.
             </p>
 
-            <details className="group mt-8 border-t-2 border-foreground pt-5">
+            <details className="group mt-6 border-t border-border pt-4">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 What happens after I answer?
                 <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
@@ -1012,11 +1039,11 @@ export function AdaptiveCalibrationLab({
                     key={number}
                     className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
                   >
-                    <span className="flex size-8 items-center justify-center bg-foreground font-mono text-xs font-black text-background">
+                    <span className="flex size-8 items-center justify-center rounded-lg bg-foreground font-mono text-xs font-black text-background">
                       {number}
                     </span>
                     <div>
-                      <p className="font-heading text-xl font-black">{title}</p>
+                      <p className="font-bold">{title}</p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         {detail}
                       </p>
@@ -1026,7 +1053,7 @@ export function AdaptiveCalibrationLab({
               </ol>
             </details>
 
-            <div className="mt-8 border-l-4 border-primary bg-[var(--info-surface)] p-4">
+            <div className="mt-6 rounded-xl border border-primary/20 bg-[var(--info-surface)] p-4">
               <p className="font-bold">
                 {payload.maximumItems - payload.responseCount} questions left at
                 most

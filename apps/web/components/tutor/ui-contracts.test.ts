@@ -68,6 +68,9 @@ describe("shared visual system contract", () => {
     const tabs = await source("components/ui/tabs.tsx")
     const mission = await source("components/tutor/daily-mission-hub.tsx")
     const onboarding = await source("components/tutor/onboarding.tsx")
+    const quickCheck = await source(
+      "components/tutor/adaptive-calibration-lab.tsx"
+    )
 
     expect(layout).toContain("Archivo")
     expect(layout).not.toContain("Barlow_Condensed")
@@ -84,6 +87,9 @@ describe("shared visual system contract", () => {
     expect(onboarding).toContain(
       "paper-panel w-full rounded-2xl border border-border/80 bg-card"
     )
+    expect(quickCheck).toContain('aria-labelledby="quick-check-heading"')
+    expect(quickCheck).toContain('data-testid="quick-check-question-card"')
+    expect(quickCheck).not.toContain(">Your next question<")
   })
 })
 
