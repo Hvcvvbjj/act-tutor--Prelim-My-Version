@@ -479,7 +479,10 @@ function WeekPlanner({
     addCalendarDaysFrom(weekStart, index)
   )
   return (
-    <div className="grid border-y-2 border-foreground xl:grid-cols-7">
+    <div
+      className="grid gap-3 border-y-2 border-foreground py-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+      data-testid="week-planner"
+    >
       {dates.map((date) => {
         const tasks = weekTasks.filter((task) => task.date === date)
         const isToday = date === plan.today
@@ -488,14 +491,16 @@ function WeekPlanner({
           <section
             key={date}
             className={cn(
-              "min-w-0 border-b px-3 py-4 last:border-b-0 xl:min-h-[22rem] xl:border-r xl:border-b-0 xl:last:border-r-0",
+              "paper-panel min-w-0 rounded-xl border border-border/80 bg-card p-4 sm:min-h-48",
               isToday &&
-                "bg-[color-mix(in_srgb,var(--scout-sun),transparent_88%)]",
+                "border-[color-mix(in_srgb,var(--scout-sun),var(--foreground)_18%)] bg-[color-mix(in_srgb,var(--scout-sun),transparent_88%)]",
               afterTest && "bg-muted/35 text-muted-foreground"
             )}
             aria-labelledby={`day-${date}`}
+            aria-current={isToday ? "date" : undefined}
+            data-testid="week-day"
           >
-            <header className="flex items-end justify-between gap-3 border-b pb-3 xl:block">
+            <header className="flex items-end justify-between gap-3 border-b pb-3">
               <div>
                 <p
                   className={cn(
@@ -512,13 +517,13 @@ function WeekPlanner({
                   {shortDate(date)}
                 </h3>
               </div>
-              <p className="font-mono text-xs font-bold text-muted-foreground xl:mt-2">
+              <p className="shrink-0 font-mono text-xs font-bold text-muted-foreground">
                 {tasks.reduce((sum, task) => sum + task.minutes, 0) || "—"}{" "}
                 {tasks.length ? "min" : ""}
               </p>
             </header>
             {tasks.length ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="mt-4 grid gap-3">
                 {tasks.map((task) => (
                   <TaskBlock
                     key={task.id}
@@ -531,7 +536,7 @@ function WeekPlanner({
                 ))}
               </div>
             ) : (
-              <p className="py-6 text-sm leading-6 text-muted-foreground xl:py-5">
+              <p className="py-5 text-sm leading-6 text-muted-foreground">
                 {afterTest ? "After test day" : "No study planned"}
               </p>
             )}
@@ -1021,7 +1026,7 @@ export function AdaptivePlanStudio({
                 Choose an assignment to see details and start it.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -1031,34 +1036,36 @@ export function AdaptivePlanStudio({
                 {copyStatus === "copied" ? <CheckIcon /> : <CopyIcon />}
                 {copyStatus === "copied" ? "Week copied" : "Copy week"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
-                disabled={!canGoBack}
-                aria-label="Previous study week"
-              >
-                <ChevronLeftIcon />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => showWeek(firstWeek)}
-                disabled={weekStart === firstWeek}
-              >
-                This week
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => showWeek(shiftStudyWeek(weekStart, 1))}
-                disabled={!canGoForward}
-                aria-label="Next study week"
-              >
-                <ChevronRightIcon />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
+                  disabled={!canGoBack}
+                  aria-label="Previous study week"
+                >
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => showWeek(firstWeek)}
+                  disabled={weekStart === firstWeek}
+                >
+                  This week
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => showWeek(shiftStudyWeek(weekStart, 1))}
+                  disabled={!canGoForward}
+                  aria-label="Next study week"
+                >
+                  <ChevronRightIcon />
+                </Button>
+              </div>
             </div>
           </div>
           <p id="copy-week-status" className="sr-only" aria-live="polite">

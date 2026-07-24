@@ -373,6 +373,38 @@ test("a calendar review cannot masquerade as the current lesson", async ({
   ).toHaveCount(0)
 })
 
+test("the weekly calendar keeps day cards readable at laptop and phone widths", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 800 })
+  await openStarterPlan(page)
+  await page.getByRole("tab", { name: "My week" }).click()
+
+  const dayCards = page.getByTestId("week-day")
+  await expect(dayCards).toHaveCount(7)
+  const laptopCards = await dayCards.evaluateAll((cards) =>
+    cards.map((card) => {
+      const bounds = card.getBoundingClientRect()
+      return { width: bounds.width, top: bounds.top }
+    })
+  )
+  expect(Math.min(...laptopCards.map((card) => card.width))).toBeGreaterThan(
+    280
+  )
+  expect(new Set(laptopCards.map((card) => Math.round(card.top))).size).toBe(3)
+
+  await page.setViewportSize({ width: 320, height: 760 })
+  const mobileCards = await dayCards.evaluateAll((cards) =>
+    cards.map((card) => card.getBoundingClientRect().width)
+  )
+  expect(Math.min(...mobileCards)).toBeGreaterThan(250)
+  const mobileViewport = await page.locator("body").evaluate((body) => ({
+    clientWidth: body.clientWidth,
+    scrollWidth: body.scrollWidth,
+  }))
+  expect(mobileViewport.scrollWidth).toBe(mobileViewport.clientWidth)
+})
+
 test("incomplete timed practice does not count blank questions as completed-answer misses", async ({
   page,
 }) => {
