@@ -206,6 +206,9 @@ describe("deadline learner UX contract", () => {
     expect(studyPlan).toContain("navigator.clipboard.writeText")
     expect(studyPlan).toContain("Copy week")
     expect(studyPlan).toContain("Week copied")
+    expect(studyPlan.indexOf("<WeekPlanner")).toBeLessThan(
+      studyPlan.indexOf("Study-time check ·")
+    )
   })
 })
 

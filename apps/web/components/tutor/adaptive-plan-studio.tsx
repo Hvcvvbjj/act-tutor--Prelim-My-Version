@@ -965,7 +965,7 @@ export function AdaptivePlanStudio({
               {health.label}
             </span>
           </div>
-          <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[0.96] font-black tracking-[-0.025em] sm:text-5xl">
+          <h1 className="mt-3 max-w-4xl font-heading text-3xl leading-[1.08] font-black tracking-[-0.025em] sm:text-4xl">
             Your study plan, week by week.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -977,55 +977,24 @@ export function AdaptivePlanStudio({
         <dl className="grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-4 text-center lg:min-w-[30rem]">
           <div className="px-3">
             <dt className="ink-label text-muted-foreground">Until test day</dt>
-            <dd className="mt-2 font-heading text-4xl font-black tabular-nums">
+            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
               {daysToTest}d
             </dd>
           </div>
           <div className="px-3">
             <dt className="ink-label text-muted-foreground">Study days</dt>
-            <dd className="mt-2 font-heading text-4xl font-black tabular-nums">
+            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
               {adaptivePlan.availability.entries.length}
             </dd>
           </div>
           <div className="px-3">
             <dt className="ink-label text-muted-foreground">Weekly time</dt>
-            <dd className="mt-2 font-heading text-4xl font-black tabular-nums">
+            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
               {adaptivePlan.forecast.weeklyCapacity}m
             </dd>
           </div>
         </dl>
       </section>
-
-      <section className="mt-6 border-l-4 border-primary bg-[var(--info-surface)] p-5">
-        <p className="ink-label text-primary">
-          Study-time check ·{" "}
-          {Math.round(adaptivePlan.forecast.capacityRatio * 100)}% of target
-        </p>
-        <h2 className="mt-2 font-heading text-2xl font-bold">{health.title}</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-          Scout’s rough rule recommends{" "}
-          {adaptivePlan.forecast.recommendedMinutes} minutes before test day.
-          You have scheduled {adaptivePlan.forecast.scheduledMinutes}. This is a
-          planning check—not proof that your ACT goal is reachable.
-        </p>
-        {canViewTechnicalDetails ? (
-          <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
-            <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              See how Scout calculated this target
-            </summary>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              120 base minutes + 25 minutes for every planned section-score
-              point across English, Math, and Reading + 15 minutes for every
-              skill estimate below 65%. Current result:{" "}
-              {adaptivePlan.forecast.recommendedMinutes} minutes. These weights
-              are fixed in code and are not a research-based time-to-score
-              conversion.
-            </p>
-          </details>
-        ) : null}
-      </section>
-
-      <MilestoneRail plan={adaptivePlan} />
 
       {error ? (
         <Alert className="mt-6" variant="destructive">
@@ -1035,7 +1004,7 @@ export function AdaptivePlanStudio({
         </Alert>
       ) : null}
 
-      <div className="mt-9 grid gap-10 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="mt-6 grid gap-10 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="min-w-0" aria-labelledby="weekly-plan-title">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1165,6 +1134,37 @@ export function AdaptivePlanStudio({
           )}
         </aside>
       </div>
+
+      <section className="mt-8 rounded-xl border border-primary/20 bg-[var(--info-surface)] p-5">
+        <p className="ink-label text-primary">
+          Study-time check ·{" "}
+          {Math.round(adaptivePlan.forecast.capacityRatio * 100)}% of target
+        </p>
+        <h2 className="mt-2 font-heading text-2xl font-bold">{health.title}</h2>
+        <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
+          Scout’s rough rule recommends{" "}
+          {adaptivePlan.forecast.recommendedMinutes} minutes before test day.
+          You have scheduled {adaptivePlan.forecast.scheduledMinutes}. This is a
+          planning check—not proof that your ACT goal is reachable.
+        </p>
+        {canViewTechnicalDetails ? (
+          <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
+            <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              See how Scout calculated this target
+            </summary>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              120 base minutes + 25 minutes for every planned section-score
+              point across English, Math, and Reading + 15 minutes for every
+              skill estimate below 65%. Current result:{" "}
+              {adaptivePlan.forecast.recommendedMinutes} minutes. These weights
+              are fixed in code and are not a research-based time-to-score
+              conversion.
+            </p>
+          </details>
+        ) : null}
+      </section>
+
+      <MilestoneRail plan={adaptivePlan} />
 
       {canViewTechnicalDetails ? (
         <footer className="mt-10 border-t-2 border-foreground pt-6">
