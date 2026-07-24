@@ -67,6 +67,8 @@ export function TestDayLab({
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
   const openedAt = useRef(0)
+  const activeQuestionIndex = session?.progress.currentIndex
+  const activeSection = session?.progress.currentSection
 
   useEffect(() => {
     const controller = new AbortController()
@@ -113,6 +115,14 @@ export function TestDayLab({
     const interval = window.setInterval(updateClock, 1000)
     return () => window.clearInterval(interval)
   }, [screen, session])
+
+  useEffect(() => {
+    if (screen === "loading") return
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeQuestionIndex, activeSection, screen])
 
   const persist = useCallback(
     (

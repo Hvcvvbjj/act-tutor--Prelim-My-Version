@@ -452,6 +452,46 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
   }
 })
 
+test("timed practice opens at the first question on a narrow phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  await openStarterPlan(page)
+  await page.request.delete("/api/exam-lab")
+
+  await page.getByRole("button", { name: "More", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Timed practice" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Practice the test before test day." })
+  ).toBeVisible()
+
+  const start = page.getByRole("button", { name: "Start timed practice" })
+  await start.scrollIntoViewIfNeeded()
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(500)
+  await start.click()
+
+  const questionLabel = page.getByText("Question 1 of 12", { exact: true })
+  await expect(questionLabel).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  const labelBounds = await questionLabel.boundingBox()
+  expect(labelBounds).not.toBeNull()
+  expect(labelBounds!.y).toBeGreaterThanOrEqual(0)
+  expect(labelBounds!.y + labelBounds!.height).toBeLessThan(740)
+
+  await page
+    .getByRole("radiogroup", { name: "Exam answer choices" })
+    .locator("label")
+    .first()
+    .click()
+  await page.getByRole("button", { name: "Sure", exact: true }).click()
+  await page.getByRole("button", { name: "Next", exact: true }).click()
+
+  const secondQuestion = page.getByText("Question 2 of 12", { exact: true })
+  await expect(secondQuestion).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+})
+
 test("a guest plan survives a refresh on the same device", async ({ page }) => {
   await openStarterPlan(page)
   await page.reload()
