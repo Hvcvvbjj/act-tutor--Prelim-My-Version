@@ -559,9 +559,10 @@ test("the weekly calendar keeps day cards readable at laptop and phone widths", 
   expect(mobileViewport.scrollWidth).toBe(mobileViewport.clientWidth)
 })
 
-test("incomplete timed practice does not count blank questions as completed-answer misses", async ({
+test("incomplete timed practice keeps its honest summary above the mobile fold", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 740 })
   await openStarterPlan(page)
   await page.request.delete("/api/exam-lab")
 
@@ -630,6 +631,15 @@ test("incomplete timed practice does not count blank questions as completed-answ
 
   await page.getByRole("button", { name: "More" }).click()
   await page.getByRole("menuitem", { name: "Timed practice" }).click()
+
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toHaveCount(0)
+  const scoreRange = page.getByText("Practice score range", { exact: true })
+  await expect(scoreRange).toBeVisible()
+  const scoreRangeBounds = await scoreRange.boundingBox()
+  expect(scoreRangeBounds).not.toBeNull()
+  expect(scoreRangeBounds!.y + scoreRangeBounds!.height).toBeLessThan(740)
 
   const accuracy = page.getByTestId("timed-practice-answer-accuracy")
   await expect(accuracy).toContainText("Completed answers correct")

@@ -966,7 +966,7 @@ export function Dashboard({
           </div>
         ) : null}
 
-        {plan.baselineSkipped ? (
+        {plan.baselineSkipped && activeTab !== "lab" ? (
           <div className="mx-auto w-full max-w-[86rem] px-4 pt-4 sm:px-7">
             <Alert className="border-primary bg-[var(--info-surface)]">
               <CircleGaugeIcon />
