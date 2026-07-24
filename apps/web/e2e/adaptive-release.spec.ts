@@ -148,6 +148,31 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
   }
 })
 
+test("mobile Quick Check answer choices keep their full reading width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await openStarterPlan(page)
+  await page.getByRole("tab", { name: "Check" }).click()
+
+  const answerChoices = page.getByTestId("quick-check-choice")
+  await expect(answerChoices).toHaveCount(4)
+  const firstChoice = answerChoices.first()
+  await expect(firstChoice).toBeVisible()
+  const choiceBox = await firstChoice.boundingBox()
+  expect(choiceBox?.width).toBeGreaterThan(270)
+  expect(choiceBox?.height).toBeLessThan(180)
+
+  const firstRadio = page.getByRole("radio", {
+    name: "A After three weeks, of collecting data Imani transferred the times to a digital map.",
+  })
+  await page.keyboard.press("a")
+  await expect(firstRadio).toBeChecked()
+  await expect(
+    page.getByRole("button", { name: "Check my answer" })
+  ).toBeEnabled()
+})
+
 test("mobile study navigation fits and Scout behaves as a focus-trapped bottom sheet", async ({
   page,
 }) => {

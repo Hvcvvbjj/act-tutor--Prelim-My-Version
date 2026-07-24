@@ -27,7 +27,10 @@ import {
 import { ScoutCoach } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  RadioGroup,
+  VisuallyHiddenRadioGroupItem,
+} from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
 interface AdaptiveCalibrationLabProps {
@@ -864,13 +867,14 @@ export function AdaptiveCalibrationLab({
               {question.choices.map((choice, index) => (
                 <label
                   key={choice.id}
+                  data-testid="quick-check-choice"
                   className={cn(
                     "grid cursor-pointer grid-cols-[2.4rem_minmax(0,1fr)] items-start border-2 border-border bg-background p-4 text-sm leading-6 transition-[transform,background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:-translate-y-0.5 hover:border-foreground",
                     selectedChoice === choice.id &&
                       "border-primary bg-secondary"
                   )}
                 >
-                  <RadioGroupItem value={choice.id} className="sr-only" />
+                  <VisuallyHiddenRadioGroupItem value={choice.id} />
                   <strong className="font-mono text-lg text-primary">
                     {String.fromCharCode(65 + index)}
                   </strong>

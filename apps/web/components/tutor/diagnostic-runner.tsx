@@ -22,7 +22,10 @@ import { ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  RadioGroup,
+  VisuallyHiddenRadioGroupItem,
+} from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
 interface DiagnosticRunnerProps {
@@ -174,7 +177,7 @@ function QuestionView({
                 "border-primary bg-secondary"
             )}
           >
-            <RadioGroupItem value={choice.id} className="sr-only" />
+            <VisuallyHiddenRadioGroupItem value={choice.id} />
             <strong className="col-start-1 row-start-1 font-mono text-primary">
               {String.fromCharCode(65 + index)}
             </strong>

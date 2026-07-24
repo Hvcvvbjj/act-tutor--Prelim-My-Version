@@ -18,7 +18,10 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel } from "@/components/ui/progress"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  RadioGroup,
+  VisuallyHiddenRadioGroupItem,
+} from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
 interface ExamLabRunnerProps {
@@ -276,7 +279,7 @@ export function ExamLabRunner({
                     "border-primary bg-secondary"
                 )}
               >
-                <RadioGroupItem value={choice.id} className="sr-only" />
+                <VisuallyHiddenRadioGroupItem value={choice.id} />
                 <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
                   {String.fromCharCode(65 + index)}
                 </span>

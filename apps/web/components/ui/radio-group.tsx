@@ -35,4 +35,12 @@ function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   )
 }
 
-export { RadioGroup, RadioGroupItem }
+function VisuallyHiddenRadioGroupItem(props: RadioPrimitive.Root.Props) {
+  return (
+    <span className="sr-only">
+      <RadioGroupItem {...props} />
+    </span>
+  )
+}
+
+export { RadioGroup, RadioGroupItem, VisuallyHiddenRadioGroupItem }
