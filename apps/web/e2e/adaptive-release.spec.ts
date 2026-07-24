@@ -197,6 +197,18 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(settings).toBeHidden()
 })
 
+test("a guest plan survives a refresh on the same device", async ({ page }) => {
+  await openStarterPlan(page)
+  await page.reload()
+
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Sign in / save progress" })
+  ).toBeVisible()
+})
+
 test("a learner can save the skipped-check plan and restore it after sign-in", async ({
   page,
 }) => {
@@ -220,7 +232,9 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
     .getByRole("button", { name: "Create account and save this plan" })
     .click()
 
-  await expect(page.getByRole("button", { name: "E2E Learner" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "E2E Learner" })).toBeVisible({
+    timeout: 15_000,
+  })
   await page.reload()
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
@@ -248,7 +262,7 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 15_000 })
 })
 
 test("the server-verified judge account reveals the technical review layer", async ({

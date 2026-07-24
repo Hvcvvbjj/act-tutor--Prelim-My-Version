@@ -25,7 +25,8 @@ import {
 } from "@/lib/auth-types"
 import { addCalendarDaysFrom } from "@/lib/dates"
 
-const STORAGE_KEY = "ai-act-tutor-placement-v1"
+const STORAGE_KEY = "ai-act-tutor-placement-v2"
+const LEGACY_STORAGE_KEY = "ai-act-tutor-placement-v1"
 
 function TutorSurfaceLoading({ message }: { message: string }) {
   return (
@@ -108,7 +109,29 @@ function isPlacementDraft(value: unknown): value is PlacementDraft {
     typeof draft.reading === "number" &&
     typeof draft.scienceEnabled === "boolean" &&
     typeof draft.science === "number" &&
-    typeof draft.testDate === "string"
+    typeof draft.testDate === "string" &&
+    Number.isInteger(draft.studyDaysPerWeek) &&
+    Number(draft.studyDaysPerWeek) >= 1 &&
+    Number(draft.studyDaysPerWeek) <= 7 &&
+    Number.isInteger(draft.minutesPerSession) &&
+    Number(draft.minutesPerSession) >= 15 &&
+    Number(draft.minutesPerSession) <= 180 &&
+    (draft.preferredSection === "balanced" ||
+      draft.preferredSection === "english" ||
+      draft.preferredSection === "math" ||
+      draft.preferredSection === "reading")
+  )
+}
+
+function isCoreSectionScores(value: unknown): value is CoreSectionScores {
+  if (!value || typeof value !== "object") return false
+  const scores = value as Partial<CoreSectionScores>
+  return [scores.english, scores.math, scores.reading].every(
+    (score) =>
+      typeof score === "number" &&
+      Number.isInteger(score) &&
+      score >= 1 &&
+      score <= 36
   )
 }
 
@@ -217,12 +240,24 @@ function savedPlanFrom(plan: GeneratedPlan): SavedTutorPlan {
   }
 }
 
-function restoredPlanFrom(
-  today: string,
-  savedPlan: SavedTutorPlan | null
-): GeneratedPlan | null {
-  if (!savedPlan?.evidence.planningBaseline) return null
+function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
   try {
+    if (!value || typeof value !== "object") return null
+    const savedPlan = value as Partial<SavedTutorPlan>
+    if (
+      savedPlan.version !== 1 ||
+      !isPlacementDraft(savedPlan.draft) ||
+      !savedPlan.evidence ||
+      !isCoreSectionScores(savedPlan.evidence.planningBaseline) ||
+      typeof savedPlan.currentComposite !== "number" ||
+      !Number.isInteger(savedPlan.currentComposite) ||
+      savedPlan.currentComposite < 1 ||
+      savedPlan.currentComposite > 36 ||
+      typeof savedPlan.adaptiveBaselineRequired !== "boolean" ||
+      typeof savedPlan.baselineSkipped !== "boolean"
+    ) {
+      return null
+    }
     return makeGeneratedPlan({
       today,
       draft: savedPlan.draft,
@@ -392,37 +427,61 @@ export function TutorApp({
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       try {
-        const stored = window.localStorage.getItem(STORAGE_KEY)
+        const stored =
+          window.localStorage.getItem(STORAGE_KEY) ??
+          window.localStorage.getItem(LEGACY_STORAGE_KEY)
         if (stored) {
           const parsed = JSON.parse(stored) as {
             version?: number
             draft?: unknown
+            guestPlan?: unknown
           }
-          if (
-            !restoredAtLoad &&
-            parsed.version === 1 &&
-            isPlacementDraft(parsed.draft)
-          ) {
-            setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
+          if (!restoredAtLoad && initialViewer.role === "guest") {
+            const restoredGuestPlan =
+              parsed.version === 2
+                ? restoredPlanFrom(today, parsed.guestPlan)
+                : null
+            if (restoredGuestPlan) {
+              setDraft(restoredGuestPlan.draft)
+              setPlan(restoredGuestPlan)
+              setSurface("dashboard")
+              setWelcomeComplete(true)
+            } else if (
+              (parsed.version === 1 || parsed.version === 2) &&
+              isPlacementDraft(parsed.draft)
+            ) {
+              setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
+            }
           }
         }
       } catch {
-        window.localStorage.removeItem(STORAGE_KEY)
+        try {
+          window.localStorage.removeItem(STORAGE_KEY)
+          window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+        } catch {}
       } finally {
         setStorageReady(true)
       }
     }, 0)
 
     return () => window.clearTimeout(timeout)
-  }, [initialTestDate, restoredAtLoad])
+  }, [initialTestDate, initialViewer.role, restoredAtLoad, today])
 
   useEffect(() => {
     if (!storageReady) return
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ version: 1, draft })
-    )
-  }, [draft, storageReady])
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: 2,
+          draft,
+          guestPlan:
+            viewer.role === "guest" && plan ? savedPlanFrom(plan) : null,
+        })
+      )
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+    } catch {}
+  }, [draft, plan, storageReady, viewer.role])
 
   function updateDraft(update: Partial<PlacementDraft>) {
     setDraft((current) => ({ ...current, ...update }))
@@ -626,6 +685,10 @@ export function TutorApp({
           : "Could not load the adaptive demo."
       )
     }
+  }
+
+  if (!storageReady && !restoredAtLoad) {
+    return <TutorSurfaceLoading message="Checking for a saved plan…" />
   }
 
   if (surface === "dashboard" && plan) {
