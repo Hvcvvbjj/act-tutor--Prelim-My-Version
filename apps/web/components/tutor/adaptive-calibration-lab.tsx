@@ -841,7 +841,10 @@ export function AdaptiveCalibrationLab({
               Your next question
             </h2>
             {question.stimulus ? (
-              <article className="mt-6 max-h-72 overflow-y-auto border-y-2 border-foreground bg-[var(--rail)] px-5 py-5 text-sm leading-7">
+              <article
+                data-testid="quick-check-stimulus"
+                className="mt-6 border-y-2 border-foreground bg-[var(--rail)] px-5 py-5 text-sm leading-7 lg:max-h-72 lg:overflow-y-auto"
+              >
                 {question.passageTitle ? (
                   <p className="mb-3 font-heading text-2xl font-black">
                     {question.passageTitle}

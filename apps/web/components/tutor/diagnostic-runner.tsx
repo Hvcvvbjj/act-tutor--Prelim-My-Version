@@ -224,7 +224,7 @@ function QuestionView({
       />
       {question.format === "passage" && question.stimulus ? (
         <div className="paper-panel mt-6 grid overflow-hidden border-2 border-foreground bg-background lg:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
-          <article className="max-h-[70svh] overflow-y-auto border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:border-r-2 lg:border-b-0 lg:px-8">
+          <article className="border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:max-h-[70svh] lg:overflow-y-auto lg:border-r-2 lg:border-b-0 lg:px-8">
             <p className="ink-label text-primary">
               {question.section === "english" ? "Passage to revise" : "Passage"}
             </p>

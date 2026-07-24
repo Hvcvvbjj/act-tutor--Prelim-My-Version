@@ -155,6 +155,15 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
   await openStarterPlan(page)
   await page.getByRole("tab", { name: "Check" }).click()
 
+  const passage = page.getByTestId("quick-check-stimulus")
+  const mobilePassage = await passage.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+    scrollHeight: element.scrollHeight,
+  }))
+  expect(mobilePassage.scrollHeight).toBe(mobilePassage.clientHeight)
+  expect(mobilePassage.overflowY).toBe("visible")
+
   const answerChoices = page.getByTestId("quick-check-choice")
   await expect(answerChoices).toHaveCount(4)
   const firstChoice = answerChoices.first()
@@ -171,6 +180,17 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
   await expect(
     page.getByRole("button", { name: "Check my answer" })
   ).toBeEnabled()
+
+  await page.setViewportSize({ width: 1024, height: 800 })
+  const desktopPassage = await passage.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+    scrollHeight: element.scrollHeight,
+  }))
+  expect(desktopPassage.scrollHeight).toBeGreaterThan(
+    desktopPassage.clientHeight
+  )
+  expect(desktopPassage.overflowY).toBe("auto")
 })
 
 test("mobile study navigation fits and Scout behaves as a focus-trapped bottom sheet", async ({
