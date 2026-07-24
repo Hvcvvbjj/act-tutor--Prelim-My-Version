@@ -214,13 +214,13 @@ export function LearningTwinLab({
 
   return (
     <main className="mx-auto w-full max-w-[92rem] px-4 py-8 sm:px-7 lg:py-10">
-      <section className="grid gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end">
-        <div>
+      <section className="grid grid-cols-1 gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end">
+        <div className="min-w-0">
           <div className="flex items-center gap-3 text-primary">
             <GaugeIcon className="size-6" aria-hidden="true" />
             <p className="ink-label">Your progress</p>
           </div>
-          <h1 className="mt-4 max-w-5xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
+          <h1 className="mt-4 max-w-5xl font-heading text-[2rem] leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             See how your 12 skills are developing.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">

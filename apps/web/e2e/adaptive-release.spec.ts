@@ -318,6 +318,31 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
       .toEqual({ scrollWidth: width, viewportWidth: width })
   }
 
+  await page.setViewportSize({ width: 320, height: 760 })
+  const brand = page.getByText("SCOUT ACT", { exact: true }).first()
+  await expect(brand).toBeVisible()
+  const brandStyle = await brand.evaluate((element) => ({
+    height: element.getBoundingClientRect().height,
+    whiteSpace: getComputedStyle(element).whiteSpace,
+  }))
+  expect(brandStyle.height).toBeLessThanOrEqual(18)
+  expect(brandStyle.whiteSpace).toBe("nowrap")
+
+  await primaryNavigation.getByRole("tab", { name: "Progress" }).click()
+  await expect(
+    page.getByRole("heading", {
+      name: "See how your 12 skills are developing.",
+    })
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ scrollWidth: 320, viewportWidth: 320 })
+
   await page.setViewportSize({ width: 700, height: 800 })
   await expect(page.getByRole("button", { name: "Ask Scout" })).toHaveCount(1)
   await page.setViewportSize({ width: 390, height: 844 })

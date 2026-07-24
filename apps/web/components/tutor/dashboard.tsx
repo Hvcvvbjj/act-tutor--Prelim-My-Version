@@ -197,9 +197,9 @@ async function rebaseLearningSession(
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <ScoutMark className="size-8" />
-      <p className="font-brand text-lg leading-none font-black tracking-[-0.02em]">
+    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+      <ScoutMark className="size-8 shrink-0" />
+      <p className="font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg">
         SCOUT <span className="text-primary">ACT</span>
       </p>
     </div>
@@ -932,7 +932,7 @@ export function Dashboard({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-self-end">
+            <div className="flex items-center gap-1.5 justify-self-end sm:gap-3">
               <MobileScoutDock onOpen={() => setMoreOpen(false)} />
               <div className="hidden sm:block">
                 <ScoreRoute plan={plan} />
