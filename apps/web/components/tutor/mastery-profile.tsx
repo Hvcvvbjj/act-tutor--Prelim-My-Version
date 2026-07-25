@@ -117,6 +117,94 @@ function contributionSet(
   ]
 }
 
+function MobileSectionOverview({
+  skills,
+  selectedSkill,
+}: {
+  skills: ReadonlyArray<KnowledgeState>
+  selectedSkill: string
+}) {
+  const selectedSection = skills.find(
+    (skill) => skill.skill === selectedSkill
+  )?.section
+
+  return (
+    <section
+      data-testid="mobile-mastery-overview"
+      className="px-3 pb-3 sm:hidden"
+      aria-labelledby="mobile-section-overview-title"
+    >
+      <h3
+        id="mobile-section-overview-title"
+        className="font-heading text-xl font-black"
+      >
+        Section overview
+      </h3>
+      <p className="mt-1 text-xs leading-5 text-white/65">
+        Each bar averages four skill practice estimates. It is not an ACT
+        section score.
+      </p>
+      <ul className="mt-4 grid gap-3">
+        {SECTION_ORDER.map((section) => {
+          const sectionSkills = skills.filter(
+            (skill) => skill.section === section
+          )
+          const average =
+            sectionSkills.reduce(
+              (sum, skill) =>
+                sum + clampedProbability(skill.learnedProbability),
+              0
+            ) / Math.max(sectionSkills.length, 1)
+          const measuredCount = sectionSkills.filter(
+            (skill) => skill.evidenceCount > 0
+          ).length
+          const selected = section === selectedSection
+
+          return (
+            <li
+              key={section}
+              className={cn(
+                "rounded-xl border border-white/20 bg-white/5 p-4",
+                selected && "border-[var(--scout-sun)] bg-[var(--scout-sun)]/8"
+              )}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-heading text-lg font-black">
+                    {SECTION_LABELS[section]}
+                  </p>
+                  {selected ? (
+                    <p className="mt-0.5 text-[0.68rem] font-bold tracking-wide text-[var(--scout-sun)] uppercase">
+                      Selected skill is here
+                    </p>
+                  ) : null}
+                </div>
+                <p className="font-heading text-3xl font-black tabular-nums">
+                  {percent(average)}
+                </p>
+              </div>
+              <span
+                className="mt-3 block h-2 overflow-hidden rounded-full bg-white/15"
+                aria-hidden="true"
+              >
+                <span
+                  className="block h-full rounded-full bg-[var(--scout-mint)]"
+                  style={{ width: percent(average) }}
+                />
+              </span>
+              <p className="mt-2 text-xs leading-5 text-white/65">
+                {measuredCount === 0
+                  ? "Starting estimates only · no scored answers yet"
+                  : `${measuredCount} of ${sectionSkills.length} skills have scored evidence`}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 function MasteryRadar({
   skills,
   selectedSkill,
@@ -138,8 +226,9 @@ function MasteryRadar({
 
   return (
     <svg
+      data-testid="mastery-radar"
       viewBox="0 0 640 640"
-      className="mx-auto block aspect-square w-full max-w-[42rem]"
+      className="mx-auto hidden aspect-square w-full max-w-[42rem] sm:block"
       aria-hidden="true"
     >
       <defs>
@@ -410,14 +499,18 @@ export function MasteryProfile({
             id="mastery-profile-description"
             className="mt-3 max-w-3xl text-sm leading-6 text-white/75"
           >
-            Each spoke is one ACT skill. Farther from the center means Scout is
-            more ready to give you harder practice in that skill. These are
+            This overview compares Scout&apos;s 12 skill practice estimates.
+            Exact skill values and answer counts are listed below. These are
             study estimates—not percent correct, ACT scores, or score
             predictions.
           </p>
         </div>
 
         <div className="grid items-center gap-2 px-3 py-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:px-7">
+          <MobileSectionOverview
+            skills={skills}
+            selectedSkill={selected.skill}
+          />
           <MasteryRadar skills={skills} selectedSkill={selected.skill} />
           <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
             <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
@@ -485,8 +578,8 @@ export function MasteryProfile({
             </h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            The chart gives a quick comparison. Choose any row for its starting
-            point, answer count, and latest change.
+            The overview gives a quick comparison. Choose any row for its
+            starting point, answer count, and latest change.
           </p>
         </div>
         <div className="mt-5">
