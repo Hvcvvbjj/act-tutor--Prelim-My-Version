@@ -277,6 +277,11 @@ function nullableScore(value: unknown, label: string) {
   return value === null ? null : score(value, label)
 }
 
+function draftScore(value: unknown, label: string, required: boolean) {
+  if (!required && value === 0) return 0
+  return score(value, label)
+}
+
 function sectionScores(value: unknown, label: string) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AuthRequestError(`${label} is incomplete.`, 400)
@@ -332,12 +337,24 @@ function parseDraft(value: unknown): PlacementDraft {
     goal: score(draft.goal, "Goal"),
     priorScoreChoice: draft.priorScoreChoice,
     startingCheckChoice: draft.startingCheckChoice,
-    composite: score(draft.composite, "Composite"),
-    english: score(draft.english, "English"),
-    math: score(draft.math, "Math"),
-    reading: score(draft.reading, "Reading"),
+    composite: draftScore(
+      draft.composite,
+      "Composite",
+      draft.priorScoreChoice !== "never"
+    ),
+    english: draftScore(
+      draft.english,
+      "English",
+      draft.priorScoreChoice === "scores"
+    ),
+    math: draftScore(draft.math, "Math", draft.priorScoreChoice === "scores"),
+    reading: draftScore(
+      draft.reading,
+      "Reading",
+      draft.priorScoreChoice === "scores"
+    ),
     scienceEnabled: draft.scienceEnabled,
-    science: score(draft.science, "Science"),
+    science: draftScore(draft.science, "Science", draft.scienceEnabled),
     testDate: draft.testDate,
     studyDaysPerWeek: Number(draft.studyDaysPerWeek),
     minutesPerSession: Number(draft.minutesPerSession),

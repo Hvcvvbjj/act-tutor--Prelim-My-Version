@@ -63,9 +63,9 @@ const STEP_COPY = [
     next: "Add my starting score",
   },
   {
-    title: "Add your latest ACT scores",
+    title: "Choose your starting point",
     description:
-      "Enter scores from one recent official or practice ACT. Section scores drive the plan. If you only know your Composite, Scout uses it as a temporary starting point for all three sections.",
+      "Tell Scout what score information you have today. Nothing is assumed: enter recent official or practice scores, use only your Composite, or start without a score.",
     technical: null,
     next: "Set my schedule",
   },
@@ -191,11 +191,13 @@ function PlanSummary({
           <div>
             <dt className="text-sm text-muted-foreground">Starting point</dt>
             <dd className="text-lg font-bold">
-              {draft.priorScoreChoice === "never"
-                ? draft.startingCheckChoice === "skip"
-                  ? "Starter plan"
-                  : "Short check next"
-                : draft.composite}
+              {draft.priorScoreChoice === "undecided"
+                ? "Not chosen yet"
+                : draft.priorScoreChoice === "never"
+                  ? draft.startingCheckChoice === "skip"
+                    ? "Starter plan"
+                    : "Short check next"
+                  : draft.composite}
             </dd>
           </div>
         </div>
@@ -238,6 +240,9 @@ export function Onboarding({
 }: OnboardingProps) {
   const stepCopy = STEP_COPY[step - 1] ?? STEP_COPY[0]
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const scoreChoiceRef = useRef<HTMLDivElement>(null)
+  const scoreChoiceError =
+    error === "Choose what you know about your current ACT scores."
 
   useEffect(() => {
     if (showWelcome) return
@@ -247,6 +252,16 @@ export function Onboarding({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [showWelcome, step])
+
+  useEffect(() => {
+    if (step !== 2 || !scoreChoiceError) return
+    const frame = window.requestAnimationFrame(() => {
+      scoreChoiceRef.current
+        ?.querySelector<HTMLElement>('[role="radio"]')
+        ?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [scoreChoiceError, step])
 
   if (showWelcome) {
     return (
@@ -455,14 +470,24 @@ export function Onboarding({
               {step === 2 ? (
                 <FieldSet>
                   <FieldLegend className="sr-only">
-                    Starting ACT scores
+                    Current ACT score information
                   </FieldLegend>
                   <FieldDescription id="starting-score-help">
                     Choose the option that matches what you know today.
                   </FieldDescription>
                   <RadioGroup
-                    value={draft.priorScoreChoice}
-                    aria-describedby="starting-score-help"
+                    ref={scoreChoiceRef}
+                    value={
+                      draft.priorScoreChoice === "undecided"
+                        ? ""
+                        : draft.priorScoreChoice
+                    }
+                    aria-invalid={scoreChoiceError}
+                    aria-describedby={
+                      scoreChoiceError
+                        ? "starting-score-help starting-score-error"
+                        : "starting-score-help"
+                    }
                     onValueChange={(value) =>
                       onUpdate({
                         priorScoreChoice:
@@ -493,6 +518,9 @@ export function Onboarding({
                       </FieldLabel>
                     ))}
                   </RadioGroup>
+                  <FieldError id="starting-score-error">
+                    {scoreChoiceError ? error : null}
+                  </FieldError>
 
                   {draft.priorScoreChoice === "scores" ? (
                     <FieldDescription className="mt-4 max-w-2xl">
@@ -508,7 +536,8 @@ export function Onboarding({
                     </FieldDescription>
                   ) : null}
 
-                  {draft.priorScoreChoice !== "never" ? (
+                  {draft.priorScoreChoice === "scores" ||
+                  draft.priorScoreChoice === "composite_only" ? (
                     <div className="mt-6 grid gap-4 rounded-xl border p-5 sm:grid-cols-2">
                       <ScoreField
                         id="composite"
@@ -573,7 +602,7 @@ export function Onboarding({
                         />
                       ) : null}
                     </div>
-                  ) : (
+                  ) : draft.priorScoreChoice === "never" ? (
                     <div className="mt-6 max-w-2xl">
                       <ScoutCoach
                         mood="ready"
@@ -638,6 +667,11 @@ export function Onboarding({
                         </FieldLabel>
                       </RadioGroup>
                     </div>
+                  ) : (
+                    <p className="mt-6 max-w-2xl border-l-4 border-primary bg-[var(--info-surface)] p-4 text-sm leading-6">
+                      Choose an option above. Scout will not invent scores or
+                      treat sample numbers as your information.
+                    </p>
                   )}
                 </FieldSet>
               ) : null}

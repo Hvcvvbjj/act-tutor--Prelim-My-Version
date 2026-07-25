@@ -90,14 +90,14 @@ interface TutorAppProps {
 function initialDraft(initialTestDate: string): PlacementDraft {
   return {
     goal: 30,
-    priorScoreChoice: "scores",
+    priorScoreChoice: "undecided",
     startingCheckChoice: "take",
-    composite: 24,
-    english: 26,
-    math: 20,
-    reading: 25,
+    composite: 0,
+    english: 0,
+    math: 0,
+    reading: 0,
     scienceEnabled: false,
-    science: 24,
+    science: 0,
     testDate: initialTestDate,
     studyDaysPerWeek: 3,
     minutesPerSession: 30,
@@ -105,12 +105,39 @@ function initialDraft(initialTestDate: string): PlacementDraft {
   }
 }
 
+function clearLegacyDefaultScoreAssumptions(
+  draft: PlacementDraft
+): PlacementDraft {
+  if (
+    draft.priorScoreChoice === "scores" &&
+    draft.composite === 24 &&
+    draft.english === 26 &&
+    draft.math === 20 &&
+    draft.reading === 25 &&
+    !draft.scienceEnabled &&
+    draft.science === 24
+  ) {
+    return {
+      ...draft,
+      priorScoreChoice: "undecided",
+      composite: 0,
+      english: 0,
+      math: 0,
+      reading: 0,
+      science: 0,
+    }
+  }
+
+  return draft
+}
+
 function isPlacementDraft(value: unknown): value is PlacementDraft {
   if (!value || typeof value !== "object") return false
   const draft = value as Partial<PlacementDraft>
   return (
     typeof draft.goal === "number" &&
-    (draft.priorScoreChoice === "scores" ||
+    (draft.priorScoreChoice === "undecided" ||
+      draft.priorScoreChoice === "scores" ||
       draft.priorScoreChoice === "composite_only" ||
       draft.priorScoreChoice === "never") &&
     (draft.startingCheckChoice === undefined ||
@@ -156,6 +183,9 @@ function validateScore(value: number, label: string): string | null {
 }
 
 function validateScoreStep(draft: PlacementDraft): string | null {
+  if (draft.priorScoreChoice === "undecided") {
+    return "Choose what you know about your current ACT scores."
+  }
   if (draft.priorScoreChoice === "never") return null
 
   const compositeError = validateScore(draft.composite, "Composite")
@@ -458,7 +488,9 @@ export function TutorApp({
           let planAvailable = Boolean(restoredAtLoad)
           if (!restoredAtLoad && initialViewer.role === "guest") {
             const restoredGuestPlan =
-              parsed.version === 2 || parsed.version === 3
+              parsed.version === 2 ||
+              parsed.version === 3 ||
+              parsed.version === 4
                 ? restoredPlanFrom(today, parsed.guestPlan)
                 : null
             if (restoredGuestPlan) {
@@ -470,14 +502,19 @@ export function TutorApp({
             } else if (
               (parsed.version === 1 ||
                 parsed.version === 2 ||
-                parsed.version === 3) &&
+                parsed.version === 3 ||
+                parsed.version === 4) &&
               isPlacementDraft(parsed.draft)
             ) {
-              setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
+              const restoredDraft =
+                parsed.version === 4
+                  ? parsed.draft
+                  : clearLegacyDefaultScoreAssumptions(parsed.draft)
+              setDraft({ ...initialDraft(initialTestDate), ...restoredDraft })
             }
           }
           if (
-            parsed.version === 3 &&
+            (parsed.version === 3 || parsed.version === 4) &&
             parsed.viewerRole === initialViewer.role &&
             planAvailable &&
             isDiagnosticSurface(parsed.resumeSurface)
@@ -507,7 +544,7 @@ export function TutorApp({
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          version: 3,
+          version: 4,
           draft,
           guestPlan:
             viewer.role === "guest" && plan ? savedPlanFrom(plan) : null,
@@ -599,6 +636,10 @@ export function TutorApp({
       const daysUntilTest = calendarDaysUntil(today, draft.testDate)
       if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
         throw new RangeError("Choose a test date after today.")
+      }
+
+      if (draft.priorScoreChoice === "undecided") {
+        throw new Error("Choose what you know about your current ACT scores.")
       }
 
       if (draft.priorScoreChoice === "never") {

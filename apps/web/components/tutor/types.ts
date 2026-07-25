@@ -5,7 +5,8 @@ import type {
   TargetVector,
 } from "@act-tutor/core"
 
-export type PriorScoreChoice = "scores" | "composite_only" | "never"
+export type PriorScoreChoice =
+  "undecided" | "scores" | "composite_only" | "never"
 export type StartingCheckChoice = "take" | "skip"
 export type DashboardTab = "today" | "plan" | "progress"
 

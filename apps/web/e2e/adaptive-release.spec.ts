@@ -306,7 +306,7 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add my starting score" }).click()
   const scoreHeading = page.getByRole("heading", {
-    name: "Add your latest ACT scores",
+    name: "Choose your starting point",
   })
   await expect(scoreHeading).toBeFocused()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
