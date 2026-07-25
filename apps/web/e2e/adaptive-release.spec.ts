@@ -247,9 +247,26 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 })
   await page.goto("/")
   await page.getByRole("button", { name: "Set up my plan" }).click()
+  const goalHeading = page.getByRole("heading", {
+    name: "Choose your ACT goal",
+  })
+  await expect(goalHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
   await page.getByRole("button", { name: "Add my starting score" }).click()
+  const scoreHeading = page.getByRole("heading", {
+    name: "Add your latest ACT scores",
+  })
+  await expect(scoreHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
   await page.getByRole("button", { name: "Set my schedule" }).click()
+  const scheduleHeading = page.getByRole("heading", {
+    name: "Make a schedule you can keep",
+  })
+  await expect(scheduleHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -262,6 +279,40 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
       )
       .toEqual({ scrollWidth: width, viewportWidth: width })
   }
+
+  await page.getByRole("button", { name: "Back" }).click()
+  await expect(scoreHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await page.getByRole("button", { name: "Back" }).click()
+  await expect(goalHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.addStyleTag({ content: ":root { font-size: 20px !important; }" })
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ scrollWidth: 320, viewportWidth: 320 })
+  for (const controlName of ["Decrease goal score", "Increase goal score"]) {
+    const controlBounds = await page
+      .getByRole("button", { name: controlName })
+      .boundingBox()
+    expect(controlBounds).not.toBeNull()
+    expect(controlBounds!.x).toBeGreaterThanOrEqual(0)
+    expect(controlBounds!.x + controlBounds!.width).toBeLessThanOrEqual(320)
+  }
+  await expect
+    .poll(() =>
+      page
+        .getByRole("button", { name: "Add my starting score" })
+        .evaluate((button) => button.scrollWidth <= button.clientWidth)
+    )
+    .toBe(true)
 })
 
 test("mobile Quick Check answer choices keep their full reading width", async ({

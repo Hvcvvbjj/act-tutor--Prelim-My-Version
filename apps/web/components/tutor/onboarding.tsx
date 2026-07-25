@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { calendarDaysUntil } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
@@ -236,6 +237,16 @@ export function Onboarding({
   onUpdate,
 }: OnboardingProps) {
   const stepCopy = STEP_COPY[step - 1] ?? STEP_COPY[0]
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (showWelcome) return
+    const frame = window.requestAnimationFrame(() => {
+      stepHeadingRef.current?.focus({ preventScroll: true })
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [showWelcome, step])
 
   if (showWelcome) {
     return (
@@ -371,7 +382,11 @@ export function Onboarding({
             <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
               Step {step} of 3 · {STEP_LABELS[step - 1]}
             </p>
-            <h1 className="mt-3 font-heading text-4xl leading-tight font-black tracking-[-0.025em] sm:text-5xl">
+            <h1
+              ref={stepHeadingRef}
+              tabIndex={-1}
+              className="mt-3 font-heading text-4xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+            >
               {stepCopy.title}
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
@@ -393,13 +408,13 @@ export function Onboarding({
               className="mt-8 animate-in duration-200 fade-in slide-in-from-right-2 motion-reduce:animate-none"
             >
               {step === 1 ? (
-                <FieldSet>
+                <FieldSet className="min-w-0">
                   <FieldLegend className="sr-only">Goal score</FieldLegend>
                   <FieldDescription id="goal-score-help">
                     Choose a Composite score from 1 to 36. This plan uses
                     English, Math, and Reading to calculate the Composite.
                   </FieldDescription>
-                  <div className="mt-7 flex max-w-lg items-center gap-5 sm:gap-8">
+                  <div className="mt-7 grid w-full max-w-lg grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:gap-8">
                     <Button
                       type="button"
                       size="icon-lg"
@@ -411,7 +426,10 @@ export function Onboarding({
                     >
                       <MinusIcon />
                     </Button>
-                    <div className="min-w-28 text-center" aria-live="polite">
+                    <div
+                      className="min-w-0 text-center sm:min-w-28"
+                      aria-live="polite"
+                    >
                       <p className="text-6xl font-black tracking-[-0.05em] text-primary tabular-nums">
                         {draft.goal}
                       </p>
@@ -769,7 +787,7 @@ export function Onboarding({
                 type="button"
                 size="xl"
                 onClick={onContinue}
-                className="w-full sm:flex-1"
+                className="h-auto min-h-12 w-full min-w-0 px-3 py-3 whitespace-normal sm:h-12 sm:flex-1 sm:px-6 sm:py-0 sm:whitespace-nowrap"
               >
                 {step === 3
                   ? draft.priorScoreChoice === "never"
