@@ -140,8 +140,28 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
       name: "Correct—Scout adjusted your next steps.",
     })
   ).toBeVisible()
-  await expect(page.getByText("1 · Question match")).toBeVisible()
+  const proofHeading = page.getByRole("heading", {
+    name: "Correct—Scout adjusted your next steps.",
+  })
+  const proofStep = page.getByText("1 · Question match")
+  await expect(proofHeading).toBeFocused()
+  await expect(proofStep).toBeVisible()
   await expect(page.getByText("2 · Ratios and percent estimate")).toBeVisible()
+  const proofHeadingBounds = await proofHeading.boundingBox()
+  const proofStepBounds = await proofStep.boundingBox()
+  const proofNavigationBounds = await page
+    .getByRole("navigation", { name: "Primary study navigation" })
+    .boundingBox()
+  expect(proofHeadingBounds).not.toBeNull()
+  expect(proofStepBounds).not.toBeNull()
+  expect(proofNavigationBounds).not.toBeNull()
+  expect(proofHeadingBounds!.y).toBeGreaterThanOrEqual(0)
+  expect(proofHeadingBounds!.y + proofHeadingBounds!.height).toBeLessThan(
+    proofNavigationBounds!.y
+  )
+  expect(proofStepBounds!.y + proofStepBounds!.height).toBeLessThan(
+    proofNavigationBounds!.y
+  )
   await expect(
     page.getByRole("button", { name: "Sign in / save progress" })
   ).toBeVisible()

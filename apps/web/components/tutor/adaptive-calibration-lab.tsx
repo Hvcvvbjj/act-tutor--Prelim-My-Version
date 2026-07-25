@@ -197,6 +197,15 @@ function AdaptiveProofReplay({
 }) {
   const nextLesson = proof.learning.recommendationAfter
   const previousLesson = proof.learning.recommendationBefore
+  const headingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      headingRef.current?.focus({ preventScroll: true })
+      headingRef.current?.scrollIntoView({ block: "start", behavior: "auto" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   return (
     <section
@@ -210,8 +219,10 @@ function AdaptiveProofReplay({
             <p className="ink-label">Answer recorded</p>
           </div>
           <h2
+            ref={headingRef}
             id="adaptive-proof-heading"
-            className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl"
+            tabIndex={-1}
+            className="mt-3 max-w-4xl scroll-mt-20 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
           >
             {proof.correct
               ? "Correct—Scout adjusted your next steps."
