@@ -232,12 +232,54 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
-  it("transactionally rebases a temporary no-score session from calibration", async () => {
+  it("rebases a temporary no-score session without changing canonical Learning Twin evidence", async () => {
     await withRepository(async (repo) => {
       const started = await repo.getOrCreate(null, bank, {
         skill: "sentence-boundaries",
         plan: { ...plan, currentScore: 18 },
       });
+      const calibrationEvidence = [
+        {
+          questionId: "calibration-english-1",
+          skill: "sentence-boundaries",
+          correct: true,
+          difficulty: "easy" as const,
+          observedAt: "2026-07-25T15:00:00.000Z",
+          confidence: "sure" as const,
+        },
+        {
+          questionId: "calibration-math-1",
+          skill: "linear-equations",
+          correct: false,
+          difficulty: "hard" as const,
+          observedAt: "2026-07-25T15:01:00.000Z",
+          confidence: "guessing" as const,
+        },
+        {
+          questionId: "calibration-reading-1",
+          skill: "supported-inference",
+          correct: true,
+          difficulty: "medium" as const,
+          observedAt: "2026-07-25T15:02:00.000Z",
+          confidence: "sure" as const,
+        },
+        {
+          questionId: "calibration-math-2",
+          skill: "linear-equations",
+          correct: false,
+          difficulty: "medium" as const,
+          observedAt: "2026-07-25T15:03:00.000Z",
+          confidence: "unsure" as const,
+        },
+      ];
+      for (const evidence of calibrationEvidence) {
+        await repo.recordCalibrationEvidence(started.sessionId, bank, evidence);
+      }
+      const beforeRebase = await repo.get(started.sessionId, bank);
+      expect(beforeRebase.learningTwin.evidence.calibration).toBe(4);
+      expect(beforeRebase.learningTwin.recommendation.skill).toBe(
+        "linear-equations",
+      );
       const diagnosticSkillResults = [
         {
           skill: "sentence-boundaries",
@@ -281,7 +323,8 @@ describe("FileLearningSessionRepository", () => {
       expect(rebased.todaySkill).toBe("linear-equations");
       expect(rebased.nextSkill).toBe("linear-equations");
       expect(rebased.lesson.skill).toBe("linear-equations");
-      expect(rebased.learningTwin.evidence.calibration).toBe(0);
+      expect(rebased.learningTwin).toEqual(beforeRebase.learningTwin);
+      expect(rebased.decisionHistory).toEqual(beforeRebase.decisionHistory);
       expect(
         rebased.questions.every(
           (question) => question.skill === "linear-equations",
@@ -293,7 +336,11 @@ describe("FileLearningSessionRepository", () => {
         rebased.learningTwin.skills.find(
           (skill) => skill.skill === "linear-equations",
         )?.priorSource,
-      ).toBe("diagnostic");
+      ).toBe(
+        beforeRebase.learningTwin.skills.find(
+          (skill) => skill.skill === "linear-equations",
+        )?.priorSource,
+      );
       expect(rebased.futureTask.reason).toContain(
         "replaced the temporary baseline",
       );

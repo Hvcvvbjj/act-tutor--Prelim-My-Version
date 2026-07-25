@@ -23,9 +23,9 @@ describe("mobile navigation contract", () => {
     expect(mobileNav).toContain('value="plan"')
     expect(mobileNav).toContain('value="calibrate"')
     expect(mobileNav).toContain('value="progress"')
-    expect(mobileNav).not.toContain("<MobileScoutDock")
+    expect(mobileNav).not.toContain("<ScoutHeaderButton")
     expect(dashboard).toContain(
-      "<MobileScoutDock onOpen={() => setMoreOpen(false)} />"
+      "<ScoutHeaderButton onOpen={() => setMoreOpen(false)} />"
     )
     expect(dashboard).toContain("grid-cols-5")
     expect(dashboard).toContain("MessageCircleIcon")
@@ -102,15 +102,17 @@ describe("shared visual system contract", () => {
 })
 
 describe("Scout drawer accessibility contract", () => {
-  it("traps focus, closes on Escape, returns focus, and avoids a mobile floating launcher", async () => {
+  it("traps focus, closes on Escape, returns focus, and keeps the launcher in the app header", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")
+    const dashboard = await source("components/tutor/dashboard.tsx")
     expect(assistant).toContain('event.key === "Escape"')
     expect(assistant).toContain('event.key !== "Tab"')
     expect(assistant).toContain("lastFocusRef.current?.focus()")
     expect(assistant).toContain('aria-modal="true"')
-    expect(assistant).toContain("right-6 bottom-6")
-    expect(assistant).toContain("hidden items-center gap-2 md:flex")
-    expect(assistant).not.toContain("hidden items-center gap-2 sm:flex")
+    expect(assistant).not.toContain("<MessageCircleIcon /> Ask Scout")
+    expect(dashboard).toContain("function ScoutHeaderButton")
+    expect(dashboard).toContain('aria-label="Ask Scout"')
+    expect(dashboard).toContain("min-h-11 min-w-11")
   })
 
   it("uses one clear accessible name for learning settings controls", async () => {
@@ -224,6 +226,42 @@ describe("deadline learner UX contract", () => {
       studyPlan.indexOf("Study-time check ·")
     )
   })
+
+  it("moves focus to each new Quick Check prompt without silencing answer feedback or shortcuts", async () => {
+    const quickCheck = await source(
+      "components/tutor/adaptive-calibration-lab.tsx"
+    )
+    const questionTransition = quickCheck.slice(
+      quickCheck.indexOf("const currentQuestionId"),
+      quickCheck.indexOf("async function submitAnswer")
+    )
+    const promptHeading = quickCheck.slice(
+      quickCheck.indexOf("ref={questionHeadingRef}"),
+      quickCheck.indexOf(
+        "</h2>",
+        quickCheck.indexOf("ref={questionHeadingRef}")
+      )
+    )
+
+    expect(questionTransition).toContain(
+      "previousQuestionId === currentQuestionId"
+    )
+    expect(questionTransition).toContain('setSelectedChoice("")')
+    expect(questionTransition).toContain(
+      "questionHeadingRef.current?.focus({ preventScroll: true })"
+    )
+    expect(questionTransition).toContain(
+      "questionHeadingRef.current?.scrollIntoView({"
+    )
+    expect(questionTransition).toContain('block: "start"')
+    expect(questionTransition).toContain('behavior: "auto"')
+    expect(promptHeading).toContain("ref={questionHeadingRef}")
+    expect(promptHeading).toContain("tabIndex={-1}")
+    expect(promptHeading).toContain("scroll-mt-20")
+    expect(questionTransition).not.toContain("showLatestAnswer")
+    expect(quickCheck).toContain('role="status"')
+    expect(quickCheck).toContain("setShowLatestAnswer(true)")
+  })
 })
 
 describe("practice timing contract", () => {
@@ -246,5 +284,9 @@ describe("practice timing contract", () => {
     expect(report).toContain("Finish more before using this result")
     expect(report).toContain("Completed answers correct")
     expect(report).toContain("not included above")
+    expect(report).toContain("Incomplete timed practice")
+    expect(report).toContain(
+      "it will not infer a score, strength, pacing pattern, confidence pattern, or next lesson"
+    )
   })
 })

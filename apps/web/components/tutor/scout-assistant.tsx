@@ -16,13 +16,7 @@ import type {
   ScoutMessage,
   ScoutStateResponse,
 } from "@act-tutor/core"
-import {
-  AccessibilityIcon,
-  MessageCircleIcon,
-  SendIcon,
-  Volume2Icon,
-  XIcon,
-} from "lucide-react"
+import { SendIcon, Volume2Icon, XIcon } from "lucide-react"
 
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
@@ -405,12 +399,12 @@ export function ScoutProvider({
   return (
     <ScoutContext.Provider value={value}>
       {children}
-      <div className="fixed right-6 bottom-6 z-40 hidden items-center gap-2 md:flex print:hidden">
-        {selectedText ? (
+      {selectedText ? (
+        <div className="fixed right-6 bottom-6 z-40 hidden md:block print:hidden">
           <Button
             type="button"
             variant="secondary"
-            className="hidden max-w-52 shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
+            className="max-w-52 shadow-[3px_3px_0_var(--foreground)]"
             onClick={() => {
               lastFocusRef.current =
                 document.activeElement as HTMLElement | null
@@ -425,32 +419,8 @@ export function ScoutProvider({
           >
             Explain selection
           </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="hidden bg-background shadow-[3px_3px_0_var(--foreground)] sm:inline-flex"
-          onClick={() => {
-            lastFocusRef.current = document.activeElement as HTMLElement | null
-            setToolsOpen(true)
-          }}
-          aria-label="Open accommodations"
-        >
-          <AccessibilityIcon />
-        </Button>
-        <Button
-          type="button"
-          size="lg"
-          className="min-h-11 shadow-[4px_4px_0_var(--foreground)]"
-          onClick={() => {
-            lastFocusRef.current = document.activeElement as HTMLElement | null
-            setScoutOpen(true)
-          }}
-        >
-          <MessageCircleIcon /> Ask Scout
-        </Button>
-      </div>
+        </div>
+      ) : null}
 
       {scoutOpen ? (
         <div

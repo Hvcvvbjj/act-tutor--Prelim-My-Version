@@ -1216,21 +1216,12 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         bank,
         input.diagnosticSkillResults,
       );
-      const learningTwinBySkill = makeInitialKnowledgeStates(
-        bank,
-        input.diagnosticSkillResults,
-        input.plan.currentScore,
-        input.plan.sectionScores,
-      );
-      const anchor =
-        [...input.diagnosticSkillResults].sort(
-          (left, right) =>
-            left.accuracy - right.accuracy || right.total - left.total,
-        )[0]?.skill ?? session.todaySkill;
-      const recommendation = recommendKnowledgeState(
-        Object.values(learningTwinBySkill),
-        anchor,
-      );
+      const learningTwinBySkill = ensureLearningTwin(session, bank);
+      const recommendation = buildLearningTwinSnapshot({
+        states: Object.values(learningTwinBySkill),
+        events: session.learningTwinEvents ?? [],
+        preferredSkill: session.nextSkill,
+      }).recommendation;
       const nextSkill = recommendation.skill;
       const previousSkill = session.todaySkill;
       const lesson = await lessonComposer.compose({
@@ -1251,9 +1242,6 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       );
       session.answers = [];
       session.masteryBySkill = masteryBySkill;
-      session.learningTwinBySkill = learningTwinBySkill;
-      session.learningTwinEvents = [];
-      session.decisionHistory = [];
       session.futureTask = {
         todaySkill: nextSkill,
         nextSkill,

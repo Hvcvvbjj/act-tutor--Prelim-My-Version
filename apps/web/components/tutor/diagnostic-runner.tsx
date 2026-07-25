@@ -631,7 +631,7 @@ export function DiagnosticRunner({
           onClick={onBack}
         >
           <ArrowLeftIcon data-icon="inline-start" />
-          Back to setup
+          Return to diagnostic overview
         </Button>
       </div>
     )

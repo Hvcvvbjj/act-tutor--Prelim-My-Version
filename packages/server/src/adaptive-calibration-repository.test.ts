@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   FileAdaptiveCalibrationRepository,
   type CalibrationBankInput,
+  type CalibrationKnowledgeEvidence,
 } from "./adaptive-calibration-repository";
 
 const sectionSkills = {
@@ -132,6 +133,29 @@ describe("FileAdaptiveCalibrationRepository", () => {
           choiceId: conflictingChoice.id,
         }),
       ).rejects.toThrow("already answered");
+    });
+  });
+
+  it("returns every stored observation in answer order for idempotent replay", async () => {
+    await withRepo(async (repo) => {
+      const started = await repo.getOrCreate(null, bank);
+      const expectedEvidence: CalibrationKnowledgeEvidence[] = [];
+      let payload = started.payload;
+      for (let index = 0; index < 3; index += 1) {
+        const question = payload.currentQuestion!;
+        const answered = await repo.answer(started.sessionId, bank, {
+          questionId: question.id,
+          choiceId: question.choices[index % question.choices.length].id,
+        });
+        expect(answered.evidence).not.toBeNull();
+        expectedEvidence.push(answered.evidence!);
+        payload = answered.payload;
+      }
+
+      const firstRead = await repo.getEvidence(started.sessionId, bank);
+      const secondRead = await repo.getEvidence(started.sessionId, bank);
+      expect(firstRead).toEqual(expectedEvidence);
+      expect(secondRead).toEqual(firstRead);
     });
   });
 

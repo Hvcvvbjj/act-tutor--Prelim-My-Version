@@ -88,14 +88,22 @@ export function ExamLabReport({
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
       <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)] lg:gap-16">
         <div>
-          <p className="ink-label text-primary">Timed-practice results</p>
+          <p className="ink-label text-primary">
+            {readiness.sufficient
+              ? "Timed-practice results"
+              : "Incomplete timed practice"}
+          </p>
           <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-            Here&apos;s what happened under the clock.
+            {readiness.sufficient
+              ? "Here’s what happened under the clock."
+              : "Your completed answers are saved for review."}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            See raw accuracy, average time per answered question, and how your
-            Sure, Unsure, and Guess labels lined up with correctness. These
-            results stay in Timed Practice and do not update Today or My Week.
+            {readiness.sufficient
+              ? "See raw accuracy, average time per answered question, and how your Sure, Unsure, and Guess labels lined up with correctness."
+              : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, confidence pattern, or next lesson from this run.`}{" "}
+            These results stay in Timed Practice and do not update Today or My
+            Week.
           </p>
 
           <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-[1.2fr_0.8fr] sm:divide-x-2 sm:divide-foreground">
@@ -288,7 +296,13 @@ export function ExamLabReport({
         </div>
       </section>
 
-      <div className="mt-14 grid gap-12 lg:grid-cols-2 lg:gap-16">
+      <div
+        className={cn(
+          "mt-14 grid gap-12 lg:grid-cols-2 lg:gap-16",
+          !readiness.sufficient && "hidden"
+        )}
+        aria-hidden={!readiness.sufficient}
+      >
         <section
           className="border-t-2 border-foreground pt-7"
           aria-labelledby="pacing-title"

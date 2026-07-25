@@ -200,10 +200,22 @@ export async function POST(request: NextRequest) {
       if (!calibrationSessionId) {
         throw new RangeError("Complete Quick Check before rebuilding the plan.")
       }
+      const learningSessionId = requireSessionId(request)
       const calibration = await calibrationSessions.get(
         calibrationSessionId,
         CALIBRATION_BANK
       )
+      const calibrationEvidence = await calibrationSessions.getEvidence(
+        calibrationSessionId,
+        CALIBRATION_BANK
+      )
+      for (const evidence of calibrationEvidence) {
+        await learningSessions.recordCalibrationEvidence(
+          learningSessionId,
+          LEARNING_BANK,
+          evidence
+        )
+      }
       const baseline = buildCalibrationLearningBaseline(calibration)
       const plan = parsePlanContext({
         ...body,
@@ -211,7 +223,7 @@ export async function POST(request: NextRequest) {
         sectionScores: baseline.sections,
       })
       const learning = await learningSessions.rebaseAfterCalibration(
-        requireSessionId(request),
+        learningSessionId,
         LEARNING_BANK,
         {
           calibrationKey: `${baseline.calibrationSessionId}:${baseline.calibrationBankVersion}`,

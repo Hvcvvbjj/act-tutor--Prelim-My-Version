@@ -224,7 +224,11 @@ function toPayload(
 function applyAnswer(
   session: StoredCalibrationSession,
   bank: CalibrationBankInput,
-  answer: { questionId: string; choiceId: string; confidence?: AnswerConfidence },
+  answer: {
+    questionId: string;
+    choiceId: string;
+    confidence?: AnswerConfidence;
+  },
 ): CalibrationKnowledgeEvidence {
   if (session.status === "complete")
     throw new RangeError("This precision check is already complete.");
@@ -365,10 +369,26 @@ export class FileAdaptiveCalibrationRepository {
     });
   }
 
+  async getEvidence(
+    sessionId: string,
+    bank: CalibrationBankInput,
+  ): Promise<CalibrationKnowledgeEvidence[]> {
+    return this.transact((store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Calibration session not found.");
+      assertSessionMatchesBank(session, bank);
+      return session.responses.map(knowledgeEvidenceFor);
+    });
+  }
+
   async answer(
     sessionId: string,
     bank: CalibrationBankInput,
-    answer: { questionId: string; choiceId: string; confidence?: AnswerConfidence },
+    answer: {
+      questionId: string;
+      choiceId: string;
+      confidence?: AnswerConfidence;
+    },
   ): Promise<{
     payload: AdaptiveCalibrationPayload;
     evidence: CalibrationKnowledgeEvidence | null;

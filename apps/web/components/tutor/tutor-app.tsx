@@ -25,8 +25,21 @@ import {
 } from "@/lib/auth-types"
 import { addCalendarDaysFrom } from "@/lib/dates"
 
-const STORAGE_KEY = "ai-act-tutor-placement-v2"
-const LEGACY_STORAGE_KEY = "ai-act-tutor-placement-v1"
+const STORAGE_KEY = "ai-act-tutor-placement-v3"
+const LEGACY_STORAGE_KEYS = [
+  "ai-act-tutor-placement-v2",
+  "ai-act-tutor-placement-v1",
+] as const
+
+type TutorSurface =
+  "onboarding" | "dashboard" | "diagnostic" | "diagnostic-runner"
+type DashboardInitialTab = "today" | "calibrate"
+
+function isDiagnosticSurface(
+  value: unknown
+): value is Extract<TutorSurface, "diagnostic" | "diagnostic-runner"> {
+  return value === "diagnostic" || value === "diagnostic-runner"
+}
 
 function TutorSurfaceLoading({ message }: { message: string }) {
   return (
@@ -413,9 +426,11 @@ export function TutorApp({
     () => restoredAtLoad?.draft ?? initialDraft(initialTestDate)
   )
   const [step, setStep] = useState(1)
-  const [surface, setSurface] = useState<
-    "onboarding" | "dashboard" | "diagnostic" | "diagnostic-runner"
-  >(restoredAtLoad ? "dashboard" : "onboarding")
+  const [surface, setSurface] = useState<TutorSurface>(
+    restoredAtLoad ? "dashboard" : "onboarding"
+  )
+  const [dashboardInitialTab, setDashboardInitialTab] =
+    useState<DashboardInitialTab>()
   const [plan, setPlan] = useState<GeneratedPlan | null>(restoredAtLoad)
   const [viewer, setViewer] = useState<AuthViewer>(initialViewer)
   const [error, setError] = useState<string | null>(null)
@@ -429,16 +444,21 @@ export function TutorApp({
       try {
         const stored =
           window.localStorage.getItem(STORAGE_KEY) ??
-          window.localStorage.getItem(LEGACY_STORAGE_KEY)
+          LEGACY_STORAGE_KEYS.map((key) =>
+            window.localStorage.getItem(key)
+          ).find(Boolean)
         if (stored) {
           const parsed = JSON.parse(stored) as {
             version?: number
             draft?: unknown
             guestPlan?: unknown
+            viewerRole?: AuthViewer["role"]
+            resumeSurface?: unknown
           }
+          let planAvailable = Boolean(restoredAtLoad)
           if (!restoredAtLoad && initialViewer.role === "guest") {
             const restoredGuestPlan =
-              parsed.version === 2
+              parsed.version === 2 || parsed.version === 3
                 ? restoredPlanFrom(today, parsed.guestPlan)
                 : null
             if (restoredGuestPlan) {
@@ -446,18 +466,32 @@ export function TutorApp({
               setPlan(restoredGuestPlan)
               setSurface("dashboard")
               setWelcomeComplete(true)
+              planAvailable = true
             } else if (
-              (parsed.version === 1 || parsed.version === 2) &&
+              (parsed.version === 1 ||
+                parsed.version === 2 ||
+                parsed.version === 3) &&
               isPlacementDraft(parsed.draft)
             ) {
               setDraft({ ...initialDraft(initialTestDate), ...parsed.draft })
             }
           }
+          if (
+            parsed.version === 3 &&
+            parsed.viewerRole === initialViewer.role &&
+            planAvailable &&
+            isDiagnosticSurface(parsed.resumeSurface)
+          ) {
+            setDashboardInitialTab("calibrate")
+            setSurface(parsed.resumeSurface)
+          }
         }
       } catch {
         try {
           window.localStorage.removeItem(STORAGE_KEY)
-          window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+          for (const key of LEGACY_STORAGE_KEYS) {
+            window.localStorage.removeItem(key)
+          }
         } catch {}
       } finally {
         setStorageReady(true)
@@ -473,15 +507,19 @@ export function TutorApp({
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          version: 2,
+          version: 3,
           draft,
           guestPlan:
             viewer.role === "guest" && plan ? savedPlanFrom(plan) : null,
+          viewerRole: viewer.role,
+          resumeSurface: plan && isDiagnosticSurface(surface) ? surface : null,
         })
       )
-      window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+      for (const key of LEGACY_STORAGE_KEYS) {
+        window.localStorage.removeItem(key)
+      }
     } catch {}
-  }, [draft, plan, storageReady, viewer.role])
+  }, [draft, plan, storageReady, surface, viewer.role])
 
   function updateDraft(update: Partial<PlacementDraft>) {
     setDraft((current) => ({ ...current, ...update }))
@@ -618,7 +656,18 @@ export function TutorApp({
   function startOver() {
     setStep(1)
     setSurface("onboarding")
+    setDashboardInitialTab(undefined)
     setPlan(null)
+    setError(null)
+  }
+
+  function returnToQuickCheck() {
+    if (!plan) {
+      startOver()
+      return
+    }
+    setDashboardInitialTab("calibrate")
+    setSurface("dashboard")
     setError(null)
   }
 
@@ -691,12 +740,14 @@ export function TutorApp({
     return (
       <Dashboard
         plan={plan}
+        initialTab={dashboardInitialTab}
         viewer={viewer}
         savedPlan={savedPlanFrom(plan)}
         onViewerChange={handleViewerChange}
         onEditPlan={startOver}
         onStartFullDiagnostic={() => {
           void loadDiagnosticIntro()
+          setDashboardInitialTab("calibrate")
           setSurface("diagnostic")
         }}
         onUseAdaptiveBaseline={useAdaptiveBaseline}
@@ -709,7 +760,7 @@ export function TutorApp({
       <DiagnosticIntro
         goal={draft.goal}
         testDate={draft.testDate}
-        onBack={startOver}
+        onBack={returnToQuickCheck}
         onStart={() => {
           void loadDiagnosticRunner()
           setSurface("diagnostic-runner")

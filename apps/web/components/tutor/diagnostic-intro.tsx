@@ -55,7 +55,7 @@ export function DiagnosticIntro({
       <main className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16">
         <Button type="button" variant="ghost" onClick={onBack}>
           <ArrowLeftIcon data-icon="inline-start" />
-          Back to setup
+          Return to Quick Check
         </Button>
         <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
           <section>

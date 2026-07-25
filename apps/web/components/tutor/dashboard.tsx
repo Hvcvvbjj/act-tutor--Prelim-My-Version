@@ -146,12 +146,27 @@ function DashboardTab({
 
 interface DashboardProps {
   plan: GeneratedPlan
+  initialTab?: Extract<DashboardDestination, "today" | "calibrate">
   viewer: AuthViewer
   savedPlan: SavedTutorPlan
   onViewerChange: (viewer: AuthViewer) => void
   onEditPlan: () => void
   onStartFullDiagnostic: () => void
   onUseAdaptiveBaseline: (payload: CalibrationLearningBaseline) => void
+}
+
+const DASHBOARD_DESTINATIONS = [
+  "today",
+  "plan",
+  "calibrate",
+  "progress",
+  "lab",
+  "control",
+] as const
+type DashboardDestination = (typeof DASHBOARD_DESTINATIONS)[number]
+
+function isDashboardDestination(value: string): value is DashboardDestination {
+  return DASHBOARD_DESTINATIONS.some((destination) => destination === value)
 }
 
 interface CalibrationRebaseResponse {
@@ -202,7 +217,7 @@ function Brand() {
       className="@container/brand flex min-w-0 items-center gap-2 overflow-hidden sm:gap-2.5"
     >
       <ScoutMark className="size-8 shrink-0" />
-      <p className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap @max-[6.5rem]/brand:hidden sm:text-lg">
+      <p className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg @max-[6.5rem]/brand:hidden">
         SCOUT <span className="text-primary">ACT</span>
       </p>
     </div>
@@ -260,14 +275,13 @@ function AccessibleTestDayLab({
   )
 }
 
-function MobileScoutDock({ onOpen }: { onOpen: () => void }) {
+function ScoutHeaderButton({ onOpen }: { onOpen: () => void }) {
   const { openScout } = useScoutContext()
   return (
     <Button
       type="button"
       variant="ghost"
-      size="icon"
-      className="md:hidden"
+      className="min-h-11 min-w-11 px-2"
       aria-label="Ask Scout"
       onClick={() => {
         onOpen()
@@ -275,6 +289,7 @@ function MobileScoutDock({ onOpen }: { onOpen: () => void }) {
       }}
     >
       <MessageCircleIcon />
+      <span className="hidden xl:inline">Ask Scout</span>
     </Button>
   )
 }
@@ -285,7 +300,7 @@ function MobileOverflow({
   onClose,
 }: {
   open: boolean
-  onNavigate: (tab: string) => void
+  onNavigate: (tab: DashboardDestination) => void
   onClose: () => void
 }) {
   const { openSettings } = useScoutContext()
@@ -357,7 +372,7 @@ function DesktopOverflow({
   onClose,
 }: {
   open: boolean
-  onNavigate: (tab: string) => void
+  onNavigate: (tab: DashboardDestination) => void
   onClose: () => void
 }) {
   const { openSettings } = useScoutContext()
@@ -417,6 +432,7 @@ function DesktopOverflow({
 
 export function Dashboard({
   plan,
+  initialTab,
   viewer,
   savedPlan,
   onViewerChange,
@@ -436,8 +452,11 @@ export function Dashboard({
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState(
-    representativeDemo || plan.adaptiveBaselineRequired ? "calibrate" : "today"
+  const [activeTab, setActiveTab] = useState<DashboardDestination>(
+    initialTab ??
+      (representativeDemo || plan.adaptiveBaselineRequired
+        ? "calibrate"
+        : "today")
   )
   const [labLaunch, setLabLaunch] = useState<{
     mode: ExamLabMode
@@ -889,7 +908,7 @@ export function Dashboard({
         value={activeTab}
         onValueChange={(value) => {
           preloadDashboardSurface(value)
-          setActiveTab(value)
+          if (isDashboardDestination(value)) setActiveTab(value)
           setMoreOpen(false)
         }}
         className="min-h-svh scroll-pb-24 gap-0 bg-[var(--canvas)] pb-24 md:scroll-pb-0 md:pb-0"
@@ -936,7 +955,7 @@ export function Dashboard({
               </div>
             </div>
             <div className="flex items-center gap-1.5 justify-self-end sm:gap-3">
-              <MobileScoutDock onOpen={() => setMoreOpen(false)} />
+              <ScoutHeaderButton onOpen={() => setMoreOpen(false)} />
               <div className="hidden sm:block">
                 <ScoreRoute plan={plan} />
               </div>

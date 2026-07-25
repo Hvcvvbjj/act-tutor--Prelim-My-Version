@@ -65,7 +65,15 @@ export async function GET(request: NextRequest) {
       request.cookies.get(CALIBRATION_COOKIE)?.value ?? null,
       CALIBRATION_BANK
     )
-    const response = NextResponse.json(session.payload)
+    const evidence = await calibrationSessions.getEvidence(
+      session.sessionId,
+      CALIBRATION_BANK
+    )
+    const learningTwinUpdated = await syncLearningTwin(request, evidence)
+    const response = NextResponse.json({
+      ...session.payload,
+      learningTwinUpdated,
+    })
     response.headers.set("Cache-Control", "no-store")
     setSessionCookie(response, session.sessionId)
     await syncLinkedSession(request, "calibration", session.sessionId)
@@ -121,9 +129,11 @@ export async function POST(request: NextRequest) {
             : "sure",
       }
     )
-    const learningTwinUpdated = answered.evidence
-      ? await syncLearningTwin(request, [answered.evidence])
-      : false
+    const evidence = await calibrationSessions.getEvidence(
+      sessionId,
+      CALIBRATION_BANK
+    )
+    const learningTwinUpdated = await syncLearningTwin(request, evidence)
     const response = NextResponse.json({
       ...answered.payload,
       learningTwinUpdated,

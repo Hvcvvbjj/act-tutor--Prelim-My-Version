@@ -99,6 +99,46 @@ test("Quick Check recovers after its first request fails", async ({
   await request.delete("/api/calibration")
 })
 
+test("Quick Check focuses each new question and keeps answer shortcuts active", async ({
+  page,
+}) => {
+  await openStarterPlan(page)
+  await page.request.delete("/api/calibration")
+  await page.getByRole("tab", { name: "Quick Check" }).click()
+
+  const prompt = page.getByTestId("quick-check-question-card").locator("h2")
+  const firstPrompt = await prompt.textContent()
+  await page.keyboard.press("a")
+  await expect(
+    page
+      .getByRole("radiogroup", {
+        name: "Answer choices for Quick Check question 1",
+      })
+      .getByRole("radio")
+      .first()
+  ).toBeChecked()
+  await page.evaluate(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight })
+  })
+  await page.getByRole("button", { name: "Check my answer" }).click()
+
+  await expect(prompt).not.toHaveText(firstPrompt ?? "")
+  await expect(prompt).toBeFocused()
+  const promptBounds = await prompt.boundingBox()
+  expect(promptBounds).not.toBeNull()
+  expect(promptBounds!.y).toBeGreaterThanOrEqual(0)
+
+  await page.keyboard.press("b")
+  await expect(
+    page
+      .getByRole("radiogroup", {
+        name: "Answer choices for Quick Check question 2",
+      })
+      .getByRole("radio")
+      .nth(1)
+  ).toBeChecked()
+})
+
 test("a guest can open the one-answer demo and see the adaptive proof", async ({
   page,
 }) => {
@@ -111,7 +151,11 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
   await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
     timeout: 20_000,
   })
-  await expect(page.getByText("7/12 answered")).toBeVisible()
+  await expect(
+    page
+      .getByTestId("quick-check-question-card")
+      .getByText("Question 8 of up to 12")
+  ).toBeVisible()
 
   const questionPrompt = await page
     .getByRole("heading", { name: /A solution contains water/ })
@@ -208,6 +252,9 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
   }
 
   expect(calibration.responseCount).toBeGreaterThanOrEqual(8)
+  const beforeRebaseResponse = await request.get("/api/learning")
+  expect(beforeRebaseResponse.ok()).toBeTruthy()
+  const beforeRebase = await beforeRebaseResponse.json()
   const rebaseResponse = await request.post("/api/learning", {
     data: {
       action: "rebase_after_calibration",
@@ -222,6 +269,10 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
   expect(rebaseResponse.ok()).toBeTruthy()
   const rebased = await rebaseResponse.json()
 
+  expect(rebased.learning.learningTwin).toEqual(beforeRebase.learningTwin)
+  expect(rebased.learning.decisionHistory).toEqual(
+    beforeRebase.decisionHistory
+  )
   expect(rebased.learning.todaySkill).not.toBe(started.todaySkill)
   expect(rebased.learning.lesson.skill).toBe(rebased.learning.todaySkill)
   expect(
@@ -630,6 +681,62 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("an in-progress full diagnostic resumes without discarding the guest plan", async ({
+  page,
+}) => {
+  await openStarterPlan(page)
+  await page.request.delete("/api/calibration")
+
+  let calibration = (await (
+    await page.request.get("/api/calibration")
+  ).json()) as CalibrationPayload
+  while (calibration.status === "in_progress") {
+    const question = calibration.currentQuestion
+    expect(question).not.toBeNull()
+    const response = await page.request.post("/api/calibration", {
+      data: {
+        action: "answer",
+        questionId: question?.id,
+        choiceId: question?.choices[0]?.id,
+        confidence: "sure",
+      },
+    })
+    expect(response.ok()).toBeTruthy()
+    calibration = (await response.json()) as CalibrationPayload
+  }
+
+  await page.getByRole("tab", { name: "Quick Check" }).click()
+  await expect(page.getByText("Quick Check complete")).toBeVisible()
+  await page
+    .getByRole("button", { name: "Take the full 66-question diagnostic" })
+    .click()
+  await expect(
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Start diagnostic" }).click()
+
+  const firstAnswer = page
+    .getByRole("radiogroup", { name: "Answer choices for question 1" })
+    .locator("label")
+    .first()
+  await firstAnswer.click()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.reload()
+  const resumedFirstAnswer = page
+    .getByRole("radiogroup", { name: "Answer choices for question 1" })
+    .getByRole("radio")
+    .first()
+  await expect(resumedFirstAnswer).toBeChecked()
+
+  await page.getByRole("button", { name: "Save and exit" }).click()
+  await page.getByRole("button", { name: "Return to Quick Check" }).click()
+  await expect(page.getByText("Quick Check complete")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Sign in / save progress" })
+  ).toBeVisible()
+})
+
 test("a calendar review cannot masquerade as the current lesson", async ({
   page,
 }) => {
@@ -662,6 +769,11 @@ test("the weekly calendar keeps day cards readable at laptop and phone widths", 
 
   const dayCards = page.getByTestId("week-day")
   await expect(dayCards).toHaveCount(7)
+  const todayCard = dayCards.filter({
+    has: page.getByText("Today", { exact: true }),
+  })
+  await expect(todayCard).toHaveCount(1)
+  await expect(todayCard).not.toContainText("No study planned")
   const laptopCards = await dayCards.evaluateAll((cards) =>
     cards.map((card) => {
       const bounds = card.getBoundingClientRect()

@@ -453,6 +453,8 @@ export function AdaptiveCalibrationLab({
   const [proof, setProof] = useState<AdaptiveProof | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const initialLoad = useRef<Promise<AdaptiveCalibrationPayload> | null>(null)
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previousQuestionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -500,9 +502,33 @@ export function AdaptiveCalibrationLab({
 
   const shortcutChoiceKey =
     payload?.currentQuestion?.choices.map((choice) => choice.id).join("|") ?? ""
+  const currentQuestionId = payload?.currentQuestion?.id ?? null
 
   useEffect(() => {
-    if (!shortcutChoiceKey || busy || showLatestAnswer) return
+    if (!currentQuestionId || busy) return
+
+    const previousQuestionId = previousQuestionIdRef.current
+    previousQuestionIdRef.current = currentQuestionId
+    if (
+      previousQuestionId === currentQuestionId ||
+      (!previousQuestionId && !payload?.representativeDemo)
+    ) {
+      return
+    }
+
+    setSelectedChoice("")
+    const frame = window.requestAnimationFrame(() => {
+      questionHeadingRef.current?.focus({ preventScroll: true })
+      questionHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [busy, currentQuestionId, payload?.representativeDemo])
+
+  useEffect(() => {
+    if (!shortcutChoiceKey || busy) return
     const choiceIds = shortcutChoiceKey.split("|")
 
     function chooseWithKeyboard(event: KeyboardEvent) {
@@ -540,7 +566,7 @@ export function AdaptiveCalibrationLab({
 
     window.addEventListener("keydown", chooseWithKeyboard)
     return () => window.removeEventListener("keydown", chooseWithKeyboard)
-  }, [busy, shortcutChoiceKey, showLatestAnswer])
+  }, [busy, shortcutChoiceKey])
 
   async function submitAnswer() {
     const question = payload?.currentQuestion
@@ -643,6 +669,19 @@ export function AdaptiveCalibrationLab({
     (candidate) => candidate.id === payload.selection?.selectedItemId
   )
   const latestEvent = payload.lastFeedback?.event
+  const minimumRemainingQuestions = Math.max(0, 8 - payload.responseCount)
+  const maximumRemainingQuestions = Math.max(
+    0,
+    payload.maximumItems - payload.responseCount
+  )
+  const minimumRemainingMinutes = Math.ceil(minimumRemainingQuestions * 1.5)
+  const maximumRemainingMinutes = Math.ceil(maximumRemainingQuestions * 1.5)
+  const timeRemainingLabel =
+    payload.status === "complete"
+      ? "Complete"
+      : minimumRemainingMinutes === 0
+        ? `Up to ${maximumRemainingMinutes} min`
+        : `About ${minimumRemainingMinutes}–${maximumRemainingMinutes} min`
 
   return (
     <main
@@ -679,18 +718,17 @@ export function AdaptiveCalibrationLab({
                   Time remaining
                 </p>
                 <p className="text-lg font-black sm:mt-1 sm:text-xl">
-                  About{" "}
-                  {Math.max(
-                    1,
-                    Math.ceil(
-                      (payload.maximumItems - payload.responseCount) * 1.5
-                    )
-                  )}{" "}
-                  min
+                  {timeRemainingLabel}
                 </p>
               </div>
-              <p className="text-right text-xs whitespace-nowrap text-muted-foreground">
-                {payload.responseCount}/{payload.maximumItems} answered
+              <p
+                className="text-right text-xs whitespace-nowrap text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {payload.status === "complete"
+                  ? `${payload.responseCount} questions complete`
+                  : `Question ${payload.responseCount + 1} of up to ${payload.maximumItems}`}
               </p>
             </div>
             <div
@@ -887,10 +925,12 @@ export function AdaptiveCalibrationLab({
           <section className="px-2.5 py-5 sm:p-7 lg:border-r lg:border-border/80">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="ink-label text-primary">
-                Question {payload.responseCount + 1} of {payload.maximumItems}
+                Question {payload.responseCount + 1} of up to{" "}
+                {payload.maximumItems}
               </p>
               <p className="font-mono text-xs font-black text-muted-foreground uppercase">
-                {SECTION_LABELS[question.section]} · {question.difficulty}
+                {SECTION_LABELS[question.section]}
+                {canViewTechnicalDetails ? ` · ${question.difficulty}` : ""}
               </p>
             </div>
             {question.stimulus ? (
@@ -911,7 +951,11 @@ export function AdaptiveCalibrationLab({
                 {question.lineReference}
               </p>
             ) : null}
-            <h2 className="mt-5 text-lg leading-7 font-bold sm:text-xl sm:leading-8">
+            <h2
+              ref={questionHeadingRef}
+              tabIndex={-1}
+              className="mt-5 scroll-mt-20 text-lg leading-7 font-bold outline-none sm:text-xl sm:leading-8"
+            >
               {question.prompt}
             </h2>
             <RadioGroup

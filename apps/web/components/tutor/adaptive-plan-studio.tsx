@@ -35,6 +35,10 @@ import {
   TimerResetIcon,
 } from "lucide-react"
 
+import {
+  loadInitialStudyPlan,
+  studyPlanRequest,
+} from "@/components/tutor/adaptive-plan-studio-client"
 import { ScoutCoach } from "@/components/tutor/scout"
 import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -50,8 +54,6 @@ interface AdaptivePlanStudioProps {
   onLaunchTask: (task: StudyPlanTask) => void
   canViewTechnicalDetails: boolean
 }
-
-type PlanResponse = { plan: AdaptiveStudyPlan } | { error: string }
 
 const WEEKDAYS: ReadonlyArray<{
   value: StudyWeekday
@@ -128,30 +130,6 @@ const HEALTH_COPY = {
 } as const
 
 const MINUTE_OPTIONS = [15, 20, 30, 45, 60, 75, 90, 120] as const
-const DEFAULT_STUDY_DAY_ORDER: ReadonlyArray<StudyWeekday> = [
-  "mon",
-  "wed",
-  "fri",
-  "tue",
-  "thu",
-  "sat",
-  "sun",
-]
-
-async function studyPlanRequest(body: Record<string, unknown>) {
-  const response = await fetch("/api/study-plan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  const payload = (await response.json()) as PlanResponse
-  if (!response.ok || "error" in payload) {
-    throw new Error(
-      "error" in payload ? payload.error : "Study plan request failed."
-    )
-  }
-  return payload.plan
-}
 
 function shortDate(value: string) {
   const [year, month, day] = value.split("-").map(Number)
@@ -764,27 +742,17 @@ export function AdaptivePlanStudio({
     const pending =
       pendingRequestRef.current?.key === requestKey
         ? pendingRequestRef.current.promise
-        : studyPlanRequest(
-            firstLoad
-              ? {
-                  action: "start",
-                  today: plan.today,
-                  testDate: plan.draft.testDate,
-                  current,
-                  target: plan.target.scores,
-                  skills,
-                  availability: {
-                    entries: DEFAULT_STUDY_DAY_ORDER.slice(
-                      0,
-                      plan.intensity.studyDaysPerWeek
-                    ).map((weekday) => ({
-                      weekday,
-                      minutes: plan.intensity.minutesPerSession,
-                    })),
-                  },
-                }
-              : { action: "sync_evidence", skills }
-          )
+        : firstLoad
+          ? loadInitialStudyPlan({
+              today: plan.today,
+              testDate: plan.draft.testDate,
+              current,
+              target: plan.target.scores,
+              skills,
+              studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
+              minutesPerSession: plan.intensity.minutesPerSession,
+            })
+          : studyPlanRequest({ action: "sync_evidence", skills })
     pendingRequestRef.current = { key: requestKey, promise: pending }
     pending
       .then((nextPlan) => {
