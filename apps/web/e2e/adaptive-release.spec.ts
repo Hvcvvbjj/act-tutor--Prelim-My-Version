@@ -921,9 +921,11 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
   await expect(page.getByRole("button", { name: "E2E Learner" })).toBeVisible({
     timeout: 15_000,
   })
-  await page.reload()
+  await page.reload({ waitUntil: "networkidle" })
   await expect(
-    page.getByText("Your starter plan uses a temporary 18.")
+    page
+      .getByText("Your starter plan uses a temporary 18.")
+      .filter({ visible: true })
   ).toBeVisible()
 
   await page.getByRole("button", { name: "More" }).click()

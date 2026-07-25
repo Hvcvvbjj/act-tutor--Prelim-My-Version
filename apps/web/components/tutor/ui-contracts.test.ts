@@ -207,6 +207,20 @@ describe("deadline performance contract", () => {
   })
 })
 
+describe("account access contract", () => {
+  it("keeps submission-only judge instructions out of the learner dialog", async () => {
+    const account = await source("components/tutor/account-access.tsx")
+    const normalizedAccount = account.replace(/\s+/g, " ")
+
+    expect(account).not.toContain(
+      "Judges can sign in with the credentials provided with the submission."
+    )
+    expect(normalizedAccount).toContain(
+      "Signing in does not change how Scout chooses questions or lessons."
+    )
+  })
+})
+
 describe("deadline learner UX contract", () => {
   it("adds keyboard answers, progressive disclosure, and a copyable week", async () => {
     const quickCheck = await source(

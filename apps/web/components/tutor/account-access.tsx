@@ -296,8 +296,8 @@ export function AccountAccess({
                   className="mt-5 text-sm leading-6 text-muted-foreground"
                 >
                   You can use Scout without an account. Create one only if you
-                  want to reopen this plan on another device. Judges can sign in
-                  with the credentials provided with the submission.
+                  want to reopen this plan on another device. Signing in does
+                  not change how Scout chooses questions or lessons.
                 </p>
 
                 <div
