@@ -197,9 +197,12 @@ async function rebaseLearningSession(
 
 function Brand() {
   return (
-    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+    <div
+      data-testid="app-brand"
+      className="@container/brand flex min-w-0 items-center gap-2 overflow-hidden sm:gap-2.5"
+    >
       <ScoutMark className="size-8 shrink-0" />
-      <p className="font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg">
+      <p className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap @max-[6.5rem]/brand:hidden sm:text-lg">
         SCOUT <span className="text-primary">ACT</span>
       </p>
     </div>

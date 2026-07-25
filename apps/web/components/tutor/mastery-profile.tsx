@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef } from "react"
 import type {
   KnowledgeState,
   LearningTwinRecommendation,
@@ -361,6 +362,7 @@ export function MasteryProfile({
 }) {
   const selected =
     skills.find((skill) => skill.skill === selectedSkill) ?? skills[0]
+  const selectedIsRecommendation = selected.skill === recommendation.skill
   const measured = skills.filter((skill) => skill.evidenceCount > 0)
   const strongest = [...measured]
     .sort(
@@ -374,6 +376,18 @@ export function MasteryProfile({
     100,
     contributions.reduce((sum, item) => sum + item.points, 0)
   )
+  const selectedSkillHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  function selectSkill(skill: string) {
+    onSelect(skill)
+    window.requestAnimationFrame(() => {
+      selectedSkillHeadingRef.current?.focus({ preventScroll: true })
+      selectedSkillHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+  }
 
   return (
     <figure
@@ -479,7 +493,7 @@ export function MasteryProfile({
           <SkillRows
             skills={skills}
             selectedSkill={selected.skill}
-            onSelect={onSelect}
+            onSelect={selectSkill}
           />
         </div>
       </section>
@@ -500,8 +514,10 @@ export function MasteryProfile({
               Selected skill · {SECTION_LABELS[selected.section]}
             </p>
             <h2
+              ref={selectedSkillHeadingRef}
               id="selected-skill-title"
-              className="mt-2 font-heading text-4xl font-black"
+              tabIndex={-1}
+              className="mt-2 scroll-mt-28 font-heading text-4xl font-black outline-none"
             >
               {selected.label}
             </h2>
@@ -569,11 +585,15 @@ export function MasteryProfile({
           {canViewTechnicalDetails ? (
             <details>
               <summary className="cursor-pointer font-heading text-xl font-black outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                How Scout chose this skill (technical details)
+                {selectedIsRecommendation
+                  ? "How Scout chose this skill (technical details)"
+                  : "How this skill compares (technical details)"}
               </summary>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Ranking score: {priority}/100. This is not an ACT score or a
-                probability.
+                {selectedIsRecommendation
+                  ? `Ranking score: ${priority}/100.`
+                  : `This skill’s current ranking score is ${priority}/100; Scout currently recommends ${recommendation.label}.`}{" "}
+                This is not an ACT score or a probability.
               </p>
               <ol className="mt-3 divide-y border-y">
                 {contributions.map((item) => (
@@ -597,12 +617,14 @@ export function MasteryProfile({
           ) : (
             <div>
               <h3 className="font-heading text-xl font-black">
-                Why this is next
+                {selectedIsRecommendation
+                  ? "Why this is next"
+                  : "What Scout recommends now"}
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Scout chose {recommendation.label} from your recent answers, how
-                much practice supports the estimate, and where one more question
-                would be most useful.
+                {selectedIsRecommendation
+                  ? `Scout chose ${recommendation.label} from your recent answers, how much practice supports the estimate, and where one more question would be most useful.`
+                  : `Scout currently recommends ${recommendation.label}. ${selected.label} is shown here because you selected it; its estimate and answer history are above.`}
               </p>
             </div>
           )}

@@ -414,6 +414,61 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
     )
     .toEqual({ scrollWidth: 320, viewportWidth: 320 })
 
+  await page.getByRole("button", { name: /Ratios and percent/ }).click()
+  const selectedSkillHeading = page.locator("#selected-skill-title")
+  const selectedSkillDetail = page.locator("#selected-skill-detail")
+  await expect(selectedSkillHeading).toHaveText("Ratios and percent")
+  await expect(selectedSkillHeading).toBeFocused()
+  await expect(
+    selectedSkillDetail.getByRole("heading", {
+      name: "What Scout recommends now",
+    })
+  ).toBeVisible()
+  await expect(selectedSkillDetail).toContainText(
+    "Scout currently recommends Sentence boundaries."
+  )
+  const selectedSkillBounds = await selectedSkillHeading.boundingBox()
+  const progressNavigationBounds = await primaryNavigation.boundingBox()
+  expect(selectedSkillBounds).not.toBeNull()
+  expect(progressNavigationBounds).not.toBeNull()
+  expect(selectedSkillBounds!.y).toBeGreaterThanOrEqual(0)
+  expect(selectedSkillBounds!.y + selectedSkillBounds!.height).toBeLessThan(
+    progressNavigationBounds!.y
+  )
+
+  const enlargedTextStyle = await page.addStyleTag({
+    content: ":root { font-size: 20px !important; }",
+  })
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+      }))
+    )
+    .toEqual({ scrollWidth: 320, viewportWidth: 320 })
+  const enlargedNavigationBounds = await primaryNavigation.boundingBox()
+  expect(enlargedNavigationBounds).not.toBeNull()
+  expect(enlargedNavigationBounds!.x).toBeGreaterThanOrEqual(0)
+  expect(
+    enlargedNavigationBounds!.x + enlargedNavigationBounds!.width
+  ).toBeLessThanOrEqual(320)
+  const enlargedBrandBounds = await page.getByTestId("app-brand").boundingBox()
+  const enlargedFirstHeaderActionBounds = await page
+    .locator("header")
+    .first()
+    .getByRole("button")
+    .first()
+    .boundingBox()
+  expect(enlargedBrandBounds).not.toBeNull()
+  expect(enlargedFirstHeaderActionBounds).not.toBeNull()
+  expect(
+    enlargedBrandBounds!.x + enlargedBrandBounds!.width
+  ).toBeLessThanOrEqual(enlargedFirstHeaderActionBounds!.x)
+  await enlargedTextStyle.evaluate((style) => {
+    style.parentNode?.removeChild(style)
+  })
+
   await page.setViewportSize({ width: 700, height: 800 })
   await expect(page.getByRole("button", { name: "Ask Scout" })).toHaveCount(1)
   await page.setViewportSize({ width: 390, height: 844 })
