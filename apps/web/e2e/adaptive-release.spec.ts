@@ -428,6 +428,65 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
     primaryNavigation.getByRole("button", { name: "Ask Scout" })
   ).toHaveCount(0)
 
+  const inactiveNavigationStyles = await primaryNavigation
+    .getByRole("tab")
+    .evaluateAll((tabs) => {
+      function channel(value: number) {
+        const normalized = value / 255
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4
+      }
+      function luminance(color: string) {
+        const values = color.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? []
+        return (
+          0.2126 * channel(values[0] ?? 0) +
+          0.7152 * channel(values[1] ?? 0) +
+          0.0722 * channel(values[2] ?? 0)
+        )
+      }
+      function contrast(foreground: string, background: string) {
+        const lighter = Math.max(luminance(foreground), luminance(background))
+        const darker = Math.min(luminance(foreground), luminance(background))
+        return (lighter + 0.05) / (darker + 0.05)
+      }
+
+      return tabs
+        .filter((tab) => tab.getAttribute("aria-selected") === "false")
+        .map((tab) => {
+          const styles = getComputedStyle(tab)
+          return {
+            contrast: contrast(
+              styles.color,
+              getComputedStyle(document.body).backgroundColor
+            ),
+            fontSize: Number.parseFloat(styles.fontSize),
+          }
+        })
+    })
+  expect(inactiveNavigationStyles.length).toBeGreaterThan(0)
+  for (const styles of inactiveNavigationStyles) {
+    expect(styles.contrast).toBeGreaterThanOrEqual(4.5)
+    expect(styles.fontSize).toBeGreaterThanOrEqual(12)
+  }
+
+  const weeklySummary = page
+    .locator("aside")
+    .filter({ hasText: "Your week" })
+    .locator("dl")
+  await expect(weeklySummary).toHaveCount(1)
+  const weeklySummaryStructure = await weeklySummary.evaluate((list) =>
+    [...list.children].map((group) => ({
+      group: group.tagName,
+      children: [...group.children].map((child) => child.tagName),
+    }))
+  )
+  expect(weeklySummaryStructure).toEqual([
+    { group: "DIV", children: ["DT", "DD"] },
+    { group: "DIV", children: ["DT", "DD"] },
+    { group: "DIV", children: ["DT", "DD"] },
+  ])
+
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await expect

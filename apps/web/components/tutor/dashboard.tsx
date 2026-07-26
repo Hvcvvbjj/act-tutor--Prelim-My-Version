@@ -1203,35 +1203,23 @@ export function Dashboard({
         >
           <div className="grid w-full grid-cols-5">
             <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
-              <DashboardTab
-                value="today"
-                className="min-h-14 px-1 text-[0.68rem]"
-              >
+              <DashboardTab value="today" className="min-h-14 px-1 text-xs">
                 Today
               </DashboardTab>
-              <DashboardTab
-                value="plan"
-                className="min-h-14 px-1 text-[0.68rem]"
-              >
+              <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
                 Week
               </DashboardTab>
-              <DashboardTab
-                value="calibrate"
-                className="min-h-14 px-1 text-[0.68rem]"
-              >
+              <DashboardTab value="calibrate" className="min-h-14 px-1 text-xs">
                 Check
               </DashboardTab>
-              <DashboardTab
-                value="progress"
-                className="min-h-14 px-1 text-[0.68rem]"
-              >
+              <DashboardTab value="progress" className="min-h-14 px-1 text-xs">
                 Progress
               </DashboardTab>
             </TabsList>
             <Button
               type="button"
               variant={moreOpen || moreActive ? "secondary" : "ghost"}
-              className="min-h-14 rounded-none px-1 text-[0.68rem]"
+              className="min-h-14 rounded-none px-1 text-xs"
               aria-expanded={moreOpen}
               aria-haspopup="menu"
               aria-controls="mobile-more-destinations"

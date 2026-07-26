@@ -357,46 +357,45 @@ function WeeklySummary(props: DailyMissionHubProps) {
         Your week
       </p>
       <dl className="mt-4 divide-y">
-        <div className="flex items-center gap-4 py-4 first:pt-0">
-          <CalendarDaysIcon
-            className="size-6 text-primary"
-            aria-hidden="true"
-          />
-          <div>
-            <dt className="font-bold">
-              {plan.intensity.studyDaysPerWeek} study days
-            </dt>
-            <dd className="text-sm text-muted-foreground">
-              Exact weekdays are editable in My week
-            </dd>
-          </div>
+        <div className="py-4 first:pt-0">
+          <dt className="flex items-center gap-4 font-bold">
+            <CalendarDaysIcon
+              className="size-6 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <span>{plan.intensity.studyDaysPerWeek} study days</span>
+          </dt>
+          <dd className="pl-10 text-sm text-muted-foreground">
+            Exact weekdays are editable in My week
+          </dd>
         </div>
-        <div className="flex items-center gap-4 py-4">
-          <Clock3Icon className="size-6 text-primary" aria-hidden="true" />
-          <div>
-            <dt className="font-bold">
-              {plan.intensity.minutesPerSession} min each
-            </dt>
-            <dd className="text-sm text-muted-foreground">Per study day</dd>
-          </div>
+        <div className="py-4">
+          <dt className="flex items-center gap-4 font-bold">
+            <Clock3Icon
+              className="size-6 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <span>{plan.intensity.minutesPerSession} min each</span>
+          </dt>
+          <dd className="pl-10 text-sm text-muted-foreground">Per study day</dd>
         </div>
-        <div className="flex items-center gap-4 py-4">
-          <FlameIcon
-            className="size-6 text-[var(--scout-coral)]"
-            aria-hidden="true"
-          />
-          <div>
-            <dt className="font-bold">
+        <div className="py-4">
+          <dt className="flex items-center gap-4 font-bold">
+            <FlameIcon
+              className="size-6 shrink-0 text-[var(--scout-coral)]"
+              aria-hidden="true"
+            />
+            <span>
               {learning.mission.progress.currentStreak === 0
                 ? "No streak yet"
                 : `${learning.mission.progress.currentStreak}-day streak`}
-            </dt>
-            <dd className="text-sm text-muted-foreground">
-              {learning.mission.progress.currentStreak === 0
-                ? "Start with today’s lesson"
-                : "Keep it going"}
-            </dd>
-          </div>
+            </span>
+          </dt>
+          <dd className="pl-10 text-sm text-muted-foreground">
+            {learning.mission.progress.currentStreak === 0
+              ? "Start with today’s lesson"
+              : "Keep it going"}
+          </dd>
         </div>
       </dl>
 
