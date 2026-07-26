@@ -687,7 +687,11 @@ export function DiagnosticRunner({
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[96rem] flex-col gap-7 px-4 py-7 sm:px-8 lg:py-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex max-w-[96rem] flex-col gap-7 px-4 py-7 sm:px-8 lg:py-10"
+      >
         <SectionProgress
           form={form}
           answers={answers}

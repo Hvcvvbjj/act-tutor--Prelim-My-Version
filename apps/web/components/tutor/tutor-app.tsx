@@ -43,7 +43,9 @@ function isDiagnosticSurface(
 
 function TutorSurfaceLoading({ message }: { message: string }) {
   return (
-    <div
+    <main
+      id="main-content"
+      tabIndex={-1}
       className="flex min-h-svh items-center justify-center bg-background px-5 text-foreground"
       role="status"
       aria-live="polite"
@@ -54,7 +56,7 @@ function TutorSurfaceLoading({ message }: { message: string }) {
           {message}
         </p>
       </div>
-    </div>
+    </main>
   )
 }
 

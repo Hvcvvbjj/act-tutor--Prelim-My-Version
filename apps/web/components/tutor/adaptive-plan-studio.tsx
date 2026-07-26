@@ -884,7 +884,11 @@ export function AdaptivePlanStudio({
 
   if (!current) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-16">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-3xl px-5 py-16"
+      >
         <Alert>
           <AlertTriangleIcon />
           <AlertTitle>Finish setup first</AlertTitle>
@@ -898,7 +902,11 @@ export function AdaptivePlanStudio({
 
   if (!adaptivePlan) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-3xl px-5 py-20"
+      >
         <ScoutCoach
           mood="thinking"
           message="Building your study weeks from your goal, test date, and available time."
@@ -924,7 +932,11 @@ export function AdaptivePlanStudio({
   const busy = parentBusy || saving || changingTaskId !== null
 
   return (
-    <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10"
+    >
       <section className="grid gap-7 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

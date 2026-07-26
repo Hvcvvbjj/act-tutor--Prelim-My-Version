@@ -132,7 +132,11 @@ export function ExamLabRunner({
       : `${navigationSection[0].toUpperCase()}${navigationSection.slice(1)}`
 
   return (
-    <main className="min-h-[calc(100svh-5rem)] bg-[var(--rail)]">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-[calc(100svh-5rem)] bg-[var(--rail)]"
+    >
       <header className="sticky top-0 z-30 border-b-2 border-foreground bg-background">
         <div className="mx-auto grid max-w-[100rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
           <div>

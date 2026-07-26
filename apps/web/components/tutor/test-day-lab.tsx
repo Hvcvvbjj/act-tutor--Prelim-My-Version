@@ -345,7 +345,11 @@ export function TestDayLab({
 
   if (screen === "loading") {
     return (
-      <main className="flex min-h-[60svh] items-center justify-center">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-[60svh] items-center justify-center"
+      >
         <div className="text-center">
           <LoaderCircleIcon className="mx-auto size-8 animate-spin text-primary" />
           <p className="mt-4 font-semibold">Loading timed practice…</p>

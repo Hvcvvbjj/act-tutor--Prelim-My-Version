@@ -30,7 +30,29 @@ export default function RootLayout({
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${archivo.variable} font-sans antialiased`}
     >
-      <body>{children}</body>
+      <body>
+        <a
+          href="#main-content"
+          className="fixed top-3 left-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-3 text-sm font-bold text-background shadow-lg transition-transform focus:translate-y-0 focus-visible:ring-4 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none"
+        >
+          Skip to main content
+        </a>
+        {children}
+        <footer className="border-t border-border/80 bg-background px-5 pt-6 pb-24 text-muted-foreground md:pb-6">
+          <div className="mx-auto flex max-w-[86rem] flex-col gap-2 text-xs leading-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+            <p>
+              <span className="font-bold text-foreground">
+                Independent hackathon project.
+              </span>{" "}
+              Scout ACT is not affiliated with or endorsed by ACT.
+            </p>
+            <p className="sm:max-w-xl sm:text-right">
+              Practice content is original. Skill percentages and practice score
+              ranges are learning estimates—not official ACT results.
+            </p>
+          </div>
+        </footer>
+      </body>
     </html>
   )
 }

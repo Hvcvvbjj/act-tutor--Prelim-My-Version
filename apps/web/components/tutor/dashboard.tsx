@@ -883,7 +883,11 @@ export function Dashboard({
               canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (
-            <main className="mx-auto max-w-3xl px-5 py-20">
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="mx-auto max-w-3xl px-5 py-20"
+            >
               <ScoutCoach
                 mood="thinking"
                 message="Scout is loading your 8–12 question starting check."
@@ -1017,7 +1021,11 @@ export function Dashboard({
         ) : null}
 
         <TabsContent value="today">
-          <main className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8">
+          <main
+            id={activeTab === "today" ? "main-content" : undefined}
+            tabIndex={activeTab === "today" ? -1 : undefined}
+            className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8"
+          >
             {workspaceOpen && learning ? (
               <LessonWorkspace
                 learning={learning}
@@ -1097,7 +1105,11 @@ export function Dashboard({
               canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (
-            <main className="mx-auto max-w-3xl px-5 py-20">
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="mx-auto max-w-3xl px-5 py-20"
+            >
               <ScoutCoach
                 mood="thinking"
                 message="Scout is loading your study week."
@@ -1121,7 +1133,11 @@ export function Dashboard({
               }
             />
           ) : (
-            <main className="mx-auto max-w-3xl px-5 py-20">
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="mx-auto max-w-3xl px-5 py-20"
+            >
               <ScoutCoach
                 mood="thinking"
                 message="Scout is loading your starting-point check."

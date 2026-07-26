@@ -195,7 +195,11 @@ export function LearningTwinLab({
 
   if (!learning || !recommendation || !skills?.length) {
     return (
-      <main className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-5xl px-5 py-16 sm:px-8"
+      >
         <ScoutCoach
           mood="thinking"
           message="Scout is loading your 12-skill profile."
@@ -213,7 +217,11 @@ export function LearningTwinLab({
       : recommendation.skill
 
   return (
-    <main className="mx-auto w-full max-w-[92rem] px-4 py-8 sm:px-7 lg:py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-[92rem] px-4 py-8 sm:px-7 lg:py-10"
+    >
       <section className="grid grid-cols-1 gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end">
         <div className="min-w-0">
           <div className="flex items-center gap-3 text-primary">

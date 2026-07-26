@@ -39,7 +39,11 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
   )
 
   return (
-    <main className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10"
+    >
       <header className="grid gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
         <div>
           <p className="ink-label text-primary">Learning data</p>

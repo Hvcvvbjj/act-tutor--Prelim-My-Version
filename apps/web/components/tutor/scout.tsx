@@ -31,7 +31,7 @@ export function ScoutMark({
         className
       )}
       role="img"
-      aria-label={`Mr. Kim tutor is ${mood}`}
+      aria-label={`Scout tutor is ${mood}`}
     >
       <svg
         viewBox="0 0 120 120"
@@ -150,7 +150,7 @@ export function ScoutCoach({
       <ScoutMark mood={mood} className="size-12" />
       <div className="relative rounded-lg border border-primary/25 bg-[var(--info-surface)] px-4 py-3">
         <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
-          Mr. Kim says
+          Scout says
         </p>
         <p className="mt-1.5 text-sm leading-6">{message ?? MOOD_COPY[mood]}</p>
         {detail ? (

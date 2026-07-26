@@ -636,7 +636,11 @@ export function AdaptiveCalibrationLab({
 
   if (!payload) {
     return (
-      <main className="mx-auto max-w-3xl px-5 py-20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-3xl px-5 py-20"
+      >
         <ScoutCoach
           mood={error ? "repair" : "thinking"}
           message={
@@ -685,6 +689,8 @@ export function AdaptiveCalibrationLab({
 
   return (
     <main
+      id="main-content"
+      tabIndex={-1}
       className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-7 sm:py-7 lg:py-8"
       data-representative-demo={representativeDemo ? "true" : "false"}
     >

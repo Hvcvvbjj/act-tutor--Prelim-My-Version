@@ -52,7 +52,11 @@ export function DiagnosticIntro({
           SCOUT ACT
         </p>
       </header>
-      <main className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16"
+      >
         <Button type="button" variant="ghost" onClick={onBack}>
           <ArrowLeftIcon data-icon="inline-start" />
           Return to Quick Check

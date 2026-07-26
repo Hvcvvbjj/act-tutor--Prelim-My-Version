@@ -418,7 +418,7 @@ export function TrustView({
           <p className="ink-label text-muted-foreground">Model abstention</p>
           <div className="mt-4 border-l-4 border-primary bg-[var(--info-surface)] p-5">
             <p className="font-bold">
-              Mr. Kim says “not enough evidence” on purpose.
+              Scout says “not enough evidence” on purpose.
             </p>
             <p className="mt-2 text-sm leading-6">
               {learning.trustReport.abstentions[1]}

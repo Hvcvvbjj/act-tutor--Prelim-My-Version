@@ -85,7 +85,11 @@ export function ExamLabReport({
       : "Practice score range"
   const estimateMargin = result.mode === "sprint" ? 4 : 3
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14"
+    >
       <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)] lg:gap-16">
         <div>
           <p className="ink-label text-primary">
