@@ -189,11 +189,15 @@ function AdaptiveProofReplay({
   onInspectLearningTwin,
   onReturnToToday,
   canViewTechnicalDetails,
+  representativeDemo,
+  adaptiveBaselineRequired,
 }: {
   proof: AdaptiveProof
   onInspectLearningTwin: () => void
   onReturnToToday: () => void
   canViewTechnicalDetails: boolean
+  representativeDemo: boolean
+  adaptiveBaselineRequired: boolean
 }) {
   const nextLesson = proof.learning.recommendationAfter
   const previousLesson = proof.learning.recommendationBefore
@@ -303,21 +307,25 @@ function AdaptiveProofReplay({
       <div className="grid gap-6 border-t-2 border-foreground py-7 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="font-heading text-2xl font-black">
-            Scout updated this check and the skill you just practiced.
+            {representativeDemo
+              ? "Scout updated the sample learner from one answer."
+              : "Scout updated this check and the skill you just practiced."}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your dated My week calendar stays as it is. If this was your
-            starting check, use “Build my study plan” when you finish to create
-            a new calendar.
+            {representativeDemo
+              ? "The sample My week calendar stays fixed so you can compare what changed: the skill estimate and next recommendation."
+              : adaptiveBaselineRequired
+                ? "This was your starting check. Use “Build my study plan” below to turn these answers into a dated calendar."
+                : "Your dated My week calendar stays as it is. Scout will use this update when choosing what you should practice next."}
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="button" variant="outline" onClick={onReturnToToday}>
-            Back to today
+            {representativeDemo ? "Back to sample day" : "Back to today"}
           </Button>
           <Button type="button" onClick={onInspectLearningTwin}>
             <BrainCircuitIcon />
-            View my skills
+            {representativeDemo ? "View sample skills" : "View my skills"}
             <ArrowRightIcon data-icon="inline-end" />
           </Button>
         </div>
@@ -755,7 +763,7 @@ export function AdaptiveCalibrationLab({
         </div>
       </section>
 
-      {payload.representativeDemo ? (
+      {payload.representativeDemo && payload.status !== "complete" ? (
         <Alert className="mt-3 border-primary/50 bg-secondary px-4 py-3">
           <ScanSearchIcon />
           <AlertTitle>Seven sample answers are loaded</AlertTitle>
@@ -805,6 +813,8 @@ export function AdaptiveCalibrationLab({
             onInspectLearningTwin={onInspectLearningTwin}
             onReturnToToday={onReturnToToday}
             canViewTechnicalDetails={canViewTechnicalDetails}
+            representativeDemo={payload.representativeDemo}
+            adaptiveBaselineRequired={adaptiveBaselineRequired}
           />
           {adaptiveBaselineRequired ? (
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">

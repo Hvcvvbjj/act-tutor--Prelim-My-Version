@@ -191,6 +191,19 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
   await expect(proofHeading).toBeFocused()
   await expect(proofStep).toBeVisible()
   await expect(page.getByText("2 · Ratios and percent estimate")).toBeVisible()
+  await expect(
+    page.getByText("Seven sample answers are loaded")
+  ).not.toBeVisible()
+  await expect(
+    page.getByText("Scout updated the sample learner from one answer.")
+  ).toBeVisible()
+  await expect(page.getByText(/Build my study plan/)).not.toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Back to sample day" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "View sample skills" })
+  ).toBeVisible()
   const proofHeadingBounds = await proofHeading.boundingBox()
   const proofStepBounds = await proofStep.boundingBox()
   const proofNavigationBounds = await page
