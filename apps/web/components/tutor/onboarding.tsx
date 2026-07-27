@@ -6,6 +6,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CalendarDaysIcon,
+  ChevronDownIcon,
   LockKeyholeIcon,
   MinusIcon,
   PlayCircleIcon,
@@ -85,6 +86,37 @@ interface ScoreFieldProps {
   value: number
   error?: string | null
   onChange: (value: number) => void
+}
+
+function LearningDataNotice({ className }: { className?: string }) {
+  return (
+    <details
+      data-testid="learning-data-notice"
+      className={cn(
+        "group max-w-3xl rounded-xl border border-border/80 bg-background",
+        className
+      )}
+    >
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        <span>How Scout saves your work</span>
+        <ChevronDownIcon
+          className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="border-t border-border/80 px-4 py-3 text-sm leading-6 text-muted-foreground">
+        <p>
+          As a guest, this browser keeps your setup, plan, and resume point.
+          Create an account only if you want to reopen the latest saved plan on
+          another device.
+        </p>
+        <p className="mt-2">
+          Scored answers also update Scout&apos;s learning record. After setup,
+          open More → Learning data to export or delete saved study data.
+        </p>
+      </div>
+    </details>
+  )
 }
 
 function ScoreField({ id, label, value, error, onChange }: ScoreFieldProps) {
@@ -338,6 +370,7 @@ export function Onboarding({
                   <LockKeyholeIcon className="size-4" aria-hidden="true" />
                   No account needed.
                 </p>
+                <LearningDataNotice className="mt-4" />
 
                 <ol
                   aria-label="How Scout personalizes your plan"

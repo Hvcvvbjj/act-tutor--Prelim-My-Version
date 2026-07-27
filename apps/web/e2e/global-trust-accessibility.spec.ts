@@ -35,6 +35,17 @@ test("the welcome screen states product identity and independence clearly", asyn
 
   await expect(page.getByText("Meet Scout, your study coach")).toBeVisible()
   await expect(page.getByText(/Mr\. Kim/)).toHaveCount(0)
+  const learningDataNotice = page.getByTestId("learning-data-notice")
+  await expect(
+    learningDataNotice.getByText("How Scout saves your work")
+  ).toBeVisible()
+  await learningDataNotice.getByText("How Scout saves your work").click()
+  await expect(learningDataNotice).toContainText(
+    "this browser keeps your setup, plan, and resume point"
+  )
+  await expect(learningDataNotice).toContainText(
+    "More → Learning data to export or delete saved study data"
+  )
   const productNotes = page.getByRole("contentinfo")
   await expect(productNotes).toContainText("Independent hackathon project.")
   await expect(productNotes).toContainText(

@@ -202,6 +202,13 @@ describe("learner-facing model language", () => {
       "This is a planning goal—not a score prediction"
     )
     expect(onboarding).toContain("See one answer change the plan")
+    expect(onboarding).toContain("How Scout saves your work")
+    expect(onboarding).toContain(
+      "this browser keeps your setup, plan, and resume point"
+    )
+    expect(onboarding).toContain(
+      "More → Learning data to export or delete saved study data"
+    )
     expect(onboarding).toContain("Open the judge demo")
     expect(onboarding).toContain("viewer.technicalDetails")
     expect(onboarding).toContain("Skip for now")

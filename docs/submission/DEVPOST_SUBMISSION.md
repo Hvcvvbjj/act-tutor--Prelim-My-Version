@@ -44,7 +44,7 @@ The core adaptation pipeline is:
 7. the lesson composer combines the selected skill with reviewed instructional content and learner evidence;
 8. the UI exposes both model states and the audit trail instead of hiding them behind a chatbot.
 
-Security and educational trust were product requirements. Correct choices and rationales stay on the server. Client payloads contain only public questions and post-answer feedback. XP, mastery, the Learning Twin, and scheduling are all controlled by server-verified evidence, not by LLM output.
+Security and educational trust were product requirements. Correct choices and rationales stay on the server. Client payloads contain only public questions and post-answer feedback. XP, mastery, the Learning Twin, and scheduling are all controlled by server-verified evidence, not by LLM output. Before setup, Scout explains that guest progress resumes in the same browser and points learners to the export/delete controls available after setup.
 
 ## Creative use of AI/ML
 
