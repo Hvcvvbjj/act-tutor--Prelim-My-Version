@@ -257,7 +257,7 @@ export function LearningTwinLab({
             <Button
               type="button"
               size="lg"
-              className="mt-5 h-auto min-h-10 w-full min-w-0 py-2 whitespace-normal sm:w-auto"
+              className="mt-5 h-auto min-h-11 w-full min-w-0 py-2 whitespace-normal sm:w-auto"
               onClick={onOpenLesson}
             >
               Continue {current.label}

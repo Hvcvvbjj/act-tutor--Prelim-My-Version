@@ -458,7 +458,7 @@ export function Onboarding({
             </p>
             {viewer.technicalDetails && stepCopy.technical ? (
               <details className="mt-4 max-w-2xl border-l-2 border-primary/35 pl-4 text-sm">
-                <summary className="cursor-pointer font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                   How Scout sets section targets
                 </summary>
                 <p className="mt-2 leading-6 text-muted-foreground">

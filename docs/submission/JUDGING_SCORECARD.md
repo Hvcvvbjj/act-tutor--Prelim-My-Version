@@ -12,7 +12,7 @@ This scorecard maps the product to the four equally weighted official judging di
 - Daily missions combine teaching, ACT-shaped practice, mistake repair, spaced repetition, and mixed retrieval.
 - Adaptive Plan Studio preserves completed work and today while rebalancing future assignments.
 - Timed Practice adds timed section rehearsal, confidence capture, flags, pacing analysis, and an AI-capable debrief.
-- Accessibility basics include semantic controls, keyboard-focus treatments, responsive layouts, reduced-motion handling, explicit errors, no-account entry, and a first-visit explanation of guest resume plus export/delete controls.
+- Accessibility basics include semantic controls, keyboard-focus treatments, 44-pixel core action targets, responsive layouts, reduced-motion handling, explicit errors, no-account entry, and a first-visit explanation of guest resume plus export/delete controls.
 
 ### Proof to show judges
 

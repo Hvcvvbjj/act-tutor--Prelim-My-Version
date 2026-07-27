@@ -24,6 +24,40 @@ async function expectSkipLinkToFocusMain(
   await expect(page.locator("main#main-content")).toBeFocused()
 }
 
+async function expectActionTargetsAtLeast44(
+  surface: import("@playwright/test").Locator
+) {
+  const undersizedTargets = await surface
+    .locator("button, summary")
+    .evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const bounds = element.getBoundingClientRect()
+        const style = window.getComputedStyle(element)
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          bounds.width === 0 ||
+          bounds.height === 0
+        ) {
+          return []
+        }
+        if (bounds.width >= 44 && bounds.height >= 44) return []
+        return [
+          {
+            label:
+              element.getAttribute("aria-label") ??
+              element.textContent?.trim().replace(/\s+/g, " ").slice(0, 80) ??
+              element.tagName,
+            width: Math.round(bounds.width),
+            height: Math.round(bounds.height),
+          },
+        ]
+      })
+    )
+
+  expect(undersizedTargets).toEqual([])
+}
+
 test("the welcome screen states product identity and independence clearly", async ({
   page,
 }) => {
@@ -144,4 +178,50 @@ test("compact desktop navigation keeps primary controls easy to target", async (
       }))
     )
     .toEqual({ pageWidth: 1024, viewportWidth: 1024 })
+})
+
+test("learner actions stay comfortably targetable across the core study surfaces", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 800 })
+  await page.goto("/")
+  await openStarterPlan(page)
+
+  const today = page.getByRole("tabpanel", { name: "Today" })
+  await today.getByText("More study options").click()
+  await expectActionTargetsAtLeast44(today)
+
+  await page.getByRole("tab", { name: "My week" }).click()
+  await expectActionTargetsAtLeast44(
+    page.getByRole("tabpanel", { name: "Week" })
+  )
+
+  await page.getByRole("tab", { name: "Progress" }).click()
+  await expectActionTargetsAtLeast44(
+    page.getByRole("tabpanel", { name: "Progress" })
+  )
+
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page.getByRole("tab", { name: "Today" }).click()
+  const mobileToday = page.getByRole("tabpanel", { name: "Today" })
+  await mobileToday.getByText("More study options").click()
+  await expectActionTargetsAtLeast44(mobileToday)
+
+  await page.getByRole("tab", { name: "Week" }).click()
+  await expectActionTargetsAtLeast44(
+    page.getByRole("tabpanel", { name: "Week" })
+  )
+
+  await page.getByRole("tab", { name: "Progress" }).click()
+  await expectActionTargetsAtLeast44(
+    page.getByRole("tabpanel", { name: "Progress" })
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
 })

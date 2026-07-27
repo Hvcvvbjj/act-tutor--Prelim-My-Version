@@ -400,23 +400,25 @@ function TaskBlock({
           type="button"
           onClick={onToggle}
           disabled={changing}
-          className="mt-0.5 flex size-6 shrink-0 items-center justify-center border-2 border-foreground bg-background outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+          className="flex size-11 shrink-0 items-center justify-center outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
           aria-label={
             task.status === "complete"
               ? `Mark ${task.title} incomplete`
               : `Mark ${task.title} complete`
           }
         >
-          {task.status === "complete" ? (
-            <CheckIcon className="size-4" aria-hidden="true" />
-          ) : (
-            <CircleIcon className="size-3" aria-hidden="true" />
-          )}
+          <span className="flex size-6 items-center justify-center border-2 border-foreground bg-background">
+            {task.status === "complete" ? (
+              <CheckIcon className="size-4" aria-hidden="true" />
+            ) : (
+              <CircleIcon className="size-3" aria-hidden="true" />
+            )}
+          </span>
         </button>
         <button
           type="button"
           onClick={onSelect}
-          className="min-w-0 flex-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="min-h-11 min-w-0 flex-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           aria-pressed={selected}
         >
           <span className="flex items-center gap-1.5 font-mono text-[0.62rem] font-bold tracking-[0.08em] uppercase">
@@ -608,7 +610,7 @@ function TaskInspector({
       </Button>
 
       <details className="mt-5 border-y py-4">
-        <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           Why this assignment is here
         </summary>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -1074,7 +1076,7 @@ export function AdaptivePlanStudio({
           />
           <div className="mt-5 flex flex-wrap items-start justify-between gap-4 border-b pb-5">
             <details className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              <summary className="cursor-pointer font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 Latest schedule update
               </summary>
               <p className="mt-2">{adaptivePlan.revisionReason}</p>
@@ -1136,7 +1138,7 @@ export function AdaptivePlanStudio({
         </p>
         {canViewTechnicalDetails ? (
           <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
-            <summary className="cursor-pointer text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
               See how Scout calculated this target
             </summary>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -1156,7 +1158,7 @@ export function AdaptivePlanStudio({
       {canViewTechnicalDetails ? (
         <footer className="mt-10 border-t-2 border-foreground pt-6">
           <details>
-            <summary className="cursor-pointer font-heading text-xl font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+            <summary className="flex min-h-11 cursor-pointer items-center font-heading text-xl font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
               Calendar generator rules
             </summary>
             <div className="mt-5 grid gap-5 md:grid-cols-3">

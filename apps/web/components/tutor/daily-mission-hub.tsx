@@ -290,7 +290,7 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
             <div className="mt-4 divide-y border-y">
               {mistakes.map((mistake) => (
                 <details key={mistake.id} className="py-4">
-                  <summary className="cursor-pointer list-none font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                     {mistake.skillLabel} ·{" "}
                     {mistake.resolvedAt ? "Fixed" : "Try again"}
                   </summary>
