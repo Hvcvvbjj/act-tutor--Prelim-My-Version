@@ -185,7 +185,7 @@ export function AccountAccess({
         type="button"
         variant="outline"
         aria-label={buttonLabel}
-        className={cn("max-w-52", className)}
+        className={cn("min-h-11 max-w-52 min-w-11", className)}
         onClick={() => show("login")}
       >
         {viewer.role === "judge" ? (

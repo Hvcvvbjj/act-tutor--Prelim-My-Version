@@ -846,6 +846,7 @@ export function Dashboard({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  className="size-11"
                   onClick={onEditPlan}
                   aria-label="Edit goal and study schedule"
                 >
@@ -923,18 +924,27 @@ export function Dashboard({
             <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
               <TabsList
                 variant="line"
-                className="bg-transparent"
+                className="min-h-11 bg-transparent"
                 aria-label="Study navigation"
               >
-                <DashboardTab value="today">Today</DashboardTab>
-                <DashboardTab value="plan">My week</DashboardTab>
-                <DashboardTab value="calibrate">Quick Check</DashboardTab>
-                <DashboardTab value="progress">Progress</DashboardTab>
+                <DashboardTab value="today" className="min-h-11">
+                  Today
+                </DashboardTab>
+                <DashboardTab value="plan" className="min-h-11">
+                  My week
+                </DashboardTab>
+                <DashboardTab value="calibrate" className="min-h-11">
+                  Quick Check
+                </DashboardTab>
+                <DashboardTab value="progress" className="min-h-11">
+                  Progress
+                </DashboardTab>
               </TabsList>
               <div className="relative">
                 <Button
                   type="button"
                   variant={moreOpen || moreActive ? "secondary" : "ghost"}
+                  className="min-h-11"
                   aria-expanded={moreOpen}
                   aria-haspopup="menu"
                   aria-controls="desktop-more-destinations"
@@ -967,6 +977,7 @@ export function Dashboard({
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="size-11"
                 onClick={onEditPlan}
                 aria-label="Edit goal and study schedule"
               >

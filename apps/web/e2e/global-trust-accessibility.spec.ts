@@ -79,3 +79,39 @@ test("the skip link is first and follows the active study surface", async ({
     await expectSkipLinkToFocusMain(page)
   }
 })
+
+test("compact desktop navigation keeps primary controls easy to target", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await page.goto("/")
+  await openStarterPlan(page)
+
+  const header = page.locator("header")
+  const targets = [
+    page.getByRole("tab", { name: "Today" }),
+    page.getByRole("tab", { name: "My week" }),
+    page.getByRole("tab", { name: "Quick Check" }),
+    page.getByRole("tab", { name: "Progress" }),
+    header.getByRole("button", { name: "More" }),
+    header.getByRole("button", { name: "Ask Scout" }),
+    header.getByRole("button", { name: "Edit goal and study schedule" }),
+    header.getByRole("button", { name: "Sign in / save progress" }),
+  ]
+
+  for (const target of targets) {
+    const bounds = await target.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.height).toBeGreaterThanOrEqual(44)
+    expect(bounds!.width).toBeGreaterThanOrEqual(44)
+  }
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 1024, viewportWidth: 1024 })
+})
