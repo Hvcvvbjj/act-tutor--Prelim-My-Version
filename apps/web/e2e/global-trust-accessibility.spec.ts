@@ -109,6 +109,14 @@ test("compact desktop navigation keeps primary controls easy to target", async (
     expect(bounds!.width).toBeGreaterThanOrEqual(44)
   }
 
+  await header.getByRole("button", { name: "Sign in / save progress" }).click()
+  const account = page.getByRole("dialog", { name: "Welcome back." })
+  for (const label of ["Username", "Password"]) {
+    const bounds = await account.getByLabel(label).boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.height).toBeGreaterThanOrEqual(44)
+  }
+
   await expect
     .poll(() =>
       page.evaluate(() => ({
