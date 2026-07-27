@@ -31,7 +31,7 @@ export function ScoutMark({
         className
       )}
       role="img"
-      aria-label={`Scout tutor is ${mood}`}
+      aria-label={`Mr. Kim, Scout's fictional AI tutor, is ${mood}`}
     >
       <svg
         viewBox="0 0 120 120"
@@ -132,11 +132,13 @@ export function ScoutCoach({
   mood = "ready",
   message,
   detail,
+  speakerName = "Mr. Kim",
   className,
 }: {
   mood?: ScoutMood
   message?: string
   detail?: string
+  speakerName?: string
   className?: string
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -150,7 +152,7 @@ export function ScoutCoach({
       <ScoutMark mood={mood} className="size-12" />
       <div className="relative rounded-lg border border-primary/25 bg-[var(--info-surface)] px-4 py-3">
         <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
-          Scout says
+          {speakerName} says
         </p>
         <p className="mt-1.5 text-sm leading-6">{message ?? MOOD_COPY[mood]}</p>
         {detail ? (

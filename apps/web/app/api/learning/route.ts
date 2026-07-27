@@ -71,6 +71,20 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
     ) {
       throw new RangeError("Diagnostic skill result is malformed.")
     }
+    if (
+      !Number.isInteger(candidate.correct) ||
+      !Number.isInteger(candidate.total) ||
+      candidate.total <= 0 ||
+      candidate.correct < 0 ||
+      candidate.correct > candidate.total ||
+      !Number.isFinite(candidate.accuracy) ||
+      candidate.accuracy < 0 ||
+      candidate.accuracy > 1 ||
+      Math.abs(candidate.accuracy - candidate.correct / candidate.total) >
+        0.0001
+    ) {
+      throw new RangeError("Diagnostic skill counts are malformed.")
+    }
     return {
       skill: candidate.skill,
       label: candidate.label,
@@ -123,6 +137,10 @@ function parsePlanContext(body: Record<string, unknown>) {
   const minutesPerSession = Number(body.minutesPerSession)
   const studyDaysPerWeek = Number(body.studyDaysPerWeek ?? 5)
   const preferredSection = body.preferredSection ?? "balanced"
+  const scoreEvidenceKey =
+    typeof body.scoreEvidenceKey === "string"
+      ? body.scoreEvidenceKey.trim()
+      : undefined
   const rawSectionScores = body.sectionScores
   const sectionScores =
     rawSectionScores &&
@@ -153,6 +171,8 @@ function parsePlanContext(body: Record<string, unknown>) {
     !Number.isInteger(studyDaysPerWeek) ||
     studyDaysPerWeek < 1 ||
     studyDaysPerWeek > 7 ||
+    (scoreEvidenceKey !== undefined &&
+      (scoreEvidenceKey.length < 8 || scoreEvidenceKey.length > 160)) ||
     (parsedSectionScores !== undefined &&
       Object.values(parsedSectionScores).some(
         (score) => !Number.isInteger(score) || score < 1 || score > 36
@@ -167,6 +187,7 @@ function parsePlanContext(body: Record<string, unknown>) {
   return {
     goalScore,
     currentScore,
+    ...(scoreEvidenceKey ? { scoreEvidenceKey } : {}),
     sectionScores: parsedSectionScores,
     daysUntilTest,
     minutesPerSession,
@@ -257,6 +278,28 @@ export async function POST(request: NextRequest) {
       setSessionCookie(response, session.sessionId)
       await syncLinkedSession(request, "learning", session.sessionId)
       return response
+    }
+
+    if (action === "start_adaptive_round") {
+      if (
+        typeof body.assessmentKey !== "string" ||
+        body.assessmentKey.length < 8
+      ) {
+        throw new RangeError("A stable assessment key is required.")
+      }
+      const payload = await learningSessions.applyRoundAssessment(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          assessmentKey: body.assessmentKey,
+          diagnosticSkillResults: parseDiagnosticSkillResults(
+            body.diagnosticSkillResults
+          ),
+          plan: parsePlanContext(body),
+        },
+        lessonComposer
+      )
+      return NextResponse.json(payload)
     }
 
     if (action === "complete_lesson") {

@@ -2,11 +2,12 @@ import "server-only"
 
 import { join } from "node:path"
 
+import type { DiagnosticSkillResult } from "@act-tutor/core"
 import type { JsonDocumentStore } from "@act-tutor/server"
 import { cookies } from "next/headers"
 import type { NextRequest, NextResponse } from "next/server"
 
-import type { PlacementDraft } from "@/components/tutor/types"
+import type { PlacementDraft, TutorJourney } from "@/components/tutor/types"
 import {
   GUEST_VIEWER,
   type AuthViewer,
@@ -298,6 +299,153 @@ function nullableSectionScores(value: unknown, label: string) {
   return value === null ? null : sectionScores(value, label)
 }
 
+function diagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) {
+    throw new AuthRequestError("The saved skill profile is invalid.", 400)
+  }
+  return value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AuthRequestError("The saved skill profile is invalid.", 400)
+    }
+    const result = item as Record<string, unknown>
+    if (
+      typeof result.skill !== "string" ||
+      typeof result.label !== "string" ||
+      (result.section !== "english" &&
+        result.section !== "math" &&
+        result.section !== "reading") ||
+      !Number.isInteger(result.correct) ||
+      !Number.isInteger(result.total) ||
+      Number(result.correct) < 0 ||
+      Number(result.total) < 0 ||
+      Number(result.correct) > Number(result.total) ||
+      typeof result.accuracy !== "number" ||
+      !Number.isFinite(result.accuracy) ||
+      Number(result.accuracy) < 0 ||
+      Number(result.accuracy) > 1 ||
+      (result.signal !== "strength" &&
+        result.signal !== "developing" &&
+        result.signal !== "focus")
+    ) {
+      throw new AuthRequestError("The saved skill profile is invalid.", 400)
+    }
+    return {
+      skill: result.skill,
+      label: result.label,
+      section: result.section,
+      correct: Number(result.correct),
+      total: Number(result.total),
+      accuracy: Number(result.accuracy),
+      signal: result.signal,
+    }
+  })
+}
+
+function defaultTutorJourney(): TutorJourney {
+  return {
+    version: 1 as const,
+    tourVersion: 1 as const,
+    onboardingCompleted: true,
+    lessonEntryChoice: null,
+    officialScoreHistory: [],
+    pendingOfficialScores: [],
+    baselineOfficialComposite: null,
+    checkInSnoozedUntil: null,
+    doneForNow: false,
+  }
+}
+
+function parseTutorJourney(value: unknown): TutorJourney {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AuthRequestError("The saved learning journey is invalid.", 400)
+  }
+  const journey = value as Record<string, unknown>
+  if (
+    journey.version !== 1 ||
+    journey.tourVersion !== 1 ||
+    typeof journey.onboardingCompleted !== "boolean" ||
+    (journey.lessonEntryChoice !== null &&
+      journey.lessonEntryChoice !== "explain-types" &&
+      journey.lessonEntryChoice !== "start-lessons") ||
+    !Array.isArray(journey.officialScoreHistory) ||
+    (journey.pendingOfficialScores !== undefined &&
+      !Array.isArray(journey.pendingOfficialScores)) ||
+    (journey.baselineOfficialComposite !== undefined &&
+      journey.baselineOfficialComposite !== null &&
+      (!Number.isInteger(journey.baselineOfficialComposite) ||
+        Number(journey.baselineOfficialComposite) < 1 ||
+        Number(journey.baselineOfficialComposite) > 36)) ||
+    (journey.checkInSnoozedUntil !== null &&
+      (typeof journey.checkInSnoozedUntil !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(journey.checkInSnoozedUntil))) ||
+    typeof journey.doneForNow !== "boolean"
+  ) {
+    throw new AuthRequestError("The saved learning journey is invalid.", 400)
+  }
+  const officialScoreHistory = journey.officialScoreHistory.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AuthRequestError("The saved score history is invalid.", 400)
+    }
+    const entry = item as Record<string, unknown>
+    if (
+      typeof entry.id !== "string" ||
+      entry.id.length < 4 ||
+      typeof entry.testDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(entry.testDate) ||
+      typeof entry.recordedAt !== "string" ||
+      Number.isNaN(Date.parse(entry.recordedAt))
+    ) {
+      throw new AuthRequestError("The saved score history is invalid.", 400)
+    }
+    return {
+      id: entry.id,
+      testDate: entry.testDate,
+      recordedAt: entry.recordedAt,
+      composite: score(entry.composite, "Official Composite"),
+      sections: nullableSectionScores(entry.sections, "Official scores"),
+    }
+  })
+  const pendingOfficialScores = (
+    (journey.pendingOfficialScores as unknown[] | undefined) ?? []
+  ).map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AuthRequestError("The pending score check-in is invalid.", 400)
+    }
+    const entry = item as Record<string, unknown>
+    if (
+      typeof entry.testDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(entry.testDate) ||
+      typeof entry.recordedAt !== "string" ||
+      Number.isNaN(Date.parse(entry.recordedAt)) ||
+      typeof entry.nextPromptOn !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(entry.nextPromptOn)
+    ) {
+      throw new AuthRequestError("The pending score check-in is invalid.", 400)
+    }
+    return {
+      testDate: entry.testDate,
+      recordedAt: entry.recordedAt,
+      nextPromptOn: entry.nextPromptOn,
+    }
+  })
+  return {
+    version: 1 as const,
+    tourVersion: 1 as const,
+    onboardingCompleted: journey.onboardingCompleted,
+    lessonEntryChoice: journey.lessonEntryChoice,
+    officialScoreHistory,
+    pendingOfficialScores,
+    baselineOfficialComposite:
+      journey.baselineOfficialComposite === undefined ||
+      journey.baselineOfficialComposite === null
+        ? null
+        : Number(journey.baselineOfficialComposite),
+    checkInSnoozedUntil: journey.checkInSnoozedUntil,
+    doneForNow: journey.doneForNow,
+  }
+}
+
 function parseDraft(value: unknown): PlacementDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AuthRequestError("The plan setup is incomplete.", 400)
@@ -367,6 +515,9 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
     throw new AuthRequestError("The saved plan is incomplete.", 400)
   }
   const input = value as Record<string, unknown>
+  if (input.version !== 1 && input.version !== 2) {
+    throw new AuthRequestError("The saved plan version is not supported.", 400)
+  }
   const evidence =
     input.evidence &&
     typeof input.evidence === "object" &&
@@ -396,7 +547,7 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
     throw new AuthRequestError("The saved plan needs a starting point.", 400)
   }
   return {
-    version: 1,
+    version: 2,
     savedAt: new Date().toISOString(),
     draft: parseDraft(input.draft),
     evidence: {
@@ -422,6 +573,14 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
           : Number(evidence.compositeDifference),
     },
     currentComposite: score(input.currentComposite, "Current Composite"),
+    profileSkillResults:
+      input.version === 2
+        ? diagnosticSkillResults(input.profileSkillResults)
+        : [],
+    journey:
+      input.version === 2
+        ? parseTutorJourney(input.journey)
+        : defaultTutorJourney(),
     adaptiveBaselineRequired: input.adaptiveBaselineRequired === true,
     baselineSkipped: input.baselineSkipped === true,
   }

@@ -45,7 +45,14 @@ interface LessonWorkspaceProps {
   canViewTechnicalDetails: boolean
 }
 
-const SECTION_SHORT_LABELS = ["Learn", "Example", "Rule", "Try it"] as const
+const SECTION_SHORT_LABELS = [
+  "Type",
+  "Idea",
+  "Example",
+  "Steps",
+  "Remember",
+  "Try it",
+] as const
 
 function GenerationStamp({ learning }: { learning: LearningSessionPayload }) {
   const ai = learning.lesson.generation.mode === "ai"
@@ -597,7 +604,7 @@ function PracticeStage({
       : "repair"
     : "thinking"
   const isExitTicket =
-    learning.mode === "focus" &&
+    (learning.mode === "foundation" || learning.mode === "focus") &&
     learning.currentQuestionIndex === learning.questions.length - 1
   const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
   const [reviewing, setReviewing] = useState(false)
@@ -994,7 +1001,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
         </div>
         {!props.learning.lessonComplete ? (
           <nav
-            className="order-3 grid w-full grid-cols-4 gap-1 sm:order-none sm:flex sm:w-auto"
+            className="order-3 grid w-full grid-cols-3 gap-1 sm:order-none sm:flex sm:w-auto sm:flex-wrap"
             aria-label="Lesson stages"
           >
             {SECTION_SHORT_LABELS.slice(

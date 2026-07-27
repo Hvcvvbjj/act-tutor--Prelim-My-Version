@@ -15,9 +15,9 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map((directory) =>
-      rm(directory, { recursive: true, force: true }),
-    ),
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
   );
 });
 
@@ -60,9 +60,42 @@ const FORM: DiagnosticFormSecure = {
   title: "Session fixture",
   estimatedMinutes: 5,
   blueprint: [
-    { section: "english", officialQuestions: 50, officialScoredQuestions: 40, officialMinutes: 35, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Writing", range: "50%" }, { label: "Language", range: "50%" }] },
-    { section: "math", officialQuestions: 45, officialScoredQuestions: 41, officialMinutes: 50, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Higher Math", range: "80%" }, { label: "Essential Skills", range: "20%" }] },
-    { section: "reading", officialQuestions: 36, officialScoredQuestions: 27, officialMinutes: 40, diagnosticQuestions: 2, diagnosticMinutes: 2, reportingCategories: [{ label: "Ideas", range: "50%" }, { label: "Structure", range: "50%" }] },
+    {
+      section: "english",
+      officialQuestions: 50,
+      officialScoredQuestions: 40,
+      officialMinutes: 35,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 2,
+      reportingCategories: [
+        { label: "Writing", range: "50%" },
+        { label: "Language", range: "50%" },
+      ],
+    },
+    {
+      section: "math",
+      officialQuestions: 45,
+      officialScoredQuestions: 41,
+      officialMinutes: 50,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 2,
+      reportingCategories: [
+        { label: "Higher Math", range: "80%" },
+        { label: "Essential Skills", range: "20%" },
+      ],
+    },
+    {
+      section: "reading",
+      officialQuestions: 36,
+      officialScoredQuestions: 27,
+      officialMinutes: 40,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 2,
+      reportingCategories: [
+        { label: "Ideas", range: "50%" },
+        { label: "Structure", range: "50%" },
+      ],
+    },
   ],
   questions: [
     question("english-1", "english"),
@@ -103,6 +136,7 @@ describe("FileDiagnosticSessionRepository", () => {
     const resumed = await restarted.getOrCreate(created.sessionId, FORM);
 
     expect(resumed.sessionId).toBe(created.sessionId);
+    expect(resumed.payload.attemptId).toBe(created.sessionId);
     expect(resumed.payload.progress.answers).toEqual({ "english-1": "a" });
     expect(resumed.payload.progress.currentIndex).toBe(1);
     expect(JSON.parse(await readFile(filePath, "utf8")).version).toBe(1);
@@ -122,7 +156,11 @@ describe("FileDiagnosticSessionRepository", () => {
 
     expect(firstResult.status).toBe("completed");
     expect(duplicateResult.result).toEqual(firstResult.result);
-    expect(duplicateResult.result?.sectionResults.every((item) => item.correct === 2)).toBe(true);
+    expect(
+      duplicateResult.result?.sectionResults.every(
+        (item) => item.correct === 2,
+      ),
+    ).toBe(true);
   });
 
   it("rejects invalid saved choices without mutating progress", async () => {

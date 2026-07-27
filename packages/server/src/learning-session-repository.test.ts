@@ -159,6 +159,141 @@ const plan = {
   minutesPerSession: 35,
 } as const;
 
+function buildExpandedBank(): LearningBankInput {
+  const extras = [
+    {
+      slug: "english-secondary",
+      label: "English secondary",
+      section: "english" as const,
+      category: "Conventions",
+    },
+    {
+      slug: "math-secondary",
+      label: "Math secondary",
+      section: "math" as const,
+      category: "Algebra",
+    },
+    {
+      slug: "reading-secondary",
+      label: "Reading secondary",
+      section: "reading" as const,
+      category: "Key Ideas",
+    },
+    {
+      slug: "math-tertiary",
+      label: "Math tertiary",
+      section: "math" as const,
+      category: "Algebra",
+    },
+  ];
+  const lessons = extras.map((extra) => {
+    const template = bank.lessons.find((lesson) => {
+      const skill = bank.skills.find((item) => item.slug === lesson.skill);
+      return skill?.section === extra.section;
+    });
+    if (!template) throw new Error(`Missing ${extra.section} lesson template.`);
+    return {
+      ...structuredClone(template),
+      id: `${extra.slug}-lesson-v1`,
+      skill: extra.slug,
+      title: extra.label,
+    };
+  });
+  const practice = extras.flatMap((extra) => {
+    const templateSkill = bank.skills.find(
+      (skill) => skill.section === extra.section,
+    );
+    if (!templateSkill)
+      throw new Error(`Missing ${extra.section} practice template.`);
+    return bank.practice
+      .filter((question) => question.skill === templateSkill.slug)
+      .map((question, index) => ({
+        ...structuredClone(question),
+        id: `${extra.slug}-practice-${index + 1}`,
+        skill: extra.slug,
+        section: extra.section,
+      }));
+  });
+  return {
+    version: "test-bank-expanded-v1",
+    skills: [
+      ...bank.skills,
+      ...extras.map((extra) => ({
+        ...extra,
+        diagnosticSkill: extra.slug,
+      })),
+    ],
+    lessons: [...bank.lessons, ...lessons],
+    practice: [...bank.practice, ...practice],
+  };
+}
+
+const expandedAssessmentResults = [
+  {
+    skill: "sentence-boundaries",
+    label: "Sentence boundaries",
+    section: "english",
+    correct: 3,
+    total: 4,
+    accuracy: 0.75,
+    signal: "developing",
+  },
+  {
+    skill: "linear-equations",
+    label: "Linear equations",
+    section: "math",
+    correct: 3,
+    total: 4,
+    accuracy: 0.75,
+    signal: "developing",
+  },
+  {
+    skill: "supported-inference",
+    label: "Supported inference",
+    section: "reading",
+    correct: 3,
+    total: 4,
+    accuracy: 0.75,
+    signal: "developing",
+  },
+  {
+    skill: "english-secondary",
+    label: "English secondary",
+    section: "english",
+    correct: 0,
+    total: 4,
+    accuracy: 0,
+    signal: "focus",
+  },
+  {
+    skill: "math-secondary",
+    label: "Math secondary",
+    section: "math",
+    correct: 1,
+    total: 4,
+    accuracy: 0.25,
+    signal: "focus",
+  },
+  {
+    skill: "reading-secondary",
+    label: "Reading secondary",
+    section: "reading",
+    correct: 1,
+    total: 4,
+    accuracy: 0.25,
+    signal: "focus",
+  },
+  {
+    skill: "math-tertiary",
+    label: "Math tertiary",
+    section: "math",
+    correct: 2,
+    total: 4,
+    accuracy: 0.5,
+    signal: "developing",
+  },
+] as const;
+
 async function withRepository<T>(
   run: (repo: FileLearningSessionRepository, path: string) => Promise<T>,
 ) {
@@ -175,7 +310,7 @@ describe("FileLearningSessionRepository", () => {
   it("starts a public learning session without answer keys", async () => {
     await withRepository(async (repo) => {
       const { payload } = await repo.getOrCreate(null, bank, {
-        skill: "sentence-boundaries",
+        skill: "supported-inference",
         diagnosticSkillResults: [
           {
             skill: "sentence-boundaries",
@@ -191,6 +326,21 @@ describe("FileLearningSessionRepository", () => {
       });
 
       expect(payload.questions).toHaveLength(5);
+      expect(payload.todaySkill).toBe("sentence-boundaries");
+      expect(payload.mode).toBe("foundation");
+      expect(payload.lesson.depth).toBe("foundation");
+      expect(payload.cycle).toEqual({
+        roundNumber: 1,
+        kind: "foundation",
+        status: "lessons",
+        requiredSkills: [
+          "sentence-boundaries",
+          "linear-equations",
+          "supported-inference",
+        ],
+        completedSkills: [],
+        nextSkill: "sentence-boundaries",
+      });
       expect(JSON.stringify(payload.questions)).not.toContain(
         "correctChoiceId",
       );
@@ -229,6 +379,57 @@ describe("FileLearningSessionRepository", () => {
         0.12 + (23 / 35) * 0.76,
       );
       expect(bySkill.get("supported-inference")?.learnedProbability).toBe(0.88);
+    });
+  });
+
+  it("keeps learning history when an official score updates the plan context", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      await repo.completeLesson(started.sessionId, bank);
+      const practiced = await repo.answerQuestion(started.sessionId, bank, {
+        questionId: "sentence-boundaries-practice-1",
+        choiceId: "A",
+      });
+
+      const refreshed = await repo.getOrCreate(started.sessionId, bank, {
+        skill: "sentence-boundaries",
+        plan: {
+          ...plan,
+          currentScore: 27,
+          sectionScores: { english: 28, math: 25, reading: 27 },
+        },
+      });
+
+      expect(refreshed.sessionId).toBe(started.sessionId);
+      expect(refreshed.payload.mission.progress).toEqual(
+        practiced.mission.progress,
+      );
+      expect(refreshed.payload.cycle).toEqual(practiced.cycle);
+      expect(refreshed.payload.learningTwin.evidence).toEqual(
+        practiced.learningTwin.evidence,
+      );
+      const stored = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<
+          string,
+          {
+            planContext: {
+              currentScore: number;
+              sectionScores?: {
+                english: number;
+                math: number;
+                reading: number;
+              };
+            };
+          }
+        >;
+      };
+      expect(stored.sessions[started.sessionId]?.planContext).toMatchObject({
+        currentScore: 27,
+        sectionScores: { english: 28, math: 25, reading: 27 },
+      });
     });
   });
 
@@ -320,14 +521,16 @@ describe("FileLearningSessionRepository", () => {
         },
       );
 
-      expect(rebased.todaySkill).toBe("linear-equations");
-      expect(rebased.nextSkill).toBe("linear-equations");
-      expect(rebased.lesson.skill).toBe("linear-equations");
+      expect(rebased.todaySkill).toBe("sentence-boundaries");
+      expect(rebased.nextSkill).toBe("sentence-boundaries");
+      expect(rebased.lesson.skill).toBe("sentence-boundaries");
+      expect(rebased.mode).toBe("foundation");
+      expect(rebased.cycle.nextSkill).toBe("sentence-boundaries");
       expect(rebased.learningTwin).toEqual(beforeRebase.learningTwin);
       expect(rebased.decisionHistory).toEqual(beforeRebase.decisionHistory);
       expect(
         rebased.questions.every(
-          (question) => question.skill === "linear-equations",
+          (question) => question.skill === "sentence-boundaries",
         ),
       ).toBe(true);
       expect(rebased.status).toBe("lesson");
@@ -497,7 +700,7 @@ describe("FileLearningSessionRepository", () => {
         correct: false,
         difficulty: "easy",
       });
-      expect(answered.futureTask.reason).toContain("ranks first");
+      expect(answered.futureTask.reason).toContain("foundation lesson");
       expect(answered.decisionHistory[0]).toMatchObject({
         modelVersion: "bkt-1.0",
         comparisonModelVersion: "accuracy-1.0",
@@ -525,24 +728,32 @@ describe("FileLearningSessionRepository", () => {
       };
       delete legacy.sessions[started.sessionId].learningTwinBySkill;
       delete legacy.sessions[started.sessionId].learningTwinEvents;
-      delete legacy.sessions[started.sessionId].planContext;
+      delete legacy.sessions[started.sessionId].cycle;
+      legacy.sessions[started.sessionId].mode = "focus";
       await writeFile(filePath, `${JSON.stringify(legacy, null, 2)}\n`);
 
       const restarted = new FileLearningSessionRepository(filePath);
-      const migrated = await restarted.getOrCreate(started.sessionId, bank, {
-        skill: "sentence-boundaries",
-        plan,
-      });
-      expect(migrated.payload.learningTwin.skills).toHaveLength(3);
+      const migrated = await restarted.get(started.sessionId, bank);
+      expect(migrated.sessionId).toBe(started.sessionId);
+      expect(migrated.learningTwin.skills).toHaveLength(3);
       expect(
-        migrated.payload.learningTwin.skills.every(
+        migrated.learningTwin.skills.every(
           (skill) => skill.priorSource === "score-estimate",
         ),
       ).toBe(true);
+      expect(migrated.mode).toBe("foundation");
+      expect(migrated.cycle).toMatchObject({
+        roundNumber: 1,
+        kind: "foundation",
+        status: "lessons",
+        completedSkills: [],
+        nextSkill: "sentence-boundaries",
+      });
 
       const persisted = await readFile(filePath, "utf8");
       expect(persisted).toContain('"learningTwinBySkill"');
       expect(persisted).toContain('"planContext"');
+      expect(persisted).toContain('"cycle"');
     });
   });
 
@@ -770,12 +981,12 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
-  it("routes through a weak prerequisite and then returns to the target skill", async () => {
+  it("does not let prerequisite routing skip or repeat the foundation curriculum", async () => {
     await withRepository(async (repo) => {
       const prerequisiteBank: LearningBankInput = {
         ...bank,
         skills: [
-          ...bank.skills,
+          bank.skills[1],
           {
             slug: "ratios-and-percent",
             label: "Ratios and percent",
@@ -783,6 +994,8 @@ describe("FileLearningSessionRepository", () => {
             category: "Algebra",
             diagnosticSkill: "ratios-and-percent",
           },
+          bank.skills[0],
+          bank.skills[2],
         ],
         lessons: [
           ...bank.lessons,
@@ -859,7 +1072,8 @@ describe("FileLearningSessionRepository", () => {
         );
       }
       expect(target.nextSkill).toBe("ratios-and-percent");
-      expect(target.futureTask.reason).toContain("weak prerequisite");
+      expect(target.cycle.completedSkills).toEqual(["linear-equations"]);
+      expect(target.futureTask.reason).toContain("Round 1 continues");
 
       let prerequisite = await repo.beginFocus(
         started.sessionId,
@@ -877,9 +1091,13 @@ describe("FileLearningSessionRepository", () => {
           },
         );
       }
-      expect(prerequisite.nextSkill).toBe("linear-equations");
+      expect(prerequisite.nextSkill).toBe("sentence-boundaries");
+      expect(prerequisite.cycle.completedSkills).toEqual([
+        "linear-equations",
+        "ratios-and-percent",
+      ]);
       expect(prerequisite.futureTask.reason).toContain(
-        "Return to Linear equations",
+        "Round 1 continues with Sentence boundaries",
       );
     });
   });
@@ -976,6 +1194,24 @@ describe("FileLearningSessionRepository", () => {
           choiceId: "A",
         });
       }
+      expect(completed.cycle).toMatchObject({
+        status: "lessons",
+        completedSkills: ["sentence-boundaries"],
+        nextSkill: "linear-equations",
+      });
+
+      await expect(
+        repo.beginFocus(started.sessionId, bank, {
+          skill: "sentence-boundaries",
+          plan,
+        }),
+      ).rejects.toThrow("cannot be skipped or repeated");
+      await expect(
+        repo.beginFocus(started.sessionId, bank, {
+          skill: "supported-inference",
+          plan,
+        }),
+      ).rejects.toThrow("cannot be skipped or repeated");
 
       const next = await repo.beginFocus(started.sessionId, bank, {
         skill: "linear-equations",
@@ -983,6 +1219,8 @@ describe("FileLearningSessionRepository", () => {
       });
       expect(next.todaySkill).toBe("linear-equations");
       expect(next.nextSkill).toBe("linear-equations");
+      expect(next.mode).toBe("foundation");
+      expect(next.cycle.nextSkill).toBe("linear-equations");
       expect(next.status).toBe("lesson");
       expect(next.mission.progress.xp).toBe(completed.mission.progress.xp);
       expect(
@@ -992,6 +1230,532 @@ describe("FileLearningSessionRepository", () => {
       ).toBe(5);
     });
   });
+
+  it("enters assessment choice only after every full foundation practice set", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "supported-inference",
+        diagnosticSkillResults: [
+          {
+            skill: "supported-inference",
+            label: "Supported inference",
+            section: "reading",
+            correct: 2,
+            total: 2,
+            accuracy: 1,
+            signal: "strength",
+          },
+        ],
+        plan,
+      });
+      const orderedSkills = [
+        "sentence-boundaries",
+        "linear-equations",
+        "supported-inference",
+      ] as const;
+      let payload = started.payload;
+      let priorXp = payload.mission.progress.xp;
+
+      for (const [skillIndex, skill] of orderedSkills.entries()) {
+        if (skillIndex > 0) {
+          payload = await repo.beginFocus(started.sessionId, bank, {
+            plan,
+          });
+        }
+        expect(payload.todaySkill).toBe(skill);
+        expect(payload.cycle.nextSkill).toBe(skill);
+        payload = await repo.completeLesson(started.sessionId, bank);
+        expect(payload.cycle.completedSkills).toEqual(
+          orderedSkills.slice(0, skillIndex),
+        );
+
+        for (let questionIndex = 0; questionIndex < 4; questionIndex += 1) {
+          const question = payload.questions[questionIndex];
+          payload = await repo.answerQuestion(started.sessionId, bank, {
+            questionId: question.id,
+            choiceId: "A",
+          });
+          expect(payload.cycle.completedSkills).toEqual(
+            orderedSkills.slice(0, skillIndex),
+          );
+          expect(payload.cycle.status).toBe("lessons");
+          expect(payload.cycle.nextSkill).toBe(skill);
+        }
+
+        const exitQuestion = payload.questions[4];
+        payload = await repo.answerQuestion(started.sessionId, bank, {
+          questionId: exitQuestion.id,
+          choiceId: "A",
+        });
+        expect(payload.cycle.completedSkills).toEqual(
+          orderedSkills.slice(0, skillIndex + 1),
+        );
+        expect(payload.mission.progress.xp).toBeGreaterThan(priorXp);
+        priorXp = payload.mission.progress.xp;
+      }
+
+      expect(payload.cycle).toEqual({
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        requiredSkills: [...orderedSkills],
+        completedSkills: [...orderedSkills],
+        nextSkill: null,
+      });
+      expect(payload.mission.progress.completedSets).toBe(3);
+      await expect(
+        repo.beginFocus(started.sessionId, bank, { plan }),
+      ).rejects.toThrow("Choose the next assessment");
+
+      const resumed = await new FileLearningSessionRepository(filePath).get(
+        started.sessionId,
+        bank,
+      );
+      expect(resumed.cycle).toEqual(payload.cycle);
+      expect(resumed.mission.progress).toEqual(payload.mission.progress);
+    });
+  });
+
+  it("requires the current lesson round to reach assessment choice", async () => {
+    await withRepository(async (repo) => {
+      const learningBank = buildExpandedBank();
+      const started = await repo.getOrCreate(null, learningBank, {
+        skill: "math-tertiary",
+        plan,
+      });
+
+      await expect(
+        repo.applyRoundAssessment(started.sessionId, learningBank, {
+          assessmentKey: "assessment-before-round-complete",
+          diagnosticSkillResults: expandedAssessmentResults,
+          plan,
+        }),
+      ).rejects.toThrow(
+        "Finish the current lesson round before applying an assessment",
+      );
+
+      const unchanged = await repo.get(started.sessionId, learningBank);
+      expect(unchanged.cycle).toEqual(started.payload.cycle);
+      expect(unchanged.mission.progress).toEqual(
+        started.payload.mission.progress,
+      );
+    });
+  });
+
+  it("uses a new official-score key to advance a completed round even when the score is unchanged", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const beforeStore = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<
+          string,
+          {
+            cycle: Record<string, unknown>;
+            profile: { xp: number };
+          }
+        >;
+      };
+      beforeStore.sessions[started.sessionId].cycle = {
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        requiredSkills: bank.skills.map((skill) => skill.slug),
+        completedSkills: bank.skills.map((skill) => skill.slug),
+        nextSkill: null,
+      };
+      beforeStore.sessions[started.sessionId].profile.xp = 140;
+      await writeFile(filePath, `${JSON.stringify(beforeStore, null, 2)}\n`);
+
+      const advanced = await repo.getOrCreate(started.sessionId, bank, {
+        skill: "sentence-boundaries",
+        plan: {
+          ...plan,
+          scoreEvidenceKey: "official-score-same-0001",
+          sectionScores: { english: 24, math: 21, reading: 27 },
+        },
+      });
+
+      expect(advanced.sessionId).toBe(started.sessionId);
+      expect(advanced.payload.cycle).toMatchObject({
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "lessons",
+        completedSkills: [],
+      });
+      expect(advanced.payload.cycle.requiredSkills[0]).toBe("linear-equations");
+      expect(advanced.payload.mission.progress.xp).toBe(140);
+      expect(advanced.payload.learningTwin.evidence).toEqual(
+        started.payload.learningTwin.evidence,
+      );
+      expect(advanced.payload.futureTask.reason).toContain(
+        "new official score",
+      );
+    });
+  });
+
+  it("keeps the next unfinished adaptive skill after an official score arrives between lessons", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const stored = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<string, { cycle: Record<string, unknown> }>;
+      };
+      stored.sessions[started.sessionId].cycle = {
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "lessons",
+        requiredSkills: [
+          "sentence-boundaries",
+          "linear-equations",
+          "supported-inference",
+        ],
+        completedSkills: ["sentence-boundaries"],
+        nextSkill: "linear-equations",
+      };
+      await writeFile(filePath, `${JSON.stringify(stored, null, 2)}\n`);
+
+      const adjusted = await repo.getOrCreate(started.sessionId, bank, {
+        skill: "sentence-boundaries",
+        plan: {
+          ...plan,
+          scoreEvidenceKey: "official-score-between-lessons-0001",
+          sectionScores: { english: 24, math: 21, reading: 27 },
+        },
+      });
+
+      expect(adjusted.payload.cycle).toMatchObject({
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "lessons",
+        completedSkills: ["sentence-boundaries"],
+        nextSkill: "linear-equations",
+      });
+      expect(adjusted.payload.cycle.requiredSkills).toEqual([
+        "sentence-boundaries",
+        "linear-equations",
+        "supported-inference",
+      ]);
+      expect(adjusted.payload.futureTask).toMatchObject({
+        todaySkill: "sentence-boundaries",
+        nextSkill: "linear-equations",
+        changed: true,
+      });
+    });
+  });
+
+  it("starts an assessment-driven round with the weakest measured section instead of a fixed English seed", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan,
+      });
+      const stored = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<string, { cycle: Record<string, unknown> }>;
+      };
+      stored.sessions[started.sessionId].cycle = {
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        requiredSkills: bank.skills.map((skill) => skill.slug),
+        completedSkills: bank.skills.map((skill) => skill.slug),
+        nextSkill: null,
+      };
+      await writeFile(filePath, `${JSON.stringify(stored, null, 2)}\n`);
+
+      const adaptive = await repo.applyRoundAssessment(
+        started.sessionId,
+        bank,
+        {
+          assessmentKey: "math-first-assessment-0001",
+          diagnosticSkillResults: [
+            {
+              skill: "sentence-boundaries",
+              label: "Sentence boundaries",
+              section: "english",
+              correct: 4,
+              total: 4,
+              accuracy: 1,
+              signal: "strength",
+            },
+            {
+              skill: "linear-equations",
+              label: "Linear equations",
+              section: "math",
+              correct: 0,
+              total: 4,
+              accuracy: 0,
+              signal: "focus",
+            },
+            {
+              skill: "supported-inference",
+              label: "Supported inference",
+              section: "reading",
+              correct: 3,
+              total: 4,
+              accuracy: 0.75,
+              signal: "developing",
+            },
+          ],
+          plan,
+        },
+      );
+
+      expect(adaptive.cycle.requiredSkills).toEqual([
+        "linear-equations",
+        "supported-inference",
+        "sentence-boundaries",
+      ]);
+      expect(adaptive.todaySkill).toBe("linear-equations");
+    });
+  });
+
+  it("applies one trusted assessment into a finite adaptive round and completes that round once", async () => {
+    await withRepository(async (repo, filePath) => {
+      const learningBank = buildExpandedBank();
+      const started = await repo.getOrCreate(null, learningBank, {
+        skill: "math-tertiary",
+        plan,
+      });
+      let foundationComplete = await repo.completeLesson(
+        started.sessionId,
+        learningBank,
+      );
+      for (const [index, question] of foundationComplete.questions.entries()) {
+        foundationComplete = await repo.answerQuestion(
+          started.sessionId,
+          learningBank,
+          {
+            questionId: question.id,
+            choiceId: index === 0 ? "B" : "A",
+          },
+        );
+      }
+      const foundationStore = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<string, { cycle: Record<string, unknown> }>;
+      };
+      foundationStore.sessions[started.sessionId].cycle = {
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        requiredSkills: learningBank.skills.map((skill) => skill.slug),
+        completedSkills: learningBank.skills.map((skill) => skill.slug),
+        nextSkill: null,
+      };
+      await writeFile(
+        filePath,
+        `${JSON.stringify(foundationStore, null, 2)}\n`,
+      );
+      foundationComplete = await repo.get(started.sessionId, learningBank);
+      expect(foundationComplete.cycle).toMatchObject({
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        nextSkill: null,
+      });
+      expect(foundationComplete.cycle.completedSkills).toEqual(
+        learningBank.skills.map((skill) => skill.slug),
+      );
+      expect(foundationComplete.mission.unresolvedMistakes).toBe(1);
+
+      const progressBeforeAssessment = foundationComplete.mission.progress;
+      const decisionHistoryBeforeAssessment =
+        foundationComplete.decisionHistory;
+      const practiceEvidenceBeforeAssessment =
+        foundationComplete.learningTwin.evidence.practice;
+      const calibrationEvidenceBeforeAssessment =
+        foundationComplete.learningTwin.evidence.calibration;
+      const masteryEvidenceBeforeAssessment = Object.fromEntries(
+        foundationComplete.mission.skillMap.map((skill) => [
+          skill.skill,
+          skill.evidence,
+        ]),
+      );
+      const assessmentKey = "round-assessment-expanded-0001";
+      const adaptive = await repo.applyRoundAssessment(
+        started.sessionId,
+        learningBank,
+        {
+          assessmentKey,
+          diagnosticSkillResults: expandedAssessmentResults,
+          plan: { ...plan, currentScore: 26 },
+        },
+      );
+
+      expect(adaptive.cycle).toEqual({
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "lessons",
+        requiredSkills: [
+          "english-secondary",
+          "math-secondary",
+          "reading-secondary",
+          "math-tertiary",
+          "linear-equations",
+          "sentence-boundaries",
+        ],
+        completedSkills: [],
+        nextSkill: "english-secondary",
+      });
+      expect(adaptive.cycle.requiredSkills).toHaveLength(6);
+      expect(new Set(adaptive.cycle.requiredSkills).size).toBe(6);
+      expect(adaptive.cycle.requiredSkills).not.toContain(
+        "supported-inference",
+      );
+      expect(adaptive.todaySkill).toBe(adaptive.cycle.nextSkill);
+      expect(adaptive.mode).toBe("focus");
+      expect(adaptive.mission.progress).toEqual(progressBeforeAssessment);
+      expect(adaptive.mission.unresolvedMistakes).toBe(1);
+      expect(adaptive.decisionHistory).toEqual(decisionHistoryBeforeAssessment);
+      expect(adaptive.learningTwin.evidence.practice).toBe(
+        practiceEvidenceBeforeAssessment,
+      );
+      expect(adaptive.learningTwin.evidence.calibration).toBe(
+        calibrationEvidenceBeforeAssessment +
+          expandedAssessmentResults.reduce(
+            (total, result) => total + result.total,
+            0,
+          ),
+      );
+      for (const result of expandedAssessmentResults) {
+        const skill = adaptive.mission.skillMap.find(
+          (item) => item.skill === result.skill,
+        );
+        expect(skill?.evidence).toBe(
+          masteryEvidenceBeforeAssessment[result.skill] + result.total,
+        );
+      }
+
+      const duplicate = await repo.applyRoundAssessment(
+        started.sessionId,
+        learningBank,
+        {
+          assessmentKey,
+          diagnosticSkillResults: expandedAssessmentResults.map((result) => ({
+            ...result,
+            correct: result.total,
+            accuracy: 1,
+            signal: "strength" as const,
+          })),
+          plan: { ...plan, currentScore: 30 },
+        },
+      );
+      expect(duplicate.cycle).toEqual(adaptive.cycle);
+      expect(duplicate.mission.progress).toEqual(adaptive.mission.progress);
+      expect(duplicate.learningTwin).toEqual(adaptive.learningTwin);
+      expect(duplicate.mission.skillMap).toEqual(adaptive.mission.skillMap);
+
+      let firstMissionComplete = await repo.completeLesson(
+        started.sessionId,
+        learningBank,
+      );
+      for (const question of firstMissionComplete.questions) {
+        firstMissionComplete = await repo.answerQuestion(
+          started.sessionId,
+          learningBank,
+          {
+            questionId: question.id,
+            choiceId: "A",
+          },
+        );
+      }
+      const firstAdaptiveSkill = adaptive.cycle.requiredSkills[0];
+      const secondAdaptiveSkill = adaptive.cycle.requiredSkills[1];
+      const skippedAdaptiveSkill = adaptive.cycle.requiredSkills[2];
+      expect(firstMissionComplete.cycle).toMatchObject({
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "lessons",
+        completedSkills: [firstAdaptiveSkill],
+        nextSkill: secondAdaptiveSkill,
+      });
+      await expect(
+        repo.beginFocus(started.sessionId, learningBank, {
+          skill: firstAdaptiveSkill,
+          plan,
+        }),
+      ).rejects.toThrow("cannot be skipped or repeated");
+      await expect(
+        repo.beginFocus(started.sessionId, learningBank, {
+          skill: skippedAdaptiveSkill,
+          plan,
+        }),
+      ).rejects.toThrow("cannot be skipped or repeated");
+
+      const lastAdaptiveSkill = adaptive.cycle.requiredSkills.at(-1);
+      expect(lastAdaptiveSkill).toBeDefined();
+      const adaptiveStore = JSON.parse(await readFile(filePath, "utf8")) as {
+        sessions: Record<
+          string,
+          {
+            cycle: {
+              completedSkills: string[];
+              nextSkill: string | null;
+              status: string;
+            };
+          }
+        >;
+      };
+      adaptiveStore.sessions[started.sessionId].cycle.completedSkills =
+        adaptive.cycle.requiredSkills.slice(0, -1);
+      adaptiveStore.sessions[started.sessionId].cycle.nextSkill =
+        lastAdaptiveSkill ?? null;
+      adaptiveStore.sessions[started.sessionId].cycle.status = "lessons";
+      await writeFile(filePath, `${JSON.stringify(adaptiveStore, null, 2)}\n`);
+      let adaptiveComplete = await repo.beginFocus(
+        started.sessionId,
+        learningBank,
+        { skill: lastAdaptiveSkill, plan },
+      );
+      expect(adaptiveComplete.todaySkill).toBe(lastAdaptiveSkill);
+      adaptiveComplete = await repo.completeLesson(
+        started.sessionId,
+        learningBank,
+      );
+      for (const question of adaptiveComplete.questions) {
+        adaptiveComplete = await repo.answerQuestion(
+          started.sessionId,
+          learningBank,
+          {
+            questionId: question.id,
+            choiceId: "A",
+          },
+        );
+      }
+      expect(adaptiveComplete.cycle).toEqual({
+        roundNumber: 2,
+        kind: "adaptive",
+        status: "assessment-choice",
+        requiredSkills: adaptive.cycle.requiredSkills,
+        completedSkills: adaptive.cycle.requiredSkills,
+        nextSkill: null,
+      });
+      expect(adaptiveComplete.mission.progress.xp).toBeGreaterThan(
+        progressBeforeAssessment.xp,
+      );
+      expect(adaptiveComplete.mission.mistakes).toHaveLength(1);
+      expect(adaptiveComplete.mission.unresolvedMistakes).toBe(0);
+      expect(adaptiveComplete.mission.mistakes[0].resolvedAt).not.toBeNull();
+      await expect(
+        repo.beginFocus(started.sessionId, learningBank, { plan }),
+      ).rejects.toThrow("Choose the next assessment");
+
+      const resumed = await new FileLearningSessionRepository(filePath).get(
+        started.sessionId,
+        learningBank,
+      );
+      expect(resumed.cycle).toEqual(adaptiveComplete.cycle);
+      expect(resumed.mission.progress).toEqual(
+        adaptiveComplete.mission.progress,
+      );
+      expect(resumed.mission.mistakes).toEqual(
+        adaptiveComplete.mission.mistakes,
+      );
+    });
+  }, 20_000);
 
   it("routes trusted IRT calibration evidence into BKT without awarding practice XP", async () => {
     await withRepository(async (repo) => {

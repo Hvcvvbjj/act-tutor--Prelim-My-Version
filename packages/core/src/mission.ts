@@ -2,6 +2,7 @@ import type { MasteryState, PracticeDifficulty, SkillSlug } from "./learning";
 import type { CoreSection } from "./types";
 
 export type LearningSessionMode =
+  | "foundation"
   | "focus"
   | "repair"
   | "checkpoint"

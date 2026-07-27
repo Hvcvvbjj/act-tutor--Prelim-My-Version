@@ -6,7 +6,9 @@ import type {
   AnswerConfidence,
   CalibrationLearningBaseline,
   CoreSection,
+  DiagnosticSkillResult,
   ExamLabMode,
+  ExamLabSessionPayload,
   LearningActionRequest,
   LearningAnswerRequest,
   LearningSessionPayload,
@@ -39,6 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AuthViewer, SavedTutorPlan } from "@/lib/auth-types"
 import {
   cacheLearningSession,
+  consumeCompletedExamForLearningRound,
   deleteRemoteScoutData,
   flushOfflineAnswerQueue,
   learningRequest,
@@ -81,6 +84,10 @@ const loadScoutOperationsLab = () =>
   import("@/components/tutor/scout-operations-lab").then(
     (module) => module.ScoutOperationsLab
   )
+const loadRoundTransition = () =>
+  import("@/components/tutor/round-transition").then(
+    (module) => module.RoundTransition
+  )
 
 const AdaptivePlanStudio = dynamic(loadAdaptivePlanStudio, {
   loading: () => <DashboardSurfaceLoading message="Opening your study week…" />,
@@ -99,6 +106,11 @@ const TestDayLab = dynamic(loadTestDayLab, {
 })
 const ScoutOperationsLab = dynamic(loadScoutOperationsLab, {
   loading: () => <DashboardSurfaceLoading message="Opening Learning data…" />,
+})
+const RoundTransition = dynamic(loadRoundTransition, {
+  loading: () => (
+    <DashboardSurfaceLoading message="Preparing your next lesson round…" />
+  ),
 })
 
 function preloadDashboardSurface(value: string) {
@@ -152,6 +164,7 @@ interface DashboardProps {
   onViewerChange: (viewer: AuthViewer) => void
   onEditPlan: () => void
   onStartFullDiagnostic: () => void
+  onStartNewDiagnostic: () => Promise<void> | void
   onUseAdaptiveBaseline: (payload: CalibrationLearningBaseline) => void
 }
 
@@ -189,6 +202,31 @@ const SECTION_FALLBACK_SKILLS = {
   math: "linear-equations",
   reading: "supported-inference",
 } as const
+
+function diagnosticResultsFromExam(
+  session: ExamLabSessionPayload
+): DiagnosticSkillResult[] {
+  const result = session.result
+  if (!result || result.mode !== "core" || result.unanswered !== 0) {
+    throw new Error(
+      "Finish every question in the full-length core test before starting the next lesson round."
+    )
+  }
+  return result.skills.map((skill) => ({
+    skill: skill.skill,
+    label: skill.label,
+    section: skill.section,
+    correct: skill.correct,
+    total: skill.total,
+    accuracy: skill.accuracy,
+    signal:
+      skill.accuracy >= 0.75
+        ? ("strength" as const)
+        : skill.accuracy < 0.5
+          ? ("focus" as const)
+          : ("developing" as const),
+  }))
+}
 
 async function rebaseLearningSession(
   body: Omit<LessonPlanContext, "currentScore">
@@ -259,10 +297,14 @@ function AccessibleTestDayLab({
   initialMode,
   initialSection,
   canViewTechnicalDetails,
+  onUseForNextRound,
+  lockToInitialMode = false,
 }: {
   initialMode: ExamLabMode
   initialSection: CoreSection
   canViewTechnicalDetails: boolean
+  onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
+  lockToInitialMode?: boolean
 }) {
   const { accommodations } = useScoutContext()
   return (
@@ -271,6 +313,8 @@ function AccessibleTestDayLab({
       initialMode={initialMode}
       initialSection={initialSection}
       canViewTechnicalDetails={canViewTechnicalDetails}
+      onUseForNextRound={onUseForNextRound}
+      lockToInitialMode={lockToInitialMode}
     />
   )
 }
@@ -438,6 +482,7 @@ export function Dashboard({
   onViewerChange,
   onEditPlan,
   onStartFullDiagnostic,
+  onStartNewDiagnostic,
   onUseAdaptiveBaseline,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
@@ -452,6 +497,14 @@ export function Dashboard({
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [roundAssessmentView, setRoundAssessmentView] = useState<
+    "choice" | "full-test"
+  >(() =>
+    typeof window !== "undefined" &&
+    window.sessionStorage.getItem("scout-round-assessment-view") === "full-test"
+      ? "full-test"
+      : "choice"
+  )
   const [activeTab, setActiveTab] = useState<DashboardDestination>(
     initialTab ??
       (representativeDemo || plan.adaptiveBaselineRequired
@@ -470,6 +523,13 @@ export function Dashboard({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [activeTab, workspaceOpen])
+
+  useEffect(() => {
+    if (!learning) return
+    if (learning.cycle.status !== "assessment-choice") {
+      window.sessionStorage.removeItem("scout-round-assessment-view")
+    }
+  }, [learning])
 
   useEffect(() => {
     if (!moreOpen) return
@@ -533,6 +593,7 @@ export function Dashboard({
       diagnosticSkillResults: diagnostic?.skillResults ?? [],
       goalScore: plan.draft.goal,
       currentScore: plan.currentComposite,
+      scoreEvidenceKey: plan.journey.officialScoreHistory.at(-1)?.id,
       sectionScores: plan.evidence.planningBaseline ?? undefined,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
@@ -562,6 +623,7 @@ export function Dashboard({
   }, [
     diagnostic?.skillResults,
     plan.currentComposite,
+    plan.journey.officialScoreHistory,
     plan.evidence.planningBaseline,
     plan.draft.goal,
     plan.draft.preferredSection,
@@ -702,6 +764,7 @@ export function Dashboard({
     return {
       goalScore: plan.draft.goal,
       currentScore: plan.currentComposite,
+      scoreEvidenceKey: plan.journey.officialScoreHistory.at(-1)?.id,
       sectionScores: plan.evidence.planningBaseline ?? undefined,
       daysUntilTest: plan.intensity.daysUntilTest,
       minutesPerSession: plan.intensity.minutesPerSession,
@@ -826,7 +889,100 @@ export function Dashboard({
     )
   }
 
+  async function startRoundDiagnostic() {
+    setSubmitting(true)
+    setLearningError(null)
+    try {
+      window.sessionStorage.removeItem("scout-round-assessment-view")
+      await onStartNewDiagnostic()
+    } catch (error) {
+      setLearningError(
+        error instanceof Error
+          ? error.message
+          : "Could not start a new diagnostic."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function startRoundFullTest() {
+    setSubmitting(true)
+    setLearningError(null)
+    try {
+      void loadTestDayLab()
+      setRoundAssessmentView("full-test")
+      window.sessionStorage.setItem("scout-round-assessment-view", "full-test")
+    } catch (error) {
+      setLearningError(
+        error instanceof Error
+          ? error.message
+          : "Could not prepare a new full-length practice test."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function applyFullTestToNextRound(session: ExamLabSessionPayload) {
+    const diagnosticSkillResults = diagnosticResultsFromExam(session)
+    const payload = await consumeCompletedExamForLearningRound(() =>
+      learningRequest({
+        action: "start_adaptive_round",
+        assessmentKey: `full-test:${session.id}`,
+        diagnosticSkillResults,
+        ...planRequestFields(),
+      })
+    )
+    setLearning(payload)
+    setSelectedChoice("")
+    setActiveSection(0)
+    setWorkspaceOpen(false)
+    setRoundAssessmentView("choice")
+    window.sessionStorage.removeItem("scout-round-assessment-view")
+    setActiveTab("today")
+    setLearningError(null)
+  }
+
+  if (learning?.cycle.status === "assessment-choice") {
+    if (roundAssessmentView === "full-test") {
+      return (
+        <AccessibleTestDayLab
+          initialMode="core"
+          initialSection="english"
+          canViewTechnicalDetails={viewer.technicalDetails}
+          onUseForNextRound={applyFullTestToNextRound}
+          lockToInitialMode
+        />
+      )
+    }
+    return (
+      <>
+        {learningError ? (
+          <div className="mx-auto max-w-5xl px-5 pt-5">
+            <Alert role="alert" className="bg-background">
+              <InfoIcon />
+              <AlertTitle>Mr. Kim could not start that assessment</AlertTitle>
+              <AlertDescription>{learningError}</AlertDescription>
+            </Alert>
+          </div>
+        ) : null}
+        <RoundTransition
+          roundNumber={learning.cycle.roundNumber}
+          completedSkills={learning.cycle.completedSkills.length}
+          totalSkills={learning.cycle.requiredSkills.length}
+          busy={submitting}
+          onDiagnostic={() => void startRoundDiagnostic()}
+          onFullTest={() => void startRoundFullTest()}
+        />
+      </>
+    )
+  }
+
   if (plan.adaptiveBaselineRequired) {
+    const preserveReportedScore =
+      plan.evidence.source === "section_scores" ||
+      plan.evidence.source === "composite_only"
     return (
       <ScoutProvider
         activeTab="calibrate"
@@ -839,8 +995,9 @@ export function Dashboard({
               <Brand />
               <div className="flex items-center gap-3">
                 <p className="hidden max-w-md text-right text-xs leading-5 text-muted-foreground sm:block">
-                  No plan or skill profile is shown until these answers replace
-                  the temporary setup placeholder.
+                  {preserveReportedScore
+                    ? "Your reported score stays in place. These answers create the question-type profile used in the tour."
+                    : "No plan or skill profile is shown until these answers replace the temporary setup placeholder."}
                 </p>
                 <Button
                   type="button"
@@ -880,6 +1037,7 @@ export function Dashboard({
               onReturnToToday={() => undefined}
               onStartFullDiagnostic={onStartFullDiagnostic}
               adaptiveBaselineRequired
+              preserveReportedScore={preserveReportedScore}
               onUseAdaptiveBaseline={applyAdaptiveBaseline}
               canViewTechnicalDetails={viewer.technicalDetails}
             />
@@ -892,7 +1050,11 @@ export function Dashboard({
               <ScoutCoach
                 mood="thinking"
                 message="Scout is loading your 8–12 question starting check."
-                detail="The rest of the app stays hidden until this check creates your first planning baseline."
+                detail={
+                  preserveReportedScore
+                    ? "Your reported score remains the planning baseline. This check measures question types before the orientation tour."
+                    : "The rest of the app stays hidden until this check creates your first planning baseline."
+                }
               />
             </main>
           )}

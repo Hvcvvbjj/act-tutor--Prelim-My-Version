@@ -630,6 +630,11 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
 export function DailyMissionHub(props: DailyMissionHubProps) {
   const { learning, plan } = props
   const missionCopy = getMissionCopy(learning)
+  const roundTotal = learning.cycle.requiredSkills.length
+  const roundComplete = learning.cycle.completedSkills.length
+  const roundLesson = Math.min(roundComplete + 1, roundTotal)
+  const roundProgress =
+    roundTotal === 0 ? 0 : Math.round((roundComplete / roundTotal) * 100)
   const currentSkill =
     learning.learningTwin.skills.find(
       (skill) => skill.skill === learning.todaySkill
@@ -657,6 +662,32 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
             {missionCopy.description}
           </p>
+
+          <div className="mt-5 max-w-2xl rounded-xl border border-primary/15 bg-secondary/60 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p className="font-bold text-foreground">
+                {learning.cycle.kind === "foundation"
+                  ? "Round 1 · Learn every ACT question type"
+                  : `Round ${learning.cycle.roundNumber} · Based on your latest assessment`}
+              </p>
+              <p className="font-semibold text-muted-foreground">
+                Lesson {roundLesson} of {roundTotal}
+              </p>
+            </div>
+            <div
+              className="mt-2 h-2 overflow-hidden rounded-full bg-background"
+              role="progressbar"
+              aria-label={`Round ${learning.cycle.roundNumber} lesson progress`}
+              aria-valuemin={0}
+              aria-valuemax={roundTotal}
+              aria-valuenow={roundComplete}
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
+                style={{ width: `${roundProgress}%` }}
+              />
+            </div>
+          </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-muted-foreground">
             <span className="inline-flex items-center gap-2">

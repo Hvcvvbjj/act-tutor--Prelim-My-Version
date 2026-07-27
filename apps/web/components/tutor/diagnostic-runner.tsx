@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils"
 
 interface DiagnosticRunnerProps {
   onBack: () => void
-  onComplete: (result: DiagnosticResult) => void
+  onComplete: (result: DiagnosticResult, attemptId: string) => void
   canViewTechnicalDetails: boolean
 }
 
@@ -462,6 +462,7 @@ export function DiagnosticRunner({
   const [phase, setPhase] = useState<RunnerPhase>("questions")
   const [status, setStatus] = useState<RunnerStatus>("loading")
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [attemptId, setAttemptId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
@@ -479,6 +480,7 @@ export function DiagnosticRunner({
         return (await response.json()) as DiagnosticSessionPayload
       })
       .then((session) => {
+        setAttemptId(session.attemptId)
         setForm(session.form)
         setAnswers(session.progress.answers)
         setCurrentIndex(session.progress.currentIndex)
@@ -580,6 +582,7 @@ export function DiagnosticRunner({
       }
       if (!body.result) throw new Error("The diagnostic result is missing.")
 
+      setAttemptId(body.attemptId)
       setResult(body.result)
       setPhase("results")
       setStatus("ready")
@@ -731,7 +734,15 @@ export function DiagnosticRunner({
         ) : result ? (
           <ResultsView
             result={result}
-            onComplete={() => onComplete(result)}
+            onComplete={() => {
+              if (!attemptId) {
+                setError(
+                  "This diagnostic attempt is missing its saved identity. Reload it before continuing."
+                )
+                return
+              }
+              onComplete(result, attemptId)
+            }}
             canViewTechnicalDetails={canViewTechnicalDetails}
           />
         ) : null}

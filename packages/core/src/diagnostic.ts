@@ -130,6 +130,7 @@ export interface DiagnosticSessionProgress {
 }
 
 export interface DiagnosticSessionPayload {
+  attemptId: string;
   form: DiagnosticFormPublic;
   progress: DiagnosticSessionProgress;
   status: "in_progress" | "completed";
@@ -321,8 +322,7 @@ export function scoreDiagnostic(
   return {
     formId: form.id,
     formVersion: form.version,
-    source:
-      form.mode === "rapid" ? "rapid_diagnostic" : "starter_diagnostic",
+    source: form.mode === "rapid" ? "rapid_diagnostic" : "starter_diagnostic",
     calibrationVersion: form.mode === "rapid" ? "rapid-v1" : "starter-v1",
     sectionResults,
     compositeRange,

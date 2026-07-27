@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { completeLearnerOrientation } from "./helpers"
+
 interface CalibrationQuestion {
   id: string
   choices: ReadonlyArray<{ id: string }>
@@ -19,6 +21,7 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   await page.getByRole("radio", { name: /Skip for now/ }).check()
   await page.getByRole("button", { name: "Set my schedule" }).click()
   await page.getByRole("button", { name: "Create my starter plan" }).click()
+  await completeLearnerOrientation(page)
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
   ).toBeVisible()
@@ -283,10 +286,9 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
   const rebased = await rebaseResponse.json()
 
   expect(rebased.learning.learningTwin).toEqual(beforeRebase.learningTwin)
-  expect(rebased.learning.decisionHistory).toEqual(
-    beforeRebase.decisionHistory
-  )
-  expect(rebased.learning.todaySkill).not.toBe(started.todaySkill)
+  expect(rebased.learning.decisionHistory).toEqual(beforeRebase.decisionHistory)
+  expect(rebased.learning.todaySkill).toBe(started.todaySkill)
+  expect(rebased.learning.mode).toBe("foundation")
   expect(rebased.learning.lesson.skill).toBe(rebased.learning.todaySkill)
   expect(
     rebased.learning.questions.every(
@@ -664,7 +666,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
 
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
   const stageButtons = stages.getByRole("button")
-  await expect(stageButtons).toHaveCount(4)
+  await expect(stageButtons).toHaveCount(6)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -694,7 +696,13 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
     }
   }
 
-  for (const name of ["2. Example", "3. Rule", "4. Try it"]) {
+  for (const name of [
+    "2. Idea",
+    "3. Example",
+    "4. Steps",
+    "5. Remember",
+    "6. Try it",
+  ]) {
     const stage = stages.getByRole("button", { name })
     await stage.click()
     await expect(stage).toHaveAttribute("aria-current", "step")

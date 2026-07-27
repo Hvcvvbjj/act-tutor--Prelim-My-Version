@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils"
 interface ExamLabReportProps {
   session: ExamLabSessionPayload
   onNewRun: () => void
+  onUseForNextRound?: () => void
+  applyingToPlan?: boolean
   canViewTechnicalDetails: boolean
 }
 
@@ -64,6 +66,8 @@ function MetricBar({
 export function ExamLabReport({
   session,
   onNewRun,
+  onUseForNextRound,
+  applyingToPlan = false,
   canViewTechnicalDetails,
 }: ExamLabReportProps) {
   const result = session.result
@@ -595,12 +599,29 @@ export function ExamLabReport({
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-y-2 border-foreground py-5">
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          These are practice results, not an official ACT score. They remain in
-          Timed Practice and do not update Today or My Week in this build.
+          These are practice results, not an official ACT score.
+          {onUseForNextRound
+            ? " Use the completed skill results to set the order of your next lesson round."
+            : " They stay in Timed Practice unless you complete a full core run from a lesson-round handoff."}
         </p>
-        <Button type="button" size="lg" onClick={onNewRun}>
-          Take another practice test <ArrowRightIcon data-icon="inline-end" />
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="outline" size="lg" onClick={onNewRun}>
+            Take another practice test
+          </Button>
+          {onUseForNextRound ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={onUseForNextRound}
+              disabled={applyingToPlan}
+            >
+              {applyingToPlan
+                ? "Building your next round…"
+                : "Start my next lesson round"}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+          ) : null}
+        </div>
       </div>
     </main>
   )

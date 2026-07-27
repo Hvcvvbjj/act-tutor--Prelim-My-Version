@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { syncLinkedSession } from "@/lib/auth.server"
-import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
+import { FULL_LENGTH_PRACTICE_FORM } from "@/lib/diagnostic-content.server"
 import { examDebriefComposer, examLabSessions } from "@/lib/exam-lab.server"
 
 export const runtime = "nodejs"
@@ -97,7 +97,10 @@ export async function GET(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value
   if (!sessionId) return NextResponse.json({ session: null })
   try {
-    const session = await examLabSessions.get(sessionId, RAPID_DIAGNOSTIC_FORM)
+    const session = await examLabSessions.get(
+      sessionId,
+      FULL_LENGTH_PRACTICE_FORM
+    )
     const response = NextResponse.json({ session })
     response.headers.set("Cache-Control", "no-store")
     return response
@@ -119,7 +122,7 @@ export async function PATCH(request: NextRequest) {
     }
     const session = await examLabSessions.save(
       requireSessionId(request),
-      RAPID_DIAGNOSTIC_FORM,
+      FULL_LENGTH_PRACTICE_FORM,
       {
         responses: parseResponses(body.responses),
         currentIndex: body.currentIndex as number,
@@ -137,7 +140,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as Record<string, unknown>
     if (body.action === "start") {
       const started = await examLabSessions.start(
-        RAPID_DIAGNOSTIC_FORM,
+        FULL_LENGTH_PRACTICE_FORM,
         parseStart(body)
       )
       const response = NextResponse.json({ session: started.payload })
@@ -148,21 +151,21 @@ export async function POST(request: NextRequest) {
     if (body.action === "advance_section") {
       const session = await examLabSessions.advanceSection(
         requireSessionId(request),
-        RAPID_DIAGNOSTIC_FORM
+        FULL_LENGTH_PRACTICE_FORM
       )
       return NextResponse.json({ session })
     }
     if (body.action === "review") {
       const session = await examLabSessions.beginReview(
         requireSessionId(request),
-        RAPID_DIAGNOSTIC_FORM
+        FULL_LENGTH_PRACTICE_FORM
       )
       return NextResponse.json({ session })
     }
     if (body.action === "finalize") {
       const session = await examLabSessions.finalize(
         requireSessionId(request),
-        RAPID_DIAGNOSTIC_FORM,
+        FULL_LENGTH_PRACTICE_FORM,
         examDebriefComposer
       )
       return NextResponse.json({ session })

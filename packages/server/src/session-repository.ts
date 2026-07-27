@@ -60,7 +60,8 @@ function validateProgress(
   const questions = new Map(form.questions.map((item) => [item.id, item]));
   for (const [questionId, choiceId] of Object.entries(progress.answers)) {
     const question = questions.get(questionId);
-    if (!question) throw new RangeError(`Unknown diagnostic question: ${questionId}.`);
+    if (!question)
+      throw new RangeError(`Unknown diagnostic question: ${questionId}.`);
     if (!question.choices.some((choice) => choice.id === choiceId)) {
       throw new RangeError(`Unknown choice for ${questionId}.`);
     }
@@ -78,7 +79,9 @@ function assertSessionMatchesForm(
     session.questionIds.length !== currentIds.length ||
     session.questionIds.some((id, index) => id !== currentIds[index])
   ) {
-    throw new RangeError("This diagnostic session belongs to a different form version.");
+    throw new RangeError(
+      "This diagnostic session belongs to a different form version.",
+    );
   }
 }
 
@@ -87,6 +90,7 @@ function toPayload(
   form: DiagnosticFormSecure,
 ): DiagnosticSessionPayload {
   return {
+    attemptId: session.id,
     form: toPublicDiagnosticForm(form),
     progress: {
       answers: { ...session.answers },
@@ -120,7 +124,9 @@ export class FileDiagnosticSessionRepository {
     await this.store.write(store);
   }
 
-  private async transact<T>(operation: (store: DiagnosticStoreFile) => Promise<T> | T): Promise<T> {
+  private async transact<T>(
+    operation: (store: DiagnosticStoreFile) => Promise<T> | T,
+  ): Promise<T> {
     const previous = queues.get(this.store.key) ?? Promise.resolve();
     let release: () => void = () => {};
     const current = new Promise<void>((resolve) => {

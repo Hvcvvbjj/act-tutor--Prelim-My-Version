@@ -16,6 +16,18 @@ export type MissionPurpose =
   | "weak-skill-repair"
   | "confidence-building"
   | "retention-review";
+export type LearningCycleKind = "foundation" | "adaptive";
+export type LearningCycleStatus =
+  "lessons" | "assessment-choice" | "assessment-in-progress";
+
+export interface LearningCycleState {
+  roundNumber: number;
+  kind: LearningCycleKind;
+  status: LearningCycleStatus;
+  requiredSkills: ReadonlyArray<SkillSlug>;
+  completedSkills: ReadonlyArray<SkillSlug>;
+  nextSkill: SkillSlug | null;
+}
 
 export interface SkillDefinition {
   slug: SkillSlug;
@@ -52,7 +64,13 @@ export interface LessonGenerationDetails {
 }
 
 export interface PersonalizedLessonSection {
-  id: "mental-model" | "guided-example" | "decision-rule" | "transfer";
+  id:
+    | "question-type"
+    | "mental-model"
+    | "guided-example"
+    | "decision-rule"
+    | "need-to-know"
+    | "transfer";
   title: string;
   explanation: string;
   coachPrompt: string;
@@ -72,6 +90,7 @@ export interface PersonalizedLessonContent extends LessonContent {
 export interface LessonPlanContext {
   goalScore: number;
   currentScore: number;
+  scoreEvidenceKey?: string;
   sectionScores?: CoreSectionScores;
   daysUntilTest: number;
   minutesPerSession: number;
@@ -324,6 +343,7 @@ export interface PracticeFeedback {
 export interface LearningSessionPayload {
   sessionId: string;
   bankVersion: string;
+  cycle: LearningCycleState;
   todaySkill: SkillSlug;
   previousNextSkill: SkillSlug;
   nextSkill: SkillSlug;

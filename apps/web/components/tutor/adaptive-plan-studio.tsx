@@ -629,7 +629,7 @@ function TaskInspector({
         <ol className="mt-4 space-y-3 text-sm leading-6">
           {(task.kind === "rehearsal"
             ? [
-                "Open the 66-question half-length English, Math, and Reading rehearsal.",
+                "Open the 131-question full-length English, Math, and Reading rehearsal.",
                 "Answer under the section timers; explanations stay locked until submission.",
                 "Review raw accuracy and pacing. The result stays in Timed practice and does not update Today or My week.",
               ]

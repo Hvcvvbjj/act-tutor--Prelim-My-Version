@@ -5,6 +5,7 @@ import type {
 import { beforeEach, describe, expect, it } from "vitest"
 
 import {
+  consumeCompletedExamForLearningRound,
   deleteRemoteScoutData,
   flushOfflineAnswerQueue,
   LearningHttpError,
@@ -129,5 +130,51 @@ describe("remote deletion confirmation", () => {
     await expect(deleteRemoteScoutData(request)).rejects.toThrow(
       "/api/exam-lab did not confirm removal"
     )
+  })
+})
+
+describe("completed full-test consumption", () => {
+  it("closes the completed exam only after the next learning round is stored", async () => {
+    const events: string[] = []
+    let persistedExam: { id: string; status: "completed" } | null = {
+      id: "full-test-1",
+      status: "completed",
+    }
+    const refreshExam = () => persistedExam
+    const request = (async () => {
+      events.push("delete-exam")
+      persistedExam = null
+      return new Response(JSON.stringify({ reset: true }))
+    }) as typeof fetch
+
+    const payload = await consumeCompletedExamForLearningRound(async () => {
+      events.push("start-round")
+      return { roundNumber: 2 }
+    }, request)
+
+    expect(payload).toEqual({ roundNumber: 2 })
+    expect(events).toEqual(["start-round", "delete-exam"])
+    expect(refreshExam()).toBeNull()
+  })
+
+  it("keeps an unconsumed completed exam refreshable when the round is rejected", async () => {
+    const completedExam = {
+      id: "full-test-1",
+      status: "completed" as const,
+    }
+    let persistedExam: typeof completedExam | null = completedExam
+    const refreshExam = () => persistedExam
+    const request = (async () => {
+      persistedExam = null
+      return new Response(JSON.stringify({ reset: true }))
+    }) as typeof fetch
+
+    await expect(
+      consumeCompletedExamForLearningRound(async () => {
+        throw new Error("Finish the current lesson round first.")
+      }, request)
+    ).rejects.toThrow("Finish the current lesson round first.")
+
+    expect(refreshExam()).toEqual(completedExam)
   })
 })

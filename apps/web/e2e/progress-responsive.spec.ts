@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { completeLearnerOrientation } from "./helpers"
+
 async function openStarterPlan(page: import("@playwright/test").Page) {
   await page.goto("/")
   await page.getByRole("button", { name: "Set up my plan" }).click()
@@ -8,6 +10,7 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   await page.getByRole("radio", { name: /Skip for now/ }).check()
   await page.getByRole("button", { name: "Set my schedule" }).click()
   await page.getByRole("button", { name: "Create my starter plan" }).click()
+  await completeLearnerOrientation(page)
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
   ).toBeVisible()

@@ -35,7 +35,8 @@ function diagnosticEvidence(input: LessonCompositionInput) {
 
 function depthFor(input: LessonCompositionInput): LessonDepth {
   const evidence = diagnosticEvidence(input);
-  if (!evidence || evidence.total === 0 || evidence.accuracy < 0.45) return "foundation";
+  if (!evidence || evidence.total === 0 || evidence.accuracy < 0.45)
+    return "foundation";
   if (evidence.accuracy >= 0.8 && input.plan.goalScore >= 30) return "stretch";
   return "standard";
 }
@@ -70,14 +71,20 @@ export function buildAuthoredPersonalizedLesson(
     evidenceSummary: evidenceSummary(input),
     tutorOpening:
       depth === "foundation"
-        ? `Let’s make ${input.skill.label.toLowerCase()} easier to spot, one step at a time.`
+        ? `First, learn what a ${input.skill.label.toLowerCase()} question is asking. Then we’ll build the rule one small step at a time.`
         : depth === "stretch"
           ? `You know the basic rule. Now let’s try the harder versions you may see near a ${input.plan.goalScore}.`
           : `You know part of this. Let’s turn it into a rule you can use every time.`,
     sections: [
       {
+        id: "question-type",
+        title: "Know the question type",
+        explanation: `${input.skill.label} is part of ${input.skill.category}. ${input.baseLesson.objective}`,
+        coachPrompt: `What words or structure would tell you this is a ${input.skill.label.toLowerCase()} question?`,
+      },
+      {
         id: "mental-model",
-        title: "Learn the main idea",
+        title: "Build the main idea",
         explanation: input.baseLesson.concept,
         coachPrompt: `In your own words, what must you notice first in a ${input.skill.label.toLowerCase()} question?`,
       },
@@ -89,15 +96,23 @@ export function buildAuthoredPersonalizedLesson(
       },
       {
         id: "decision-rule",
-        title: "Use the rule",
+        title: "Follow the decision steps",
         explanation: input.baseLesson.steps.join(" "),
         coachPrompt: `Which step would prevent the common trap: ${input.baseLesson.trap}`,
+      },
+      {
+        id: "need-to-know",
+        title: "Keep what you need",
+        explanation: `${input.baseLesson.steps.join(" ")} The main trap to avoid is: ${input.baseLesson.trap}`,
+        coachPrompt:
+          "Which one fact or step do you need to remember when this question type appears again?",
       },
       {
         id: "transfer",
         title: "Try ACT-style wording",
         explanation: `Your next five questions start ${depth === "foundation" ? "with clear examples and then get harder" : "with harder wording and add time pressure"}. Use the same rule even when the question looks different.`,
-        coachPrompt: "Say the rule once without looking, then try the questions.",
+        coachPrompt:
+          "Say the rule once without looking, then try the questions.",
       },
     ],
     strategyChecklist: [
@@ -123,15 +138,19 @@ function asString(value: unknown, field: string, min = 8) {
 
 function asStringArray(value: unknown, field: string, minItems: number) {
   if (!Array.isArray(value) || value.length < minItems) {
-    throw new TypeError(`AI lesson field ${field} needs at least ${minItems} items.`);
+    throw new TypeError(
+      `AI lesson field ${field} needs at least ${minItems} items.`,
+    );
   }
   return value.map((item, index) => asString(item, `${field}[${index}]`, 4));
 }
 
 const SECTION_IDS = [
+  "question-type",
   "mental-model",
   "guided-example",
   "decision-rule",
+  "need-to-know",
   "transfer",
 ] as const;
 
@@ -141,11 +160,17 @@ function validateGeneratedLesson(
   provider: string,
   model: string,
 ): PersonalizedLessonContent {
-  if (!value || typeof value !== "object") throw new TypeError("AI lesson is not an object.");
+  if (!value || typeof value !== "object")
+    throw new TypeError("AI lesson is not an object.");
   const candidate = value as Record<string, unknown>;
   const sectionsValue = candidate.sections;
-  if (!Array.isArray(sectionsValue) || sectionsValue.length !== SECTION_IDS.length) {
-    throw new TypeError("AI lesson must contain exactly four teaching sections.");
+  if (
+    !Array.isArray(sectionsValue) ||
+    sectionsValue.length !== SECTION_IDS.length
+  ) {
+    throw new TypeError(
+      "AI lesson must contain exactly six teaching sections.",
+    );
   }
   const sections = sectionsValue.map((section, index) => {
     if (!section || typeof section !== "object") {
@@ -154,13 +179,23 @@ function validateGeneratedLesson(
     const record = section as Record<string, unknown>;
     const expectedId = SECTION_IDS[index];
     if (record.id !== expectedId) {
-      throw new TypeError(`AI lesson section ${index} must use id ${expectedId}.`);
+      throw new TypeError(
+        `AI lesson section ${index} must use id ${expectedId}.`,
+      );
     }
     return {
       id: expectedId,
       title: asString(record.title, `sections[${index}].title`, 4),
-      explanation: asString(record.explanation, `sections[${index}].explanation`, 40),
-      coachPrompt: asString(record.coachPrompt, `sections[${index}].coachPrompt`, 12),
+      explanation: asString(
+        record.explanation,
+        `sections[${index}].explanation`,
+        40,
+      ),
+      coachPrompt: asString(
+        record.coachPrompt,
+        `sections[${index}].coachPrompt`,
+        12,
+      ),
     } satisfies PersonalizedLessonSection;
   });
   const generatedText = [
@@ -186,10 +221,11 @@ function validateGeneratedLesson(
   ) {
     throw new TypeError("AI lesson failed the claim or answer-leakage check.");
   }
-  const reviewedTerms = input.baseLesson.concept
-    .toLowerCase()
-    .match(/[a-z]{5,}/g)
-    ?.slice(0, 12) ?? [];
+  const reviewedTerms =
+    input.baseLesson.concept
+      .toLowerCase()
+      .match(/[a-z]{5,}/g)
+      ?.slice(0, 12) ?? [];
   if (
     reviewedTerms.length > 0 &&
     !reviewedTerms.some((term) => generatedText.includes(term))
@@ -199,13 +235,20 @@ function validateGeneratedLesson(
 
   return {
     ...input.baseLesson,
-    minutes: Math.max(10, Math.min(20, Number(candidate.minutes) || input.baseLesson.minutes)),
+    minutes: Math.max(
+      10,
+      Math.min(20, Number(candidate.minutes) || input.baseLesson.minutes),
+    ),
     depth: depthFor(input),
     whyAssigned: asString(candidate.whyAssigned, "whyAssigned", 30),
     evidenceSummary: evidenceSummary(input),
     tutorOpening: asString(candidate.tutorOpening, "tutorOpening", 20),
     sections,
-    strategyChecklist: asStringArray(candidate.strategyChecklist, "strategyChecklist", 4),
+    strategyChecklist: asStringArray(
+      candidate.strategyChecklist,
+      "strategyChecklist",
+      4,
+    ),
     transferPrompt: asString(candidate.transferPrompt, "transferPrompt", 20),
     generation: {
       mode: "ai",
@@ -233,7 +276,9 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
     this.timeoutMs = config.timeoutMs ?? 12_000;
   }
 
-  async compose(input: LessonCompositionInput): Promise<PersonalizedLessonContent> {
+  async compose(
+    input: LessonCompositionInput,
+  ): Promise<PersonalizedLessonContent> {
     const fallback = buildAuthoredPersonalizedLesson(input);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -262,23 +307,28 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
               {
                 role: "user",
                 content: JSON.stringify({
-                  task: "Turn the reviewed lesson into four plain-English parts for this student.",
+                  task: "Turn the reviewed lesson into six short, plain-English parts for this student.",
                   student: input.plan,
                   diagnosticEvidence: diagnosticEvidence(input) ?? null,
                   skill: input.skill,
                   reviewedLesson: input.baseLesson,
                   requiredJson: {
                     minutes: "integer from 10 to 20",
-                    whyAssigned: "one short sentence saying what the student got right or wrong and why this skill is next",
-                    tutorOpening: "a warm, direct opening from Scout using everyday words",
+                    whyAssigned:
+                      "one short sentence saying what the student got right or wrong and why this skill is next",
+                    tutorOpening:
+                      "a warm, direct opening from Scout using everyday words",
                     sections: SECTION_IDS.map((id) => ({
                       id,
                       title: "a short student-friendly title",
-                      explanation: "at least three useful sentences written for a teenager",
-                      coachPrompt: "one simple question that makes the student recall the rule",
+                      explanation:
+                        "at least three useful sentences written for a teenager",
+                      coachPrompt:
+                        "one simple question that makes the student recall the rule",
                     })),
                     strategyChecklist: ["at least four concise steps"],
-                    transferPrompt: "how to spot this skill when the wording looks different",
+                    transferPrompt:
+                      "how to spot this skill when the wording looks different",
                   },
                 }),
               },
@@ -286,7 +336,8 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
           }),
         },
       );
-      if (!response.ok) throw new Error(`AI provider returned ${response.status}.`);
+      if (!response.ok)
+        throw new Error(`AI provider returned ${response.status}.`);
       const body = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
       };

@@ -1,15 +1,20 @@
-import type { NormalizedScoreEvidence } from "@act-tutor/core"
+import type {
+  DiagnosticSkillResult,
+  NormalizedScoreEvidence,
+} from "@act-tutor/core"
 
-import type { PlacementDraft } from "@/components/tutor/types"
+import type { PlacementDraft, TutorJourney } from "@/components/tutor/types"
 
 export type AuthRole = "guest" | "learner" | "judge"
 
 export interface SavedTutorPlan {
-  version: 1
+  version: 2
   savedAt: string
   draft: PlacementDraft
   evidence: NormalizedScoreEvidence
   currentComposite: number
+  profileSkillResults: DiagnosticSkillResult[]
+  journey: TutorJourney
   adaptiveBaselineRequired: boolean
   baselineSkipped: boolean
 }

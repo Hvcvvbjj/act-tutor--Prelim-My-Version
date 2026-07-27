@@ -15,9 +15,33 @@ const archivo = Archivo({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      "https://scout-act-tutor.u1231294912.chatgpt.site"
+  ),
   title: "Scout ACT",
   description:
     "An adaptive ACT coach that turns every answer into the next lesson.",
+  openGraph: {
+    title: "Scout ACT",
+    description:
+      "Meet Mr. Kim, your AI study coach for clear lessons, skill profiles, and an ACT plan that adapts after every round.",
+    images: [
+      {
+        url: "/scout-social-preview.png",
+        width: 1731,
+        height: 909,
+        alt: "A student studies beside a friendly geometric owl coach.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Scout ACT",
+    description:
+      "Clear ACT lessons, honest skill profiles, and a study cycle that adapts with you.",
+    images: ["/scout-social-preview.png"],
+  },
 }
 
 export default function RootLayout({

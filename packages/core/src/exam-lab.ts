@@ -12,9 +12,9 @@ export type ExamConfidence = "guess" | "unsure" | "sure";
 export type ExamLabPhase = "questions" | "review" | "results";
 
 export const EXAM_SECTION_MINUTES: Record<CoreSection, number> = {
-  english: 18,
-  math: 25,
-  reading: 20,
+  english: 35,
+  math: 50,
+  reading: 40,
 };
 
 export interface ExamLabResponse {
@@ -144,8 +144,16 @@ export interface ExamLabInterpretationReadiness {
   sufficient: boolean;
 }
 
-const SECTION_ORDER: ReadonlyArray<CoreSection> = ["english", "math", "reading"];
-const CONFIDENCE_ORDER: ReadonlyArray<ExamConfidence> = ["guess", "unsure", "sure"];
+const SECTION_ORDER: ReadonlyArray<CoreSection> = [
+  "english",
+  "math",
+  "reading",
+];
+const CONFIDENCE_ORDER: ReadonlyArray<ExamConfidence> = [
+  "guess",
+  "unsure",
+  "sure",
+];
 
 function clampScore(value: number) {
   return Math.max(1, Math.min(36, Math.round(value)));
@@ -156,20 +164,30 @@ function practiceEstimate(correct: number, total: number) {
 }
 
 function average(values: ReadonlyArray<number>) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  return values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : 0;
 }
 
 export function examLabInterpretationReadiness(
   result: Pick<ExamLabScoredResult, "mode" | "total" | "unanswered">,
 ): ExamLabInterpretationReadiness {
   const answered = Math.max(0, result.total - result.unanswered);
-  const target = result.mode === "sprint" ? 8 : Math.max(8, Math.ceil(result.total * 0.8));
+  const target =
+    result.mode === "sprint" ? 8 : Math.max(8, Math.ceil(result.total * 0.8));
   const minimumAnswered = Math.min(result.total, target);
   return { answered, minimumAnswered, sufficient: answered >= minimumAnswered };
 }
 
-export function toPublicExamQuestion(question: DiagnosticQuestionSecure): DiagnosticQuestionPublic {
-  const { correctChoiceId: _correct, rationale: _rationale, content: _content, ...publicQuestion } = question;
+export function toPublicExamQuestion(
+  question: DiagnosticQuestionSecure,
+): DiagnosticQuestionPublic {
+  const {
+    correctChoiceId: _correct,
+    rationale: _rationale,
+    content: _content,
+    ...publicQuestion
+  } = question;
   return publicQuestion;
 }
 
@@ -180,8 +198,11 @@ export function selectExamLabQuestions(
 ): DiagnosticQuestionSecure[] {
   if (mode === "core") return [...form.questions];
   if (mode === "section") {
-    if (!selectedSection) throw new RangeError("A section is required for section simulation.");
-    return form.questions.filter((question) => question.section === selectedSection);
+    if (!selectedSection)
+      throw new RangeError("A section is required for section simulation.");
+    return form.questions.filter(
+      (question) => question.section === selectedSection,
+    );
   }
   const seen = new Set<string>();
   return form.questions.filter((question) => {
@@ -197,7 +218,8 @@ export function examLabInitialSection(
 ): ExamLabSection {
   if (mode === "core") return "english";
   if (mode === "section") {
-    if (!selectedSection) throw new RangeError("A section is required for section simulation.");
+    if (!selectedSection)
+      throw new RangeError("A section is required for section simulation.");
     return selectedSection;
   }
   return "mixed";
@@ -205,7 +227,8 @@ export function examLabInitialSection(
 
 export function examLabMinutes(mode: ExamLabMode, section: ExamLabSection) {
   if (mode === "sprint") return 15;
-  if (section === "mixed") throw new RangeError("Mixed timing is available only for sprint mode.");
+  if (section === "mixed")
+    throw new RangeError("Mixed timing is available only for sprint mode.");
   return EXAM_SECTION_MINUTES[section];
 }
 
@@ -220,10 +243,15 @@ export function scoreExamLab(
   questions: ReadonlyArray<DiagnosticQuestionSecure>,
   responses: Readonly<Record<string, ExamLabResponse>>,
 ): ExamLabScoredResult {
-  if (!questions.length) throw new RangeError("Exam Lab needs at least one question.");
+  if (!questions.length)
+    throw new RangeError("Exam Lab needs at least one question.");
   const reviews: ExamQuestionReview[] = questions.map((question) => {
     const response = responses[question.id];
-    if (response && response.choiceId !== null && !question.choices.some((choice) => choice.id === response.choiceId)) {
+    if (
+      response &&
+      response.choiceId !== null &&
+      !question.choices.some((choice) => choice.id === response.choiceId)
+    ) {
       throw new RangeError(`Unknown choice for ${question.id}.`);
     }
     return {
@@ -243,18 +271,28 @@ export function scoreExamLab(
   });
 
   const sections = SECTION_ORDER.flatMap((section) => {
-    const sectionReviews = reviews.filter((review) => review.section === section);
+    const sectionReviews = reviews.filter(
+      (review) => review.section === section,
+    );
     if (!sectionReviews.length) return [];
     const correct = sectionReviews.filter((review) => review.correct).length;
-    return [{
-      section,
-      correct,
-      total: sectionReviews.length,
-      accuracy: correct / sectionReviews.length,
-      practiceEstimate: practiceEstimate(correct, sectionReviews.length),
-      averageSeconds: average(sectionReviews.filter((review) => review.selectedChoiceId !== null).map((review) => review.elapsedSeconds)),
-      expectedAverageSeconds: average(sectionReviews.map((review) => review.expectedSeconds)),
-    } satisfies ExamLabSectionResult];
+    return [
+      {
+        section,
+        correct,
+        total: sectionReviews.length,
+        accuracy: correct / sectionReviews.length,
+        practiceEstimate: practiceEstimate(correct, sectionReviews.length),
+        averageSeconds: average(
+          sectionReviews
+            .filter((review) => review.selectedChoiceId !== null)
+            .map((review) => review.elapsedSeconds),
+        ),
+        expectedAverageSeconds: average(
+          sectionReviews.map((review) => review.expectedSeconds),
+        ),
+      } satisfies ExamLabSectionResult,
+    ];
   });
 
   const skillMap = new Map<string, ExamQuestionReview[]>();
@@ -274,12 +312,21 @@ export function scoreExamLab(
       total: items.length,
       accuracy: correct / items.length,
       averageSeconds: average(answered.map((item) => item.elapsedSeconds)),
-      overconfidentMisses: items.filter((item) => !item.correct && item.confidence === "sure").length,
+      overconfidentMisses: items.filter(
+        (item) => !item.correct && item.confidence === "sure",
+      ).length,
     } satisfies ExamLabSkillResult;
-  }).sort((left, right) => left.accuracy - right.accuracy || right.averageSeconds - left.averageSeconds || left.label.localeCompare(right.label));
+  }).sort(
+    (left, right) =>
+      left.accuracy - right.accuracy ||
+      right.averageSeconds - left.averageSeconds ||
+      left.label.localeCompare(right.label),
+  );
 
   const confidence = CONFIDENCE_ORDER.map((confidenceValue) => {
-    const items = reviews.filter((review) => review.confidence === confidenceValue);
+    const items = reviews.filter(
+      (review) => review.confidence === confidenceValue,
+    );
     const correct = items.filter((review) => review.correct).length;
     return {
       confidence: confidenceValue,
@@ -290,11 +337,17 @@ export function scoreExamLab(
   });
 
   const answered = reviews.filter((review) => review.selectedChoiceId !== null);
-  const rushed = answered.filter((review) => review.elapsedSeconds < review.expectedSeconds * 0.4).length;
-  const overtime = answered.filter((review) => review.elapsedSeconds > review.expectedSeconds * 1.5).length;
+  const rushed = answered.filter(
+    (review) => review.elapsedSeconds < review.expectedSeconds * 0.4,
+  ).length;
+  const overtime = answered.filter(
+    (review) => review.elapsedSeconds > review.expectedSeconds * 1.5,
+  ).length;
   const pacing: ExamPacingResult = {
     averageSeconds: average(answered.map((review) => review.elapsedSeconds)),
-    expectedAverageSeconds: average(reviews.map((review) => review.expectedSeconds)),
+    expectedAverageSeconds: average(
+      reviews.map((review) => review.expectedSeconds),
+    ),
     rushed,
     overtime,
     onPace: Math.max(0, answered.length - rushed - overtime),
@@ -309,11 +362,16 @@ export function scoreExamLab(
   };
 
   const correct = reviews.filter((review) => review.correct).length;
-  const sectionEstimates = Object.fromEntries(sections.map((section) => [section.section, section.practiceEstimate])) as Partial<Record<CoreSection, number>>;
-  const isComposite = SECTION_ORDER.every((section) => sectionEstimates[section] !== undefined);
+  const sectionEstimates = Object.fromEntries(
+    sections.map((section) => [section.section, section.practiceEstimate]),
+  ) as Partial<Record<CoreSection, number>>;
+  const isComposite = SECTION_ORDER.every(
+    (section) => sectionEstimates[section] !== undefined,
+  );
   const estimate = isComposite
     ? calculateEmrComposite(sectionEstimates as Record<CoreSection, number>)
-    : sections[0]?.practiceEstimate ?? practiceEstimate(correct, reviews.length);
+    : (sections[0]?.practiceEstimate ??
+      practiceEstimate(correct, reviews.length));
   const margin = mode === "sprint" ? 4 : 3;
 
   return {
@@ -321,7 +379,8 @@ export function scoreExamLab(
     correct,
     total: reviews.length,
     accuracy: correct / reviews.length,
-    unanswered: reviews.filter((review) => review.selectedChoiceId === null).length,
+    unanswered: reviews.filter((review) => review.selectedChoiceId === null)
+      .length,
     flagged: reviews.filter((review) => review.flagged).length,
     practiceEstimate: {
       low: Math.max(1, estimate - margin),
@@ -333,8 +392,12 @@ export function scoreExamLab(
     skills,
     focusSkills: skills.slice(0, 3),
     confidence,
-    overconfidentMisses: reviews.filter((review) => !review.correct && review.confidence === "sure").length,
-    luckyGuesses: reviews.filter((review) => review.correct && review.confidence === "guess").length,
+    overconfidentMisses: reviews.filter(
+      (review) => !review.correct && review.confidence === "sure",
+    ).length,
+    luckyGuesses: reviews.filter(
+      (review) => review.correct && review.confidence === "guess",
+    ).length,
     pacing,
     review: reviews,
   };
@@ -358,10 +421,17 @@ export function buildAuthoredExamDebrief(
         "Keep marking Guessing, Unsure, or Sure so the completed run can compare confidence with correctness.",
       ],
       nextAction: `Start another timed-practice run and answer at least ${readiness.minimumAnswered} questions before using its score range or study recommendation.`,
-      generation: { mode: "authored-fallback", provider: "Reviewed debrief engine", model: null, generatedAt },
+      generation: {
+        mode: "authored-fallback",
+        provider: "Reviewed debrief engine",
+        model: null,
+        generatedAt,
+      },
     };
   }
-  const topSection = [...result.sections].sort((left, right) => right.accuracy - left.accuracy)[0];
+  const topSection = [...result.sections].sort(
+    (left, right) => right.accuracy - left.accuracy,
+  )[0];
   const focus = result.focusSkills[0];
   const pacingCopy =
     result.pacing.diagnosis === "rushing"
@@ -372,17 +442,34 @@ export function buildAuthoredExamDebrief(
           ? "Your overall pace was close to the target."
           : "Answer more questions before Scout judges your pacing.";
   return {
-    headline: focus ? `Work on ${focus.label.toLowerCase()} next.` : "Take another practice test before changing the plan.",
+    headline: focus
+      ? `Work on ${focus.label.toLowerCase()} next.`
+      : "Take another practice test before changing the plan.",
     summary: `${result.correct} of ${result.total} answers were correct. ${pacingCopy}`,
     wins: [
-      topSection ? `Your strongest section was ${topSection.section} at ${Math.round(topSection.accuracy * 100)}%.` : "This was your first timing check.",
-      result.overconfidentMisses === 0 ? "You had no wrong answers that you felt sure about." : `${result.luckyGuesses} answers you guessed on were right. Review those rules so you can answer them on purpose next time.`,
+      topSection
+        ? `Your strongest section was ${topSection.section} at ${Math.round(topSection.accuracy * 100)}%.`
+        : "This was your first timing check.",
+      result.overconfidentMisses === 0
+        ? "You had no wrong answers that you felt sure about."
+        : `${result.luckyGuesses} answers you guessed on were right. Review those rules so you can answer them on purpose next time.`,
     ],
     priorities: [
-      focus ? `${focus.label}: ${focus.correct} of ${focus.total} right, with about ${Math.round(focus.averageSeconds)} seconds per question.` : "Take a longer practice test so Scout can find the exact skills to work on.",
-      result.pacing.diagnosis === "overinvesting" ? "Use two passes: answer the easier questions first, then return to the slow ones." : "Keep marking how sure you feel so Scout can tell the difference between a guess and a skill gap.",
+      focus
+        ? `${focus.label}: ${focus.correct} of ${focus.total} right, with about ${Math.round(focus.averageSeconds)} seconds per question.`
+        : "Take a longer practice test so Scout can find the exact skills to work on.",
+      result.pacing.diagnosis === "overinvesting"
+        ? "Use two passes: answer the easier questions first, then return to the slow ones."
+        : "Keep marking how sure you feel so Scout can tell the difference between a guess and a skill gap.",
     ],
-    nextAction: focus ? `Start a short ${focus.label} lesson, then answer five practice questions.` : "Try the 12-skill practice set next.",
-    generation: { mode: "authored-fallback", provider: "Reviewed debrief engine", model: null, generatedAt },
+    nextAction: focus
+      ? `Start a short ${focus.label} lesson, then answer five practice questions.`
+      : "Try the 12-skill practice set next.",
+    generation: {
+      mode: "authored-fallback",
+      provider: "Reviewed debrief engine",
+      model: null,
+      generatedAt,
+    },
   };
 }

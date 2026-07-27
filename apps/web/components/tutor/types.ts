@@ -1,4 +1,6 @@
 import type {
+  CoreSectionScores,
+  DiagnosticSkillResult,
   DiagnosticResult,
   NormalizedScoreEvidence,
   PlanIntensity,
@@ -26,6 +28,34 @@ export interface PlacementDraft {
   preferredSection: "balanced" | "english" | "math" | "reading"
 }
 
+export type LessonEntryChoice = "explain-types" | "start-lessons"
+
+export interface ReportedOfficialScore {
+  id: string
+  testDate: string
+  recordedAt: string
+  composite: number
+  sections: CoreSectionScores | null
+}
+
+export interface PendingOfficialScore {
+  testDate: string
+  recordedAt: string
+  nextPromptOn: string
+}
+
+export interface TutorJourney {
+  version: 1
+  tourVersion: 1
+  onboardingCompleted: boolean
+  lessonEntryChoice: LessonEntryChoice | null
+  officialScoreHistory: ReportedOfficialScore[]
+  pendingOfficialScores?: PendingOfficialScore[]
+  baselineOfficialComposite?: number | null
+  checkInSnoozedUntil: string | null
+  doneForNow: boolean
+}
+
 export interface GeneratedPlan {
   today: string
   draft: PlacementDraft
@@ -35,6 +65,9 @@ export interface GeneratedPlan {
   currentComposite: number
   weakestSection: "english" | "math" | "reading"
   diagnosticResult?: DiagnosticResult
+  profileSkillResults: DiagnosticSkillResult[]
+  journey: TutorJourney
+  testDatePassed: boolean
   adaptiveBaselineRequired?: boolean
   baselineSkipped?: boolean
 }

@@ -30,6 +30,11 @@ export type LearningActionRequest =
       skill: string;
       diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
     } & PlanFields)
+  | ({
+      action: "start_adaptive_round";
+      assessmentKey: string;
+      diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
+    } & PlanFields)
   | ({ action: "rebase_after_calibration" } & Omit<PlanFields, "currentScore">)
   | { action: "complete_lesson" }
   | ({ action: "start_next" } & PlanFields)

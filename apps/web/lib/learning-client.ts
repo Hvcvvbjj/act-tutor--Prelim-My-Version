@@ -147,6 +147,27 @@ export async function learningRequest(body: LearningActionRequest) {
   return payload
 }
 
+export async function consumeCompletedExamForLearningRound<T>(
+  startRound: () => Promise<T>,
+  request: typeof fetch = fetch
+): Promise<T> {
+  const payload = await startRound()
+  const response = await request("/api/exam-lab", {
+    method: "DELETE",
+    cache: "no-store",
+  })
+  if (!response.ok) {
+    const resetPayload = (await response.json().catch(() => null)) as {
+      error?: string
+    } | null
+    throw new Error(
+      resetPayload?.error ??
+        "The completed full-length test could not be closed."
+    )
+  }
+  return payload
+}
+
 export async function loadLearningSession() {
   const response = await fetch("/api/learning", { cache: "no-store" })
   const payload = (await response.json()) as

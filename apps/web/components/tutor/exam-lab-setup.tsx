@@ -20,6 +20,7 @@ interface ExamLabSetupProps {
   section: CoreSection
   busy: boolean
   extendedTime: boolean
+  modeLocked?: boolean
   onModeChange: (mode: ExamLabMode) => void
   onSectionChange: (section: CoreSection) => void
   onStart: () => void
@@ -37,15 +38,15 @@ const MODES = [
   {
     id: "section",
     title: "One-section practice",
-    meta: "18–25 questions · half-length ACT timing",
+    meta: "36–50 questions · full section timing",
     description:
       "Practice one section, then compare time and self-reported confidence with correctness.",
     icon: BookOpenCheckIcon,
   },
   {
     id: "core",
-    title: "Half-length practice test",
-    meta: "66 questions · 63 minutes",
+    title: "Full-length practice test",
+    meta: "131 questions · 125 minutes",
     description:
       "English, Math, and Reading in test order, followed by your full results.",
     icon: Layers3Icon,
@@ -59,11 +60,15 @@ export function ExamLabSetup({
   section,
   busy,
   extendedTime,
+  modeLocked = false,
   onModeChange,
   onSectionChange,
   onStart,
 }: ExamLabSetupProps) {
   const modeRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const availableModes = modeLocked
+    ? MODES.filter((option) => option.id === mode)
+    : MODES
 
   return (
     <main
@@ -78,11 +83,9 @@ export function ExamLabSetup({
             Practice the test before test day.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            Choose a quick quiz, one section, or a half-length practice test.
-            You&apos;ll get raw accuracy, time per question, a confidence
-            breakdown, and a suggested next action. Timed Practice results stay
-            separate from your study plan, so they do not change Today or My
-            week.
+            {modeLocked
+              ? "This round calls for the full-length English, Math, and Reading test. Finish it, review the report, then choose whether to use that evidence for your next lesson round."
+              : "Choose a quick quiz, one section, or a full-length practice test. You’ll get raw accuracy, time per question, a confidence breakdown, and a suggested next action. Timed Practice results stay separate from your study plan, so they do not change Today or My week."}
           </p>
 
           <div
@@ -90,7 +93,7 @@ export function ExamLabSetup({
             role="radiogroup"
             aria-label="Simulation type"
           >
-            {MODES.map((option, index) => {
+            {availableModes.map((option, index) => {
               const Icon = option.icon
               const selected = mode === option.id
               return (
@@ -125,8 +128,9 @@ export function ExamLabSetup({
                         ? 1
                         : -1
                     const nextIndex =
-                      (index + direction + MODES.length) % MODES.length
-                    onModeChange(MODES[nextIndex].id)
+                      (index + direction + availableModes.length) %
+                      availableModes.length
+                    onModeChange(availableModes[nextIndex].id)
                     window.requestAnimationFrame(() =>
                       modeRefs.current[nextIndex]?.focus()
                     )
@@ -208,7 +212,11 @@ export function ExamLabSetup({
           <ScoutCoach
             mood="ready"
             message="Treat this as practice, not a final judgment. Compare how long you spent and how sure you felt with which answers were correct."
-            detail="Answer keys stay hidden until you submit. The report uses correctness, elapsed time, and the confidence label you chose. It stays inside Timed Practice and does not update Today or My Week."
+            detail={
+              modeLocked
+                ? "Answer keys stay hidden until you submit. After the report, you can explicitly use the completed full-length result to build the next lesson round."
+                : "Answer keys stay hidden until you submit. The report uses correctness, elapsed time, and the confidence label you chose. It stays inside Timed Practice and does not update Today or My Week."
+            }
           />
           <section className="mt-8 border-y-2 border-foreground py-6">
             <h2 className="font-heading text-3xl font-bold">

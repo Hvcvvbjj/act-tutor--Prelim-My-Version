@@ -132,6 +132,17 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
+    if (body.action === "start_new") {
+      const session = await diagnosticSessions.getOrCreate(
+        null,
+        RAPID_DIAGNOSTIC_FORM
+      )
+      const response = NextResponse.json(session.payload)
+      response.headers.set("Cache-Control", "no-store")
+      setSessionCookie(response, session.sessionId)
+      await syncLinkedSession(request, "diagnostic", session.sessionId)
+      return response
+    }
     assertCurrentForm(body)
     const payload = await diagnosticSessions.finalize(
       requireSessionId(request),

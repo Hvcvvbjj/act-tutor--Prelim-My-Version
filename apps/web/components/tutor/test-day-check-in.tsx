@@ -1,0 +1,958 @@
+"use client"
+
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowRightIcon,
+  CalendarDaysIcon,
+  CheckCircle2Icon,
+  ChevronLeftIcon,
+  Clock3Icon,
+  FlagIcon,
+} from "lucide-react"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import {
+  RadioGroup,
+  VisuallyHiddenRadioGroupItem,
+} from "@/components/ui/radio-group"
+import { Switch } from "@/components/ui/switch"
+import { ScoutMark, type ScoutMood } from "@/components/tutor/scout"
+import type { ReportedOfficialScore } from "@/components/tutor/types"
+import { cn } from "@/lib/utils"
+import type { CoreSectionScores } from "@act-tutor/core"
+
+export type TestDayOutcome =
+  "score_reported" | "scores_pending" | "did_not_test"
+
+export interface NewOfficialActScore {
+  testDate: string
+  composite: number
+  sections: CoreSectionScores | null
+}
+
+export interface TestDayDraftScores {
+  composite?: number
+  sections?: CoreSectionScores | null
+}
+
+export interface TestDayCheckInResult {
+  testDate: string
+  outcome: TestDayOutcome
+  newOfficialScore?: NewOfficialActScore
+  nextTestDate?: string
+  doneForNow: boolean
+}
+
+export interface TestDayCheckInProps {
+  testDate: string
+  currentComposite: number
+  officialScoreHistory: readonly ReportedOfficialScore[]
+  baselineOfficialComposite?: number | null
+  initialDraftScores?: TestDayDraftScores
+  onComplete: (result: TestDayCheckInResult) => void | Promise<void>
+  onSnooze: () => void
+}
+
+type Stage = "outcome" | "score" | "next"
+type NextStepChoice = "" | "schedule" | "done"
+type ScoreKey = "composite" | keyof CoreSectionScores
+type ScoreDraft = Record<ScoreKey, string>
+type ScoreErrors = Partial<Record<ScoreKey, string>>
+
+const OUTCOME_OPTIONS: ReadonlyArray<{
+  value: TestDayOutcome
+  title: string
+  detail: string
+  icon: typeof CheckCircle2Icon
+}> = [
+  {
+    value: "score_reported",
+    title: "I tested and have my scores",
+    detail: "Add the official score ACT reported.",
+    icon: CheckCircle2Icon,
+  },
+  {
+    value: "scores_pending",
+    title: "I tested; scores aren’t back",
+    detail: "Save the check-in without guessing a score.",
+    icon: Clock3Icon,
+  },
+  {
+    value: "did_not_test",
+    title: "I didn’t test that day",
+    detail: "No judgment. We’ll decide what comes next.",
+    icon: FlagIcon,
+  },
+]
+
+const SECTION_SCORE_FIELDS: ReadonlyArray<{
+  key: keyof CoreSectionScores
+  label: string
+}> = [
+  { key: "english", label: "English" },
+  { key: "math", label: "Math" },
+  { key: "reading", label: "Reading" },
+]
+
+function scoreDraftValue(value: number | undefined) {
+  return typeof value === "number" ? String(value) : ""
+}
+
+function initialScoreDraft(
+  initialDraftScores: TestDayDraftScores | undefined
+): ScoreDraft {
+  return {
+    composite: scoreDraftValue(initialDraftScores?.composite),
+    english: scoreDraftValue(initialDraftScores?.sections?.english),
+    math: scoreDraftValue(initialDraftScores?.sections?.math),
+    reading: scoreDraftValue(initialDraftScores?.sections?.reading),
+  }
+}
+
+function parseActScore(value: string): number | null {
+  if (!/^\d{1,2}$/.test(value.trim())) return null
+  const score = Number(value)
+  return Number.isInteger(score) && score >= 1 && score <= 36 ? score : null
+}
+
+function isValidActScore(value: number) {
+  return Number.isInteger(value) && value >= 1 && value <= 36
+}
+
+function isCalendarDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
+
+function localToday() {
+  const now = new Date()
+  const year = String(now.getFullYear())
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function addCalendarDays(value: string, days: number) {
+  if (!isCalendarDate(value)) return value
+  const [year, month, day] = value.split("-").map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return [
+    String(date.getUTCFullYear()).padStart(4, "0"),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-")
+}
+
+function formatCalendarDate(value: string) {
+  if (!isCalendarDate(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)))
+}
+
+function latestPriorOfficialScore(
+  history: readonly ReportedOfficialScore[],
+  testDate: string
+) {
+  const validTestDate = isCalendarDate(testDate)
+  const candidates = history.filter(
+    (score) =>
+      isValidActScore(score.composite) &&
+      isCalendarDate(score.testDate) &&
+      (!validTestDate || score.testDate < testDate)
+  )
+
+  return [...candidates]
+    .sort((a, b) => a.testDate.localeCompare(b.testDate))
+    .at(-1)
+}
+
+function ChoiceCard({
+  selected,
+  icon: Icon,
+  title,
+  detail,
+  children,
+}: {
+  selected: boolean
+  icon: typeof CheckCircle2Icon
+  title: string
+  detail: string
+  children: React.ReactNode
+}) {
+  return (
+    <label
+      className={cn(
+        "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-xl border-2 bg-background p-4 transition-[border-color,background-color,transform,box-shadow] duration-150 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40 hover:-translate-y-0.5 hover:border-foreground motion-reduce:transform-none",
+        selected &&
+          "border-primary bg-secondary shadow-[3px_3px_0_var(--foreground)]"
+      )}
+    >
+      {children}
+      <span
+        className={cn(
+          "col-start-1 row-start-1 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground",
+          selected && "bg-primary text-primary-foreground"
+        )}
+      >
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <span className="col-start-2 row-start-1 min-w-0">
+        <span className="block font-bold">{title}</span>
+        <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+          {detail}
+        </span>
+      </span>
+    </label>
+  )
+}
+
+function ScoreInput({
+  scoreKey,
+  label,
+  required,
+  value,
+  error,
+  onChange,
+}: {
+  scoreKey: ScoreKey
+  label: string
+  required: boolean
+  value: string
+  error?: string
+  onChange: (value: string) => void
+}) {
+  const inputId = `test-day-${scoreKey}`
+  const helpId = `${inputId}-help`
+  const errorId = `${inputId}-error`
+
+  return (
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel htmlFor={inputId}>
+        {label}
+        <span className="font-normal text-muted-foreground">
+          {required ? "Required" : "Optional"}
+        </span>
+      </FieldLabel>
+      <Input
+        id={inputId}
+        name={scoreKey}
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={36}
+        step={1}
+        required={required}
+        value={value}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${helpId} ${errorId}` : helpId}
+        className="h-12 text-lg font-bold tabular-nums"
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <FieldDescription id={helpId}>Whole number from 1–36.</FieldDescription>
+      <FieldError id={errorId}>{error}</FieldError>
+    </Field>
+  )
+}
+
+function progressNumber(stage: Stage) {
+  if (stage === "outcome") return 1
+  if (stage === "score") return 2
+  return 3
+}
+
+function outcomeMood(
+  outcome: TestDayOutcome,
+  composite: number | null,
+  priorComposite: number | undefined
+): ScoutMood {
+  if (outcome !== "score_reported" || composite === null) return "ready"
+  if (priorComposite === undefined) return "ready"
+  if (composite > priorComposite) return "correct"
+  if (composite < priorComposite) return "repair"
+  return "thinking"
+}
+
+function officialScoreFeedback(
+  composite: number,
+  prior: Pick<ReportedOfficialScore, "composite"> | undefined
+) {
+  if (!prior) {
+    return {
+      title: "Now we have a real starting point.",
+      message:
+        "This is your first official score here, so I’m not calling it up or down. I’ll use it to make the next study cycle more accurate.",
+    }
+  }
+
+  const difference = composite - prior.composite
+  if (difference > 0) {
+    return {
+      title: `You moved up ${difference} ${difference === 1 ? "point" : "points"}.`,
+      message: `Your official Composite went from ${prior.composite} to ${composite}. Nice work. I’ll keep what helped and use the new score to choose the next skills.`,
+    }
+  }
+
+  if (difference === 0) {
+    return {
+      title: "You held your score.",
+      message: `Your official Composite is still ${composite}. That’s useful data—not a dead end. I’ll look for the skills most likely to unlock the next point.`,
+    }
+  }
+
+  const decrease = Math.abs(difference)
+  return {
+    title: "One test does not erase your progress.",
+    message: `This official score was ${decrease} ${decrease === 1 ? "point" : "points"} below your last one (${prior.composite} to ${composite}). That’s okay. Test conditions and question mix can move a score, so I’ll adjust the next cycle around what this result shows.`,
+  }
+}
+
+export function TestDayCheckIn({
+  testDate,
+  currentComposite,
+  officialScoreHistory,
+  baselineOfficialComposite,
+  initialDraftScores,
+  onComplete,
+  onSnooze,
+}: TestDayCheckInProps) {
+  const [stage, setStage] = useState<Stage>("outcome")
+  const [outcome, setOutcome] = useState<TestDayOutcome | "">("")
+  const [scores, setScores] = useState<ScoreDraft>(() =>
+    initialScoreDraft(initialDraftScores)
+  )
+  const [sectionScoresEnabled, setSectionScoresEnabled] = useState(
+    initialDraftScores?.sections != null
+  )
+  const [scoreErrors, setScoreErrors] = useState<ScoreErrors>({})
+  const [nextStepChoice, setNextStepChoice] = useState<NextStepChoice>("")
+  const [nextTestDate, setNextTestDate] = useState("")
+  const [nextStepError, setNextStepError] = useState("")
+  const [submitError, setSubmitError] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const scoreFormRef = useRef<HTMLFormElement>(null)
+  const today = useMemo(() => localToday(), [])
+  const earliestNextTestDate = useMemo(() => addCalendarDays(today, 1), [today])
+  const formattedTestDate = useMemo(
+    () => formatCalendarDate(testDate),
+    [testDate]
+  )
+  const priorOfficialScore = useMemo(() => {
+    const historical = latestPriorOfficialScore(officialScoreHistory, testDate)
+    if (historical) return historical
+    return isValidActScore(baselineOfficialComposite ?? 0)
+      ? { composite: baselineOfficialComposite as number }
+      : undefined
+  }, [baselineOfficialComposite, officialScoreHistory, testDate])
+  const parsedComposite = parseActScore(scores.composite)
+  const currentStep = progressNumber(stage)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      headingRef.current?.focus({ preventScroll: true })
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [stage])
+
+  function updateScore(key: ScoreKey, value: string) {
+    setScores((current) => ({ ...current, [key]: value }))
+    setScoreErrors((current) => ({ ...current, [key]: undefined }))
+    setSubmitError("")
+  }
+
+  function validateScores() {
+    const errors: ScoreErrors = {}
+
+    if (parseActScore(scores.composite) === null) {
+      errors.composite = "Composite must be a whole number from 1–36."
+    }
+    if (sectionScoresEnabled) {
+      for (const field of SECTION_SCORE_FIELDS) {
+        if (parseActScore(scores[field.key]) === null) {
+          errors[field.key] = `${field.label} must be a whole number from 1–36.`
+        }
+      }
+    }
+
+    setScoreErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      window.requestAnimationFrame(() => {
+        scoreFormRef.current
+          ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+          ?.focus()
+      })
+      return false
+    }
+    return true
+  }
+
+  function continueFromOutcome() {
+    if (!outcome) return
+    setSubmitError("")
+    setStage(outcome === "score_reported" ? "score" : "next")
+  }
+
+  function continueFromScore(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!validateScores()) return
+    setSubmitError("")
+    setStage("next")
+  }
+
+  function goBack() {
+    setSubmitError("")
+    setNextStepError("")
+    if (stage === "next") {
+      setStage(outcome === "score_reported" ? "score" : "outcome")
+      return
+    }
+    setStage("outcome")
+  }
+
+  function buildOfficialScore(): NewOfficialActScore | undefined {
+    const composite = parseActScore(scores.composite)
+    if (outcome !== "score_reported" || composite === null) return undefined
+
+    const english = parseActScore(scores.english)
+    const math = parseActScore(scores.math)
+    const reading = parseActScore(scores.reading)
+    if (
+      sectionScoresEnabled &&
+      (english === null || math === null || reading === null)
+    ) {
+      return undefined
+    }
+
+    return {
+      testDate,
+      composite,
+      sections: sectionScoresEnabled
+        ? {
+            english: english as number,
+            math: math as number,
+            reading: reading as number,
+          }
+        : null,
+    }
+  }
+
+  async function completeCheckIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSubmitError("")
+
+    if (!nextStepChoice) {
+      setNextStepError("Choose a next step.")
+      return
+    }
+
+    if (nextStepChoice === "schedule") {
+      if (!isCalendarDate(nextTestDate) || nextTestDate <= today) {
+        setNextStepError("Choose a real date after today.")
+        window.requestAnimationFrame(() => {
+          document.getElementById("next-test-date")?.focus()
+        })
+        return
+      }
+    }
+
+    if (!outcome) {
+      setStage("outcome")
+      return
+    }
+
+    const newOfficialScore = buildOfficialScore()
+    if (outcome === "score_reported" && !newOfficialScore) {
+      setStage("score")
+      return
+    }
+
+    setSaving(true)
+    try {
+      await onComplete({
+        testDate,
+        outcome,
+        ...(newOfficialScore ? { newOfficialScore } : {}),
+        ...(nextStepChoice === "schedule" ? { nextTestDate } : {}),
+        doneForNow: nextStepChoice === "done",
+      })
+    } catch {
+      setSubmitError(
+        "Your check-in could not be saved. Nothing was lost—try again."
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const feedback =
+    outcome === "score_reported" && parsedComposite !== null
+      ? officialScoreFeedback(parsedComposite, priorOfficialScore)
+      : outcome === "scores_pending"
+        ? {
+            title: "No need to guess.",
+            message:
+              "Official scores can take time. We’ll save that they’re still pending and use them only after you have the real numbers.",
+          }
+        : {
+            title: "Plans change. We can reset from here.",
+            message:
+              "Missing a test date does not mean you failed. Pick another date if you have one, or pause the testing cycle for now.",
+          }
+
+  const mood = outcomeMood(
+    outcome || "did_not_test",
+    parsedComposite,
+    priorOfficialScore?.composite
+  )
+
+  return (
+    <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
+        <div className="flex items-center gap-2.5">
+          <div aria-hidden="true">
+            <ScoutMark className="size-8" />
+          </div>
+          <p className="font-brand text-lg font-black tracking-tight">
+            SCOUT <span className="text-primary">ACT</span>
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={saving}
+          onClick={onSnooze}
+        >
+          Ask me later
+        </Button>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-6xl items-start gap-7 px-5 py-7 sm:px-8 sm:py-10 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10 lg:py-14">
+        <aside className="lg:sticky lg:top-8">
+          <div className="flex items-center gap-4 lg:block">
+            <div aria-hidden="true">
+              <ScoutMark
+                mood={stage === "next" ? mood : "ready"}
+                className="size-16 lg:size-24"
+              />
+            </div>
+            <div className="min-w-0 lg:mt-4">
+              <p className="text-xs font-black tracking-[0.12em] text-primary uppercase">
+                Mr. Kim
+              </p>
+              <p className="mt-1 font-heading text-2xl font-black tracking-tight">
+                Test-day check-in
+              </p>
+            </div>
+          </div>
+
+          <Alert className="mt-5 border-primary/30 bg-[var(--info-surface)] p-4">
+            <AlertTitle>Fictional AI coach</AlertTitle>
+            <AlertDescription className="mt-1 leading-6">
+              Mr. Kim is Scout ACT’s fictional AI coach—not a real teacher,
+              counselor, or ACT representative. He can organize practice, but he
+              cannot verify or submit scores.
+            </AlertDescription>
+          </Alert>
+        </aside>
+
+        <section className="min-w-0">
+          <ol
+            aria-label="Check-in progress"
+            className="mb-5 grid grid-cols-3 gap-2"
+          >
+            {["How it went", "Official score", "Next step"].map(
+              (label, index) => {
+                const stepNumber = index + 1
+                const active = stepNumber === currentStep
+                const complete = stepNumber < currentStep
+                return (
+                  <li
+                    key={label}
+                    aria-current={active ? "step" : undefined}
+                    className="min-w-0"
+                  >
+                    <span
+                      className={cn(
+                        "block h-1.5 rounded-full bg-border",
+                        (active || complete) && "bg-primary"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "mt-2 block truncate text-xs font-bold text-muted-foreground",
+                        active && "text-foreground"
+                      )}
+                    >
+                      {stepNumber}. {label}
+                    </span>
+                  </li>
+                )
+              }
+            )}
+          </ol>
+
+          <div
+            key={stage}
+            className="paper-panel animate-in rounded-2xl border border-border/80 bg-card p-5 duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none sm:p-8 lg:p-10"
+          >
+            {stage === "outcome" ? (
+              <>
+                <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
+                  Step 1 of 3 · How it went
+                </p>
+                <h1
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="mt-3 max-w-3xl font-heading text-3xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+                >
+                  How did{" "}
+                  {formattedTestDate
+                    ? `your ${formattedTestDate} test`
+                    : "test day"}{" "}
+                  go?
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  Tell me what actually happened. This changes the next study
+                  cycle; it does not grade your effort.
+                </p>
+
+                <div className="mt-7 grid gap-3 border-y border-border py-5 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                      Planning estimate
+                    </p>
+                    <p className="mt-1 text-2xl font-black tabular-nums">
+                      {isValidActScore(currentComposite)
+                        ? currentComposite
+                        : "Not available"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+                      Last official Composite
+                    </p>
+                    <p className="mt-1 text-2xl font-black tabular-nums">
+                      {priorOfficialScore?.composite ?? "None yet"}
+                    </p>
+                  </div>
+                  <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
+                    The planning estimate is not an official score. Any
+                    up-or-down comparison uses only your prior official score.
+                  </p>
+                </div>
+
+                <RadioGroup
+                  value={outcome}
+                  onValueChange={(value) => {
+                    setOutcome(value as TestDayOutcome)
+                    setSubmitError("")
+                  }}
+                  aria-label="What happened on test day"
+                  className="mt-7 grid gap-3"
+                >
+                  {OUTCOME_OPTIONS.map((option) => (
+                    <ChoiceCard
+                      key={option.value}
+                      selected={outcome === option.value}
+                      icon={option.icon}
+                      title={option.title}
+                      detail={option.detail}
+                    >
+                      <VisuallyHiddenRadioGroupItem value={option.value} />
+                    </ChoiceCard>
+                  ))}
+                </RadioGroup>
+
+                <div className="mt-8 flex justify-end">
+                  <Button
+                    type="button"
+                    size="xl"
+                    disabled={!outcome}
+                    onClick={continueFromOutcome}
+                  >
+                    Continue
+                    <ArrowRightIcon data-icon="inline-end" />
+                  </Button>
+                </div>
+              </>
+            ) : null}
+
+            {stage === "score" ? (
+              <form ref={scoreFormRef} noValidate onSubmit={continueFromScore}>
+                <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
+                  Step 2 of 3 · Official score
+                </p>
+                <h1
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="mt-3 max-w-3xl font-heading text-3xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+                >
+                  Add the score ACT reported.
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  Composite is required. The English, Math, and Reading
+                  breakdown is optional; if you add it, enter all three.
+                </p>
+
+                <Alert className="mt-6 bg-[var(--info-surface)] p-4">
+                  <AlertTitle>Official numbers only</AlertTitle>
+                  <AlertDescription className="mt-1 leading-6">
+                    Don’t enter a practice score or the{" "}
+                    {isValidActScore(currentComposite)
+                      ? `${currentComposite}-point `
+                      : ""}
+                    planning estimate. You can go back and choose “scores aren’t
+                    back” instead.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="mt-7 max-w-sm">
+                  <ScoreInput
+                    scoreKey="composite"
+                    label="Composite"
+                    required
+                    value={scores.composite}
+                    error={scoreErrors.composite}
+                    onChange={(value) => updateScore("composite", value)}
+                  />
+                </div>
+
+                <Field
+                  orientation="horizontal"
+                  className="mt-6 rounded-xl border border-border bg-muted/40 px-4 py-4"
+                >
+                  <FieldContent>
+                    <FieldLabel htmlFor="include-section-scores">
+                      Add section scores
+                    </FieldLabel>
+                    <FieldDescription id="section-scores-help">
+                      Optional. Turn this on only if you have English, Math, and
+                      Reading.
+                    </FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    id="include-section-scores"
+                    checked={sectionScoresEnabled}
+                    aria-describedby="section-scores-help"
+                    onCheckedChange={(enabled) => {
+                      setSectionScoresEnabled(enabled)
+                      setScoreErrors((current) => ({
+                        ...current,
+                        english: undefined,
+                        math: undefined,
+                        reading: undefined,
+                      }))
+                    }}
+                  />
+                </Field>
+
+                {sectionScoresEnabled ? (
+                  <div className="mt-6 grid gap-5 sm:grid-cols-3">
+                    {SECTION_SCORE_FIELDS.map((field) => (
+                      <ScoreInput
+                        key={field.key}
+                        scoreKey={field.key}
+                        label={field.label}
+                        required
+                        value={scores[field.key]}
+                        error={scoreErrors[field.key]}
+                        onChange={(value) => updateScore(field.key, value)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button type="button" variant="ghost" onClick={goBack}>
+                    <ChevronLeftIcon data-icon="inline-start" />
+                    Back
+                  </Button>
+                  <Button type="submit" size="xl">
+                    See my check-in
+                    <ArrowRightIcon data-icon="inline-end" />
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+
+            {stage === "next" ? (
+              <form noValidate onSubmit={completeCheckIn}>
+                <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
+                  Step 3 of 3 · Next step
+                </p>
+                <h1
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="mt-3 max-w-3xl font-heading text-3xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+                >
+                  {feedback.title}
+                </h1>
+
+                <div
+                  className={cn(
+                    "mt-6 grid grid-cols-[auto_minmax(0,1fr)] gap-4 border-l-4 bg-[var(--info-surface)] p-5",
+                    mood === "correct"
+                      ? "border-[var(--scout-mint)]"
+                      : mood === "repair"
+                        ? "border-[var(--scout-coral)]"
+                        : "border-primary"
+                  )}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div aria-hidden="true">
+                    <ScoutMark mood={mood} className="size-12" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
+                      Mr. Kim
+                    </p>
+                    <p className="mt-1.5 text-sm leading-6 sm:text-base">
+                      {feedback.message}
+                    </p>
+                  </div>
+                </div>
+
+                <fieldset className="mt-8">
+                  <legend className="font-heading text-xl font-black sm:text-2xl">
+                    Do you already have another ACT date?
+                  </legend>
+                  <p
+                    id="next-step-help"
+                    className="mt-2 text-sm leading-6 text-muted-foreground"
+                  >
+                    Add it now so the next plan has a deadline, or pause the
+                    test cycle without losing this check-in.
+                  </p>
+                  <RadioGroup
+                    value={nextStepChoice}
+                    onValueChange={(value) => {
+                      setNextStepChoice(value as NextStepChoice)
+                      setNextStepError("")
+                      setSubmitError("")
+                    }}
+                    aria-describedby={
+                      nextStepError
+                        ? "next-step-help next-step-error"
+                        : "next-step-help"
+                    }
+                    aria-invalid={Boolean(nextStepError && !nextStepChoice)}
+                    className="mt-5 grid gap-3 sm:grid-cols-2"
+                  >
+                    <ChoiceCard
+                      selected={nextStepChoice === "schedule"}
+                      icon={CalendarDaysIcon}
+                      title="Yes—add my next date"
+                      detail="Use a date after today."
+                    >
+                      <VisuallyHiddenRadioGroupItem value="schedule" />
+                    </ChoiceCard>
+                    <ChoiceCard
+                      selected={nextStepChoice === "done"}
+                      icon={CheckCircle2Icon}
+                      title="I’m done for now"
+                      detail="Save this result and pause the test cycle."
+                    >
+                      <VisuallyHiddenRadioGroupItem value="done" />
+                    </ChoiceCard>
+                  </RadioGroup>
+
+                  {nextStepChoice === "schedule" ? (
+                    <Field
+                      data-invalid={Boolean(nextStepError)}
+                      className="mt-5 max-w-sm"
+                    >
+                      <FieldLabel htmlFor="next-test-date">
+                        Next ACT date
+                      </FieldLabel>
+                      <Input
+                        id="next-test-date"
+                        name="nextTestDate"
+                        type="date"
+                        min={earliestNextTestDate}
+                        required
+                        value={nextTestDate}
+                        aria-invalid={Boolean(nextStepError)}
+                        aria-describedby={
+                          nextStepError
+                            ? "next-test-date-help next-step-error"
+                            : "next-test-date-help"
+                        }
+                        className="h-12"
+                        onChange={(event) => {
+                          setNextTestDate(event.target.value)
+                          setNextStepError("")
+                          setSubmitError("")
+                        }}
+                      />
+                      <FieldDescription id="next-test-date-help">
+                        Choose a future calendar date.
+                      </FieldDescription>
+                    </Field>
+                  ) : null}
+                  <FieldError id="next-step-error" className="mt-3">
+                    {nextStepError}
+                  </FieldError>
+                </fieldset>
+
+                {submitError ? (
+                  <Alert variant="destructive" className="mt-6 p-4">
+                    <AlertTitle>Couldn’t save the check-in</AlertTitle>
+                    <AlertDescription>{submitError}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={saving}
+                    onClick={goBack}
+                  >
+                    <ChevronLeftIcon data-icon="inline-start" />
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="xl"
+                    disabled={saving || !nextStepChoice}
+                  >
+                    {saving ? "Saving…" : "Save check-in"}
+                    {!saving ? <ArrowRightIcon data-icon="inline-end" /> : null}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}

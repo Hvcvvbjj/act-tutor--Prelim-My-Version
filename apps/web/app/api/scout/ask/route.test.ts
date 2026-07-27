@@ -223,8 +223,8 @@ describe("Scout server policy", () => {
       exam: null,
     })
 
-    expect(choose.explanation).toContain("18–25 questions")
-    expect(choose.explanation).toContain("66 English, Math, and Reading")
+    expect(choose.explanation).toContain("36–50 questions")
+    expect(choose.explanation).toContain("Full-length contains 131")
     expect(results.explanation).toContain(
       "does not update Today, My Week, or the skill web"
     )

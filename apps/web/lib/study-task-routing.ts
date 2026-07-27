@@ -32,7 +32,7 @@ function matchesCurrentMission(
   if (task.skill === null || task.skill !== learning.todaySkill) return false
   if (task.kind === "review") return learning.mode === "retention"
   if (task.kind === "lesson" || task.kind === "focus") {
-    return learning.mode === "focus"
+    return learning.mode === "foundation" || learning.mode === "focus"
   }
   return false
 }

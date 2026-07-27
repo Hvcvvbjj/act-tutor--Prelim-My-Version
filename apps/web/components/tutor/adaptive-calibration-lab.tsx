@@ -41,6 +41,7 @@ interface AdaptiveCalibrationLabProps {
   onReturnToToday: () => void
   onStartFullDiagnostic: () => void
   adaptiveBaselineRequired: boolean
+  preserveReportedScore?: boolean
   onUseAdaptiveBaseline: () => Promise<void>
   canViewTechnicalDetails: boolean
 }
@@ -447,6 +448,7 @@ export function AdaptiveCalibrationLab({
   onReturnToToday,
   onStartFullDiagnostic,
   adaptiveBaselineRequired,
+  preserveReportedScore = false,
   onUseAdaptiveBaseline,
   canViewTechnicalDetails,
 }: AdaptiveCalibrationLabProps) {
@@ -823,9 +825,9 @@ export function AdaptiveCalibrationLab({
                   Build my plan from these answers
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Scout will turn these answers into a temporary planning
-                  baseline for your schedule. It is not an official ACT score or
-                  score prediction.
+                  {preserveReportedScore
+                    ? "Your reported ACT score stays as the planning baseline. These answers add the question-type evidence needed for your skill profile and first lesson round."
+                    : "Scout will turn these answers into a temporary planning baseline for your schedule. It is not an official ACT score or score prediction."}
                 </p>
               </div>
               <Button

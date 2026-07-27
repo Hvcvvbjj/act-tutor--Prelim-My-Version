@@ -50,17 +50,22 @@ export function TestDayLab({
   initialMode = "sprint",
   initialSection = "english",
   canViewTechnicalDetails = false,
+  onUseForNextRound,
+  lockToInitialMode = false,
 }: {
   extendedTime?: boolean
   initialMode?: ExamLabMode
   initialSection?: CoreSection
   canViewTechnicalDetails?: boolean
+  onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
+  lockToInitialMode?: boolean
 }) {
   const [screen, setScreen] = useState<LabScreen>("loading")
   const [session, setSession] = useState<ExamLabSessionPayload | null>(null)
   const [mode, setMode] = useState<ExamLabMode>(initialMode)
   const [section, setSection] = useState<CoreSection>(initialSection)
   const [busy, setBusy] = useState(false)
+  const [applyingToPlan, setApplyingToPlan] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
   const [timeLeft, setTimeLeft] = useState(0)
@@ -79,7 +84,7 @@ export function TestDayLab({
         return (await response.json()) as SessionResponse
       })
       .then(({ session: resumed }) => {
-        if (resumed) {
+        if (resumed && (!lockToInitialMode || resumed.mode === initialMode)) {
           setSession(resumed)
           setScreen(screenFor(resumed))
           openedAt.current = Date.now()
@@ -97,7 +102,7 @@ export function TestDayLab({
         setScreen("setup")
       })
     return () => controller.abort()
-  }, [])
+  }, [initialMode, lockToInitialMode])
 
   useEffect(() => {
     if (!session || screen !== "runner") return
@@ -343,6 +348,30 @@ export function TestDayLab({
     }
   }
 
+  async function applyToNextRound() {
+    if (
+      !session ||
+      !onUseForNextRound ||
+      session.mode !== "core" ||
+      session.result?.unanswered !== 0
+    ) {
+      return
+    }
+    setApplyingToPlan(true)
+    setError(null)
+    try {
+      await onUseForNextRound(session)
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not build the next lesson round."
+      )
+    } finally {
+      setApplyingToPlan(false)
+    }
+  }
+
   if (screen === "loading") {
     return (
       <main
@@ -375,6 +404,7 @@ export function TestDayLab({
           section={section}
           busy={busy}
           extendedTime={extendedTime}
+          modeLocked={lockToInitialMode}
           onModeChange={setMode}
           onSectionChange={setSection}
           onStart={start}
@@ -405,6 +435,14 @@ export function TestDayLab({
         <ExamLabReport
           session={session}
           onNewRun={reset}
+          onUseForNextRound={
+            onUseForNextRound &&
+            session.mode === "core" &&
+            session.result?.unanswered === 0
+              ? applyToNextRound
+              : undefined
+          }
+          applyingToPlan={applyingToPlan}
           canViewTechnicalDetails={canViewTechnicalDetails}
         />
       ) : null}

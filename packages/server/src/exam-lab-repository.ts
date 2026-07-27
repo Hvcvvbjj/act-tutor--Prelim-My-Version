@@ -77,7 +77,7 @@ function addMinutes(iso: string, minutes: number) {
 }
 
 function titleFor(mode: ExamLabMode, section: CoreSection | null) {
-  if (mode === "core") return "Half-length core rehearsal";
+  if (mode === "core") return "Full-length core rehearsal";
   if (mode === "sprint") return "Twelve-skill pressure sprint";
   if (!section) throw new RangeError("A section is required.");
   return `${section[0].toUpperCase()}${section.slice(1)} section simulation`;

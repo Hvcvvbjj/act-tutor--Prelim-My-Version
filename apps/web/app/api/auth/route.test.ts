@@ -112,6 +112,56 @@ describe.sequential("optional learner and judge accounts", () => {
     expect(stored).toContain("pbkdf2-sha256")
   })
 
+  it("persists pending score follow-ups and the onboarding official baseline", async () => {
+    const response = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-pending",
+        displayName: "Pending Learner",
+        password: "StudyPending!2026",
+        savedPlan: {
+          ...savedPlan,
+          version: 2,
+          profileSkillResults: [],
+          journey: {
+            version: 1,
+            tourVersion: 1,
+            onboardingCompleted: true,
+            lessonEntryChoice: "start-lessons",
+            officialScoreHistory: [],
+            pendingOfficialScores: [
+              {
+                testDate: "2026-07-18",
+                recordedAt: "2026-07-26T12:00:00.000Z",
+                nextPromptOn: "2026-08-02",
+              },
+            ],
+            baselineOfficialComposite: 24,
+            checkInSnoozedUntil: null,
+            doneForNow: false,
+          },
+        },
+      })
+    )
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: {
+          journey: {
+            pendingOfficialScores: [
+              {
+                testDate: "2026-07-18",
+                nextPromptOn: "2026-08-02",
+              },
+            ],
+            baselineOfficialComposite: 24,
+          },
+        },
+      },
+    })
+  })
+
   it("restores linked progress after a learner signs out and back in", async () => {
     const firstLogin = await POST(
       authRequest({

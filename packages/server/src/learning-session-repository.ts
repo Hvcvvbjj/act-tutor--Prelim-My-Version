@@ -21,6 +21,7 @@ import {
   type AnswerConfidence,
   type CoachBrief,
   type DiagnosticSkillResult,
+  type LearningCycleState,
   type LearningSessionMode,
   type LearningSessionPayload,
   type LearningDecisionEvent,
@@ -62,6 +63,12 @@ export interface StartLearningSessionInput {
 
 export interface RebaseLearningSessionInput {
   calibrationKey: string;
+  diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
+  plan: LessonPlanContext;
+}
+
+export interface ApplyLearningRoundAssessmentInput {
+  assessmentKey: string;
   diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
   plan: LessonPlanContext;
 }
@@ -111,6 +118,7 @@ interface StoredLearningSession {
   todaySkill: string;
   previousNextSkill: string;
   nextSkill: string;
+  cycle?: LearningCycleState;
   mode?: LearningSessionMode;
   lessonComplete: boolean;
   questionIds: string[];
@@ -131,6 +139,7 @@ interface StoredLearningSession {
   repairMistakeId?: string | null;
   returnSkillAfterPrerequisite?: string | null;
   calibrationRebaseKey?: string;
+  appliedAssessmentKeys?: string[];
   processedAnswerCommands?: Record<
     string,
     { questionId: string; choiceId: string }
@@ -171,6 +180,276 @@ function getQuestions(bank: LearningBankInput, skill: string) {
   if (questions.length !== 5)
     throw new RangeError(`Expected 5 practice questions for ${skill}.`);
   return questions;
+}
+
+function canonicalSkillSlugs(bank: LearningBankInput) {
+  const requiredSkills = bank.skills.map((skill) => skill.slug);
+  if (requiredSkills.length === 0) {
+    throw new RangeError("The learning bank must contain at least one skill.");
+  }
+  if (new Set(requiredSkills).size !== requiredSkills.length) {
+    throw new RangeError("Learning skill slugs must be unique.");
+  }
+  return requiredSkills;
+}
+
+function firstUncompletedFoundationSkill(cycle: LearningCycleState) {
+  const completed = new Set(cycle.completedSkills);
+  return cycle.requiredSkills.find((skill) => !completed.has(skill)) ?? null;
+}
+
+function ensureCycle(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+): { cycle: LearningCycleState; migrated: boolean } {
+  if (session.cycle) return { cycle: session.cycle, migrated: false };
+
+  const requiredSkills = canonicalSkillSlugs(bank);
+  const legacyMode = session.mode ?? "focus";
+  const currentMissionComplete =
+    session.questionIds.length > 0 &&
+    session.answers.length === session.questionIds.length;
+  const completedSkills =
+    legacyMode === "focus" && currentMissionComplete
+      ? [session.todaySkill]
+      : [];
+  const firstRemaining =
+    requiredSkills.find((skill) => !completedSkills.includes(skill)) ?? null;
+  const nextSkill =
+    legacyMode === "focus" && !currentMissionComplete
+      ? session.todaySkill
+      : firstRemaining;
+  const cycle: LearningCycleState = {
+    roundNumber: 1,
+    kind: "foundation",
+    status: nextSkill ? "lessons" : "assessment-choice",
+    requiredSkills,
+    completedSkills,
+    nextSkill,
+  };
+  session.cycle = cycle;
+  if (legacyMode === "focus") session.mode = "foundation";
+  session.previousNextSkill = session.nextSkill;
+  session.nextSkill = nextSkill ?? session.todaySkill;
+  session.futureTask = {
+    todaySkill: session.todaySkill,
+    nextSkill: session.nextSkill,
+    changed: session.nextSkill !== session.previousNextSkill,
+    reason: nextSkill
+      ? `Continue round 1 with ${getSkill(bank, nextSkill).label}.`
+      : "Round 1 is complete. Choose the next assessment with Mr. Kim.",
+  };
+  return { cycle, migrated: true };
+}
+
+function advanceFoundationCycle(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+) {
+  const { cycle } = ensureCycle(session, bank);
+  if (cycle.kind !== "foundation" || cycle.status !== "lessons") return cycle;
+  if (!cycle.requiredSkills.includes(session.todaySkill)) {
+    throw new RangeError(
+      "The current skill is not part of the foundation curriculum.",
+    );
+  }
+  if (!cycle.completedSkills.includes(session.todaySkill)) {
+    cycle.completedSkills = [...cycle.completedSkills, session.todaySkill];
+  }
+  cycle.nextSkill = firstUncompletedFoundationSkill(cycle);
+  cycle.status = cycle.nextSkill ? "lessons" : "assessment-choice";
+  return cycle;
+}
+
+function advanceAdaptiveCycle(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+) {
+  const { cycle } = ensureCycle(session, bank);
+  if (cycle.kind !== "adaptive" || cycle.status !== "lessons") return cycle;
+  if (!cycle.requiredSkills.includes(session.todaySkill)) {
+    throw new RangeError(
+      "The current skill is not part of this adaptive lesson round.",
+    );
+  }
+  if (!cycle.completedSkills.includes(session.todaySkill)) {
+    cycle.completedSkills = [...cycle.completedSkills, session.todaySkill];
+  }
+  const completed = new Set(cycle.completedSkills);
+  cycle.nextSkill =
+    cycle.requiredSkills.find((skill) => !completed.has(skill)) ?? null;
+  cycle.status = cycle.nextSkill ? "lessons" : "assessment-choice";
+  return cycle;
+}
+
+function masteryBand(mastery: number, evidence: number) {
+  if (evidence < 1) return "new" as const;
+  if (mastery >= 0.82 && evidence >= 6) return "secure" as const;
+  if (mastery >= 0.68 && evidence >= 4) return "steady" as const;
+  return "building" as const;
+}
+
+function mergeAssessmentMastery(
+  state: MasteryState,
+  result: DiagnosticSkillResult,
+) {
+  const alpha = state.alpha + result.correct;
+  const beta = state.beta + result.total - result.correct;
+  const evidence = state.evidence + result.total;
+  const mastery = alpha / (alpha + beta);
+  return {
+    ...state,
+    alpha,
+    beta,
+    evidence,
+    mastery,
+    band: masteryBand(mastery, evidence),
+  };
+}
+
+function adaptiveRoundSkills(
+  bank: LearningBankInput,
+  diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>,
+  states: Record<string, KnowledgeState>,
+) {
+  const rankedFromAssessment = [...diagnosticSkillResults]
+    .filter((result) => result.total > 0)
+    .sort(
+      (left, right) =>
+        left.accuracy - right.accuracy ||
+        right.total - left.total ||
+        left.label.localeCompare(right.label),
+    )
+    .flatMap((result) => {
+      const skill = bank.skills.find(
+        (candidate) => candidate.diagnosticSkill === result.skill,
+      );
+      return skill ? [skill.slug] : [];
+    });
+  const fallback = rankKnowledgeStates(Object.values(states)).map(
+    (state) => state.skill,
+  );
+  return finiteRoundSkillsWithCoverage(bank, [
+    ...rankedFromAssessment,
+    ...fallback,
+  ]);
+}
+
+function finiteRoundSkillsWithCoverage(
+  bank: LearningBankInput,
+  rankedCandidates: ReadonlyArray<string>,
+) {
+  const candidates = rankedCandidates.filter(
+    (skill, index, all) =>
+      all.indexOf(skill) === index &&
+      bank.skills.some((candidate) => candidate.slug === skill),
+  );
+  const limit = Math.min(6, bank.skills.length);
+  const selected = candidates.slice(0, limit);
+
+  for (const section of ["english", "math", "reading"] as const) {
+    if (selected.some((skill) => getSkill(bank, skill).section === section)) {
+      continue;
+    }
+    const missingSectionSkill = candidates.find(
+      (skill) => getSkill(bank, skill).section === section,
+    );
+    if (!missingSectionSkill) continue;
+    if (selected.length < limit) {
+      selected.push(missingSectionSkill);
+      continue;
+    }
+    let replacementIndex = -1;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      const skill = selected[index];
+      const selectedSection = getSkill(bank, skill).section;
+      if (
+        selectedSection !== section &&
+        selected.filter(
+          (candidate) => getSkill(bank, candidate).section === selectedSection,
+        ).length > 1
+      ) {
+        replacementIndex = index;
+        break;
+      }
+    }
+    if (replacementIndex >= 0) {
+      selected[replacementIndex] = missingSectionSkill;
+    }
+  }
+
+  return selected.sort(
+    (left, right) => candidates.indexOf(left) - candidates.indexOf(right),
+  );
+}
+
+function scoreContextChanged(
+  previous: LessonPlanContext | undefined,
+  next: LessonPlanContext,
+) {
+  if (!previous) return false;
+  if (previous.scoreEvidenceKey !== next.scoreEvidenceKey) return true;
+  if (previous.currentScore !== next.currentScore) return true;
+  const previousSections = previous.sectionScores;
+  const nextSections = next.sectionScores;
+  if (!previousSections && !nextSections) return false;
+  if (!previousSections || !nextSections) return true;
+  return (
+    previousSections.english !== nextSections.english ||
+    previousSections.math !== nextSections.math ||
+    previousSections.reading !== nextSections.reading
+  );
+}
+
+function scoreDrivenRoundSkills(
+  bank: LearningBankInput,
+  states: Record<string, KnowledgeState>,
+  plan: LessonPlanContext,
+) {
+  const knowledgeRank = rankKnowledgeStates(Object.values(states));
+  const rankIndex = new Map(
+    knowledgeRank.map((state, index) => [state.skill, index]),
+  );
+  const sectionGap = (state: KnowledgeState) =>
+    plan.sectionScores
+      ? Math.max(0, plan.goalScore - plan.sectionScores[state.section])
+      : Math.max(0, plan.goalScore - plan.currentScore);
+  const ranked = [...knowledgeRank]
+    .sort(
+      (left, right) =>
+        sectionGap(right) - sectionGap(left) ||
+        (rankIndex.get(left.skill) ?? 0) - (rankIndex.get(right.skill) ?? 0),
+    )
+    .map((state) => state.skill);
+  return finiteRoundSkillsWithCoverage(bank, ranked);
+}
+
+async function composeLearningLesson(input: {
+  bank: LearningBankInput;
+  skillSlug: string;
+  diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
+  plan: LessonPlanContext;
+  lessonComposer: LessonComposer;
+  foundation: boolean;
+}) {
+  const lesson = await input.lessonComposer.compose({
+    baseLesson: getLesson(input.bank, input.skillSlug),
+    skill: getSkill(input.bank, input.skillSlug),
+    diagnosticSkillResults: input.foundation
+      ? []
+      : input.diagnosticSkillResults,
+    plan: input.plan,
+  });
+  if (!input.foundation) return lesson;
+  return {
+    ...lesson,
+    depth: "foundation" as const,
+    whyAssigned:
+      "Round 1 teaches every ACT question type in the curriculum before Scout specializes your later rounds.",
+    evidenceSummary: input.diagnosticSkillResults.length
+      ? "Your diagnostic shaped Scout’s starting estimates. It does not remove any Round 1 lesson."
+      : "Scout will teach every question type in Round 1, then use your measured results to specialize later rounds.",
+  };
 }
 
 function leastExposedQuestions(
@@ -248,10 +527,11 @@ function assertSessionMatchesBank(
     );
   }
   ensureProfile(session);
+  ensureCycle(session, bank);
   const questions = getSessionQuestions(session, bank);
   ensureLearningTwin(session, bank);
   if (
-    session.mode === "focus" &&
+    (session.mode === "foundation" || session.mode === "focus") &&
     (questions.length !== 5 ||
       questions.some((question) => question.skill !== session.todaySkill))
   ) {
@@ -305,8 +585,14 @@ function fallbackLesson(
     tutorOpening: `Let’s make ${baseLesson.title.toLowerCase()} easier, one step at a time.`,
     sections: [
       {
+        id: "question-type",
+        title: "Know the question type",
+        explanation: baseLesson.objective,
+        coachPrompt: "What is this question type asking you to notice?",
+      },
+      {
         id: "mental-model",
-        title: "Learn the main idea",
+        title: "Build the main idea",
         explanation: baseLesson.concept,
         coachPrompt: "What do you need to notice first?",
       },
@@ -318,9 +604,15 @@ function fallbackLesson(
       },
       {
         id: "decision-rule",
-        title: "Use the rule",
+        title: "Follow the decision steps",
         explanation: baseLesson.steps.join(" "),
         coachPrompt: "Which step prevents the common trap?",
+      },
+      {
+        id: "need-to-know",
+        title: "Keep what you need",
+        explanation: `${baseLesson.steps.join(" ")} Watch out for this common mistake: ${baseLesson.trap}`,
+        coachPrompt: "What one step do you need to remember next time?",
       },
       {
         id: "transfer",
@@ -869,6 +1161,7 @@ function toPayload(
   lastFeedback: PracticeFeedback | null = null,
 ): LearningSessionPayload {
   ensureProfile(session);
+  const { cycle } = ensureCycle(session, bank);
   const learningTwinBySkill = ensureLearningTwin(session, bank);
   const questions = getSessionQuestions(session, bank);
   const answeredQuestionIds = session.answers.map(
@@ -902,6 +1195,11 @@ function toPayload(
   return {
     sessionId: session.id,
     bankVersion: session.bankVersion,
+    cycle: {
+      ...cycle,
+      requiredSkills: [...cycle.requiredSkills],
+      completedSkills: [...cycle.completedSkills],
+    },
     todaySkill: session.todaySkill,
     previousNextSkill: session.previousNextSkill,
     nextSkill: session.nextSkill,
@@ -975,22 +1273,6 @@ function makeInitialKnowledgeStates(
   );
 }
 
-function sameScoreContext(
-  left: LessonPlanContext | undefined,
-  right: LessonPlanContext,
-) {
-  if (!left || left.currentScore !== right.currentScore) return false;
-  const leftSections = left.sectionScores;
-  const rightSections = right.sectionScores;
-  if (!leftSections && !rightSections) return true;
-  if (!leftSections || !rightSections) return false;
-  return (
-    leftSections.english === rightSections.english &&
-    leftSections.math === rightSections.math &&
-    leftSections.reading === rightSections.reading
-  );
-}
-
 function ensureLearningTwin(
   session: StoredLearningSession,
   bank: LearningBankInput,
@@ -1059,10 +1341,12 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
     sessionId: string,
     bank: LearningBankInput,
   ): Promise<LearningSessionPayload> {
-    return this.transact((store) => {
+    return this.transact(async (store) => {
       const session = store.sessions[sessionId];
       if (!session) throw new RangeError("Learning session not found.");
+      const needsCycleMigration = !session.cycle;
       assertSessionMatchesBank(session, bank);
+      if (needsCycleMigration) await this.writeStore(store);
       return toPayload(session, bank, session.answers.at(-1)?.feedback ?? null);
     });
   }
@@ -1074,35 +1358,132 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
     lessonComposer: LessonComposer = new AuthoredLessonComposer(),
   ): Promise<{ sessionId: string; payload: LearningSessionPayload }> {
     getSkill(bank, input.skill);
-    const questionIds = getQuestions(bank, input.skill).map(
+    const firstFoundationSkill = canonicalSkillSlugs(bank)[0];
+    const questionIds = getQuestions(bank, firstFoundationSkill).map(
       (question) => question.id,
     );
     return this.transact(async (store) => {
       const existing = sessionId ? store.sessions[sessionId] : undefined;
       if (existing) {
         try {
-          if (!sameScoreContext(existing.planContext, input.plan)) {
-            throw new RangeError(
-              "The score baseline changed; start a new learner model.",
-            );
-          }
           const needsLearningTwinMigration =
             !existing.planContext || !existing.learningTwinBySkill;
+          const needsCycleMigration = !existing.cycle;
           assertSessionMatchesBank(existing, bank);
           const planContextChanged =
             JSON.stringify(existing.planContext) !== JSON.stringify(input.plan);
           if (planContextChanged) {
+            const officialScoreChanged = scoreContextChanged(
+              existing.planContext,
+              input.plan,
+            );
+            const { cycle } = ensureCycle(existing, bank);
+            const profile = ensureProfile(existing);
+            const states = ensureLearningTwin(existing, bank);
             existing.planContext = input.plan;
-            existing.lesson = await lessonComposer.compose({
-              baseLesson: getLesson(bank, existing.todaySkill),
-              skill: getSkill(bank, existing.todaySkill),
-              diagnosticSkillResults:
-                ensureProfile(existing).diagnosticSkillResults,
-              plan: input.plan,
-            });
-            existing.updatedAt = new Date().toISOString();
+            const now = new Date().toISOString();
+            if (officialScoreChanged && cycle.status === "assessment-choice") {
+              const requiredSkills = scoreDrivenRoundSkills(
+                bank,
+                states,
+                input.plan,
+              );
+              const nextSkill = requiredSkills[0];
+              if (!nextSkill) {
+                throw new RangeError(
+                  "The official score could not produce a next lesson.",
+                );
+              }
+              const lesson = await composeLearningLesson({
+                bank,
+                skillSlug: nextSkill,
+                diagnosticSkillResults: profile.diagnosticSkillResults,
+                plan: input.plan,
+                lessonComposer,
+                foundation: false,
+              });
+              const previousSkill = existing.todaySkill;
+              existing.cycle = {
+                roundNumber: cycle.roundNumber + 1,
+                kind: "adaptive",
+                status: "lessons",
+                requiredSkills,
+                completedSkills: [],
+                nextSkill,
+              };
+              existing.todaySkill = nextSkill;
+              existing.previousNextSkill = previousSkill;
+              existing.nextSkill = nextSkill;
+              existing.mode = "focus";
+              existing.lessonComplete = false;
+              existing.questionIds = getQuestions(bank, nextSkill).map(
+                (question) => question.id,
+              );
+              existing.answers = [];
+              existing.lesson = lesson;
+              captureLessonEvidence(existing, lesson);
+              existing.futureTask = {
+                todaySkill: nextSkill,
+                nextSkill,
+                changed: nextSkill !== previousSkill,
+                reason: `Round ${cycle.roundNumber + 1} starts with ${getSkill(bank, nextSkill).label}; the new official score changed the section priorities while prior skill evidence stayed intact.`,
+              };
+              existing.repairMistakeId = null;
+              existing.returnSkillAfterPrerequisite = null;
+              profile.lessonXpAwarded = false;
+              profile.completionXpAwarded = false;
+            } else {
+              if (
+                officialScoreChanged &&
+                cycle.kind === "adaptive" &&
+                cycle.status === "lessons"
+              ) {
+                const ranked = scoreDrivenRoundSkills(bank, states, input.plan);
+                const activeSkill = cycle.completedSkills.includes(
+                  existing.todaySkill,
+                )
+                  ? (cycle.nextSkill ?? existing.todaySkill)
+                  : existing.todaySkill;
+                const remainingSlots = Math.max(
+                  1,
+                  Math.min(6, bank.skills.length) -
+                    cycle.completedSkills.length,
+                );
+                const remaining = [
+                  activeSkill,
+                  ...ranked.filter(
+                    (skill) =>
+                      skill !== activeSkill &&
+                      !cycle.completedSkills.includes(skill),
+                  ),
+                ].slice(0, remainingSlots);
+                cycle.requiredSkills = [...cycle.completedSkills, ...remaining];
+                cycle.nextSkill = activeSkill;
+                existing.nextSkill = activeSkill;
+                existing.futureTask = {
+                  todaySkill: existing.todaySkill,
+                  nextSkill: activeSkill,
+                  changed: activeSkill !== existing.todaySkill,
+                  reason:
+                    "The new official score reprioritized the remaining skills in this round without erasing completed lessons or practice.",
+                };
+              }
+              existing.lesson = await composeLearningLesson({
+                bank,
+                skillSlug: existing.todaySkill,
+                diagnosticSkillResults: profile.diagnosticSkillResults,
+                plan: input.plan,
+                lessonComposer,
+                foundation: cycle.kind === "foundation",
+              });
+            }
+            existing.updatedAt = now;
           }
-          if (needsLearningTwinMigration || planContextChanged) {
+          if (
+            needsLearningTwinMigration ||
+            needsCycleMigration ||
+            planContextChanged
+          ) {
             await this.writeStore(store);
           }
           return {
@@ -1128,23 +1509,29 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         input.plan.currentScore,
         input.plan.sectionScores,
       );
-      const initialRecommendation = recommendKnowledgeState(
-        Object.values(learningTwinBySkill),
-        input.skill,
-      );
-      const lesson = await lessonComposer.compose({
-        baseLesson: getLesson(bank, input.skill),
-        skill: getSkill(bank, input.skill),
+      const lesson = await composeLearningLesson({
+        bank,
+        skillSlug: firstFoundationSkill,
         diagnosticSkillResults: input.diagnosticSkillResults ?? [],
         plan: input.plan,
+        lessonComposer,
+        foundation: true,
       });
       const created: StoredLearningSession = {
         id: randomUUID(),
         bankVersion: bank.version,
-        todaySkill: input.skill,
-        previousNextSkill: input.skill,
-        nextSkill: initialRecommendation.skill,
-        mode: "focus",
+        todaySkill: firstFoundationSkill,
+        previousNextSkill: firstFoundationSkill,
+        nextSkill: firstFoundationSkill,
+        cycle: {
+          roundNumber: 1,
+          kind: "foundation",
+          status: "lessons",
+          requiredSkills: canonicalSkillSlugs(bank),
+          completedSkills: [],
+          nextSkill: firstFoundationSkill,
+        },
+        mode: "foundation",
         lessonComplete: false,
         questionIds,
         answers: [],
@@ -1152,10 +1539,10 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         learningTwinBySkill,
         learningTwinEvents: [],
         futureTask: {
-          todaySkill: input.skill,
-          nextSkill: initialRecommendation.skill,
-          changed: initialRecommendation.skill !== input.skill,
-          reason: initialRecommendation.reason,
+          todaySkill: firstFoundationSkill,
+          nextSkill: firstFoundationSkill,
+          changed: false,
+          reason: `Round 1 starts with ${getSkill(bank, firstFoundationSkill).label} and covers every curriculum skill before adapting.`,
         },
         lesson,
         profile: {
@@ -1217,25 +1604,35 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         input.diagnosticSkillResults,
       );
       const learningTwinBySkill = ensureLearningTwin(session, bank);
-      const recommendation = buildLearningTwinSnapshot({
-        states: Object.values(learningTwinBySkill),
-        events: session.learningTwinEvents ?? [],
-        preferredSkill: session.nextSkill,
-      }).recommendation;
-      const nextSkill = recommendation.skill;
+      const { cycle } = ensureCycle(session, bank);
+      const nextSkill =
+        cycle.kind === "foundation"
+          ? cycle.nextSkill
+          : buildLearningTwinSnapshot({
+              states: Object.values(learningTwinBySkill),
+              events: session.learningTwinEvents ?? [],
+              preferredSkill: session.nextSkill,
+            }).recommendation.skill;
+      if (!nextSkill) {
+        throw new RangeError(
+          "Round 1 is complete. Choose the next assessment with Mr. Kim.",
+        );
+      }
       const previousSkill = session.todaySkill;
-      const lesson = await lessonComposer.compose({
-        baseLesson: getLesson(bank, nextSkill),
-        skill: getSkill(bank, nextSkill),
+      const lesson = await composeLearningLesson({
+        bank,
+        skillSlug: nextSkill,
         diagnosticSkillResults: input.diagnosticSkillResults,
         plan: input.plan,
+        lessonComposer,
+        foundation: cycle.kind === "foundation",
       });
       const now = new Date().toISOString();
 
       session.todaySkill = nextSkill;
       session.previousNextSkill = previousSkill;
       session.nextSkill = nextSkill;
-      session.mode = "focus";
+      session.mode = cycle.kind === "foundation" ? "foundation" : "focus";
       session.lessonComplete = false;
       session.questionIds = getQuestions(bank, nextSkill).map(
         (question) => question.id,
@@ -1246,7 +1643,10 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         todaySkill: nextSkill,
         nextSkill,
         changed: nextSkill !== previousSkill,
-        reason: `Quick Check replaced the temporary baseline. ${recommendation.reason}`,
+        reason:
+          cycle.kind === "foundation"
+            ? `Quick Check replaced the temporary baseline. Round 1 still covers every curriculum skill, starting with ${getSkill(bank, nextSkill).label}.`
+            : "Quick Check replaced the temporary baseline and updated the next lesson.",
       };
       session.lesson = lesson;
       session.profile = {
@@ -1274,6 +1674,148 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
     });
   }
 
+  async applyRoundAssessment(
+    sessionId: string,
+    bank: LearningBankInput,
+    input: ApplyLearningRoundAssessmentInput,
+    lessonComposer: LessonComposer = new AuthoredLessonComposer(),
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      if (input.assessmentKey.trim().length < 8) {
+        throw new RangeError("A stable assessment key is required.");
+      }
+      if (session.appliedAssessmentKeys?.includes(input.assessmentKey)) {
+        return toPayload(session, bank);
+      }
+      const { cycle } = ensureCycle(session, bank);
+      if (cycle.status !== "assessment-choice") {
+        throw new RangeError(
+          "Finish the current lesson round before applying an assessment.",
+        );
+      }
+      if (input.diagnosticSkillResults.length === 0) {
+        throw new RangeError(
+          "A completed diagnostic or full-length test is required.",
+        );
+      }
+
+      const profile = ensureProfile(session);
+      const states = ensureLearningTwin(session, bank);
+      const now = new Date().toISOString();
+      for (const result of input.diagnosticSkillResults) {
+        if (
+          !Number.isInteger(result.correct) ||
+          !Number.isInteger(result.total) ||
+          result.total <= 0 ||
+          result.correct < 0 ||
+          result.correct > result.total ||
+          Math.abs(result.accuracy - result.correct / result.total) > 0.0001
+        ) {
+          throw new RangeError("Assessment skill counts are malformed.");
+        }
+        const skill = bank.skills.find(
+          (candidate) => candidate.diagnosticSkill === result.skill,
+        );
+        if (!skill || skill.section !== result.section) {
+          throw new RangeError(
+            `Assessment skill ${result.skill} is not in this learning bank.`,
+          );
+        }
+        const mastery = session.masteryBySkill[skill.slug];
+        if (!mastery) {
+          throw new RangeError(`Mastery state is missing for ${skill.slug}.`);
+        }
+        session.masteryBySkill[skill.slug] = mergeAssessmentMastery(
+          mastery,
+          result,
+        );
+        let state = states[skill.slug];
+        if (!state) {
+          throw new RangeError(
+            `Learning Twin state is missing for ${skill.slug}.`,
+          );
+        }
+        for (let index = 0; index < result.total; index += 1) {
+          const update = applyKnowledgeObservation(state, {
+            questionId: `${input.assessmentKey}:${result.skill}:${index + 1}`,
+            correct: index < result.correct,
+            difficulty: "medium",
+            observedAt: now,
+            source: "calibration",
+            confidence: "sure",
+          });
+          state = update.state;
+          session.learningTwinEvents ??= [];
+          session.learningTwinEvents.push(update.event);
+        }
+        states[skill.slug] = state;
+      }
+      session.learningTwinEvents = (session.learningTwinEvents ?? []).slice(
+        -500,
+      );
+      profile.diagnosticSkillResults = [...input.diagnosticSkillResults];
+
+      const requiredSkills = adaptiveRoundSkills(
+        bank,
+        input.diagnosticSkillResults,
+        states,
+      );
+      const nextSkill = requiredSkills[0];
+      if (!nextSkill) {
+        throw new RangeError("The next adaptive lesson could not be selected.");
+      }
+      const lesson = await composeLearningLesson({
+        bank,
+        skillSlug: nextSkill,
+        diagnosticSkillResults: input.diagnosticSkillResults,
+        plan: input.plan,
+        lessonComposer,
+        foundation: false,
+      });
+      const previousSkill = session.todaySkill;
+      session.cycle = {
+        roundNumber: cycle.roundNumber + 1,
+        kind: "adaptive",
+        status: "lessons",
+        requiredSkills,
+        completedSkills: [],
+        nextSkill,
+      };
+      session.todaySkill = nextSkill;
+      session.previousNextSkill = previousSkill;
+      session.nextSkill = nextSkill;
+      session.mode = "focus";
+      session.lessonComplete = false;
+      session.questionIds = getQuestions(bank, nextSkill).map(
+        (question) => question.id,
+      );
+      session.answers = [];
+      session.lesson = lesson;
+      captureLessonEvidence(session, lesson);
+      session.futureTask = {
+        todaySkill: nextSkill,
+        nextSkill,
+        changed: nextSkill !== previousSkill,
+        reason: `Round ${cycle.roundNumber + 1} starts with ${getSkill(bank, nextSkill).label}, based on the newest completed assessment.`,
+      };
+      session.planContext = input.plan;
+      session.repairMistakeId = null;
+      session.returnSkillAfterPrerequisite = null;
+      profile.lessonXpAwarded = false;
+      profile.completionXpAwarded = false;
+      session.appliedAssessmentKeys = [
+        ...(session.appliedAssessmentKeys ?? []),
+        input.assessmentKey,
+      ].slice(-50);
+      session.updatedAt = now;
+      await this.writeStore(store);
+      return toPayload(session, bank);
+    });
+  }
+
   async completeLesson(
     sessionId: string,
     bank: LearningBankInput,
@@ -1282,7 +1824,11 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const session = store.sessions[sessionId];
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
-      if (session.mode !== "focus" && session.mode !== "micro")
+      if (
+        session.mode !== "foundation" &&
+        session.mode !== "focus" &&
+        session.mode !== "micro"
+      )
         throw new RangeError("This mission does not contain a lesson.");
       const profile = ensureProfile(session);
       const now = new Date().toISOString();
@@ -1313,18 +1859,32 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           "Finish the current mission before switching skills.",
         );
       const profile = ensureProfile(session);
-      const skillSlug = input.skill ?? session.nextSkill;
+      const { cycle } = ensureCycle(session, bank);
+      let skillSlug = input.skill ?? session.nextSkill;
+      if (cycle.status !== "lessons" || !cycle.nextSkill) {
+        throw new RangeError(
+          `Round ${cycle.roundNumber} is complete. Choose the next assessment with Mr. Kim.`,
+        );
+      }
+      if (input.skill && input.skill !== cycle.nextSkill) {
+        throw new RangeError(
+          `Round ${cycle.roundNumber} continues with ${getSkill(bank, cycle.nextSkill).label}; lessons cannot be skipped or repeated.`,
+        );
+      }
+      skillSlug = cycle.nextSkill;
       const skill = getSkill(bank, skillSlug);
-      const lesson = await lessonComposer.compose({
-        baseLesson: getLesson(bank, skillSlug),
-        skill,
+      const lesson = await composeLearningLesson({
+        bank,
+        skillSlug,
         diagnosticSkillResults: profile.diagnosticSkillResults,
         plan: input.plan,
+        lessonComposer,
+        foundation: cycle.kind === "foundation",
       });
       session.todaySkill = skillSlug;
       session.previousNextSkill = session.nextSkill;
       session.nextSkill = skillSlug;
-      session.mode = "focus";
+      session.mode = cycle.kind === "foundation" ? "foundation" : "focus";
       session.repairMistakeId = null;
       const returnTarget = session.returnSkillAfterPrerequisite;
       if (!returnTarget || PREREQUISITES[returnTarget] !== skillSlug) {
@@ -1344,7 +1904,10 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         todaySkill: skillSlug,
         nextSkill: skillSlug,
         changed: false,
-        reason: `${skill.label} needs the next practice round.`,
+        reason:
+          cycle.kind === "foundation"
+            ? `Round 1 continues with ${skill.label}; every curriculum skill is covered once.`
+            : `Round ${cycle.roundNumber} continues with ${skill.label}, based on the latest assessment.`,
       };
       session.updatedAt = new Date().toISOString();
       await this.writeStore(store);
@@ -1727,38 +2290,49 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const completingMission = session.answers.length === questions.length - 1;
       let recommendation = rankedRecommendation;
       let recommendationReason = rankedRecommendation.reason;
-      if (
-        session.returnSkillAfterPrerequisite &&
-        session.todaySkill ===
-          PREREQUISITES[session.returnSkillAfterPrerequisite]
-      ) {
-        if (completingMission) {
-          const returnSkill = session.returnSkillAfterPrerequisite;
-          recommendation = recommendKnowledgeState([
-            learningTwinBySkill[returnSkill],
-          ]);
-          recommendationReason = `Prerequisite practice is complete. Return to ${getSkill(bank, returnSkill).label} and apply the repaired foundation.`;
-          session.returnSkillAfterPrerequisite = null;
-        } else {
-          recommendation = recommendKnowledgeState([
-            learningTwinBySkill[session.todaySkill],
-          ]);
-          recommendationReason = `Finish the ${getSkill(bank, session.todaySkill).label} prerequisite mission before returning to ${getSkill(bank, session.returnSkillAfterPrerequisite).label}.`;
+      const { cycle } = ensureCycle(session, bank);
+      if (cycle.kind === "foundation") {
+        if (session.mode === "foundation" && completingMission) {
+          advanceFoundationCycle(session, bank);
         }
+        const foundationNextSkill = cycle.nextSkill ?? session.todaySkill;
+        const foundationNextState = learningTwinBySkill[foundationNextSkill];
+        if (!foundationNextState) {
+          throw new RangeError(
+            `Learning Twin state is missing for ${foundationNextSkill}.`,
+          );
+        }
+        recommendation = recommendKnowledgeState([foundationNextState]);
+        recommendationReason =
+          cycle.status === "assessment-choice"
+            ? "Round 1 is complete. Choose the next assessment with Mr. Kim."
+            : session.mode === "foundation" && completingMission
+              ? `${getSkill(bank, session.todaySkill).label} is complete. Round 1 continues with ${getSkill(bank, foundationNextSkill).label}.`
+              : session.mode === "foundation"
+                ? `Finish the ${getSkill(bank, session.todaySkill).label} foundation lesson before moving on.`
+                : `After this task, Round 1 continues with ${getSkill(bank, foundationNextSkill).label}.`;
+        session.returnSkillAfterPrerequisite = null;
       } else {
-        const prerequisite = PREREQUISITES[rankedRecommendation.skill];
-        const prerequisiteState = prerequisite
-          ? learningTwinBySkill[prerequisite]
-          : null;
-        if (
-          prerequisiteState &&
-          prerequisite !== session.todaySkill &&
-          prerequisiteState.learnedProbability < 0.55
-        ) {
-          session.returnSkillAfterPrerequisite = rankedRecommendation.skill;
-          recommendation = recommendKnowledgeState([prerequisiteState]);
-          recommendationReason = `${getSkill(bank, prerequisite).label} is a weak prerequisite for ${rankedRecommendation.label}. Repair it first, then return to ${rankedRecommendation.label}.`;
+        if (session.mode === "focus" && completingMission) {
+          advanceAdaptiveCycle(session, bank);
         }
+        const adaptiveNextSkill = cycle.nextSkill ?? session.todaySkill;
+        const adaptiveNextState = learningTwinBySkill[adaptiveNextSkill];
+        if (!adaptiveNextState) {
+          throw new RangeError(
+            `Learning Twin state is missing for ${adaptiveNextSkill}.`,
+          );
+        }
+        recommendation = recommendKnowledgeState([adaptiveNextState]);
+        recommendationReason =
+          cycle.status === "assessment-choice"
+            ? `Round ${cycle.roundNumber} is complete. Choose the next assessment with Mr. Kim.`
+            : session.mode === "focus" && completingMission
+              ? `${getSkill(bank, session.todaySkill).label} is complete. Round ${cycle.roundNumber} continues with ${getSkill(bank, adaptiveNextSkill).label}.`
+              : session.mode === "focus"
+                ? `Finish the ${getSkill(bank, session.todaySkill).label} lesson before moving on.`
+                : `After this task, Round ${cycle.roundNumber} continues with ${getSkill(bank, adaptiveNextSkill).label}.`;
+        session.returnSkillAfterPrerequisite = null;
       }
       const comparisonRecommendation = chooseNextSkill(
         Object.values(session.masteryBySkill),
@@ -1828,7 +2402,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         evidenceWeight,
         explanationVariant: correct ? "standard" : "step-by-step",
         isExitTicket:
-          session.mode === "focus" &&
+          (session.mode === "foundation" || session.mode === "focus") &&
           session.answers.length === questions.length - 1,
         mastery: updated.mastery,
         review: updated.review,
@@ -2023,13 +2597,23 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         Object.values(states),
         session.nextSkill,
       );
+      const { cycle } = ensureCycle(session, bank);
+      const routedSkill =
+        cycle.kind === "foundation"
+          ? (cycle.nextSkill ?? session.todaySkill)
+          : recommendation.skill;
       session.previousNextSkill = session.nextSkill;
-      session.nextSkill = recommendation.skill;
+      session.nextSkill = routedSkill;
       session.futureTask = {
         todaySkill: session.todaySkill,
-        nextSkill: recommendation.skill,
-        changed: recommendation.skill !== session.previousNextSkill,
-        reason: `Scout included your correction, then reran the next-mission decision: ${recommendation.reason}`,
+        nextSkill: routedSkill,
+        changed: routedSkill !== session.previousNextSkill,
+        reason:
+          cycle.kind === "foundation"
+            ? cycle.status === "assessment-choice"
+              ? "Scout included your correction. Round 1 is complete, so choose the next assessment with Mr. Kim."
+              : `Scout included your correction. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
+            : `Scout included your correction, then reran the next-mission decision: ${recommendation.reason}`,
       };
       session.updatedAt = record.occurredAt;
       await this.writeStore(store);
@@ -2118,16 +2702,26 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         Object.values(learningTwinBySkill),
         session.todaySkill,
       );
+      const { cycle } = ensureCycle(session, bank);
+      const routedSkill =
+        cycle.kind === "foundation"
+          ? (cycle.nextSkill ?? session.todaySkill)
+          : recommendation.skill;
       const comparisonRecommendation = chooseNextSkill(
         Object.values(session.masteryBySkill),
       );
       session.previousNextSkill = previousRecommendation;
-      session.nextSkill = recommendation.skill;
+      session.nextSkill = routedSkill;
       session.futureTask = {
         todaySkill: session.todaySkill,
-        nextSkill: recommendation.skill,
-        changed: recommendation.skill !== previousRecommendation,
-        reason: recommendation.reason,
+        nextSkill: routedSkill,
+        changed: routedSkill !== previousRecommendation,
+        reason:
+          cycle.kind === "foundation"
+            ? cycle.status === "assessment-choice"
+              ? "Round 1 is complete. Choose the next assessment with Mr. Kim."
+              : `Calibration updated Scout’s estimates. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
+            : recommendation.reason,
       };
       const calibrationDecision: LearningDecisionEvent = {
         id: randomUUID(),
@@ -2151,13 +2745,15 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         confidenceBefore: current.confidence,
         confidenceAfter: update.state.confidence,
         planBefore: previousRecommendation,
-        planAfter: recommendation.skill,
-        planChanged: recommendation.skill !== previousRecommendation,
+        planAfter: routedSkill,
+        planChanged: routedSkill !== previousRecommendation,
         protectedCurrentMission: true,
         why:
-          recommendation.skill !== previousRecommendation
-            ? `${recommendation.label} moved to the front after this high-value check.`
-            : `Scout kept the plan steady because one answer did not clear the change threshold.`,
+          cycle.kind === "foundation"
+            ? "Calibration updated Scout’s estimates without skipping any Round 1 lesson."
+            : recommendation.skill !== previousRecommendation
+              ? `${recommendation.label} moved to the front after this high-value check.`
+              : `Scout kept the plan steady because one answer did not clear the change threshold.`,
         misconception: null,
         modelVersion: "bkt-1.0",
         comparisonPlan: comparisonRecommendation.skill,

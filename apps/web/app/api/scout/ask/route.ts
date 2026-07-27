@@ -14,7 +14,7 @@ import {
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
-import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
+import { FULL_LENGTH_PRACTICE_FORM } from "@/lib/diagnostic-content.server"
 import { syncLinkedSession } from "@/lib/auth.server"
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { examLabSessions } from "@/lib/exam-lab.server"
@@ -101,7 +101,7 @@ async function getExam(request: NextRequest) {
   const sessionId = request.cookies.get(EXAM_COOKIE)?.value
   if (!sessionId) return null
   try {
-    return await examLabSessions.get(sessionId, RAPID_DIAGNOSTIC_FORM)
+    return await examLabSessions.get(sessionId, FULL_LENGTH_PRACTICE_FORM)
   } catch {
     return null
   }
@@ -391,7 +391,7 @@ export function answerFor(input: {
   ) {
     summary = "Choose the run that matches how much you want to practice."
     explanation =
-      "Quick 12 is the shortest cross-section check. One-section practice contains 18–25 questions. Half-length contains 66 English, Math, and Reading questions."
+      "Quick 12 is the shortest cross-section check. One-section practice contains 36–50 questions. Full-length contains 131 English, Math, and Reading questions."
     nextAction = "Choose the shortest mode that still matches today’s purpose."
     source = "Reviewed Timed Practice mode definitions"
     delivery = "reviewed-interface-guidance"
