@@ -1,4 +1,5 @@
 import { Archivo, Geist, Geist_Mono } from "next/font/google"
+import Link from "next/link"
 
 import "./globals.css"
 import { siteMetadata, siteViewport } from "./site-metadata"
@@ -36,13 +37,21 @@ export default function RootLayout({
         </a>
         {children}
         <footer className="border-t border-border/80 bg-background px-5 pt-6 pb-24 text-muted-foreground md:pb-6">
-          <div className="mx-auto flex max-w-[86rem] flex-col gap-2 text-xs leading-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-            <p>
-              <span className="font-bold text-foreground">
-                Independent hackathon project.
-              </span>{" "}
-              Scout ACT is not affiliated with or endorsed by ACT.
-            </p>
+          <div className="mx-auto flex max-w-[86rem] flex-col gap-3 text-xs leading-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+            <div>
+              <p>
+                <span className="font-bold text-foreground">
+                  Independent hackathon project.
+                </span>{" "}
+                Scout ACT is not affiliated with or endorsed by ACT.
+              </p>
+              <Link
+                href="/trust"
+                className="mt-2 inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              >
+                Data, privacy, and product limits
+              </Link>
+            </div>
             <p className="sm:max-w-xl sm:text-right">
               Practice content is original. Skill percentages and practice score
               ranges are learning estimates—not official ACT results.

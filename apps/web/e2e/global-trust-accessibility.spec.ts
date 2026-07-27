@@ -99,6 +99,46 @@ test("the welcome screen states product identity and independence clearly", asyn
     .toEqual({ pageWidth: 390, viewportWidth: 390 })
 })
 
+test("the public trust center explains storage, control, and AI limits", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page.goto("/trust")
+
+  await expect(
+    page.getByRole("heading", {
+      name: "What Scout saves—and what it does not.",
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Guest progress" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Account progress" })
+  ).toBeVisible()
+  await expect(page.getByText(/More → Learning data/)).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "AI may explain. Evidence makes the decision.",
+    })
+  ).toBeVisible()
+  await expect(page.getByText(/not an official score report/)).toBeVisible()
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
+
+  await page.getByRole("link", { name: "Back to Scout" }).click()
+  await expect(
+    page.getByRole("button", { name: "Set up my plan" })
+  ).toBeVisible()
+})
+
 test("the skip link is first and follows the active study surface", async ({
   page,
 }) => {

@@ -99,6 +99,11 @@ describe("public metadata routes", () => {
         changeFrequency: "monthly",
         priority: 1,
       },
+      {
+        url: `${SITE_URL}/trust`,
+        changeFrequency: "monthly",
+        priority: 0.6,
+      },
     ])
   })
 })
