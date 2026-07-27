@@ -75,6 +75,44 @@ function sameScores(left: CoreSectionScores, right: CoreSectionScores) {
   )
 }
 
+function sameAvailability(left: StudyAvailability, right: StudyAvailability) {
+  if (left.entries.length !== right.entries.length) return false
+  const rightByDay = new Map(
+    right.entries.map((entry) => [entry.weekday, entry.minutes])
+  )
+  return left.entries.every(
+    (entry) => rightByDay.get(entry.weekday) === entry.minutes
+  )
+}
+
+function isDefaultAvailability(plan: AdaptiveStudyPlan) {
+  const firstMinutes = plan.availability.entries[0]?.minutes
+  if (!firstMinutes) return false
+  if (
+    plan.availability.entries.some((entry) => entry.minutes !== firstMinutes)
+  ) {
+    return false
+  }
+  return [
+    "2026-07-20",
+    "2026-07-21",
+    "2026-07-22",
+    "2026-07-23",
+    "2026-07-24",
+    "2026-07-25",
+    "2026-07-26",
+  ].some((representativeDate) =>
+    sameAvailability(
+      plan.availability,
+      defaultStudyAvailability(
+        representativeDate,
+        plan.availability.entries.length,
+        firstMinutes
+      )
+    )
+  )
+}
+
 function sameSkills(
   left: ReadonlyArray<StudySkillSignal>,
   right: ReadonlyArray<StudySkillSignal>
@@ -98,11 +136,23 @@ function canResumePlan(
   existing: AdaptiveStudyPlan,
   input: InitialStudyPlanInput
 ) {
+  const requestedAvailability = defaultStudyAvailability(
+    input.today,
+    input.studyDaysPerWeek,
+    input.minutesPerSession
+  )
   return (
     existing.copyVersion === 2 &&
     existing.testDate === input.testDate &&
     sameScores(existing.current, input.current) &&
-    sameScores(existing.target, input.target)
+    sameScores(existing.target, input.target) &&
+    (!isDefaultAvailability(existing) ||
+      (existing.today === input.today
+        ? sameAvailability(existing.availability, requestedAvailability)
+        : existing.availability.entries.length === input.studyDaysPerWeek &&
+          existing.availability.entries.every(
+            (entry) => entry.minutes === input.minutesPerSession
+          )))
   )
 }
 
@@ -129,6 +179,11 @@ export function defaultStudyAvailability(
 export async function loadInitialStudyPlan(input: InitialStudyPlanInput) {
   const existing = await existingStudyPlan()
   if (!existing || !canResumePlan(existing, input)) {
+    const requestedAvailability = defaultStudyAvailability(
+      input.today,
+      input.studyDaysPerWeek,
+      input.minutesPerSession
+    )
     return studyPlanRequest({
       action: "start",
       today: input.today,
@@ -136,11 +191,10 @@ export async function loadInitialStudyPlan(input: InitialStudyPlanInput) {
       current: input.current,
       target: input.target,
       skills: input.skills,
-      availability: defaultStudyAvailability(
-        input.today,
-        input.studyDaysPerWeek,
-        input.minutesPerSession
-      ),
+      availability:
+        existing && !isDefaultAvailability(existing)
+          ? existing.availability
+          : requestedAvailability,
     })
   }
 

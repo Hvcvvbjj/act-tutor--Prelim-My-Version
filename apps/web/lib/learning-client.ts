@@ -152,19 +152,10 @@ export async function consumeCompletedExamForLearningRound<T>(
   request: typeof fetch = fetch
 ): Promise<T> {
   const payload = await startRound()
-  const response = await request("/api/exam-lab", {
+  await request("/api/exam-lab", {
     method: "DELETE",
     cache: "no-store",
-  })
-  if (!response.ok) {
-    const resetPayload = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(
-      resetPayload?.error ??
-        "The completed full-length test could not be closed."
-    )
-  }
+  }).catch(() => null)
   return payload
 }
 
@@ -256,12 +247,21 @@ export const REMOTE_SCOUT_DATA_ENDPOINTS = [
 export async function deleteRemoteScoutData(
   request: typeof fetch = fetch
 ): Promise<void> {
-  const responses = await Promise.all(
-    REMOTE_SCOUT_DATA_ENDPOINTS.map(async (url) => ({
+  const responses = await Promise.all([
+    ...REMOTE_SCOUT_DATA_ENDPOINTS.map(async (url) => ({
       url,
       response: await request(url, { method: "DELETE" }),
-    }))
-  )
+    })),
+    {
+      url: "/api/auth",
+      response: await request("/api/auth", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_saved_plan" }),
+      }),
+    },
+  ])
   const failed = responses.filter(({ response }) => !response.ok)
   if (failed.length) {
     throw new Error(

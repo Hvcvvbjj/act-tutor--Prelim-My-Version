@@ -11,13 +11,23 @@ export async function completeLearnerOrientation(page: Page) {
   }
   await page.getByRole("button", { name: "See my skill profile" }).click()
 
-  await expect(
-    page.getByRole("heading", {
-      name: "Four honest views of what we know so far.",
-    })
-  ).toBeVisible()
-  for (const title of ["English", "Math", "Reading", "Overall"]) {
-    await expect(page.getByRole("heading", { name: title })).toBeVisible()
+  const measuredProfileHeading = page.getByRole("heading", {
+    name: "Four honest views of what we know so far.",
+  })
+  const emptyProfileHeading = page.getByRole("heading", {
+    name: "Your skill map needs a few answers first.",
+  })
+  await expect(measuredProfileHeading.or(emptyProfileHeading)).toBeVisible()
+  if (await measuredProfileHeading.isVisible()) {
+    for (const title of ["English", "Math", "Reading", "Overall"]) {
+      await expect(page.getByRole("heading", { name: title })).toBeVisible()
+    }
+  } else {
+    await expect(
+      page.getByRole("heading", {
+        name: "Round 1 will build the evidence honestly.",
+      })
+    ).toBeVisible()
   }
 
   await page.getByRole("button", { name: "Continue to Mr. Kim" }).click()

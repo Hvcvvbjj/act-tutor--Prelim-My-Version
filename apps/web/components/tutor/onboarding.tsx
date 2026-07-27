@@ -43,6 +43,7 @@ interface OnboardingProps {
   step: number
   today: string
   onBack: () => void
+  onCancel?: () => void
   onContinue: () => void
   onDismissWelcome: () => void
   onJudgeDemo: () => void
@@ -163,6 +164,10 @@ function PlanSummary({
   draft: PlacementDraft
   today: string
 }) {
+  const hasValidComposite =
+    Number.isInteger(draft.composite) &&
+    draft.composite >= 1 &&
+    draft.composite <= 36
   let daysToTest = 0
   try {
     daysToTest = Math.max(0, calendarDaysUntil(today, draft.testDate))
@@ -197,7 +202,9 @@ function PlanSummary({
                   ? draft.startingCheckChoice === "skip"
                     ? "Starter plan"
                     : "Short check next"
-                  : draft.composite}
+                  : !hasValidComposite
+                    ? "Not entered yet"
+                    : draft.composite}
             </dd>
           </div>
         </div>
@@ -231,6 +238,7 @@ export function Onboarding({
   step,
   today,
   onBack,
+  onCancel,
   onContinue,
   onDismissWelcome,
   onJudgeDemo,
@@ -546,69 +554,122 @@ export function Onboarding({
 
                   {draft.priorScoreChoice === "scores" ||
                   draft.priorScoreChoice === "composite_only" ? (
-                    <div className="mt-6 grid gap-4 rounded-xl border p-5 sm:grid-cols-2">
-                      <ScoreField
-                        id="composite"
-                        label="Composite"
-                        value={draft.composite}
-                        error={errorForScore(error, "Composite")}
-                        onChange={(composite) => onUpdate({ composite })}
-                      />
-                      {draft.priorScoreChoice === "scores" ? (
-                        <>
-                          <ScoreField
-                            id="english"
-                            label="English"
-                            value={draft.english}
-                            error={errorForScore(error, "English")}
-                            onChange={(english) => onUpdate({ english })}
-                          />
-                          <ScoreField
-                            id="math"
-                            label="Math"
-                            value={draft.math}
-                            error={errorForScore(error, "Math")}
-                            onChange={(math) => onUpdate({ math })}
-                          />
-                          <ScoreField
-                            id="reading"
-                            label="Reading"
-                            value={draft.reading}
-                            error={errorForScore(error, "Reading")}
-                            onChange={(reading) => onUpdate({ reading })}
-                          />
-                        </>
-                      ) : null}
-                      <Field
-                        orientation="horizontal"
-                        className="rounded-lg border px-4 py-3 sm:col-span-2"
-                      >
-                        <FieldContent>
-                          <FieldLabel htmlFor="science-toggle">
-                            Save a Science score
-                          </FieldLabel>
-                          <FieldDescription>
-                            Optional. Stored for reference; this plan currently
-                            uses English, Math, and Reading only.
-                          </FieldDescription>
-                        </FieldContent>
-                        <Switch
-                          id="science-toggle"
-                          checked={draft.scienceEnabled}
-                          onCheckedChange={(scienceEnabled) =>
-                            onUpdate({ scienceEnabled })
+                    <div className="mt-6 space-y-4">
+                      <div className="rounded-xl border bg-muted/35 p-5">
+                        <p
+                          id="score-source-label"
+                          className="text-sm font-semibold"
+                        >
+                          Where did these scores come from?
+                        </p>
+                        <RadioGroup
+                          value={draft.scoreSource}
+                          aria-labelledby="score-source-label"
+                          onValueChange={(value) =>
+                            onUpdate({
+                              scoreSource:
+                                value as PlacementDraft["scoreSource"],
+                            })
                           }
-                        />
-                      </Field>
-                      {draft.scienceEnabled ? (
+                          className="mt-3 grid gap-3 sm:grid-cols-2"
+                        >
+                          {[
+                            [
+                              "official",
+                              "Official ACT result",
+                              "Use this later when comparing test-day scores.",
+                            ],
+                            [
+                              "practice",
+                              "Practice test or estimate",
+                              "Use it for planning, but never label it official.",
+                            ],
+                          ].map(([value, label, detail]) => (
+                            <FieldLabel
+                              key={value}
+                              className={cn(
+                                "cursor-pointer rounded-lg border bg-background p-4 transition-colors",
+                                draft.scoreSource === value &&
+                                  "border-primary bg-secondary"
+                              )}
+                            >
+                              <Field orientation="horizontal">
+                                <RadioGroupItem value={value} />
+                                <FieldContent>
+                                  <span className="font-semibold">{label}</span>
+                                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                    {detail}
+                                  </span>
+                                </FieldContent>
+                              </Field>
+                            </FieldLabel>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                      <div className="grid gap-4 rounded-xl border p-5 sm:grid-cols-2">
                         <ScoreField
-                          id="science"
-                          label="Science"
-                          value={draft.science}
-                          error={errorForScore(error, "Science")}
-                          onChange={(science) => onUpdate({ science })}
+                          id="composite"
+                          label="Composite"
+                          value={draft.composite}
+                          error={errorForScore(error, "Composite")}
+                          onChange={(composite) => onUpdate({ composite })}
                         />
-                      ) : null}
+                        {draft.priorScoreChoice === "scores" ? (
+                          <>
+                            <ScoreField
+                              id="english"
+                              label="English"
+                              value={draft.english}
+                              error={errorForScore(error, "English")}
+                              onChange={(english) => onUpdate({ english })}
+                            />
+                            <ScoreField
+                              id="math"
+                              label="Math"
+                              value={draft.math}
+                              error={errorForScore(error, "Math")}
+                              onChange={(math) => onUpdate({ math })}
+                            />
+                            <ScoreField
+                              id="reading"
+                              label="Reading"
+                              value={draft.reading}
+                              error={errorForScore(error, "Reading")}
+                              onChange={(reading) => onUpdate({ reading })}
+                            />
+                          </>
+                        ) : null}
+                        <Field
+                          orientation="horizontal"
+                          className="rounded-lg border px-4 py-3 sm:col-span-2"
+                        >
+                          <FieldContent>
+                            <FieldLabel htmlFor="science-toggle">
+                              Save a Science score
+                            </FieldLabel>
+                            <FieldDescription>
+                              Optional. Stored for reference; this plan
+                              currently uses English, Math, and Reading only.
+                            </FieldDescription>
+                          </FieldContent>
+                          <Switch
+                            id="science-toggle"
+                            checked={draft.scienceEnabled}
+                            onCheckedChange={(scienceEnabled) =>
+                              onUpdate({ scienceEnabled })
+                            }
+                          />
+                        </Field>
+                        {draft.scienceEnabled ? (
+                          <ScoreField
+                            id="science"
+                            label="Science"
+                            value={draft.science}
+                            error={errorForScore(error, "Science")}
+                            onChange={(science) => onUpdate({ science })}
+                          />
+                        ) : null}
+                      </div>
                     </div>
                   ) : draft.priorScoreChoice === "never" ? (
                     <div className="mt-6 max-w-2xl">
@@ -813,6 +874,17 @@ export function Onboarding({
             </div>
 
             <div className="mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
+              {onCancel ? (
+                <Button
+                  type="button"
+                  size="xl"
+                  variant="ghost"
+                  onClick={onCancel}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel editing
+                </Button>
+              ) : null}
               {step > 1 ? (
                 <Button
                   type="button"

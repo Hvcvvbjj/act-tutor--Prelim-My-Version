@@ -1,12 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import type {
-  CoreSection,
-  ExamConfidence,
-  ExamLabMode,
-  ExamLabResponse,
-  ExamLabSessionPayload,
+import {
+  examLabInterpretationReadiness,
+  type CoreSection,
+  type ExamConfidence,
+  type ExamLabMode,
+  type ExamLabResponse,
+  type ExamLabSessionPayload,
 } from "@act-tutor/core"
 import { CircleAlertIcon, LoaderCircleIcon } from "lucide-react"
 
@@ -14,6 +15,7 @@ import { ExamLabReport } from "@/components/tutor/exam-lab-report"
 import { ExamLabReview } from "@/components/tutor/exam-lab-review"
 import { ExamLabRunner } from "@/components/tutor/exam-lab-runner"
 import { ExamLabSetup } from "@/components/tutor/exam-lab-setup"
+import { examLabTimerControls } from "@/components/tutor/exam-lab-timer"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type LabScreen = "loading" | "setup" | "runner" | "review" | "results"
@@ -241,15 +243,28 @@ export function TestDayLab({
   }
 
   function answer(choiceId: string) {
+    if (
+      session &&
+      examLabTimerControls(timeLeft, session.sectionDeadlineAt).locked
+    ) {
+      return
+    }
     captureCurrent({ choiceId })
   }
 
   function confidence(value: ExamConfidence) {
+    if (
+      session &&
+      examLabTimerControls(timeLeft, session.sectionDeadlineAt).locked
+    ) {
+      return
+    }
     captureCurrent({ confidence: value })
   }
 
   function toggleFlag() {
     if (!session) return
+    if (examLabTimerControls(timeLeft, session.sectionDeadlineAt).locked) return
     const question = session.questions[session.progress.currentIndex]
     captureCurrent({
       flagged: !session.progress.responses[question.id]?.flagged,
@@ -353,7 +368,8 @@ export function TestDayLab({
       !session ||
       !onUseForNextRound ||
       session.mode !== "core" ||
-      session.result?.unanswered !== 0
+      !session.result ||
+      !examLabInterpretationReadiness(session.result).sufficient
     ) {
       return
     }
@@ -438,7 +454,8 @@ export function TestDayLab({
           onUseForNextRound={
             onUseForNextRound &&
             session.mode === "core" &&
-            session.result?.unanswered === 0
+            session.result &&
+            examLabInterpretationReadiness(session.result).sufficient
               ? applyToNextRound
               : undefined
           }

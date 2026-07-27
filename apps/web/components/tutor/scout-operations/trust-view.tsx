@@ -454,7 +454,9 @@ export function TrustView({
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             This device uses private session cookies and local preferences.
-            Export a readable copy or delete the session whenever you want.
+            Export a readable copy or delete Scout&apos;s study sessions and
+            saved plan whenever you want. If you created an account, its sign-in
+            stays available.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={exportData}>
@@ -466,7 +468,7 @@ export function TrustView({
                 variant="ghost"
                 onClick={() => setDeleteArmed(true)}
               >
-                <Trash2Icon /> Delete my data
+                <Trash2Icon /> Delete Scout study data
               </Button>
             ) : (
               <Button
@@ -477,7 +479,7 @@ export function TrustView({
               >
                 {busy
                   ? "Waiting for every service…"
-                  : "Confirm permanent deletion"}
+                  : "Confirm study-data deletion"}
               </Button>
             )}
           </div>

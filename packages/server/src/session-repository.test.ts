@@ -133,12 +133,11 @@ describe("FileDiagnosticSessionRepository", () => {
     });
 
     const restarted = new FileDiagnosticSessionRepository(filePath);
-    const resumed = await restarted.getOrCreate(created.sessionId, FORM);
+    const resumed = await restarted.get(created.sessionId, FORM);
 
-    expect(resumed.sessionId).toBe(created.sessionId);
-    expect(resumed.payload.attemptId).toBe(created.sessionId);
-    expect(resumed.payload.progress.answers).toEqual({ "english-1": "a" });
-    expect(resumed.payload.progress.currentIndex).toBe(1);
+    expect(resumed.attemptId).toBe(created.sessionId);
+    expect(resumed.progress.answers).toEqual({ "english-1": "a" });
+    expect(resumed.progress.currentIndex).toBe(1);
     expect(JSON.parse(await readFile(filePath, "utf8")).version).toBe(1);
   });
 
@@ -177,5 +176,23 @@ describe("FileDiagnosticSessionRepository", () => {
 
     const resumed = await first.getOrCreate(created.sessionId, FORM);
     expect(resumed.payload.progress.answers).toEqual({});
+  });
+
+  it("atomically replaces an old attempt when a new one is requested", async () => {
+    const { first } = await repository();
+    const original = await first.getOrCreate(null, FORM);
+    await first.saveProgress(original.sessionId, FORM, {
+      answers: { "english-1": "a" },
+      currentIndex: 1,
+      phase: "questions",
+    });
+
+    const replacement = await first.startNew(original.sessionId, FORM);
+
+    expect(replacement.sessionId).not.toBe(original.sessionId);
+    expect(replacement.payload.progress.answers).toEqual({});
+    await expect(first.get(original.sessionId, FORM)).rejects.toThrow(
+      "not found",
+    );
   });
 });

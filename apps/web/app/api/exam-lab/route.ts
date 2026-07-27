@@ -139,9 +139,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
     if (body.action === "start") {
+      const startInput = parseStart(body)
+      const existingSessionId = request.cookies.get(SESSION_COOKIE)?.value
       const started = await examLabSessions.start(
         FULL_LENGTH_PRACTICE_FORM,
-        parseStart(body)
+        startInput,
+        existingSessionId ?? null
       )
       const response = NextResponse.json({ session: started.payload })
       setSessionCookie(response, started.sessionId)

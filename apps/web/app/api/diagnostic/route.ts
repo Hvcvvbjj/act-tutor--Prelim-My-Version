@@ -133,10 +133,29 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
     if (body.action === "start_new") {
-      const session = await diagnosticSessions.getOrCreate(
-        null,
+      const existingSessionId = request.cookies.get(SESSION_COOKIE)?.value
+      const session = await diagnosticSessions.startNew(
+        existingSessionId ?? null,
         RAPID_DIAGNOSTIC_FORM
       )
+      const response = NextResponse.json(session.payload)
+      response.headers.set("Cache-Control", "no-store")
+      setSessionCookie(response, session.sessionId)
+      await syncLinkedSession(request, "diagnostic", session.sessionId)
+      return response
+    }
+    if (body.action === "start_new_if_completed") {
+      const current = await diagnosticSessions.getOrCreate(
+        request.cookies.get(SESSION_COOKIE)?.value ?? null,
+        RAPID_DIAGNOSTIC_FORM
+      )
+      const session =
+        current.payload.status === "completed"
+          ? await diagnosticSessions.startNew(
+              current.sessionId,
+              RAPID_DIAGNOSTIC_FORM
+            )
+          : current
       const response = NextResponse.json(session.payload)
       response.headers.set("Cache-Control", "no-store")
       setSessionCookie(response, session.sessionId)

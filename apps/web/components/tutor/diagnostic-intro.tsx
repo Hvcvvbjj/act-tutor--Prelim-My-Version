@@ -14,7 +14,9 @@ import { Separator } from "@/components/ui/separator"
 import { formatCalendarDate } from "@/lib/dates"
 
 interface DiagnosticIntroProps {
+  error?: string | null
   goal: number
+  purpose?: "baseline" | "round"
   testDate: string
   onBack: () => void
   onStart: () => void
@@ -39,7 +41,9 @@ const SECTION_BLUEPRINT = [
 ] as const
 
 export function DiagnosticIntro({
+  error,
   goal,
+  purpose = "baseline",
   testDate,
   onBack,
   onStart,
@@ -59,19 +63,28 @@ export function DiagnosticIntro({
       >
         <Button type="button" variant="ghost" onClick={onBack}>
           <ArrowLeftIcon data-icon="inline-start" />
-          Return to Quick Check
+          {purpose === "round"
+            ? "Return to assessment choice"
+            : "Return to Quick Check"}
         </Button>
         <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
           <section>
-            <p className="ink-label text-primary">No ACT score yet</p>
+            <p className="ink-label text-primary">
+              {purpose === "round" ? "Next lesson round" : "No ACT score yet"}
+            </p>
             <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-              Find your starting point.
+              {purpose === "round"
+                ? "Measure what should come next."
+                : "Find your starting point."}
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">
               This original 66-question practice form estimates English, Math,
-              and Reading starting points for the study plan leading to your
-              goal of {goal} on {formatCalendarDate(testDate)}. It does not
-              produce an official ACT score or score prediction.
+              and Reading{" "}
+              {purpose === "round"
+                ? "priorities for your next lesson round"
+                : "starting points for your study plan"}{" "}
+              leading to your goal of {goal} on {formatCalendarDate(testDate)}.
+              It does not produce an official ACT score or score prediction.
             </p>
 
             <div className="mt-10 border-y-2 border-foreground py-7">
@@ -95,6 +108,13 @@ export function DiagnosticIntro({
               Start diagnostic
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
+
+            {error ? (
+              <Alert role="alert" className="mt-6 max-w-2xl">
+                <AlertTitle>Scout could not use that result yet</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
 
             <ScoutCoach
               className="mt-8 max-w-2xl"

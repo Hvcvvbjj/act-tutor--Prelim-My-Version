@@ -284,11 +284,18 @@ export function LearningTwinLab({
         <AlertDescription>
           Scout uses these percentages to choose practice. They are not official
           ACT scores, percent correct, or promises that a target is reachable.
-          {plan.evidence.source === "rapid_diagnostic"
-            ? plan.diagnosticResult
+          {plan.profileSource === "full-test" ||
+          plan.evidence.source === "full_test"
+            ? ` Your full-length practice test created a planning baseline for a goal of ${plan.draft.goal}.`
+            : plan.profileSource === "diagnostic"
               ? ` Your full diagnostic created a fixed planning baseline for a goal of ${plan.draft.goal}.`
-              : ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
-            : ` Your plan starts from Composite ${plan.currentComposite} and a goal of ${plan.draft.goal}.`}{" "}
+              : plan.profileSource === "quick-check"
+                ? ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
+                : plan.evidence.source === "rapid_diagnostic"
+                  ? plan.diagnosticResult
+                    ? ` Your full diagnostic created a fixed planning baseline for a goal of ${plan.draft.goal}.`
+                    : ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
+                  : ` Your plan starts from Composite ${plan.currentComposite} and a goal of ${plan.draft.goal}.`}{" "}
           Your ACT goal shapes the schedule, not the order of skills here.
         </AlertDescription>
       </Alert>

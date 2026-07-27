@@ -103,6 +103,23 @@ function toPayload(
   };
 }
 
+function createSession(form: DiagnosticFormSecure): StoredDiagnosticSession {
+  const now = new Date().toISOString();
+  return {
+    id: randomUUID(),
+    formId: form.id,
+    formVersion: form.version,
+    questionIds: form.questions.map((question) => question.id),
+    answers: {},
+    currentIndex: 0,
+    phase: "questions",
+    status: "in_progress",
+    result: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export class FileDiagnosticSessionRepository {
   private readonly store: JsonDocumentStore;
 
@@ -159,24 +176,38 @@ export class FileDiagnosticSessionRepository {
         }
       }
 
-      const now = new Date().toISOString();
-      const id = randomUUID();
-      const created: StoredDiagnosticSession = {
-        id,
-        formId: form.id,
-        formVersion: form.version,
-        questionIds: form.questions.map((question) => question.id),
-        answers: {},
-        currentIndex: 0,
-        phase: "questions",
-        status: "in_progress",
-        result: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      store.sessions[id] = created;
+      const created = createSession(form);
+      store.sessions[created.id] = created;
       await this.writeStore(store);
-      return { sessionId: id, payload: toPayload(created, form) };
+      return { sessionId: created.id, payload: toPayload(created, form) };
+    });
+  }
+
+  async startNew(
+    previousSessionId: string | null,
+    form: DiagnosticFormSecure,
+  ): Promise<{ sessionId: string; payload: DiagnosticSessionPayload }> {
+    return this.transact(async (store) => {
+      const created = createSession(form);
+      store.sessions[created.id] = created;
+      if (previousSessionId) delete store.sessions[previousSessionId];
+      await this.writeStore(store);
+      return {
+        sessionId: created.id,
+        payload: toPayload(created, form),
+      };
+    });
+  }
+
+  async get(
+    sessionId: string,
+    form: DiagnosticFormSecure,
+  ): Promise<DiagnosticSessionPayload> {
+    return this.transact((store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Diagnostic session not found.");
+      assertSessionMatchesForm(session, form);
+      return toPayload(session, form);
     });
   }
 

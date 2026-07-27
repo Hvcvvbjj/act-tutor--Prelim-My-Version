@@ -2,20 +2,21 @@
 
 import { type ReactNode, useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
-import type {
-  AnswerConfidence,
-  CalibrationLearningBaseline,
-  CoreSection,
-  DiagnosticSkillResult,
-  ExamLabMode,
-  ExamLabSessionPayload,
-  LearningActionRequest,
-  LearningAnswerRequest,
-  LearningSessionPayload,
-  LessonPlanContext,
-  StudyPlanTask,
+import {
+  examLabInterpretationReadiness,
+  type AnswerConfidence,
+  type CalibrationLearningBaseline,
+  type CoreSection,
+  type ExamLabMode,
+  type ExamLabSessionPayload,
+  type LearningActionRequest,
+  type LearningAnswerRequest,
+  type LearningSessionPayload,
+  type LessonPlanContext,
+  type StudyPlanTask,
 } from "@act-tutor/core"
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
   ChevronDownIcon,
   CircleGaugeIcon,
@@ -48,6 +49,7 @@ import {
   loadLearningSession,
   readCachedLearningSession,
 } from "@/lib/learning-client"
+import { readScoutSettings } from "@/lib/scout-settings"
 import { studyTaskLaunchDecision } from "@/lib/study-task-routing"
 
 function DashboardSurfaceLoading({ message }: { message: string }) {
@@ -159,6 +161,7 @@ function DashboardTab({
 interface DashboardProps {
   plan: GeneratedPlan
   initialTab?: Extract<DashboardDestination, "today" | "calibrate">
+  externalError?: string | null
   viewer: AuthViewer
   savedPlan: SavedTutorPlan
   onViewerChange: (viewer: AuthViewer) => void
@@ -166,6 +169,9 @@ interface DashboardProps {
   onStartFullDiagnostic: () => void
   onStartNewDiagnostic: () => Promise<void> | void
   onUseAdaptiveBaseline: (payload: CalibrationLearningBaseline) => void
+  onUseFullTestAssessment: (
+    session: ExamLabSessionPayload
+  ) => Promise<void> | void
 }
 
 const DASHBOARD_DESTINATIONS = [
@@ -203,29 +209,17 @@ const SECTION_FALLBACK_SKILLS = {
   reading: "supported-inference",
 } as const
 
-function diagnosticResultsFromExam(
-  session: ExamLabSessionPayload
-): DiagnosticSkillResult[] {
+function assertFullTestReady(session: ExamLabSessionPayload) {
   const result = session.result
-  if (!result || result.mode !== "core" || result.unanswered !== 0) {
+  if (
+    !result ||
+    result.mode !== "core" ||
+    !examLabInterpretationReadiness(result).sufficient
+  ) {
     throw new Error(
-      "Finish every question in the full-length core test before starting the next lesson round."
+      "Complete enough of the full-length core test for Scout to interpret it before starting the next lesson round."
     )
   }
-  return result.skills.map((skill) => ({
-    skill: skill.skill,
-    label: skill.label,
-    section: skill.section,
-    correct: skill.correct,
-    total: skill.total,
-    accuracy: skill.accuracy,
-    signal:
-      skill.accuracy >= 0.75
-        ? ("strength" as const)
-        : skill.accuracy < 0.5
-          ? ("focus" as const)
-          : ("developing" as const),
-  }))
 }
 
 async function rebaseLearningSession(
@@ -266,6 +260,7 @@ function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
   const isInternalProxy =
     plan.evidence.source === "rapid_diagnostic" ||
     plan.evidence.source === "starter_diagnostic" ||
+    plan.evidence.source === "full_test" ||
     plan.evidence.source === "not_taken"
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background px-3.5 py-2">
@@ -477,6 +472,7 @@ function DesktopOverflow({
 export function Dashboard({
   plan,
   initialTab,
+  externalError,
   viewer,
   savedPlan,
   onViewerChange,
@@ -484,6 +480,7 @@ export function Dashboard({
   onStartFullDiagnostic,
   onStartNewDiagnostic,
   onUseAdaptiveBaseline,
+  onUseFullTestAssessment,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
   const representativeDemo = diagnostic?.formId === "scout-judge-demo"
@@ -492,6 +489,7 @@ export function Dashboard({
     SECTION_FALLBACK_SKILLS[plan.weakestSection]
   const [learning, setLearning] = useState<LearningSessionPayload | null>(null)
   const [learningError, setLearningError] = useState<string | null>(null)
+  const visibleLearningError = externalError ?? learningError
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [activeSection, setActiveSection] = useState(0)
   const [selectedChoice, setSelectedChoice] = useState("")
@@ -910,6 +908,43 @@ export function Dashboard({
     setSubmitting(true)
     setLearningError(null)
     try {
+      const currentResponse = await fetch("/api/exam-lab", {
+        cache: "no-store",
+      })
+      const currentPayload = (await currentResponse
+        .json()
+        .catch(() => null)) as {
+        session?: ExamLabSessionPayload | null
+        error?: string
+      } | null
+      const canResume =
+        currentResponse.ok &&
+        currentPayload?.session?.mode === "core" &&
+        (currentPayload.session.status === "in_progress" ||
+          currentPayload.session.status === "completed")
+      if (!canResume) {
+        const response = await fetch("/api/exam-lab", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "start",
+            mode: "core",
+            timeMultiplier: readScoutSettings().accommodations.extendedTime
+              ? 1.5
+              : 1,
+          }),
+        })
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string
+          } | null
+          throw new Error(
+            payload?.error ??
+              "Could not prepare a new full-length practice test."
+          )
+        }
+      }
       void loadTestDayLab()
       setRoundAssessmentView("full-test")
       window.sessionStorage.setItem("scout-round-assessment-view", "full-test")
@@ -925,12 +960,12 @@ export function Dashboard({
   }
 
   async function applyFullTestToNextRound(session: ExamLabSessionPayload) {
-    const diagnosticSkillResults = diagnosticResultsFromExam(session)
+    assertFullTestReady(session)
+    await onUseFullTestAssessment(session)
     const payload = await consumeCompletedExamForLearningRound(() =>
       learningRequest({
         action: "start_adaptive_round",
-        assessmentKey: `full-test:${session.id}`,
-        diagnosticSkillResults,
+        assessmentSource: "full-test",
         ...planRequestFields(),
       })
     )
@@ -947,23 +982,42 @@ export function Dashboard({
   if (learning?.cycle.status === "assessment-choice") {
     if (roundAssessmentView === "full-test") {
       return (
-        <AccessibleTestDayLab
-          initialMode="core"
-          initialSection="english"
+        <ScoutProvider
+          activeTab="today"
+          learning={learning}
           canViewTechnicalDetails={viewer.technicalDetails}
-          onUseForNextRound={applyFullTestToNextRound}
-          lockToInitialMode
-        />
+        >
+          <div className="border-b bg-background px-5 py-3 sm:px-8">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setRoundAssessmentView("choice")
+                window.sessionStorage.removeItem("scout-round-assessment-view")
+              }}
+            >
+              <ArrowLeftIcon data-icon="inline-start" />
+              Choose a different assessment
+            </Button>
+          </div>
+          <AccessibleTestDayLab
+            initialMode="core"
+            initialSection="english"
+            canViewTechnicalDetails={viewer.technicalDetails}
+            onUseForNextRound={applyFullTestToNextRound}
+            lockToInitialMode
+          />
+        </ScoutProvider>
       )
     }
     return (
       <>
-        {learningError ? (
+        {visibleLearningError ? (
           <div className="mx-auto max-w-5xl px-5 pt-5">
             <Alert role="alert" className="bg-background">
               <InfoIcon />
               <AlertTitle>Mr. Kim could not start that assessment</AlertTitle>
-              <AlertDescription>{learningError}</AlertDescription>
+              <AlertDescription>{visibleLearningError}</AlertDescription>
             </Alert>
           </div>
         ) : null}
@@ -1018,12 +1072,12 @@ export function Dashboard({
             </div>
           </header>
 
-          {learningError ? (
+          {visibleLearningError ? (
             <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
               <Alert className="bg-background" role="alert">
                 <InfoIcon />
                 <AlertTitle>Scout could not finish that change</AlertTitle>
-                <AlertDescription>{learningError}</AlertDescription>
+                <AlertDescription>{visibleLearningError}</AlertDescription>
               </Alert>
             </div>
           ) : null}
@@ -1155,12 +1209,12 @@ export function Dashboard({
           </div>
         </header>
 
-        {learningError ? (
+        {visibleLearningError ? (
           <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
             <Alert className="bg-background" role="alert">
               <InfoIcon />
               <AlertTitle>Scout could not finish that change</AlertTitle>
-              <AlertDescription>{learningError}</AlertDescription>
+              <AlertDescription>{visibleLearningError}</AlertDescription>
             </Alert>
           </div>
         ) : null}
@@ -1256,11 +1310,11 @@ export function Dashboard({
                   mood="thinking"
                   message="Scout is loading today’s lesson…"
                 />
-                {learningError ? (
+                {visibleLearningError ? (
                   <Alert className="mt-7 bg-background">
                     <InfoIcon />
                     <AlertTitle>Could not load today’s work</AlertTitle>
-                    <AlertDescription>{learningError}</AlertDescription>
+                    <AlertDescription>{visibleLearningError}</AlertDescription>
                   </Alert>
                 ) : null}
               </div>

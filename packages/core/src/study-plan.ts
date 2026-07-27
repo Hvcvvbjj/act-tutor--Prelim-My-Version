@@ -105,6 +105,9 @@ export interface GenerateStudyPlanInput {
 
 export interface RebalanceStudyPlanInput {
   today?: string;
+  testDate?: string;
+  current?: CoreSectionScores;
+  target?: CoreSectionScores;
   availability?: StudyAvailability;
   skills?: ReadonlyArray<StudySkillSignal>;
   updatedAt?: string;
@@ -743,26 +746,54 @@ export function rebalanceStudyPlan(
   input: RebalanceStudyPlanInput,
 ): AdaptiveStudyPlan {
   const today = input.today ?? existing.today;
-  validatePlanWindow(today, existing.testDate);
+  const testDate = input.testDate ?? existing.testDate;
+  const current = input.current ?? existing.current;
+  const target = input.target ?? existing.target;
+  validatePlanWindow(today, testDate);
+  validateScores(current, "Current");
+  validateScores(target, "Target");
+  for (const section of CORE_SECTIONS) {
+    if (target[section] < current[section]) {
+      throw new RangeError(
+        "Target section scores cannot be below current scores.",
+      );
+    }
+  }
   const availability = normalizeStudyAvailability(
     input.availability ?? existing.availability,
   );
   const skills = normalizeSkills(input.skills ?? existing.skills);
   const updatedAt = input.updatedAt ?? new Date().toISOString();
-  const generated = buildTasks({ ...existing, today, availability, skills });
-  const tasks = mergePreservedTasks(existing, generated, today);
+  const generated = buildTasks({
+    ...existing,
+    today,
+    testDate,
+    current,
+    target,
+    availability,
+    skills,
+  });
+  const startsNewTestCycle = testDate !== existing.testDate;
+  const tasks = startsNewTestCycle
+    ? generated
+    : mergePreservedTasks(existing, generated, today);
   const plan: AdaptiveStudyPlan = {
     ...existing,
     today,
+    testDate,
+    current: { ...current },
+    target: { ...target },
     availability,
     skills,
     tasks,
-    milestones: buildMilestones(today, existing.testDate, tasks),
+    milestones: buildMilestones(today, testDate, tasks),
     forecast: existing.forecast,
     revision: existing.revision + 1,
     revisionReason:
       input.reason ??
-      "Scout updated your future work from your new schedule and recent answers. Today’s work and finished tasks did not change.",
+      (startsNewTestCycle
+        ? "Scout started a fresh calendar for your newly scheduled test. Your skill evidence and score history stayed intact."
+        : "Scout updated your future work from your new schedule and recent answers. Today’s work and finished tasks did not change."),
     updatedAt,
   };
   return { ...plan, forecast: buildForecast(plan) };

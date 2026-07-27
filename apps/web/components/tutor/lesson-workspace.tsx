@@ -16,6 +16,12 @@ import {
 
 import { ScoutCoach, type ScoutMood } from "@/components/tutor/scout"
 import { useScoutContext } from "@/components/tutor/scout-assistant"
+import {
+  buildPracticeExplanation,
+  lessonSegmentMinutes,
+  shouldHoldPracticeFeedback,
+  type PracticeExplanationStyle,
+} from "@/components/tutor/lesson-workspace-logic"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel } from "@/components/ui/progress"
@@ -137,7 +143,12 @@ function LessonStage({
           </span>
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             <Clock3Icon aria-hidden="true" />
-            {Math.max(2, Math.round(learning.lesson.minutes / 4))} min
+            {lessonSegmentMinutes(
+              learning.lesson.minutes,
+              learning.lesson.sections.length,
+              activeSection
+            )}{" "}
+            min
           </span>
         </div>
         <h2
@@ -567,9 +578,35 @@ function PracticeStage({
 >) {
   const answered = learning.answeredQuestionIds.length
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
+  const feedback = learning.lastFeedback
+  const feedbackQuestion = feedback
+    ? learning.questions.find((question) => question.id === feedback.questionId)
+    : null
+  const feedbackIdentity = feedback
+    ? `${feedback.questionId}:${learning.updatedAt}`
+    : undefined
+  const [dismissedFeedbackIdentity, setDismissedFeedbackIdentity] = useState<
+    string | null
+  >(null)
+  const showingFeedback = shouldHoldPracticeFeedback({
+    status: learning.status,
+    currentQuestionId: currentQuestion?.id,
+    feedbackQuestionId: feedback?.questionId,
+    feedbackIdentity,
+    dismissedFeedbackIdentity,
+  })
+  const visibleFeedback = showingFeedback ? feedback : null
+  const displayedQuestion =
+    (showingFeedback ? feedbackQuestion : currentQuestion) ?? currentQuestion
+  const displayedQuestionIndex = displayedQuestion
+    ? learning.questions.findIndex(
+        (question) => question.id === displayedQuestion.id
+      )
+    : learning.currentQuestionIndex
   const currentSkill =
     learning.learningTwin.skills.find(
-      (skill) => skill.skill === (currentQuestion?.skill ?? learning.todaySkill)
+      (skill) =>
+        skill.skill === (displayedQuestion?.skill ?? learning.todaySkill)
     ) ??
     learning.learningTwin.skills.find(
       (skill) => skill.skill === learning.todaySkill
@@ -580,10 +617,6 @@ function PracticeStage({
     ? Math.round(currentSkill.learnedProbability * 100)
     : null
   const progress = Math.round((answered / learning.questions.length) * 100)
-  const feedback = learning.lastFeedback
-  const feedbackQuestion = feedback
-    ? learning.questions.find((question) => question.id === feedback.questionId)
-    : null
   const practiceLabel =
     learning.mode === "repair"
       ? "Retry"
@@ -598,28 +631,41 @@ function PracticeStage({
               : learning.mode === "micro"
                 ? "Three-minute study"
                 : "Practice"
-  const mood: ScoutMood = feedback
-    ? feedback.correct
+  const mood: ScoutMood = visibleFeedback
+    ? visibleFeedback.correct
       ? "correct"
       : "repair"
     : "thinking"
   const isExitTicket =
     (learning.mode === "foundation" || learning.mode === "focus") &&
-    learning.currentQuestionIndex === learning.questions.length - 1
+    displayedQuestionIndex === learning.questions.length - 1
   const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
   const [reviewing, setReviewing] = useState(false)
   const [initialChoice, setInitialChoice] = useState("")
   const [hintLevel, setHintLevel] = useState(0)
-  const [explanationStyle, setExplanationStyle] = useState<
-    "step-by-step" | "compare" | "simple"
-  >("step-by-step")
+  const [explanationStyle, setExplanationStyle] =
+    useState<PracticeExplanationStyle>("step-by-step")
   const startedAt = useRef<number | null>(null)
+  const explanation =
+    visibleFeedback && displayedQuestion
+      ? buildPracticeExplanation({
+          correct: visibleFeedback.correct,
+          rationale: visibleFeedback.rationale,
+          selectedChoiceId: visibleFeedback.selectedChoiceId,
+          correctChoiceId: visibleFeedback.correctChoiceId,
+          choices: displayedQuestion.choices,
+          concept: learning.lesson.concept,
+          strategyChecklist: learning.lesson.strategyChecklist,
+          style: explanationStyle,
+        })
+      : null
 
   useEffect(() => {
     startedAt.current = window.performance.now()
-  }, [currentQuestion?.id])
+  }, [displayedQuestion?.id])
 
-  if (learning.status === "complete") {
+  if (learning.status === "complete" && !showingFeedback) {
+    const completedIncorrectly = feedback?.correct === false
     const completionSkill =
       learning.learningTwin.skills.find(
         (skill) => skill.skill === feedbackQuestion?.skill
@@ -634,17 +680,21 @@ function PracticeStage({
     return (
       <section className="px-5 py-10 sm:px-8 sm:py-12">
         <ScoutCoach
-          mood="correct"
+          mood={completedIncorrectly ? "repair" : "correct"}
           message={
-            testedSkills.length > 1
-              ? `Practice complete. Scout updated the ${testedSkills.length} skills you practiced and chose what to study next.`
-              : `Practice complete. Scout updated its estimate for ${completionSkill?.label ?? "the skill you practiced"} and chose what to study next.`
+            completedIncorrectly && learning.mode === "repair"
+              ? "Practice complete. This mistake still needs another pass, so Scout kept it available for repair."
+              : testedSkills.length > 1
+                ? `Practice complete. Scout updated the ${testedSkills.length} skills you practiced and chose what to study next.`
+                : `Practice complete. Scout updated its estimate for ${completionSkill?.label ?? "the skill you practiced"} and chose what to study next.`
           }
           detail="Your dated My week calendar stays the same."
         />
         <h2 className="mt-8 font-heading text-4xl leading-tight font-black tracking-[-0.03em]">
           {learning.mode === "repair"
-            ? "Mistake fixed."
+            ? completedIncorrectly
+              ? "One more pass needed."
+              : "Mistake fixed."
             : learning.mode === "checkpoint"
               ? "Quiz complete."
               : learning.mode === "retention"
@@ -723,8 +773,10 @@ function PracticeStage({
           <p className="ink-label text-primary">
             {isExitTicket
               ? "Independent exit ticket"
-              : `${practiceLabel} · Guided practice`}{" "}
-            · Question {learning.currentQuestionIndex + 1} of{" "}
+              : showingFeedback
+                ? `${practiceLabel} · Answer review`
+                : `${practiceLabel} · Guided practice`}{" "}
+            · Question {displayedQuestionIndex + 1} of{" "}
             {learning.questions.length}
           </p>
           <span className="font-mono text-sm font-bold">{progress}%</span>
@@ -735,43 +787,82 @@ function PracticeStage({
           </ProgressLabel>
         </Progress>
 
-        {currentQuestion?.stimulus ? (
+        {displayedQuestion?.stimulus ? (
           <div className="mt-7 border-y-2 border-foreground bg-background px-1 py-5 text-base leading-8">
-            {currentQuestion.stimulus}
+            {displayedQuestion.stimulus}
           </div>
         ) : null}
         <h2 className="mt-7 max-w-3xl font-heading text-2xl leading-tight font-bold tracking-[-0.01em] sm:text-3xl">
-          {currentQuestion?.prompt}
+          {displayedQuestion?.prompt}
         </h2>
-        {currentQuestion ? (
+        {displayedQuestion ? (
           <RadioGroup
-            value={selectedChoice}
+            value={
+              showingFeedback
+                ? (visibleFeedback?.selectedChoiceId ?? "")
+                : selectedChoice
+            }
             onValueChange={(choice) => {
+              if (showingFeedback) return
               onChoiceChange(choice)
             }}
+            disabled={showingFeedback}
             className="mt-7 grid gap-3"
-            aria-label="Practice answer choices"
+            aria-label={
+              showingFeedback
+                ? "Scored practice answer choices"
+                : "Practice answer choices"
+            }
           >
-            {currentQuestion.choices.map((choice, index) => (
-              <label
-                key={choice.id}
-                className={cn(
-                  "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:border-primary sm:text-base",
-                  selectedChoice === choice.id && "border-primary bg-secondary"
-                )}
-              >
-                <VisuallyHiddenRadioGroupItem value={choice.id} />
-                <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
-                  {String.fromCharCode(65 + index)}
-                </span>
-                <span className="col-start-2 row-start-1 min-w-0">
-                  {choice.text}
-                </span>
-              </label>
-            ))}
+            {displayedQuestion.choices.map((choice, index) => {
+              const selected =
+                showingFeedback &&
+                visibleFeedback?.selectedChoiceId === choice.id
+              const correct =
+                showingFeedback &&
+                visibleFeedback?.correctChoiceId === choice.id
+              return (
+                <label
+                  key={choice.id}
+                  className={cn(
+                    "grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:text-base",
+                    showingFeedback
+                      ? "cursor-default"
+                      : "cursor-pointer hover:border-primary",
+                    !showingFeedback &&
+                      selectedChoice === choice.id &&
+                      "border-primary bg-secondary",
+                    correct && "border-primary bg-secondary",
+                    selected &&
+                      !correct &&
+                      "border-[var(--scout-coral)] bg-[var(--coach-surface)]"
+                  )}
+                >
+                  <VisuallyHiddenRadioGroupItem
+                    value={choice.id}
+                    disabled={showingFeedback}
+                  />
+                  <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span className="col-start-2 row-start-1 min-w-0">
+                    {choice.text}
+                  </span>
+                  {correct ? (
+                    <span className="col-start-3 row-start-1 ml-3 text-xs font-bold text-primary">
+                      Correct
+                    </span>
+                  ) : selected ? (
+                    <span className="col-start-3 row-start-1 ml-3 text-xs font-bold text-[var(--scout-coral-text)]">
+                      Your choice
+                    </span>
+                  ) : null}
+                </label>
+              )
+            })}
           </RadioGroup>
         ) : null}
-        {!isExitTicket && hintLevel > 0 ? (
+        {!showingFeedback && !isExitTicket && hintLevel > 0 ? (
           <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-4">
             <p className="ink-label">Hint {hintLevel} of 2</p>
             <p className="mt-2 text-sm leading-6">
@@ -781,34 +872,36 @@ function PracticeStage({
             </p>
           </div>
         ) : null}
-        <div className="mt-6 border-y py-5">
-          <p className="ink-label text-muted-foreground">How sure are you?</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {(
-              [
-                ["sure", "Sure"],
-                ["unsure", "Unsure"],
-                ["guessing", "Guessing"],
-              ] as const
-            ).map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                variant={confidence === value ? "secondary" : "outline"}
-                aria-pressed={confidence === value}
-                size="sm"
-                onClick={() => setConfidence(value)}
-              >
-                {label}
-              </Button>
-            ))}
+        {!showingFeedback ? (
+          <div className="mt-6 border-y py-5">
+            <p className="ink-label text-muted-foreground">How sure are you?</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(
+                [
+                  ["sure", "Sure"],
+                  ["unsure", "Unsure"],
+                  ["guessing", "Guessing"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={confidence === value ? "secondary" : "outline"}
+                  aria-pressed={confidence === value}
+                  size="sm"
+                  onClick={() => setConfidence(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Confidence never changes whether your answer is right. It only
+              changes how strongly Scout adjusts this skill estimate.
+            </p>
           </div>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Confidence never changes whether your answer is right. It only
-            changes how strongly Scout adjusts this skill estimate.
-          </p>
-        </div>
-        {reviewing ? (
+        ) : null}
+        {!showingFeedback && reviewing ? (
           <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-4">
             <p className="font-bold">One last look before scoring</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -818,7 +911,7 @@ function PracticeStage({
             </p>
           </div>
         ) : null}
-        {!isExitTicket ? (
+        {!showingFeedback && !isExitTicket ? (
           <Button
             type="button"
             variant="ghost"
@@ -829,16 +922,26 @@ function PracticeStage({
             <LightbulbIcon />
             {hintLevel === 0 ? "Give me a hint" : "Give me another hint"}
           </Button>
-        ) : (
+        ) : !showingFeedback ? (
           <p className="mt-5 text-sm font-semibold">
             No hints here—this answer checks whether the lesson stuck.
           </p>
-        )}
+        ) : null}
         <Button
           type="button"
           size="xl"
           className="mt-6"
           onClick={() => {
+            if (showingFeedback && visibleFeedback) {
+              setDismissedFeedbackIdentity(feedbackIdentity ?? null)
+              setReviewing(false)
+              setInitialChoice("")
+              setHintLevel(0)
+              setConfidence("sure")
+              setExplanationStyle("step-by-step")
+              onChoiceChange("")
+              return
+            }
             if (!reviewing) {
               setInitialChoice(selectedChoice)
               setReviewing(true)
@@ -857,14 +960,22 @@ function PracticeStage({
               ),
             })
           }}
-          disabled={!selectedChoice || submitting}
+          disabled={(!showingFeedback && !selectedChoice) || submitting}
         >
-          <BrainCircuitIcon data-icon="inline-start" />
-          {submitting
-            ? "Checking your answer…"
-            : reviewing
-              ? "Check answer"
-              : "Review answer"}
+          {showingFeedback ? (
+            <ArrowRightIcon data-icon="inline-end" />
+          ) : (
+            <BrainCircuitIcon data-icon="inline-start" />
+          )}
+          {showingFeedback
+            ? learning.status === "complete"
+              ? "Finish practice"
+              : "Next question"
+            : submitting
+              ? "Checking your answer…"
+              : reviewing
+                ? "Check answer"
+                : "Review answer"}
         </Button>
       </div>
 
@@ -872,32 +983,44 @@ function PracticeStage({
         <ScoutCoach
           mood={mood}
           message={
-            feedback
-              ? feedback.correct
+            visibleFeedback
+              ? visibleFeedback.correct
                 ? "Correct. Say the rule in your own words before moving on."
-                : "Not quite. Read the explanation, then try the next one."
+                : `Not quite. Read the explanation, then choose ${
+                    learning.status === "complete"
+                      ? "Finish practice"
+                      : "Next question"
+                  }.`
               : undefined
           }
-          detail={feedback?.rationale ?? learning.lesson.transferPrompt}
+          detail={visibleFeedback?.rationale ?? learning.lesson.transferPrompt}
         />
-        {feedback && canViewTechnicalDetails ? (
-          <Alert className="mt-7 bg-background">
-            {feedback.correct ? <CheckCircle2Icon /> : <CircleAlertIcon />}
-            <AlertTitle>
-              {feedback.correct ? "Correct" : "Here&apos;s what went wrong"}
-            </AlertTitle>
+        {visibleFeedback && explanation ? (
+          <Alert className="mt-7 bg-background" aria-live="polite">
+            {visibleFeedback.correct ? (
+              <CheckCircle2Icon />
+            ) : (
+              <CircleAlertIcon />
+            )}
+            <AlertTitle>{explanation.title}</AlertTitle>
             <AlertDescription>
-              {feedback.correct
-                ? feedback.rationale
-                : explanationStyle === "step-by-step"
-                  ? `First, name the rule: ${learning.lesson.strategyChecklist[0]} Then compare that rule with your choice. ${feedback.rationale}`
-                  : explanationStyle === "compare"
-                    ? `You chose ${feedbackQuestion?.choices.find((choice) => choice.id === feedback.selectedChoiceId)?.text ?? feedback.selectedChoiceId}. The correct choice is ${feedbackQuestion?.choices.find((choice) => choice.id === feedback.correctChoiceId)?.text ?? feedback.correctChoiceId}. The deciding rule is: ${learning.lesson.concept} ${feedback.rationale}`
-                    : `${feedback.rationale} Rule to use: ${learning.lesson.concept}`}
+              {explanation.ordered ? (
+                <ol className="list-decimal space-y-2 pl-5">
+                  {explanation.lines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="space-y-2">
+                  {explanation.lines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         ) : null}
-        {feedback && !feedback.correct ? (
+        {visibleFeedback && !visibleFeedback.correct ? (
           <div className="mt-4">
             <p className="ink-label text-muted-foreground">
               Explain it another way
@@ -923,43 +1046,45 @@ function PracticeStage({
             </div>
           </div>
         ) : null}
-        {feedback ? (
+        {visibleFeedback && canViewTechnicalDetails ? (
           <details className="mt-4 text-xs leading-5 text-muted-foreground">
             <summary className="cursor-pointer font-semibold text-foreground">
               How Scout used this answer
             </summary>
             <p className="mt-2">
-              Update multiplier: {Math.round(feedback.evidenceWeight * 100)}%.
-              This is the confidence multiplier (Sure 100%, Unsure 78%, or
-              Guessing 48%) multiplied by 82% when you changed your choice
-              before checking, or by 100% when you kept it. Correctness selects
-              the model&apos;s correct-answer or wrong-answer calculation; the
-              multiplier controls how strongly that calculation changes the
-              prior estimate.
+              Update multiplier:{" "}
+              {Math.round(visibleFeedback.evidenceWeight * 100)}%. This is the
+              confidence multiplier (Sure 100%, Unsure 78%, or Guessing 48%)
+              multiplied by 82% when you changed your choice before checking, or
+              by 100% when you kept it. Correctness selects the model&apos;s
+              correct-answer or wrong-answer calculation; the multiplier
+              controls how strongly that calculation changes the prior estimate.
             </p>
           </details>
         ) : null}
-        <div className="mt-7 border-t pt-5">
-          <p className="ink-label text-muted-foreground">
-            Current skill estimate
-          </p>
-          <p className="mt-2 font-heading text-3xl font-black">
-            {currentEstimate === null ? "Unavailable" : `${currentEstimate}%`}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {currentSkill?.label ?? "No matching skill"}
-          </p>
-          <details className="mt-3 text-xs text-muted-foreground">
-            <summary className="cursor-pointer font-semibold text-foreground">
-              What this number means
-            </summary>
-            <p className="mt-2">
-              {currentSkill
-                ? `Scout built this from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. It is not percent correct or an ACT score.`
-                : "Scout could not find a matching skill estimate for this question."}
+        {canViewTechnicalDetails ? (
+          <div className="mt-7 border-t pt-5">
+            <p className="ink-label text-muted-foreground">
+              Current skill estimate
             </p>
-          </details>
-        </div>
+            <p className="mt-2 font-heading text-3xl font-black">
+              {currentEstimate === null ? "Unavailable" : `${currentEstimate}%`}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {currentSkill?.label ?? "No matching skill"}
+            </p>
+            <details className="mt-3 text-xs text-muted-foreground">
+              <summary className="cursor-pointer font-semibold text-foreground">
+                What this number means
+              </summary>
+              <p className="mt-2">
+                {currentSkill
+                  ? `Scout built this from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. It is not percent correct or an ACT score.`
+                  : "Scout could not find a matching skill estimate for this question."}
+              </p>
+            </details>
+          </div>
+        ) : null}
       </aside>
     </section>
   )

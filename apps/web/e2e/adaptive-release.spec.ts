@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
+import { ACT_PRACTICE_QUESTIONS } from "@act-tutor/content"
 
 import { completeLearnerOrientation } from "./helpers"
 
@@ -13,7 +14,7 @@ interface CalibrationPayload {
   currentQuestion: CalibrationQuestion | null
 }
 
-async function openStarterPlan(page: import("@playwright/test").Page) {
+async function openStarterPlan(page: Page) {
   await page.goto("/")
   await page.getByRole("button", { name: "Set up my plan" }).click()
   await page.getByRole("button", { name: "Add my starting score" }).click()
@@ -25,6 +26,50 @@ async function openStarterPlan(page: import("@playwright/test").Page) {
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
   ).toBeVisible()
+}
+
+async function answerQuickCheckThroughApi(
+  page: Page,
+  stopAfter = Number.POSITIVE_INFINITY
+) {
+  let calibration = (await (
+    await page.request.get("/api/calibration")
+  ).json()) as CalibrationPayload
+
+  while (
+    calibration.status === "in_progress" &&
+    calibration.responseCount < stopAfter
+  ) {
+    const question = calibration.currentQuestion
+    expect(question).not.toBeNull()
+    const response = await page.request.post("/api/calibration", {
+      data: {
+        action: "answer",
+        questionId: question?.id,
+        choiceId: question?.choices[0]?.id,
+        confidence: "sure",
+      },
+    })
+    expect(response.ok()).toBeTruthy()
+    calibration = (await response.json()) as CalibrationPayload
+  }
+
+  return calibration
+}
+
+async function openFullDiagnostic(page: Page) {
+  await openStarterPlan(page)
+  await expect(page.getByRole("button", { name: "Start lesson" })).toBeVisible({
+    timeout: 20_000,
+  })
+  await page.request.delete("/api/calibration")
+  await answerQuickCheckThroughApi(page)
+  await page.getByRole("tab", { name: /^(Quick Check|Check)$/ }).click()
+  await expect(page.getByText("Quick Check complete")).toBeVisible()
+  await page
+    .getByRole("button", { name: "Take the full 66-question diagnostic" })
+    .click()
+  await page.getByRole("button", { name: "Start diagnostic" }).click()
 }
 
 test("mobile welcome keeps both first-run actions in view", async ({
@@ -123,6 +168,10 @@ test("Quick Check focuses each new question and keeps answer shortcuts active", 
   await page.evaluate(() => {
     window.scrollTo({ top: document.documentElement.scrollHeight })
   })
+  await expect(
+    page.getByRole("button", { name: "Check my answer" })
+  ).toBeDisabled()
+  await page.getByRole("button", { name: "Unsure", exact: true }).click()
   await page.getByRole("button", { name: "Check my answer" }).click()
 
   await expect(prompt).not.toHaveText(firstPrompt ?? "")
@@ -140,6 +189,68 @@ test("Quick Check focuses each new question and keeps answer shortcuts active", 
       .getByRole("radio")
       .nth(1)
   ).toBeChecked()
+})
+
+test("required Quick Check completion leaves one clear plan-building action", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Set up my plan" }).click()
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
+  await page
+    .getByRole("radio", {
+      name: /Take the 8–12 question starting check/,
+    })
+    .check()
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+  await page.getByRole("button", { name: "Take my starting check" }).click()
+  await expect(page.getByTestId("quick-check-question-card")).toBeVisible()
+
+  await answerQuickCheckThroughApi(page, 7)
+  await page.reload()
+
+  const proofHeading = page.getByRole("heading", {
+    name: /Scout adjusted your next steps/,
+  })
+  for (let index = 0; index < 5; index += 1) {
+    const questionCard = page.getByTestId("quick-check-question-card")
+    const firstChoice = questionCard.getByRole("radio").first()
+    await firstChoice.focus()
+    await page.keyboard.press("Space")
+    await expect(firstChoice).toBeChecked()
+    await page.getByRole("button", { name: "Sure", exact: true }).click()
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/calibration") &&
+        response.request().method() === "POST"
+    )
+    await page.getByRole("button", { name: "Check my answer" }).click()
+    const response = await responsePromise
+    const calibration = (await response.json()) as CalibrationPayload
+    if (calibration.status === "complete") {
+      await expect(proofHeading).toBeVisible()
+      break
+    }
+    await expect(
+      page.getByRole("radiogroup", {
+        name: `Answer choices for Quick Check question ${
+          calibration.responseCount + 1
+        }`,
+      })
+    ).toBeVisible()
+  }
+
+  await expect(proofHeading).toBeVisible()
+  await expect(page.getByRole("button", { name: "Back to today" })).toHaveCount(
+    0
+  )
+  await expect(
+    page.getByRole("button", { name: "View my skills" })
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Build my study plan" })
+  ).toBeVisible()
 })
 
 test("a guest can open the one-answer demo and see the adaptive proof", async ({
@@ -180,6 +291,7 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
 
   await page.keyboard.press("b")
   await expect(page.getByRole("radio", { name: "B 12" })).toBeChecked()
+  await page.getByRole("button", { name: "Sure", exact: true }).click()
   await page.getByRole("button", { name: "Check my answer" }).click()
 
   await expect(
@@ -410,6 +522,10 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
   })
   await page.keyboard.press("a")
   await expect(firstRadio).toBeChecked()
+  await expect(
+    page.getByRole("button", { name: "Check my answer" })
+  ).toBeDisabled()
+  await page.getByRole("button", { name: "Sure", exact: true }).click()
   await expect(
     page.getByRole("button", { name: "Check my answer" })
   ).toBeEnabled()
@@ -709,6 +825,112 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
   }
 })
 
+test("practice keeps scored feedback with its question until Next question", async ({
+  page,
+}) => {
+  await openStarterPlan(page)
+  await page.getByRole("button", { name: "Start lesson" }).click()
+
+  const lessonResponse = await page.request.get("/api/learning")
+  expect(lessonResponse.ok()).toBeTruthy()
+  const lesson = (await lessonResponse.json()) as {
+    lesson: { minutes: number; sections: ReadonlyArray<{ id: string }> }
+    questions: ReadonlyArray<{
+      id: string
+      prompt: string
+      choices: ReadonlyArray<{ id: string; text: string }>
+    }>
+    currentQuestionIndex: number
+  }
+  const stages = page.getByRole("navigation", { name: "Lesson stages" })
+  let displayedMinutes = 0
+  for (let index = 0; index < lesson.lesson.sections.length; index += 1) {
+    await stages.getByRole("button").nth(index).click()
+    const segmentText = await page
+      .locator("span")
+      .filter({ hasText: /^\d+ min$/ })
+      .first()
+      .innerText()
+    displayedMinutes += Number.parseInt(segmentText, 10)
+  }
+  expect(displayedMinutes).toBe(lesson.lesson.minutes)
+
+  await page.getByRole("button", { name: "Start focused practice" }).click()
+  const current = lesson.questions[lesson.currentQuestionIndex]
+  const secureQuestion = ACT_PRACTICE_QUESTIONS.find(
+    (question) => question.id === current.id
+  )
+  expect(secureQuestion).toBeTruthy()
+  const wrongChoiceIndex = current.choices.findIndex(
+    (choice) => choice.id !== secureQuestion?.correctChoiceId
+  )
+  expect(wrongChoiceIndex).toBeGreaterThanOrEqual(0)
+
+  const wrongChoice = page
+    .getByRole("radiogroup", { name: "Practice answer choices" })
+    .getByRole("radio")
+    .nth(wrongChoiceIndex)
+  await wrongChoice.focus()
+  await page.keyboard.press("Space")
+  await expect(wrongChoice).toBeChecked()
+  await page.getByRole("button", { name: "Review answer" }).click()
+
+  const answerResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/learning") &&
+      response.request().method() === "POST" &&
+      response.ok()
+  )
+  await page.getByRole("button", { name: "Check answer" }).click()
+  const answerResponse = await answerResponsePromise
+  const scored = (await answerResponse.json()) as {
+    questions: ReadonlyArray<{ id: string; prompt: string }>
+    currentQuestionIndex: number
+  }
+  const next = scored.questions[scored.currentQuestionIndex]
+
+  await expect(
+    page.getByRole("heading", { name: current.prompt })
+  ).toBeVisible()
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Practice · Answer review\\s*· Question ${lesson.currentQuestionIndex + 1} of`
+      )
+    )
+  ).toBeVisible()
+  await expect(
+    page.getByRole("radiogroup", { name: "Scored practice answer choices" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Next question" })
+  ).toBeVisible()
+  await expect(
+    page.locator('[aria-live="polite"]').filter({ hasText: "Step by step" })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Compare choices" }).click()
+  await expect(page.getByText("Compare the choices")).toBeVisible()
+  await expect(page.getByText(/^Your choice:/)).toBeVisible()
+  await expect(page.getByText(/^Correct choice:/)).toBeVisible()
+
+  await page.getByRole("button", { name: "Simpler" }).click()
+  await expect(page.getByText("The simpler version")).toBeVisible()
+  await expect(page.getByText(/^The answer is /)).toBeVisible()
+  await expect(page.getByText("How Scout used this answer")).toHaveCount(0)
+  await expect(page.getByText("Current skill estimate")).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Next question" }).click()
+  await expect(page.getByRole("heading", { name: next.prompt })).toBeVisible()
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Practice · Guided practice\\s*· Question ${scored.currentQuestionIndex + 1} of`
+      )
+    )
+  ).toBeVisible()
+})
+
 test("timed practice opens at the first question on a narrow phone", async ({
   page,
 }) => {
@@ -764,36 +986,7 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
 test("an in-progress full diagnostic resumes without discarding the guest plan", async ({
   page,
 }) => {
-  await openStarterPlan(page)
-  await page.request.delete("/api/calibration")
-
-  let calibration = (await (
-    await page.request.get("/api/calibration")
-  ).json()) as CalibrationPayload
-  while (calibration.status === "in_progress") {
-    const question = calibration.currentQuestion
-    expect(question).not.toBeNull()
-    const response = await page.request.post("/api/calibration", {
-      data: {
-        action: "answer",
-        questionId: question?.id,
-        choiceId: question?.choices[0]?.id,
-        confidence: "sure",
-      },
-    })
-    expect(response.ok()).toBeTruthy()
-    calibration = (await response.json()) as CalibrationPayload
-  }
-
-  await page.getByRole("tab", { name: "Quick Check" }).click()
-  await expect(page.getByText("Quick Check complete")).toBeVisible()
-  await page
-    .getByRole("button", { name: "Take the full 66-question diagnostic" })
-    .click()
-  await expect(
-    page.getByRole("heading", { name: "Find your starting point." })
-  ).toBeVisible()
-  await page.getByRole("button", { name: "Start diagnostic" }).click()
+  await openFullDiagnostic(page)
 
   const firstAnswer = page
     .getByRole("radiogroup", { name: "Answer choices for question 1" })
@@ -817,21 +1010,104 @@ test("an in-progress full diagnostic resumes without discarding the guest plan",
   ).toBeVisible()
 })
 
+test("full diagnostic moves focus and announces mobile save failures", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await openFullDiagnostic(page)
+
+  const questionHeading = page.getByRole("heading", { level: 1 })
+  await expect(questionHeading).toBeFocused()
+  const firstPrompt = await questionHeading.textContent()
+
+  let saveResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/diagnostic") &&
+      response.request().method() === "PATCH"
+  )
+  const firstDiagnosticChoice = page
+    .getByRole("radiogroup", { name: "Answer choices for question 1" })
+    .getByRole("radio")
+    .first()
+  await firstDiagnosticChoice.focus()
+  await page.keyboard.press("Space")
+  await expect(firstDiagnosticChoice).toBeChecked()
+  await saveResponse
+
+  saveResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/diagnostic") &&
+      response.request().method() === "PATCH"
+  )
+  await page.getByRole("button", { name: "Next question" }).click()
+  await saveResponse
+  await expect(questionHeading).not.toHaveText(firstPrompt ?? "")
+  await expect(questionHeading).toBeFocused()
+  const nextHeadingBounds = await questionHeading.boundingBox()
+  expect(nextHeadingBounds).not.toBeNull()
+  expect(nextHeadingBounds!.y).toBeGreaterThanOrEqual(0)
+
+  saveResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/diagnostic") &&
+      response.request().method() === "PATCH"
+  )
+  await page.getByRole("button", { name: "Previous" }).click()
+  await saveResponse
+  await expect(questionHeading).toHaveText(firstPrompt ?? "")
+  await expect(questionHeading).toBeFocused()
+
+  await page.route("**/api/diagnostic", async (route) => {
+    if (route.request().method() === "PATCH") {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Diagnostic save unavailable." }),
+      })
+      return
+    }
+    await route.continue()
+  })
+  const changedDiagnosticChoice = page
+    .getByRole("radiogroup", { name: "Answer choices for question 1" })
+    .getByRole("radio")
+    .nth(1)
+  await changedDiagnosticChoice.focus()
+  await page.keyboard.press("Space")
+  await expect(changedDiagnosticChoice).toBeChecked()
+
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Save failed. Your latest progress may not be saved.",
+    })
+  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
+})
+
 test("a calendar review cannot masquerade as the current lesson", async ({
   page,
 }) => {
   await openStarterPlan(page)
   await page.getByRole("tab", { name: "My week" }).click()
 
-  const sentenceReview = page.getByRole("button", {
-    name: /Review · \d+m Sentence boundaries review/,
+  const calendarReview = page.getByRole("button", {
+    name: /Review · \d+m .+ review/,
   })
-  for (let week = 0; week < 6 && (await sentenceReview.count()) === 0; week++) {
-    await page.getByRole("button", { name: "Next study week" }).click()
+  const nextWeek = page.getByRole("button", { name: "Next study week" })
+  for (let week = 0; week < 8 && (await calendarReview.count()) === 0; week++) {
+    if (await nextWeek.isDisabled()) break
+    await nextWeek.click()
   }
 
-  await expect(sentenceReview).toBeVisible()
-  await sentenceReview.click()
+  await expect(calendarReview.first()).toBeVisible()
+  await calendarReview.first().click()
   await expect(
     page.getByRole("button", { name: "Finish your current task first" })
   ).toBeDisabled()

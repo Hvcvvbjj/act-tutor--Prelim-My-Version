@@ -46,7 +46,7 @@ function evidenceSummary(input: LessonCompositionInput) {
   if (!evidence || evidence.total === 0) {
     return `You have not answered a ${input.skill.label.toLowerCase()} question yet, so Scout will teach the rule first and then give you a quick check.`;
   }
-  return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on the diagnostic (${Math.round(evidence.accuracy * 100)}%).`;
+  return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on your latest scored check (${Math.round(evidence.accuracy * 100)}%).`;
 }
 
 export function buildAuthoredPersonalizedLesson(
@@ -60,7 +60,7 @@ export function buildAuthoredPersonalizedLesson(
       ? "Your test is close, so this lesson starts with the fastest useful rule."
       : "You have time to learn the rule before adding a timer.";
   const assignmentReason = evidence
-    ? `Scout picked it because you got ${evidence.correct} of ${evidence.total} matching diagnostic questions right.`
+    ? `Scout picked it because you got ${evidence.correct} of ${evidence.total} matching questions right on your latest scored check.`
     : "Scout picked it because you have not answered a scored question for this skill yet.";
 
   return {

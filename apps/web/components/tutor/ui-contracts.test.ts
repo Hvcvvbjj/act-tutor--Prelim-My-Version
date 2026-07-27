@@ -125,6 +125,15 @@ describe("Scout drawer accessibility contract", () => {
 })
 
 describe("learner-facing model language", () => {
+  it("keeps export and deletion controls available to every learner", async () => {
+    const learnerModel = await source(
+      "components/tutor/scout-operations/learner-model-view.tsx"
+    )
+    expect(learnerModel).toContain("Export my data")
+    expect(learnerModel).toContain("Delete Scout study data")
+    expect(learnerModel).toContain("Confirm study-data deletion")
+  })
+
   it("uses plain planning labels and does not repeat the transfer caveat", async () => {
     const dashboard = await source("components/tutor/dashboard.tsx")
     const mission = await source("components/tutor/daily-mission-hub.tsx")
@@ -275,11 +284,16 @@ describe("deadline learner UX contract", () => {
     expect(questionTransition).not.toContain("showLatestAnswer")
     expect(quickCheck).toContain('role="status"')
     expect(quickCheck).toContain("setShowLatestAnswer(true)")
+    expect(quickCheck).toContain("useState<AnswerConfidence | null>(null)")
+    expect(quickCheck).toContain(
+      "disabled={!selectedChoice || !confidence || busy}"
+    )
+    expect(quickCheck).not.toContain("(optional)")
   })
 })
 
 describe("practice timing contract", () => {
-  it("starts the solving clock when a new question renders", async () => {
+  it("starts the solving clock when the displayed question changes", async () => {
     const workspace = await source("components/tutor/lesson-workspace.tsx")
     const timerEffect = workspace.indexOf(
       "startedAt.current = window.performance.now()"
@@ -287,7 +301,7 @@ describe("practice timing contract", () => {
     const choiceHandler = workspace.indexOf("onChoiceChange(choice)")
     expect(timerEffect).toBeGreaterThan(-1)
     expect(timerEffect).toBeLessThan(choiceHandler)
-    expect(workspace).toContain("}, [currentQuestion?.id])")
+    expect(workspace).toContain("}, [displayedQuestion?.id])")
   })
 
   it("withholds score interpretation until a timed-practice run is usable", async () => {

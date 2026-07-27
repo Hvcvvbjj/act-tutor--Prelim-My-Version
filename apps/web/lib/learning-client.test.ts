@@ -121,6 +121,33 @@ describe("offline learning commands", () => {
 })
 
 describe("remote deletion confirmation", () => {
+  it("also asks the account service to remove the saved plan", async () => {
+    const requests: Array<{
+      url: string
+      method: string | undefined
+      body: string | null
+    }> = []
+    const request = (async (
+      input: string | URL | Request,
+      init?: RequestInit
+    ) => {
+      requests.push({
+        url: String(input),
+        method: init?.method,
+        body: typeof init?.body === "string" ? init.body : null,
+      })
+      return new Response(null, { status: 200 })
+    }) as typeof fetch
+
+    await deleteRemoteScoutData(request)
+
+    expect(requests).toContainEqual({
+      url: "/api/auth",
+      method: "POST",
+      body: JSON.stringify({ action: "delete_saved_plan" }),
+    })
+  })
+
   it("rejects the whole deletion when one service does not confirm", async () => {
     const request = (async (input: string | URL | Request) =>
       new Response(null, {
@@ -176,5 +203,14 @@ describe("completed full-test consumption", () => {
     ).rejects.toThrow("Finish the current lesson round first.")
 
     expect(refreshExam()).toEqual(completedExam)
+  })
+
+  it("keeps the stored learning round successful when exam cleanup fails", async () => {
+    const payload = await consumeCompletedExamForLearningRound(
+      async () => ({ roundNumber: 2 }),
+      (async () => new Response(null, { status: 503 })) as typeof fetch
+    )
+
+    expect(payload).toEqual({ roundNumber: 2 })
   })
 })

@@ -200,6 +200,41 @@ describe("adaptive study plans", () => {
     expect(rebalanced.revisionReason).toContain("did not change");
   });
 
+  it("does not carry an old calendar into a newly scheduled test cycle", () => {
+    const initial = plan();
+    const oldTask = initial.tasks[0];
+    const completed = setStudyPlanTaskStatus(
+      initial,
+      oldTask.id,
+      "complete",
+      "2026-07-13T13:00:00.000Z",
+    );
+    const nextCycle = rebalanceStudyPlan(completed, {
+      today: "2026-08-19",
+      testDate: "2026-10-10",
+      current: { english: 27, math: 22, reading: 26 },
+      target: { english: 31, math: 31, reading: 29 },
+      updatedAt: "2026-08-19T08:00:00.000Z",
+    });
+
+    expect(nextCycle.tasks.some((task) => task.id === oldTask.id)).toBe(false);
+    expect(
+      nextCycle.tasks.every(
+        (task) =>
+          task.date >= nextCycle.today && task.date < nextCycle.testDate,
+      ),
+    ).toBe(true);
+    expect(nextCycle.forecast.scheduledMinutes).toBe(
+      nextCycle.tasks
+        .filter((task) => task.status !== "skipped")
+        .reduce((sum, task) => sum + task.minutes, 0),
+    );
+    expect(
+      nextCycle.milestones.find((milestone) => milestone.id === "test-day")
+        ?.date,
+    ).toBe("2026-10-10");
+  });
+
   it("records task completion idempotently without inventing score gains", () => {
     const initial = plan();
     const task = initial.tasks[0];

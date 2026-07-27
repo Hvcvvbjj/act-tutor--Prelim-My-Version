@@ -1,5 +1,6 @@
 import {
   buildCalibrationLearningBaseline,
+  examLabInterpretationReadiness,
   type DiagnosticSkillResult,
   type LearningAnswerCommand,
   type LessonPlanContext,
@@ -8,6 +9,12 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { syncLinkedSession } from "@/lib/auth.server"
+import {
+  FULL_LENGTH_PRACTICE_FORM,
+  RAPID_DIAGNOSTIC_FORM,
+} from "@/lib/diagnostic-content.server"
+import { diagnosticSessions } from "@/lib/diagnostic-sessions.server"
+import { examLabSessions } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { lessonComposer } from "@/lib/lesson-composer.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -17,6 +24,10 @@ export const dynamic = "force-dynamic"
 
 const SESSION_COOKIE = "ai_act_learning_session"
 const CALIBRATION_COOKIE = "ai_act_calibration_session"
+const DIAGNOSTIC_COOKIE = "ai_act_diag_session"
+const EXAM_LAB_COOKIE = "scout_exam_lab_session"
+const MAX_SKILL_RESULTS = 24
+const MAX_ASSESSMENT_QUESTIONS = 200
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
   response.cookies.set(SESSION_COOKIE, sessionId, {
@@ -51,6 +62,11 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
   if (value === undefined) return []
   if (!Array.isArray(value))
     throw new RangeError("Diagnostic skill results must be an array.")
+  if (value.length > MAX_SKILL_RESULTS) {
+    throw new RangeError("Too many diagnostic skill results were provided.")
+  }
+  const skills = new Set<string>()
+  let totalQuestions = 0
   return value.map((item) => {
     if (!item || typeof item !== "object") {
       throw new RangeError("Diagnostic skill result must be an object.")
@@ -85,6 +101,14 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
     ) {
       throw new RangeError("Diagnostic skill counts are malformed.")
     }
+    if (skills.has(candidate.skill)) {
+      throw new RangeError(`Duplicate diagnostic skill: ${candidate.skill}.`)
+    }
+    skills.add(candidate.skill)
+    totalQuestions += candidate.total
+    if (totalQuestions > MAX_ASSESSMENT_QUESTIONS) {
+      throw new RangeError("Diagnostic skill counts exceed the supported form.")
+    }
     return {
       skill: candidate.skill,
       label: candidate.label,
@@ -95,6 +119,102 @@ function parseDiagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
       signal: candidate.signal,
     }
   })
+}
+
+async function resolveRoundAssessment(
+  request: NextRequest,
+  source: unknown
+): Promise<{
+  assessmentKey: string
+  diagnosticSkillResults: DiagnosticSkillResult[]
+  currentScore: number
+  sectionScores: NonNullable<LessonPlanContext["sectionScores"]>
+}> {
+  if (source === "diagnostic") {
+    const sessionId = request.cookies.get(DIAGNOSTIC_COOKIE)?.value
+    if (!sessionId) {
+      throw new RangeError(
+        "Finish a new diagnostic before starting the next lesson round."
+      )
+    }
+    const session = await diagnosticSessions.get(
+      sessionId,
+      RAPID_DIAGNOSTIC_FORM
+    )
+    if (session.status !== "completed" || !session.result) {
+      throw new RangeError(
+        "Finish the current diagnostic before starting the next lesson round."
+      )
+    }
+    return {
+      assessmentKey: `diagnostic:${session.attemptId}`,
+      diagnosticSkillResults: [...session.result.skillResults],
+      currentScore: session.result.compositeRange.estimate,
+      sectionScores: session.result.planningBaseline,
+    }
+  }
+
+  if (source === "full-test") {
+    const sessionId = request.cookies.get(EXAM_LAB_COOKIE)?.value
+    if (!sessionId) {
+      throw new RangeError(
+        "Finish a new full-length test before starting the next lesson round."
+      )
+    }
+    const session = await examLabSessions.get(
+      sessionId,
+      FULL_LENGTH_PRACTICE_FORM
+    )
+    const result = session.result
+    if (
+      session.status !== "completed" ||
+      !result ||
+      result.mode !== "core" ||
+      !examLabInterpretationReadiness(result).sufficient
+    ) {
+      throw new RangeError(
+        "Complete enough of the current full-length test for Scout to interpret it before starting the next lesson round."
+      )
+    }
+    const sectionScores = Object.fromEntries(
+      result.sections.map((section) => [
+        section.section,
+        section.practiceEstimate,
+      ])
+    ) as NonNullable<LessonPlanContext["sectionScores"]>
+    if (
+      !Number.isInteger(sectionScores.english) ||
+      !Number.isInteger(sectionScores.math) ||
+      !Number.isInteger(sectionScores.reading)
+    ) {
+      throw new RangeError(
+        "The completed full-length test is missing section results."
+      )
+    }
+    return {
+      assessmentKey: `full-test:${session.id}`,
+      diagnosticSkillResults: result.skills.map((skill) => ({
+        skill: skill.skill,
+        label: skill.label,
+        section: skill.section,
+        correct: skill.correct,
+        total: skill.total,
+        accuracy: skill.accuracy,
+        signal:
+          skill.accuracy >= 0.75
+            ? "strength"
+            : skill.accuracy < 0.5
+              ? "focus"
+              : "developing",
+      })),
+      currentScore: result.practiceEstimate.estimate,
+      sectionScores,
+    }
+  }
+
+  throw new RangeError(
+    "Choose a completed diagnostic or full-length test for the next round."
+  )
 }
 
 function parseAnswerCommand(value: unknown): LearningAnswerCommand {
@@ -215,6 +335,45 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as Record<string, unknown>
     const action = body.action
 
+    if (action === "rebase_after_diagnostic") {
+      const diagnosticSessionId = request.cookies.get(DIAGNOSTIC_COOKIE)?.value
+      if (!diagnosticSessionId) {
+        throw new RangeError(
+          "Complete the full diagnostic before rebuilding the plan."
+        )
+      }
+      const learningSessionId = requireSessionId(request)
+      const diagnostic = await diagnosticSessions.get(
+        diagnosticSessionId,
+        RAPID_DIAGNOSTIC_FORM
+      )
+      if (diagnostic.status !== "completed" || !diagnostic.result) {
+        throw new RangeError(
+          "Complete the full diagnostic before rebuilding the plan."
+        )
+      }
+      const plan = parsePlanContext({
+        ...body,
+        currentScore: diagnostic.result.compositeRange.estimate,
+        sectionScores: diagnostic.result.planningBaseline,
+      })
+      const learning = await learningSessions.rebaseAfterCalibration(
+        learningSessionId,
+        LEARNING_BANK,
+        {
+          calibrationKey: `diagnostic:${diagnostic.attemptId}`,
+          diagnosticSkillResults: diagnostic.result.skillResults,
+          plan,
+          baselineLabel: "Full diagnostic",
+          replaceLearningTwin: true,
+        },
+        lessonComposer
+      )
+      const response = NextResponse.json({ learning })
+      response.headers.set("Cache-Control", "no-store")
+      return response
+    }
+
     if (action === "rebase_after_calibration") {
       const calibrationSessionId =
         request.cookies.get(CALIBRATION_COOKIE)?.value
@@ -281,21 +440,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "start_adaptive_round") {
-      if (
-        typeof body.assessmentKey !== "string" ||
-        body.assessmentKey.length < 8
-      ) {
-        throw new RangeError("A stable assessment key is required.")
-      }
+      const assessment = await resolveRoundAssessment(
+        request,
+        body.assessmentSource
+      )
+      const plan = parsePlanContext(body)
       const payload = await learningSessions.applyRoundAssessment(
         requireSessionId(request),
         LEARNING_BANK,
         {
-          assessmentKey: body.assessmentKey,
-          diagnosticSkillResults: parseDiagnosticSkillResults(
-            body.diagnosticSkillResults
-          ),
-          plan: parsePlanContext(body),
+          assessmentKey: assessment.assessmentKey,
+          diagnosticSkillResults: assessment.diagnosticSkillResults,
+          plan: {
+            ...plan,
+            currentScore: assessment.currentScore,
+            sectionScores: assessment.sectionScores,
+          },
         },
         lessonComposer
       )

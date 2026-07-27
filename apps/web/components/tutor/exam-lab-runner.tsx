@@ -22,6 +22,7 @@ import {
   RadioGroup,
   VisuallyHiddenRadioGroupItem,
 } from "@/components/ui/radio-group"
+import { examLabTimerControls } from "@/components/tutor/exam-lab-timer"
 import { cn } from "@/lib/utils"
 
 interface ExamLabRunnerProps {
@@ -125,6 +126,7 @@ export function ExamLabRunner({
   const progress = Math.round(
     ((sectionPosition + 1) / sectionQuestions.length) * 100
   )
+  const timer = examLabTimerControls(timeLeft, session.sectionDeadlineAt)
   const timeCritical = timeLeft <= 60
   const sectionName =
     navigationSection === "mixed"
@@ -192,9 +194,7 @@ export function ExamLabRunner({
             >
               {session.progress.phase === "review"
                 ? "Return to review"
-                : timeLeft === 0
-                  ? "Time expired"
-                  : "End section"}
+                : timer.endSectionLabel}
               <SendIcon data-icon="inline-end" />
             </Button>
           </div>
@@ -241,6 +241,7 @@ export function ExamLabRunner({
               variant={response?.flagged ? "default" : "outline"}
               size="sm"
               onClick={onToggleFlag}
+              disabled={busy || timer.locked}
             >
               <BookmarkIcon
                 data-icon="inline-start"
@@ -268,22 +269,38 @@ export function ExamLabRunner({
             {question.prompt}
           </h1>
 
+          {timer.statusMessage ? (
+            <div
+              className="mt-5 border-2 border-[var(--scout-coral)] bg-[var(--coach-surface)] px-4 py-3 text-sm font-semibold text-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {timer.statusMessage}
+            </div>
+          ) : null}
+
           <RadioGroup
             value={response?.choiceId ?? ""}
             onValueChange={onAnswer}
-            className="mt-7 grid gap-3"
+            className={cn("mt-7 grid gap-3", timer.locked && "opacity-60")}
             aria-label="Exam answer choices"
+            aria-disabled={timer.locked}
           >
             {question.choices.map((choice, index) => (
               <label
                 key={choice.id}
                 className={cn(
                   "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] border-2 border-border bg-background px-4 py-4 text-sm leading-6 transition-[transform,background-color,border-color] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:-translate-y-0.5 hover:border-foreground sm:text-base",
+                  timer.locked &&
+                    "cursor-not-allowed hover:translate-y-0 hover:border-border",
                   response?.choiceId === choice.id &&
                     "border-primary bg-secondary"
                 )}
               >
-                <VisuallyHiddenRadioGroupItem value={choice.id} />
+                <VisuallyHiddenRadioGroupItem
+                  value={choice.id}
+                  disabled={timer.locked}
+                />
                 <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
                   {String.fromCharCode(65 + index)}
                 </span>
@@ -294,7 +311,10 @@ export function ExamLabRunner({
             ))}
           </RadioGroup>
 
-          <fieldset className="mt-7 border-y py-5">
+          <fieldset
+            className={cn("mt-7 border-y py-5", timer.locked && "opacity-60")}
+            disabled={timer.locked}
+          >
             <legend className="ink-label text-muted-foreground">
               How sure are you?
             </legend>
@@ -319,7 +339,7 @@ export function ExamLabRunner({
                     Boolean(response.choiceId)
                   }
                   onClick={() => onConfidence(confidence)}
-                  disabled={!response?.choiceId}
+                  disabled={timer.locked || !response?.choiceId}
                 >
                   {label}
                 </Button>
@@ -343,7 +363,12 @@ export function ExamLabRunner({
             >
               <ArrowLeftIcon data-icon="inline-start" /> Previous
             </Button>
-            {session.progress.phase === "review" ? (
+            {session.progress.phase !== "review" && timer.locked ? (
+              <Button type="button" onClick={onEndSection} disabled={busy}>
+                End section to continue{" "}
+                <ArrowRightIcon data-icon="inline-end" />
+              </Button>
+            ) : session.progress.phase === "review" ? (
               <Button type="button" onClick={onEndSection} disabled={busy}>
                 Return to review <ArrowRightIcon data-icon="inline-end" />
               </Button>

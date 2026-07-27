@@ -110,8 +110,9 @@ export function ExamLabReport({
             {readiness.sufficient
               ? "See raw accuracy, average time per answered question, and how your Sure, Unsure, and Guess labels lined up with correctness."
               : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, confidence pattern, or next lesson from this run.`}{" "}
-            These results stay in Timed Practice and do not update Today or My
-            Week.
+            {onUseForNextRound
+              ? "These results have not changed Today or My Week yet. Use the action at the end of this report if you want them to set your next lesson round."
+              : "These results stay in Timed Practice and do not update Today or My Week."}
           </p>
 
           <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-[1.2fr_0.8fr] sm:divide-x-2 sm:divide-foreground">
@@ -529,14 +530,27 @@ export function ExamLabReport({
               id="review-title"
               className="mt-2 font-heading text-4xl font-bold"
             >
-              Review every question
+              {result.unanswered > 0
+                ? "Review your answered questions"
+                : "Review every question"}
             </h2>
           </div>
           <RotateCcwIcon className="text-primary" />
         </div>
         <div className="mt-6 border-t">
-          {result.review.map((review, index) => {
+          {result.review.length === 0 ? (
+            <p className="border-b py-6 text-sm leading-6 text-muted-foreground">
+              No answer explanations are available because this run did not
+              include a completed answer. Start a new run when you are ready to
+              practice.
+            </p>
+          ) : null}
+          {result.review.map((review) => {
             const question = questionMap.get(review.questionId)
+            const questionNumber =
+              session.questions.findIndex(
+                (candidate) => candidate.id === review.questionId
+              ) + 1
             const selectedText =
               question?.choices.find(
                 (choice) => choice.id === review.selectedChoiceId
@@ -556,7 +570,7 @@ export function ExamLabReport({
                         : "bg-[var(--coach-surface)]"
                     )}
                   >
-                    {index + 1}
+                    {questionNumber}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">

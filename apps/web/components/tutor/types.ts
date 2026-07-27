@@ -9,12 +9,14 @@ import type {
 
 export type PriorScoreChoice =
   "undecided" | "scores" | "composite_only" | "never"
+export type ReportedScoreSource = "official" | "practice"
 export type StartingCheckChoice = "take" | "skip"
 export type DashboardTab = "today" | "plan" | "progress"
 
 export interface PlacementDraft {
   goal: number
   priorScoreChoice: PriorScoreChoice
+  scoreSource: ReportedScoreSource
   startingCheckChoice: StartingCheckChoice
   composite: number
   english: number
@@ -29,6 +31,7 @@ export interface PlacementDraft {
 }
 
 export type LessonEntryChoice = "explain-types" | "start-lessons"
+export type ProfileEvidenceSource = "quick-check" | "diagnostic" | "full-test"
 
 export interface ReportedOfficialScore {
   id: string
@@ -66,6 +69,7 @@ export interface GeneratedPlan {
   weakestSection: "english" | "math" | "reading"
   diagnosticResult?: DiagnosticResult
   profileSkillResults: DiagnosticSkillResult[]
+  profileSource?: ProfileEvidenceSource
   journey: TutorJourney
   testDatePassed: boolean
   adaptiveBaselineRequired?: boolean

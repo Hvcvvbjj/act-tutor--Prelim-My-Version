@@ -133,6 +133,7 @@ function QuestionView({
   onPrevious: () => void
   onNext: () => void
 }) {
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
   const isLast = currentIndex === form.questions.length - 1
   const progress = ((currentIndex + 1) / form.questions.length) * 100
   const sectionQuestions = form.questions.filter(
@@ -141,6 +142,17 @@ function QuestionView({
   const sectionIndex = sectionQuestions.findIndex(
     (item) => item.id === question.id
   )
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      questionHeadingRef.current?.focus({ preventScroll: true })
+      questionHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [question.id])
 
   const answerPanel = (
     <div className="min-w-0">
@@ -158,7 +170,11 @@ function QuestionView({
           {question.lineReference}
         </p>
       ) : null}
-      <h1 className="mt-4 max-w-3xl font-heading text-3xl leading-tight font-bold tracking-[-0.02em] sm:text-4xl">
+      <h1
+        ref={questionHeadingRef}
+        tabIndex={-1}
+        className="mt-4 max-w-3xl scroll-mt-6 font-heading text-3xl leading-tight font-bold tracking-[-0.02em] outline-none sm:text-4xl"
+      >
         {question.prompt}
       </h1>
 
@@ -645,14 +661,16 @@ export function DiagnosticRunner({
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <header className="flex min-h-20 items-center justify-between gap-4 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
-        <div className="flex items-center gap-3">
+      <header className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
+        <div className="flex min-w-0 items-center gap-3">
           <ScoutMark className="size-11" />
-          <div>
+          <div className="min-w-0">
             <p className="font-brand text-xl font-black tracking-tight sm:text-2xl">
               SCOUT ACT
             </p>
-            <p className="text-sm text-muted-foreground">{form.title}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {form.title}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
@@ -663,7 +681,7 @@ export function DiagnosticRunner({
                 ? "text-destructive"
                 : "text-muted-foreground"
             )}
-            role="status"
+            role={saveStatus === "error" ? "alert" : "status"}
           >
             {saveStatus === "saving" ? (
               <LoaderCircleIcon
@@ -688,6 +706,15 @@ export function DiagnosticRunner({
             Save and exit
           </Button>
         </div>
+        {saveStatus === "error" ? (
+          <p
+            className="flex w-full items-center gap-2 text-sm font-semibold text-destructive sm:hidden"
+            role="alert"
+          >
+            <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+            Save failed. Your latest progress may not be saved.
+          </p>
+        ) : null}
       </header>
 
       <main

@@ -1629,7 +1629,7 @@ describe("FileLearningSessionRepository", () => {
         );
       }
 
-      const duplicate = await repo.applyRoundAssessment(
+      const retried = await repo.applyRoundAssessment(
         started.sessionId,
         learningBank,
         {
@@ -1643,10 +1643,10 @@ describe("FileLearningSessionRepository", () => {
           plan: { ...plan, currentScore: 30 },
         },
       );
-      expect(duplicate.cycle).toEqual(adaptive.cycle);
-      expect(duplicate.mission.progress).toEqual(adaptive.mission.progress);
-      expect(duplicate.learningTwin).toEqual(adaptive.learningTwin);
-      expect(duplicate.mission.skillMap).toEqual(adaptive.mission.skillMap);
+      expect(retried.cycle).toEqual(adaptive.cycle);
+      expect(retried.learningTwin.evidence.calibration).toBe(
+        adaptive.learningTwin.evidence.calibration,
+      );
 
       let firstMissionComplete = await repo.completeLesson(
         started.sessionId,
@@ -1739,6 +1739,13 @@ describe("FileLearningSessionRepository", () => {
       expect(adaptiveComplete.mission.mistakes).toHaveLength(1);
       expect(adaptiveComplete.mission.unresolvedMistakes).toBe(0);
       expect(adaptiveComplete.mission.mistakes[0].resolvedAt).not.toBeNull();
+      await expect(
+        repo.applyRoundAssessment(started.sessionId, learningBank, {
+          assessmentKey,
+          diagnosticSkillResults: expandedAssessmentResults,
+          plan,
+        }),
+      ).rejects.toThrow("already started a lesson round");
       await expect(
         repo.beginFocus(started.sessionId, learningBank, { plan }),
       ).rejects.toThrow("Choose the next assessment");

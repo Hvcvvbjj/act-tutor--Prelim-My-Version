@@ -179,6 +179,104 @@ describe("loadInitialStudyPlan", () => {
     })
   })
 
+  it("rebalances a default calendar when setup availability changes", async () => {
+    const saved = makePlan()
+    const changedInput = {
+      ...INPUT,
+      studyDaysPerWeek: 5,
+      minutesPerSession: 60,
+    }
+    const rebalanced = makePlan(
+      changedInput,
+      defaultStudyAvailability(changedInput.today, 5, 60)
+    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(saved))
+      .mockResolvedValueOnce(jsonResponse(rebalanced))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await loadInitialStudyPlan(changedInput)
+
+    expect(requestBody(fetchMock, 1)).toMatchObject({
+      action: "start",
+      availability: defaultStudyAvailability(changedInput.today, 5, 60),
+    })
+  })
+
+  it("catches up a default calendar across days without rebuilding progress", async () => {
+    const saved = makePlan()
+    const nextInput = { ...INPUT, today: "2026-07-26" }
+    const caughtUp = catchUpStudyPlan(saved, nextInput.today)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(saved))
+      .mockResolvedValueOnce(jsonResponse(caughtUp))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const resumed = await loadInitialStudyPlan(nextInput)
+
+    expect(requestBody(fetchMock, 1)).toEqual({
+      action: "catch_up",
+      today: nextInput.today,
+    })
+    expect(resumed.today).toBe(nextInput.today)
+  })
+
+  it("still recognizes a caught-up default calendar when setup capacity changes", async () => {
+    const saved = makePlan()
+    const caughtUp = catchUpStudyPlan(saved, "2026-07-26")
+    const changedInput = {
+      ...INPUT,
+      today: "2026-07-26",
+      studyDaysPerWeek: 5,
+      minutesPerSession: 60,
+    }
+    const replaced = makePlan(
+      changedInput,
+      defaultStudyAvailability(changedInput.today, 5, 60)
+    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(caughtUp))
+      .mockResolvedValueOnce(jsonResponse(replaced))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await loadInitialStudyPlan(changedInput)
+
+    expect(requestBody(fetchMock, 1)).toMatchObject({
+      action: "start",
+      availability: defaultStudyAvailability(changedInput.today, 5, 60),
+    })
+  })
+
+  it("preserves a custom calendar while score evidence changes", async () => {
+    const customAvailability = {
+      entries: [
+        { weekday: "tue" as const, minutes: 45 },
+        { weekday: "sat" as const, minutes: 75 },
+      ],
+    }
+    const saved = makePlan(INPUT, customAvailability)
+    const changedInput = {
+      ...INPUT,
+      current: { ...INPUT.current, math: 22 },
+    }
+    const replaced = makePlan(changedInput, customAvailability)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(saved))
+      .mockResolvedValueOnce(jsonResponse(replaced))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await loadInitialStudyPlan(changedInput)
+
+    expect(requestBody(fetchMock, 1)).toMatchObject({
+      action: "start",
+      availability: customAvailability,
+    })
+  })
+
   it("syncs changed evidence without reposting starter availability", async () => {
     const saved = makePlan(INPUT, {
       entries: [

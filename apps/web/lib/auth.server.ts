@@ -465,6 +465,9 @@ function parseDraft(value: unknown): PlacementDraft {
     throw new AuthRequestError("The starting-check choice is invalid.", 400)
   }
   if (
+    (draft.scoreSource !== undefined &&
+      draft.scoreSource !== "official" &&
+      draft.scoreSource !== "practice") ||
     typeof draft.testDate !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(draft.testDate) ||
     !Number.isInteger(draft.studyDaysPerWeek) ||
@@ -484,6 +487,8 @@ function parseDraft(value: unknown): PlacementDraft {
   return {
     goal: score(draft.goal, "Goal"),
     priorScoreChoice: draft.priorScoreChoice,
+    scoreSource:
+      draft.scoreSource === "official" ? "official" : ("practice" as const),
     startingCheckChoice: draft.startingCheckChoice,
     composite: draftScore(
       draft.composite,
@@ -530,7 +535,8 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
       evidence.source !== "composite_only" &&
       evidence.source !== "section_scores" &&
       evidence.source !== "starter_diagnostic" &&
-      evidence.source !== "rapid_diagnostic") ||
+      evidence.source !== "rapid_diagnostic" &&
+      evidence.source !== "full_test") ||
     (evidence.confidence !== "none" &&
       evidence.confidence !== "low" &&
       evidence.confidence !== "medium") ||
@@ -545,6 +551,18 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
   )
   if (!planningBaseline) {
     throw new AuthRequestError("The saved plan needs a starting point.", 400)
+  }
+  const profileSource = input.profileSource
+  if (
+    profileSource !== undefined &&
+    profileSource !== "quick-check" &&
+    profileSource !== "diagnostic" &&
+    profileSource !== "full-test"
+  ) {
+    throw new AuthRequestError(
+      "The saved skill-profile source is invalid.",
+      400
+    )
   }
   return {
     version: 2,
@@ -577,6 +595,7 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
       input.version === 2
         ? diagnosticSkillResults(input.profileSkillResults)
         : [],
+    ...(typeof profileSource === "string" ? { profileSource } : {}),
     journey:
       input.version === 2
         ? parseTutorJourney(input.journey)
@@ -962,6 +981,39 @@ export async function saveAccountPlan(
       ...account.linkedSessions,
       ...linkedSessionsFromRequest(request),
     }
+    account.updatedAt = new Date().toISOString()
+    await documentStore.write(store)
+    return viewerFor(session, account)
+  })
+}
+
+export async function deleteAccountSavedPlan(
+  request: NextRequest
+): Promise<AuthViewer> {
+  const token = request.cookies.get(AUTH_COOKIE)?.value
+  if (!token) return cloneGuestViewer()
+  const tokenHash = await sha256(token)
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    removeExpired(store, Date.now())
+    const session = store.sessions[tokenHash]
+    if (!session) {
+      throw new AuthRequestError(
+        "Sign in again before deleting your saved plan.",
+        401
+      )
+    }
+    if (session.role !== "learner" || !session.accountId) {
+      return viewerFor(session, null)
+    }
+    const account = store.accounts[session.accountId]
+    if (!account) {
+      throw new AuthRequestError(
+        "Sign in again before deleting your saved plan.",
+        401
+      )
+    }
+    account.savedPlan = null
     account.updatedAt = new Date().toISOString()
     await documentStore.write(store)
     return viewerFor(session, account)

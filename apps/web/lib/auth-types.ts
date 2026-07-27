@@ -3,7 +3,11 @@ import type {
   NormalizedScoreEvidence,
 } from "@act-tutor/core"
 
-import type { PlacementDraft, TutorJourney } from "@/components/tutor/types"
+import type {
+  PlacementDraft,
+  ProfileEvidenceSource,
+  TutorJourney,
+} from "@/components/tutor/types"
 
 export type AuthRole = "guest" | "learner" | "judge"
 
@@ -14,6 +18,7 @@ export interface SavedTutorPlan {
   evidence: NormalizedScoreEvidence
   currentComposite: number
   profileSkillResults: DiagnosticSkillResult[]
+  profileSource?: ProfileEvidenceSource
   journey: TutorJourney
   adaptiveBaselineRequired: boolean
   baselineSkipped: boolean

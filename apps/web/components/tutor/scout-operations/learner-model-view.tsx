@@ -1,24 +1,29 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { DownloadIcon, Trash2Icon } from "lucide-react"
 
 import type { ScoutOperationsLabProps } from "@/components/tutor/scout-operations/types"
 import { Button } from "@/components/ui/button"
 
 export function LearnerModelView({
+  plan,
   learning,
   busy,
   onCorrectModel,
   onStartChallenge,
   onStartRecovery,
+  onDeleteData,
   canViewTechnicalDetails,
 }: Pick<
   ScoutOperationsLabProps,
+  | "plan"
   | "learning"
   | "busy"
   | "onCorrectModel"
   | "onStartChallenge"
   | "onStartRecovery"
+  | "onDeleteData"
   | "canViewTechnicalDetails"
 >) {
   const [correctionKind, setCorrectionKind] = useState<
@@ -26,6 +31,7 @@ export function LearnerModelView({
   >("wrong-misconception")
   const [note, setNote] = useState("")
   const [reflection, setReflection] = useState("")
+  const [deleteArmed, setDeleteArmed] = useState(false)
   const report = learning.learnerModel
   const canSwitchMission = learning.status === "complete"
   const averageMastery =
@@ -53,6 +59,25 @@ export function LearnerModelView({
     )
     return () => window.clearTimeout(timeout)
   }, [])
+
+  function exportData() {
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          { exportedAt: new Date().toISOString(), plan, learning },
+          null,
+          2
+        ),
+      ],
+      { type: "application/json" }
+    )
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = "scout-learning-data.json"
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-12">
@@ -337,6 +362,43 @@ export function LearnerModelView({
           >
             Save reflection on this device
           </Button>
+        </div>
+      </section>
+
+      <section className="border-y-2 border-foreground py-7">
+        <p className="ink-label text-primary">Your data controls</p>
+        <h2 className="mt-2 font-heading text-3xl font-black">
+          Export or delete your Scout study data.
+        </h2>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+          Export a readable copy of your saved plan and learning progress, or
+          remove Scout&apos;s study sessions and saved plan. If you created an
+          account, deleting study data does not delete the account itself.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={exportData}>
+            <DownloadIcon /> Export my data
+          </Button>
+          {!deleteArmed ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDeleteArmed(true)}
+            >
+              <Trash2Icon /> Delete Scout study data
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={onDeleteData}
+            >
+              {busy
+                ? "Deleting Scout study data…"
+                : "Confirm study-data deletion"}
+            </Button>
+          )}
         </div>
       </section>
     </div>

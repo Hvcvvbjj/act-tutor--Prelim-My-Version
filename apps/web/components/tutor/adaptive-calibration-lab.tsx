@@ -320,16 +320,18 @@ function AdaptiveProofReplay({
                 : "Your dated My week calendar stays as it is. Scout will use this update when choosing what you should practice next."}
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="button" variant="outline" onClick={onReturnToToday}>
-            {representativeDemo ? "Back to sample day" : "Back to today"}
-          </Button>
-          <Button type="button" onClick={onInspectLearningTwin}>
-            <BrainCircuitIcon />
-            {representativeDemo ? "View sample skills" : "View my skills"}
-            <ArrowRightIcon data-icon="inline-end" />
-          </Button>
-        </div>
+        {!adaptiveBaselineRequired ? (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button type="button" variant="outline" onClick={onReturnToToday}>
+              {representativeDemo ? "Back to sample day" : "Back to today"}
+            </Button>
+            <Button type="button" onClick={onInspectLearningTwin}>
+              <BrainCircuitIcon />
+              {representativeDemo ? "View sample skills" : "View my skills"}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+          </div>
+        ) : null}
       </div>
     </section>
   )
@@ -456,7 +458,7 @@ export function AdaptiveCalibrationLab({
     null
   )
   const [selectedChoice, setSelectedChoice] = useState("")
-  const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
+  const [confidence, setConfidence] = useState<AnswerConfidence | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showLatestAnswer, setShowLatestAnswer] = useState(false)
@@ -527,6 +529,7 @@ export function AdaptiveCalibrationLab({
     }
 
     setSelectedChoice("")
+    setConfidence(null)
     const frame = window.requestAnimationFrame(() => {
       questionHeadingRef.current?.focus({ preventScroll: true })
       questionHeadingRef.current?.scrollIntoView({
@@ -580,7 +583,7 @@ export function AdaptiveCalibrationLab({
 
   async function submitAnswer() {
     const question = payload?.currentQuestion
-    if (!question || !selectedChoice) return
+    if (!question || !selectedChoice || !confidence) return
     const learningBefore = learning.learningTwin
     setBusy(true)
     try {
@@ -592,7 +595,7 @@ export function AdaptiveCalibrationLab({
       })
       setPayload(next)
       setSelectedChoice("")
-      setConfidence("sure")
+      setConfidence(null)
       setError(null)
       setShowLatestAnswer(true)
       if (next.learningTwinUpdated) {
@@ -895,16 +898,18 @@ export function AdaptiveCalibrationLab({
                 </p>
               </>
             )}
-            <Button
-              type="button"
-              size="lg"
-              className="mt-7 w-full"
-              onClick={onInspectLearningTwin}
-            >
-              <BrainCircuitIcon />
-              See what Scout recommends
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
+            {!adaptiveBaselineRequired ? (
+              <Button
+                type="button"
+                size="lg"
+                className="mt-7 w-full"
+                onClick={onInspectLearningTwin}
+              >
+                <BrainCircuitIcon />
+                See what Scout recommends
+                <ArrowRightIcon data-icon="inline-end" />
+              </Button>
+            ) : null}
             {adaptiveBaselineRequired ? (
               <Button
                 type="button"
@@ -1008,8 +1013,7 @@ export function AdaptiveCalibrationLab({
                 id="quick-check-confidence-label"
                 className="ink-label text-muted-foreground"
               >
-                How sure are you?{" "}
-                <span className="normal-case">(optional)</span>
+                How sure are you?
               </p>
               <div
                 className="mt-3 flex flex-wrap gap-2"
@@ -1040,8 +1044,9 @@ export function AdaptiveCalibrationLab({
                 id="quick-check-confidence-help"
                 className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground"
               >
-                Confidence never changes whether your answer is right. It only
-                changes how strongly Scout adjusts this skill estimate.
+                Choose one before checking. Confidence never changes whether
+                your answer is right; it only changes how strongly Scout adjusts
+                this skill estimate.
               </p>
             </div>
             {error ? (
@@ -1055,7 +1060,7 @@ export function AdaptiveCalibrationLab({
               type="button"
               size="xl"
               className="mt-4 w-full"
-              disabled={!selectedChoice || busy}
+              disabled={!selectedChoice || !confidence || busy}
               onClick={() => void submitAnswer()}
             >
               {busy ? (

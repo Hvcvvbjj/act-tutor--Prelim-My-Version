@@ -58,6 +58,7 @@ export interface TestDayCheckInProps {
   officialScoreHistory: readonly ReportedOfficialScore[]
   baselineOfficialComposite?: number | null
   initialDraftScores?: TestDayDraftScores
+  preserveCurrentCycle?: boolean
   onComplete: (result: TestDayCheckInResult) => void | Promise<void>
   onSnooze: () => void
 }
@@ -337,6 +338,7 @@ export function TestDayCheckIn({
   officialScoreHistory,
   baselineOfficialComposite,
   initialDraftScores,
+  preserveCurrentCycle = false,
   onComplete,
   onSnooze,
 }: TestDayCheckInProps) {
@@ -467,12 +469,12 @@ export function TestDayCheckIn({
     event.preventDefault()
     setSubmitError("")
 
-    if (!nextStepChoice) {
+    if (!preserveCurrentCycle && !nextStepChoice) {
       setNextStepError("Choose a next step.")
       return
     }
 
-    if (nextStepChoice === "schedule") {
+    if (!preserveCurrentCycle && nextStepChoice === "schedule") {
       if (!isCalendarDate(nextTestDate) || nextTestDate <= today) {
         setNextStepError("Choose a real date after today.")
         window.requestAnimationFrame(() => {
@@ -499,8 +501,10 @@ export function TestDayCheckIn({
         testDate,
         outcome,
         ...(newOfficialScore ? { newOfficialScore } : {}),
-        ...(nextStepChoice === "schedule" ? { nextTestDate } : {}),
-        doneForNow: nextStepChoice === "done",
+        ...(!preserveCurrentCycle && nextStepChoice === "schedule"
+          ? { nextTestDate }
+          : {}),
+        doneForNow: preserveCurrentCycle ? false : nextStepChoice === "done",
       })
     } catch {
       setSubmitError(
@@ -840,87 +844,100 @@ export function TestDayCheckIn({
                   </div>
                 </div>
 
-                <fieldset className="mt-8">
-                  <legend className="font-heading text-xl font-black sm:text-2xl">
-                    Do you already have another ACT date?
-                  </legend>
-                  <p
-                    id="next-step-help"
-                    className="mt-2 text-sm leading-6 text-muted-foreground"
-                  >
-                    Add it now so the next plan has a deadline, or pause the
-                    test cycle without losing this check-in.
-                  </p>
-                  <RadioGroup
-                    value={nextStepChoice}
-                    onValueChange={(value) => {
-                      setNextStepChoice(value as NextStepChoice)
-                      setNextStepError("")
-                      setSubmitError("")
-                    }}
-                    aria-describedby={
-                      nextStepError
-                        ? "next-step-help next-step-error"
-                        : "next-step-help"
-                    }
-                    aria-invalid={Boolean(nextStepError && !nextStepChoice)}
-                    className="mt-5 grid gap-3 sm:grid-cols-2"
-                  >
-                    <ChoiceCard
-                      selected={nextStepChoice === "schedule"}
-                      icon={CalendarDaysIcon}
-                      title="Yes—add my next date"
-                      detail="Use a date after today."
+                {preserveCurrentCycle ? (
+                  <div className="mt-8 border-y-2 border-foreground py-6">
+                    <p className="font-heading text-xl font-black sm:text-2xl">
+                      Your current test plan stays unchanged.
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      This check-in closes the older pending score only. It will
+                      not replace your current ACT date or pause your current
+                      study cycle.
+                    </p>
+                  </div>
+                ) : (
+                  <fieldset className="mt-8">
+                    <legend className="font-heading text-xl font-black sm:text-2xl">
+                      Do you already have another ACT date?
+                    </legend>
+                    <p
+                      id="next-step-help"
+                      className="mt-2 text-sm leading-6 text-muted-foreground"
                     >
-                      <VisuallyHiddenRadioGroupItem value="schedule" />
-                    </ChoiceCard>
-                    <ChoiceCard
-                      selected={nextStepChoice === "done"}
-                      icon={CheckCircle2Icon}
-                      title="I’m done for now"
-                      detail="Save this result and pause the test cycle."
+                      Add it now so the next plan has a deadline, or pause the
+                      test cycle without losing this check-in.
+                    </p>
+                    <RadioGroup
+                      value={nextStepChoice}
+                      onValueChange={(value) => {
+                        setNextStepChoice(value as NextStepChoice)
+                        setNextStepError("")
+                        setSubmitError("")
+                      }}
+                      aria-describedby={
+                        nextStepError
+                          ? "next-step-help next-step-error"
+                          : "next-step-help"
+                      }
+                      aria-invalid={Boolean(nextStepError && !nextStepChoice)}
+                      className="mt-5 grid gap-3 sm:grid-cols-2"
                     >
-                      <VisuallyHiddenRadioGroupItem value="done" />
-                    </ChoiceCard>
-                  </RadioGroup>
+                      <ChoiceCard
+                        selected={nextStepChoice === "schedule"}
+                        icon={CalendarDaysIcon}
+                        title="Yes—add my next date"
+                        detail="Use a date after today."
+                      >
+                        <VisuallyHiddenRadioGroupItem value="schedule" />
+                      </ChoiceCard>
+                      <ChoiceCard
+                        selected={nextStepChoice === "done"}
+                        icon={CheckCircle2Icon}
+                        title="I’m done for now"
+                        detail="Save this result and pause the test cycle."
+                      >
+                        <VisuallyHiddenRadioGroupItem value="done" />
+                      </ChoiceCard>
+                    </RadioGroup>
 
-                  {nextStepChoice === "schedule" ? (
-                    <Field
-                      data-invalid={Boolean(nextStepError)}
-                      className="mt-5 max-w-sm"
-                    >
-                      <FieldLabel htmlFor="next-test-date">
-                        Next ACT date
-                      </FieldLabel>
-                      <Input
-                        id="next-test-date"
-                        name="nextTestDate"
-                        type="date"
-                        min={earliestNextTestDate}
-                        required
-                        value={nextTestDate}
-                        aria-invalid={Boolean(nextStepError)}
-                        aria-describedby={
-                          nextStepError
-                            ? "next-test-date-help next-step-error"
-                            : "next-test-date-help"
-                        }
-                        className="h-12"
-                        onChange={(event) => {
-                          setNextTestDate(event.target.value)
-                          setNextStepError("")
-                          setSubmitError("")
-                        }}
-                      />
-                      <FieldDescription id="next-test-date-help">
-                        Choose a future calendar date.
-                      </FieldDescription>
-                    </Field>
-                  ) : null}
-                  <FieldError id="next-step-error" className="mt-3">
-                    {nextStepError}
-                  </FieldError>
-                </fieldset>
+                    {nextStepChoice === "schedule" ? (
+                      <Field
+                        data-invalid={Boolean(nextStepError)}
+                        className="mt-5 max-w-sm"
+                      >
+                        <FieldLabel htmlFor="next-test-date">
+                          Next ACT date
+                        </FieldLabel>
+                        <Input
+                          id="next-test-date"
+                          name="nextTestDate"
+                          type="date"
+                          min={earliestNextTestDate}
+                          required
+                          value={nextTestDate}
+                          aria-invalid={Boolean(nextStepError)}
+                          aria-describedby={
+                            nextStepError
+                              ? "next-test-date-help next-step-error"
+                              : "next-test-date-help"
+                          }
+                          className="h-12"
+                          onChange={(event) => {
+                            setNextTestDate(event.target.value)
+                            setNextStepError("")
+                            setSubmitError("")
+                          }}
+                        />
+                        <FieldDescription id="next-test-date-help">
+                          Choose a future calendar date.
+                        </FieldDescription>
+                      </Field>
+                    ) : null}
+                    <FieldError id="next-step-error" className="mt-3">
+                      {nextStepError}
+                    </FieldError>
+                  </fieldset>
+                )}
 
                 {submitError ? (
                   <Alert variant="destructive" className="mt-6 p-4">
@@ -942,7 +959,9 @@ export function TestDayCheckIn({
                   <Button
                     type="submit"
                     size="xl"
-                    disabled={saving || !nextStepChoice}
+                    disabled={
+                      saving || (!preserveCurrentCycle && !nextStepChoice)
+                    }
                   >
                     {saving ? "Saving…" : "Save check-in"}
                     {!saving ? <ArrowRightIcon data-icon="inline-end" /> : null}

@@ -9,6 +9,7 @@ async function seedPastTestPlan(page: Page) {
       const draft = {
         goal: 30,
         priorScoreChoice: "scores",
+        scoreSource: "official",
         startingCheckChoice: "take",
         composite: 22,
         english: 21,

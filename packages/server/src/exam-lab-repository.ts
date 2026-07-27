@@ -107,6 +107,16 @@ function assertSession(
   questionsFor(session, form);
 }
 
+function toPublicResult(result: ExamLabResult | null): ExamLabResult | null {
+  if (!result) return null;
+  return {
+    ...result,
+    review: result.review.filter(
+      (question) => question.selectedChoiceId !== null,
+    ),
+  };
+}
+
 function toPayload(
   session: StoredExamLabSession,
   form: DiagnosticFormSecure,
@@ -127,8 +137,27 @@ function toPayload(
     },
     sectionStartedAt: session.sectionStartedAt,
     sectionDeadlineAt: session.sectionDeadlineAt,
-    result: session.result,
+    result: toPublicResult(session.result),
   };
+}
+
+function responseAnswerStateChanged(
+  current: Record<string, ExamLabResponse>,
+  next: Record<string, ExamLabResponse>,
+) {
+  const questionIds = new Set([...Object.keys(current), ...Object.keys(next)]);
+  for (const questionId of questionIds) {
+    const before = current[questionId];
+    const after = next[questionId];
+    if (
+      (before?.choiceId ?? null) !== (after?.choiceId ?? null) ||
+      (before?.confidence ?? "unsure") !== (after?.confidence ?? "unsure") ||
+      (before?.flagged ?? false) !== (after?.flagged ?? false)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function validateProgress(
@@ -221,7 +250,11 @@ export class FileExamLabRepository {
     }
   }
 
-  async start(form: DiagnosticFormSecure, input: StartExamLabInput) {
+  async start(
+    form: DiagnosticFormSecure,
+    input: StartExamLabInput,
+    previousSessionId: string | null = null,
+  ) {
     const selectedSection =
       input.mode === "section" ? (input.section ?? null) : null;
     const questions = selectExamLabQuestions(form, input.mode, selectedSection);
@@ -253,6 +286,7 @@ export class FileExamLabRepository {
         updatedAt: now,
       };
       store.sessions[created.id] = created;
+      if (previousSessionId) delete store.sessions[previousSessionId];
       await this.writeStore(store);
       return { sessionId: created.id, payload: toPayload(created, form) };
     });
@@ -278,6 +312,16 @@ export class FileExamLabRepository {
       assertSession(session, form);
       if (session.status === "completed") return toPayload(session, form);
       validateProgress(session, form, input);
+      const deadline = Date.parse(session.sectionDeadlineAt);
+      if (
+        Number.isFinite(deadline) &&
+        deadline <= Date.now() &&
+        responseAnswerStateChanged(session.responses, input.responses)
+      ) {
+        throw new RangeError(
+          "Time is up. Answers, confidence, and flags can no longer be changed.",
+        );
+      }
       session.responses = structuredClone(input.responses);
       session.currentIndex = input.currentIndex;
       session.phase = input.phase;
@@ -343,13 +387,16 @@ export class FileExamLabRepository {
       assertSession(session, form);
       if (session.status === "completed" && session.result)
         return toPayload(session, form);
-      const scored = scoreExamLab(
-        session.mode,
-        questionsFor(session, form),
-        session.responses,
-      );
+      const questions = questionsFor(session, form);
+      const scored = scoreExamLab(session.mode, questions, session.responses);
       const debrief: ExamDebrief = await debriefComposer.compose(scored);
-      session.result = { ...scored, debrief };
+      session.result = {
+        ...scored,
+        review: scored.review.filter(
+          (question) => question.selectedChoiceId !== null,
+        ),
+        debrief,
+      };
       session.status = "completed";
       session.phase = "results";
       session.updatedAt = new Date().toISOString();

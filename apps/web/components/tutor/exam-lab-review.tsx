@@ -127,7 +127,7 @@ export function ExamLabReview({
             mood={unanswered ? "repair" : "ready"}
             message={
               unanswered
-                ? `${unanswered} unanswered question${unanswered === 1 ? " remains" : "s remain"}. Blank answers count as wrong.`
+                ? `${unanswered} unanswered question${unanswered === 1 ? " remains" : "s remain"}. Blanks count as wrong, and Scout will keep their answer explanations hidden.`
                 : "Every question has an answer. Submit when your sure, unsure, and guess labels feel honest."
             }
             detail="After you submit, Scout shows what you missed, where you ran out of time, and when you felt sure but were wrong."

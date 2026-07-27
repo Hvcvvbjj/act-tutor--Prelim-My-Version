@@ -120,28 +120,43 @@ export class FileStudyPlanRepository {
   async getOrCreate(sessionId: string | null, input: GenerateStudyPlanInput) {
     return this.transact(async (store) => {
       const existing = sessionId ? store.sessions[sessionId] : undefined;
-      const samePlanWindow =
-        existing &&
-        existing.plan.copyVersion === 2 &&
-        existing.plan.today === input.today &&
-        existing.plan.testDate === input.testDate &&
-        sameScores(existing.plan.current, input.current) &&
-        sameScores(existing.plan.target, input.target);
-      if (existing && samePlanWindow) {
+      if (existing && existing.plan.copyVersion === 2) {
+        const planWindowChanged =
+          existing.plan.today !== input.today ||
+          existing.plan.testDate !== input.testDate ||
+          !sameScores(existing.plan.current, input.current) ||
+          !sameScores(existing.plan.target, input.target);
         const availabilityChanged =
           input.availability &&
           !sameAvailability(existing.plan.availability, input.availability);
         const skillsChanged = !sameSkills(existing.plan.skills, input.skills);
-        if (!availabilityChanged && !skillsChanged) {
+        if (!planWindowChanged && !availabilityChanged && !skillsChanged) {
           return { sessionId: existing.id, plan: existing.plan };
         }
         const now = this.now();
-        existing.plan = rebalanceStudyPlan(existing.plan, {
+        const startsNewTestCycle = existing.plan.testDate !== input.testDate;
+        const caughtUpPlan =
+          existing.plan.today === input.today
+            ? existing.plan
+            : {
+                ...existing.plan,
+                tasks: existing.plan.tasks.map((task) =>
+                  task.date < input.today && task.status === "scheduled"
+                    ? { ...task, status: "skipped" as const }
+                    : task,
+                ),
+              };
+        existing.plan = rebalanceStudyPlan(caughtUpPlan, {
+          today: input.today,
+          testDate: input.testDate,
+          current: input.current,
+          target: input.target,
           ...(availabilityChanged ? { availability: input.availability } : {}),
           ...(skillsChanged ? { skills: input.skills } : {}),
           updatedAt: now,
-          reason:
-            "Calendar capacity or skill evidence changed, so Scout rebuilt future dates. Tasks dated today and completed tasks were kept.",
+          reason: startsNewTestCycle
+            ? "You scheduled a new test, so Scout built a fresh calendar for this cycle. Your skill evidence and score history stayed intact."
+            : "Your plan settings or skill evidence changed, so Scout rebuilt future dates. Past work, today’s work, and completed tasks were kept.",
         });
         existing.updatedAt = now;
         await this.writeStore(store);

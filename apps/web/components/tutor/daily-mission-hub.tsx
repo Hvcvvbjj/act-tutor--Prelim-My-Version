@@ -350,6 +350,7 @@ function WeeklySummary(props: DailyMissionHubProps) {
   const isInternalProxy =
     plan.evidence.source === "rapid_diagnostic" ||
     plan.evidence.source === "starter_diagnostic" ||
+    plan.evidence.source === "full_test" ||
     plan.evidence.source === "not_taken"
   return (
     <aside className="rounded-xl border bg-background p-5 lg:sticky lg:top-24">

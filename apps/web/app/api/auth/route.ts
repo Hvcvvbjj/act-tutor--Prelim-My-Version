@@ -5,6 +5,7 @@ import {
   assertSameOriginJson,
   AuthRequestError,
   clearAuthCookies,
+  deleteAccountSavedPlan,
   registerLearner,
   saveAccountPlan,
   setAuthCookie,
@@ -72,6 +73,10 @@ export async function POST(request: NextRequest) {
 
     if (body.action === "save_plan") {
       return json({ viewer: await saveAccountPlan(request, body.savedPlan) })
+    }
+
+    if (body.action === "delete_saved_plan") {
+      return json({ viewer: await deleteAccountSavedPlan(request) })
     }
 
     if (body.action === "logout") {

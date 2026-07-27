@@ -65,6 +65,8 @@ export interface RebaseLearningSessionInput {
   calibrationKey: string;
   diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
   plan: LessonPlanContext;
+  baselineLabel?: "Quick Check" | "Full diagnostic";
+  replaceLearningTwin?: boolean;
 }
 
 export interface ApplyLearningRoundAssessmentInput {
@@ -72,6 +74,9 @@ export interface ApplyLearningRoundAssessmentInput {
   diagnosticSkillResults: ReadonlyArray<DiagnosticSkillResult>;
   plan: LessonPlanContext;
 }
+
+const MAX_ROUND_ASSESSMENT_SKILLS = 24;
+const MAX_ROUND_ASSESSMENT_QUESTIONS = 200;
 
 interface StoredAnswer {
   questionId: string;
@@ -447,7 +452,7 @@ async function composeLearningLesson(input: {
     whyAssigned:
       "Round 1 teaches every ACT question type in the curriculum before Scout specializes your later rounds.",
     evidenceSummary: input.diagnosticSkillResults.length
-      ? "Your diagnostic shaped Scout’s starting estimates. It does not remove any Round 1 lesson."
+      ? "Your starting check shaped Scout’s first estimates. It does not remove any Round 1 lesson."
       : "Scout will teach every question type in Round 1, then use your measured results to specialize later rounds.",
   };
 }
@@ -1603,7 +1608,18 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         bank,
         input.diagnosticSkillResults,
       );
-      const learningTwinBySkill = ensureLearningTwin(session, bank);
+      const learningTwinBySkill = input.replaceLearningTwin
+        ? makeInitialKnowledgeStates(
+            bank,
+            input.diagnosticSkillResults,
+            input.plan.currentScore,
+            input.plan.sectionScores,
+          )
+        : ensureLearningTwin(session, bank);
+      if (input.replaceLearningTwin) {
+        session.learningTwinBySkill = learningTwinBySkill;
+        session.learningTwinEvents = [];
+      }
       const { cycle } = ensureCycle(session, bank);
       const nextSkill =
         cycle.kind === "foundation"
@@ -1645,8 +1661,8 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         changed: nextSkill !== previousSkill,
         reason:
           cycle.kind === "foundation"
-            ? `Quick Check replaced the temporary baseline. Round 1 still covers every curriculum skill, starting with ${getSkill(bank, nextSkill).label}.`
-            : "Quick Check replaced the temporary baseline and updated the next lesson.",
+            ? `${input.baselineLabel ?? "Quick Check"} replaced the temporary baseline. Round 1 still covers every curriculum skill, starting with ${getSkill(bank, nextSkill).label}.`
+            : `${input.baselineLabel ?? "Quick Check"} replaced the temporary baseline and updated the next lesson.`,
       };
       session.lesson = lesson;
       session.profile = {
@@ -1684,16 +1700,30 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const session = store.sessions[sessionId];
       if (!session) throw new RangeError("Learning session not found.");
       assertSessionMatchesBank(session, bank);
-      if (input.assessmentKey.trim().length < 8) {
+      if (
+        input.assessmentKey.trim().length < 8 ||
+        input.assessmentKey.length > 160
+      ) {
         throw new RangeError("A stable assessment key is required.");
-      }
-      if (session.appliedAssessmentKeys?.includes(input.assessmentKey)) {
-        return toPayload(session, bank);
       }
       const { cycle } = ensureCycle(session, bank);
       if (cycle.status !== "assessment-choice") {
+        const lastAppliedAssessment =
+          session.appliedAssessmentKeys?.at(-1) ?? null;
+        if (
+          cycle.kind === "adaptive" &&
+          cycle.status === "lessons" &&
+          lastAppliedAssessment === input.assessmentKey
+        ) {
+          return toPayload(session, bank);
+        }
         throw new RangeError(
           "Finish the current lesson round before applying an assessment.",
+        );
+      }
+      if (session.appliedAssessmentKeys?.includes(input.assessmentKey)) {
+        throw new RangeError(
+          "That assessment already started a lesson round. Complete a new assessment first.",
         );
       }
       if (input.diagnosticSkillResults.length === 0) {
@@ -1701,10 +1731,15 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           "A completed diagnostic or full-length test is required.",
         );
       }
+      if (input.diagnosticSkillResults.length > MAX_ROUND_ASSESSMENT_SKILLS) {
+        throw new RangeError("The assessment contains too many skill groups.");
+      }
 
       const profile = ensureProfile(session);
       const states = ensureLearningTwin(session, bank);
       const now = new Date().toISOString();
+      const seenSkills = new Set<string>();
+      let totalAssessmentQuestions = 0;
       for (const result of input.diagnosticSkillResults) {
         if (
           !Number.isInteger(result.correct) ||
@@ -1715,6 +1750,18 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           Math.abs(result.accuracy - result.correct / result.total) > 0.0001
         ) {
           throw new RangeError("Assessment skill counts are malformed.");
+        }
+        if (seenSkills.has(result.skill)) {
+          throw new RangeError(
+            `Assessment skill ${result.skill} appears more than once.`,
+          );
+        }
+        seenSkills.add(result.skill);
+        totalAssessmentQuestions += result.total;
+        if (totalAssessmentQuestions > MAX_ROUND_ASSESSMENT_QUESTIONS) {
+          throw new RangeError(
+            "The assessment contains more questions than Scout supports.",
+          );
         }
         const skill = bank.skills.find(
           (candidate) => candidate.diagnosticSkill === result.skill,

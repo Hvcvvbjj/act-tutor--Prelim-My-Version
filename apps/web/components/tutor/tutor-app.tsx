@@ -12,15 +12,22 @@ import {
   type CoreSectionScores,
   type DiagnosticResult,
   type DiagnosticSkillResult,
+  type ExamLabSessionPayload,
   type NormalizedScoreEvidence,
   type CalibrationLearningBaseline,
 } from "@act-tutor/core"
 
 import { Onboarding } from "@/components/tutor/onboarding"
 import type { TestDayCheckInResult } from "@/components/tutor/test-day-check-in"
+import {
+  applyEditedPlanJourney,
+  applyReportedScoreSource,
+  baselineStateForDraft,
+} from "@/components/tutor/tutor-journey"
 import type {
   GeneratedPlan,
   PlacementDraft,
+  ProfileEvidenceSource,
   TutorJourney,
 } from "@/components/tutor/types"
 import {
@@ -126,6 +133,7 @@ function initialDraft(initialTestDate: string): PlacementDraft {
   return {
     goal: 30,
     priorScoreChoice: "undecided",
+    scoreSource: "practice",
     startingCheckChoice: "take",
     composite: 0,
     english: 0,
@@ -175,6 +183,9 @@ function isPlacementDraft(value: unknown): value is PlacementDraft {
       draft.priorScoreChoice === "scores" ||
       draft.priorScoreChoice === "composite_only" ||
       draft.priorScoreChoice === "never") &&
+    (draft.scoreSource === undefined ||
+      draft.scoreSource === "official" ||
+      draft.scoreSource === "practice") &&
     (draft.startingCheckChoice === undefined ||
       draft.startingCheckChoice === "take" ||
       draft.startingCheckChoice === "skip") &&
@@ -351,6 +362,7 @@ function makeGeneratedPlan(input: {
   currentComposite: number
   diagnosticResult?: DiagnosticResult
   profileSkillResults?: DiagnosticSkillResult[]
+  profileSource?: ProfileEvidenceSource
   journey?: TutorJourney
   adaptiveBaselineRequired?: boolean
   baselineSkipped?: boolean
@@ -400,6 +412,7 @@ function makeGeneratedPlan(input: {
         input.diagnosticResult?.skillResults ??
         []),
     ],
+    ...(input.profileSource ? { profileSource: input.profileSource } : {}),
     journey: input.journey ?? newTutorJourney(),
     testDatePassed: input.draft.testDate < input.today,
     ...(input.adaptiveBaselineRequired
@@ -417,6 +430,7 @@ function savedPlanFrom(plan: GeneratedPlan): SavedTutorPlan {
     evidence: plan.evidence,
     currentComposite: plan.currentComposite,
     profileSkillResults: plan.profileSkillResults,
+    ...(plan.profileSource ? { profileSource: plan.profileSource } : {}),
     journey: plan.journey,
     adaptiveBaselineRequired: plan.adaptiveBaselineRequired === true,
     baselineSkipped: plan.baselineSkipped === true,
@@ -432,6 +446,7 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
       evidence?: NormalizedScoreEvidence
       currentComposite?: unknown
       profileSkillResults?: unknown
+      profileSource?: unknown
       journey?: unknown
       adaptiveBaselineRequired?: unknown
       baselineSkipped?: unknown
@@ -450,9 +465,25 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
     ) {
       return null
     }
+    if (
+      savedPlan.profileSource !== undefined &&
+      savedPlan.profileSource !== "quick-check" &&
+      savedPlan.profileSource !== "diagnostic" &&
+      savedPlan.profileSource !== "full-test"
+    ) {
+      return null
+    }
+    const normalizedDraft: PlacementDraft = {
+      ...savedPlan.draft,
+      scoreSource: savedPlan.draft.scoreSource ?? "practice",
+    }
+    const restoredJourney =
+      savedPlan.version === 2 && isTutorJourney(savedPlan.journey)
+        ? savedPlan.journey
+        : migratedTutorJourney()
     return makeGeneratedPlan({
       today,
-      draft: savedPlan.draft,
+      draft: normalizedDraft,
       evidence: savedPlan.evidence,
       baseline: savedPlan.evidence.planningBaseline,
       currentComposite: savedPlan.currentComposite,
@@ -461,10 +492,10 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
         isDiagnosticSkillResults(savedPlan.profileSkillResults)
           ? savedPlan.profileSkillResults
           : [],
-      journey:
-        savedPlan.version === 2 && isTutorJourney(savedPlan.journey)
-          ? savedPlan.journey
-          : migratedTutorJourney(),
+      ...(savedPlan.profileSource
+        ? { profileSource: savedPlan.profileSource }
+        : {}),
+      journey: applyReportedScoreSource(restoredJourney, normalizedDraft),
       adaptiveBaselineRequired: savedPlan.adaptiveBaselineRequired,
       baselineSkipped: savedPlan.baselineSkipped,
     })
@@ -485,17 +516,30 @@ function duePendingOfficialScore(plan: GeneratedPlan) {
     )[0]
 }
 
+function activeTestDayCheckIn(plan: GeneratedPlan) {
+  const activeTestSnoozed =
+    plan.journey.checkInSnoozedUntil !== null &&
+    plan.journey.checkInSnoozedUntil > plan.today
+  if (plan.testDatePassed && !plan.journey.doneForNow && !activeTestSnoozed) {
+    return {
+      kind: "active" as const,
+      testDate: plan.draft.testDate,
+    }
+  }
+  const pending = duePendingOfficialScore(plan)
+  return pending
+    ? {
+        kind: "pending" as const,
+        testDate: pending.testDate,
+      }
+    : null
+}
+
 function surfaceForPlan(plan: GeneratedPlan): TutorSurface {
   if (!plan.journey.onboardingCompleted && !plan.adaptiveBaselineRequired) {
     return "orientation"
   }
-  const snoozed =
-    plan.journey.checkInSnoozedUntil !== null &&
-    plan.journey.checkInSnoozedUntil > plan.today
-  if (!snoozed && duePendingOfficialScore(plan)) {
-    return "test-day-check-in"
-  }
-  if (plan.testDatePassed && !plan.journey.doneForNow && !snoozed) {
+  if (activeTestDayCheckIn(plan)) {
     return "test-day-check-in"
   }
   return "dashboard"
@@ -656,6 +700,7 @@ export function TutorApp({
   const [welcomeComplete, setWelcomeComplete] = useState(
     Boolean(restoredAtLoad)
   )
+  const [editingPlan, setEditingPlan] = useState(false)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -782,6 +827,7 @@ export function TutorApp({
       adaptiveBaselineRequired?: boolean
       baselineSkipped?: boolean
       profileSkillResults?: DiagnosticSkillResult[]
+      profileSource?: ProfileEvidenceSource
       journey?: TutorJourney
       save?: boolean
     } = {}
@@ -794,6 +840,7 @@ export function TutorApp({
       currentComposite,
       diagnosticResult,
       profileSkillResults: options.profileSkillResults,
+      profileSource: options.profileSource,
       journey: options.journey,
       adaptiveBaselineRequired: options.adaptiveBaselineRequired,
       baselineSkipped: options.baselineSkipped,
@@ -802,11 +849,28 @@ export function TutorApp({
     setSurface(surfaceForPlan(nextPlan))
     setError(null)
     if (options.save !== false) void persistPlan(nextPlan)
+    return nextPlan
   }
 
   async function persistPlan(nextPlan: GeneratedPlan) {
-    if (viewer.role !== "learner") return
     try {
+      if (viewer.role !== "learner") {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            version: 6,
+            draft: nextPlan.draft,
+            guestPlan: savedPlanFrom(nextPlan),
+            viewerRole: viewer.role,
+            resumeSurface: null,
+            diagnosticPurpose: null,
+          })
+        )
+        for (const key of LEGACY_STORAGE_KEYS) {
+          window.localStorage.removeItem(key)
+        }
+        return true
+      }
       const response = await fetch("/api/auth", {
         method: "POST",
         cache: "no-store",
@@ -824,10 +888,12 @@ export function TutorApp({
         throw new Error(payload.error ?? "The plan could not be saved.")
       }
       setViewer(payload.viewer)
+      return true
     } catch {
       setError(
         "Your plan is open, but Scout could not sync it to your account yet."
       )
+      return false
     }
   }
 
@@ -868,10 +934,21 @@ export function TutorApp({
         }
         const baseline = evidence.planningBaseline
         if (!baseline) throw new Error("Could not start the adaptive baseline.")
+        const baselineState = baselineStateForDraft(
+          draft,
+          Boolean(editingPlan && plan?.profileSkillResults.length)
+        )
         buildPlanFromEvidence(evidence, baseline, 18, undefined, draft, {
-          adaptiveBaselineRequired: draft.startingCheckChoice === "take",
-          baselineSkipped: draft.startingCheckChoice === "skip",
+          ...baselineState,
+          profileSkillResults:
+            editingPlan && plan ? [...plan.profileSkillResults] : undefined,
+          profileSource: editingPlan && plan ? plan.profileSource : undefined,
+          journey:
+            editingPlan && plan
+              ? applyEditedPlanJourney(plan.journey, plan.draft, draft)
+              : applyReportedScoreSource(newTutorJourney(), draft),
         })
+        setEditingPlan(false)
         return
       }
 
@@ -893,20 +970,28 @@ export function TutorApp({
       const baseline = evidence.planningBaseline
       if (!baseline)
         throw new Error("Section scores are required for this path.")
+      const baselineState = baselineStateForDraft(
+        draft,
+        Boolean(editingPlan && plan?.profileSkillResults.length)
+      )
       buildPlanFromEvidence(
         evidence,
         baseline,
         evidence.calculatedComposite ?? draft.composite,
-        undefined,
+        editingPlan && plan ? plan.diagnosticResult : undefined,
         draft,
         {
-          adaptiveBaselineRequired: true,
-          journey: {
-            ...newTutorJourney(),
-            baselineOfficialComposite: draft.composite,
-          },
+          ...baselineState,
+          profileSkillResults:
+            editingPlan && plan ? [...plan.profileSkillResults] : undefined,
+          profileSource: editingPlan && plan ? plan.profileSource : undefined,
+          journey:
+            editingPlan && plan
+              ? applyEditedPlanJourney(plan.journey, plan.draft, draft)
+              : applyReportedScoreSource(newTutorJourney(), draft),
         }
       )
+      setEditingPlan(false)
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -917,10 +1002,29 @@ export function TutorApp({
   }
 
   function startOver() {
+    setEditingPlan(false)
     setStep(1)
     setSurface("onboarding")
     setDashboardInitialTab(undefined)
     setPlan(null)
+    setError(null)
+  }
+
+  function editPlan() {
+    setEditingPlan(true)
+    setStep(1)
+    setSurface("onboarding")
+    setDashboardInitialTab(undefined)
+    setWelcomeComplete(true)
+    setError(null)
+  }
+
+  function cancelEditingPlan() {
+    if (plan) setDraft(plan.draft)
+    setEditingPlan(false)
+    setStep(1)
+    setDashboardInitialTab(undefined)
+    setSurface("dashboard")
     setError(null)
   }
 
@@ -956,10 +1060,7 @@ export function TutorApp({
     setError(null)
   }
 
-  async function completeDiagnostic(
-    result: DiagnosticResult,
-    attemptId: string
-  ) {
+  async function completeDiagnostic(result: DiagnosticResult) {
     try {
       const evidence = diagnosticResultToEvidence(result)
       if (diagnosticPurpose === "round") {
@@ -972,8 +1073,7 @@ export function TutorApp({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "start_adaptive_round",
-            assessmentKey: `diagnostic:${attemptId}`,
-            diagnosticSkillResults: result.skillResults,
+            assessmentSource: "diagnostic",
             goalScore: draft.goal,
             currentScore: result.compositeRange.estimate,
             scoreEvidenceKey: plan.journey.officialScoreHistory.at(-1)?.id,
@@ -995,6 +1095,38 @@ export function TutorApp({
             payload.error ?? "Could not build the next lesson round."
           )
         }
+      } else if (
+        plan &&
+        (plan.adaptiveBaselineRequired || plan.baselineSkipped)
+      ) {
+        const response = await fetch("/api/learning", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "rebase_after_diagnostic",
+            goalScore: draft.goal,
+            currentScore: result.compositeRange.estimate,
+            scoreEvidenceKey: plan.journey.officialScoreHistory.at(-1)?.id,
+            sectionScores: result.planningBaseline,
+            daysUntilTest: Math.max(
+              1,
+              calendarDaysUntil(today, draft.testDate)
+            ),
+            minutesPerSession: draft.minutesPerSession,
+            studyDaysPerWeek: draft.studyDaysPerWeek,
+            preferredSection: draft.preferredSection,
+          }),
+        })
+        const payload = (await response.json()) as {
+          error?: string
+        }
+        if (!response.ok) {
+          throw new Error(
+            payload.error ??
+              "Could not align the first lesson round with this diagnostic."
+          )
+        }
       }
       setDiagnosticPurpose("baseline")
       buildPlanFromEvidence(
@@ -1003,12 +1135,13 @@ export function TutorApp({
         result.compositeRange.estimate,
         result,
         draft,
-        diagnosticPurpose === "round"
-          ? {
-              profileSkillResults: [...result.skillResults],
-              journey: plan?.journey,
-            }
-          : {}
+        {
+          profileSkillResults: [...result.skillResults],
+          profileSource: "diagnostic",
+          journey: plan?.journey,
+          adaptiveBaselineRequired: false,
+          baselineSkipped: false,
+        }
       )
     } catch (caught) {
       setError(
@@ -1035,6 +1168,7 @@ export function TutorApp({
         plan.draft,
         {
           profileSkillResults: [...payload.skillResults],
+          profileSource: "quick-check",
           journey: plan.journey,
         }
       )
@@ -1054,13 +1188,90 @@ export function TutorApp({
     }
     buildPlanFromEvidence(evidence, baseline, composite, undefined, draft, {
       profileSkillResults: [...payload.skillResults],
+      profileSource: "quick-check",
       journey: plan?.journey,
     })
   }
 
-  function saveTestDayCheckIn(result: TestDayCheckInResult) {
+  async function useFullTestAssessment(session: ExamLabSessionPayload) {
+    if (!plan || !session.result || session.result.mode !== "core") return
+    const sectionScores = Object.fromEntries(
+      session.result.sections.map((section) => [
+        section.section,
+        section.practiceEstimate,
+      ])
+    ) as CoreSectionScores
+    if (
+      !Number.isInteger(sectionScores.english) ||
+      !Number.isInteger(sectionScores.math) ||
+      !Number.isInteger(sectionScores.reading)
+    ) {
+      throw new Error("The full-length test is missing section results.")
+    }
+    const skillResults: DiagnosticSkillResult[] = session.result.skills.map(
+      (skill) => ({
+        skill: skill.skill,
+        label: skill.label,
+        section: skill.section,
+        correct: skill.correct,
+        total: skill.total,
+        accuracy: skill.accuracy,
+        signal:
+          skill.accuracy >= 0.75
+            ? "strength"
+            : skill.accuracy < 0.5
+              ? "focus"
+              : "developing",
+      })
+    )
+    const evidence: NormalizedScoreEvidence = {
+      source: "full_test",
+      reportedComposite: null,
+      calculatedComposite: session.result.practiceEstimate.estimate,
+      reportedSections: null,
+      planningBaseline: sectionScores,
+      science: null,
+      confidence: "medium",
+      compositeDifference: null,
+    }
+    const nextPlan = buildPlanFromEvidence(
+      evidence,
+      sectionScores,
+      session.result.practiceEstimate.estimate,
+      plan.diagnosticResult,
+      plan.draft,
+      {
+        profileSkillResults: skillResults,
+        profileSource: "full-test",
+        journey: plan.journey,
+        adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
+        baselineSkipped: plan.baselineSkipped,
+        save: false,
+      }
+    )
+    if (!(await persistPlan(nextPlan))) {
+      throw new Error(
+        "Scout kept the full-test result open, but could not save the updated plan yet. Try again before leaving this page."
+      )
+    }
+  }
+
+  async function saveTestDayCheckIn(result: TestDayCheckInResult) {
     if (!plan) return
+    const handlesActiveTest = result.testDate === plan.draft.testDate
     const officialScore = result.newOfficialScore
+    const latestOfficialScore = [...plan.journey.officialScoreHistory]
+      .sort(
+        (left, right) =>
+          left.testDate.localeCompare(right.testDate) ||
+          left.recordedAt.localeCompare(right.recordedAt)
+      )
+      .at(-1)
+    const scoreBecomesCurrent =
+      Boolean(officialScore) &&
+      (!latestOfficialScore ||
+        (officialScore?.testDate ?? "") >= latestOfficialScore.testDate)
+    const currentOfficialScore = scoreBecomesCurrent ? officialScore : undefined
     const pendingWithoutCurrent = pendingOfficialScores(plan.journey).filter(
       (entry) => entry.testDate !== result.testDate
     )
@@ -1077,36 +1288,39 @@ export function TutorApp({
         : pendingWithoutCurrent
     const nextDraft: PlacementDraft = {
       ...plan.draft,
-      ...(result.nextTestDate ? { testDate: result.nextTestDate } : {}),
-      ...(officialScore
+      ...(handlesActiveTest && result.nextTestDate
+        ? { testDate: result.nextTestDate }
+        : {}),
+      ...(currentOfficialScore
         ? {
-            priorScoreChoice: officialScore.sections
+            priorScoreChoice: currentOfficialScore.sections
               ? ("scores" as const)
               : ("composite_only" as const),
-            composite: officialScore.composite,
-            ...(officialScore.sections
+            scoreSource: "official" as const,
+            composite: currentOfficialScore.composite,
+            ...(currentOfficialScore.sections
               ? {
-                  english: officialScore.sections.english,
-                  math: officialScore.sections.math,
-                  reading: officialScore.sections.reading,
+                  english: currentOfficialScore.sections.english,
+                  math: currentOfficialScore.sections.math,
+                  reading: currentOfficialScore.sections.reading,
                 }
               : {}),
           }
         : {}),
     }
-    const evidence = officialScore
-      ? officialScore.sections
+    const evidence = currentOfficialScore
+      ? currentOfficialScore.sections
         ? normalizeCurrentScore({
             kind: "section_scores",
-            composite: officialScore.composite,
-            english: officialScore.sections.english,
-            math: officialScore.sections.math,
-            reading: officialScore.sections.reading,
+            composite: currentOfficialScore.composite,
+            english: currentOfficialScore.sections.english,
+            math: currentOfficialScore.sections.math,
+            reading: currentOfficialScore.sections.reading,
             ...(nextDraft.scienceEnabled ? { science: nextDraft.science } : {}),
           })
         : normalizeCurrentScore({
             kind: "composite_only",
-            composite: officialScore.composite,
+            composite: currentOfficialScore.composite,
             ...(nextDraft.scienceEnabled ? { science: nextDraft.science } : {}),
           })
       : plan.evidence
@@ -1116,7 +1330,7 @@ export function TutorApp({
     }
     const journey: TutorJourney = {
       ...plan.journey,
-      officialScoreHistory: officialScore
+      officialScoreHistory: (officialScore
         ? [
             ...plan.journey.officialScoreHistory.filter(
               (entry) => entry.testDate !== officialScore.testDate
@@ -1129,35 +1343,66 @@ export function TutorApp({
               sections: officialScore.sections,
             },
           ]
-        : plan.journey.officialScoreHistory,
+        : plan.journey.officialScoreHistory
+      ).sort(
+        (left, right) =>
+          left.testDate.localeCompare(right.testDate) ||
+          left.recordedAt.localeCompare(right.recordedAt)
+      ),
       pendingOfficialScores: nextPendingOfficialScores,
-      checkInSnoozedUntil: null,
-      doneForNow: result.doneForNow,
+      checkInSnoozedUntil: handlesActiveTest
+        ? null
+        : plan.journey.checkInSnoozedUntil,
+      doneForNow: handlesActiveTest
+        ? result.doneForNow
+        : plan.journey.doneForNow,
     }
     const nextPlan = makeGeneratedPlan({
       today,
       draft: nextDraft,
       evidence,
       baseline,
-      currentComposite: officialScore?.composite ?? plan.currentComposite,
+      currentComposite:
+        currentOfficialScore?.composite ?? plan.currentComposite,
       profileSkillResults: plan.profileSkillResults,
+      profileSource: plan.profileSource,
       journey,
+      adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
       baselineSkipped: plan.baselineSkipped,
     })
+    const saved = await persistPlan(nextPlan)
+    if (!saved) {
+      throw new Error("The check-in could not be saved to your account.")
+    }
     setDraft(nextDraft)
     setPlan(nextPlan)
     setSurface("dashboard")
     setError(null)
-    void persistPlan(nextPlan)
   }
 
   function snoozeTestDayCheckIn() {
     if (!plan) return
+    const activeCheckIn = activeTestDayCheckIn(plan)
+    if (!activeCheckIn) return
     const nextPlan: GeneratedPlan = {
       ...plan,
       journey: {
         ...plan.journey,
-        checkInSnoozedUntil: addCalendarDaysFrom(today, 7),
+        pendingOfficialScores:
+          activeCheckIn.kind === "pending"
+            ? pendingOfficialScores(plan.journey).map((entry) =>
+                entry.testDate === activeCheckIn.testDate
+                  ? {
+                      ...entry,
+                      nextPromptOn: addCalendarDaysFrom(today, 7),
+                    }
+                  : entry
+              )
+            : pendingOfficialScores(plan.journey),
+        checkInSnoozedUntil:
+          activeCheckIn.kind === "active"
+            ? addCalendarDaysFrom(today, 7)
+            : plan.journey.checkInSnoozedUntil,
       },
     }
     setPlan(nextPlan)
@@ -1178,6 +1423,7 @@ export function TutorApp({
       const demoDraft: PlacementDraft = {
         goal: 31,
         priorScoreChoice: "scores",
+        scoreSource: "practice",
         startingCheckChoice: "take",
         composite: 24,
         english: 22,
@@ -1199,7 +1445,10 @@ export function TutorApp({
         diagnosticResult.compositeRange.estimate,
         diagnosticResult,
         demoDraft,
-        { journey: migratedTutorJourney() }
+        {
+          profileSource: "diagnostic",
+          journey: migratedTutorJourney(),
+        }
       )
     } catch (caught) {
       setError(
@@ -1222,11 +1471,15 @@ export function TutorApp({
         skillResults={plan.profileSkillResults}
         sectionScores={plan.evidence.planningBaseline}
         evidenceSource={
-          plan.diagnosticResult
+          plan.profileSource === "diagnostic"
             ? "diagnostic"
-            : plan.profileSkillResults.length > 0
+            : plan.profileSource === "quick-check"
               ? "quick-check"
-              : undefined
+              : plan.diagnosticResult
+                ? "diagnostic"
+                : plan.profileSkillResults.length > 0
+                  ? "quick-check"
+                  : undefined
         }
         onComplete={(choice) => {
           const nextPlan: GeneratedPlan = {
@@ -1247,10 +1500,11 @@ export function TutorApp({
   }
 
   if (surface === "test-day-check-in" && plan) {
-    const pendingScore = duePendingOfficialScore(plan)
+    const activeCheckIn = activeTestDayCheckIn(plan)
     return (
       <TestDayCheckIn
-        testDate={pendingScore?.testDate ?? plan.draft.testDate}
+        testDate={activeCheckIn?.testDate ?? plan.draft.testDate}
+        preserveCurrentCycle={activeCheckIn?.kind === "pending"}
         currentComposite={plan.currentComposite}
         officialScoreHistory={plan.journey.officialScoreHistory}
         baselineOfficialComposite={plan.journey.baselineOfficialComposite}
@@ -1265,18 +1519,48 @@ export function TutorApp({
       <Dashboard
         plan={plan}
         initialTab={dashboardInitialTab}
+        externalError={error}
         viewer={viewer}
         savedPlan={savedPlanFrom(plan)}
         onViewerChange={handleViewerChange}
-        onEditPlan={startOver}
+        onEditPlan={editPlan}
         onStartFullDiagnostic={() => {
-          void loadDiagnosticIntro()
-          setDiagnosticPurpose("baseline")
-          setDashboardInitialTab("calibrate")
-          setSurface("diagnostic")
+          void (async () => {
+            try {
+              const response = await fetch("/api/diagnostic", {
+                method: "POST",
+                cache: "no-store",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "start_new_if_completed",
+                }),
+              })
+              if (!response.ok) {
+                const payload = (await response.json().catch(() => null)) as {
+                  error?: string
+                } | null
+                throw new Error(
+                  payload?.error ??
+                    "Could not prepare the full diagnostic attempt."
+                )
+              }
+              void loadDiagnosticIntro()
+              setDiagnosticPurpose("baseline")
+              setDashboardInitialTab("calibrate")
+              setSurface("diagnostic")
+              setError(null)
+            } catch (caught) {
+              setError(
+                caught instanceof Error
+                  ? caught.message
+                  : "Could not prepare the full diagnostic attempt."
+              )
+            }
+          })()
         }}
         onStartNewDiagnostic={startNewRoundDiagnostic}
         onUseAdaptiveBaseline={useAdaptiveBaseline}
+        onUseFullTestAssessment={useFullTestAssessment}
       />
     )
   }
@@ -1284,9 +1568,12 @@ export function TutorApp({
   if (surface === "diagnostic") {
     return (
       <DiagnosticIntro
+        error={error}
         goal={draft.goal}
+        purpose={diagnosticPurpose}
         testDate={draft.testDate}
         onBack={() => {
+          setError(null)
           if (diagnosticPurpose === "round") {
             setSurface("dashboard")
             return
@@ -1306,8 +1593,8 @@ export function TutorApp({
       <DiagnosticRunner
         onBack={() => setSurface("diagnostic")}
         canViewTechnicalDetails={viewer.technicalDetails}
-        onComplete={(result, attemptId) => {
-          void completeDiagnostic(result, attemptId)
+        onComplete={(result) => {
+          void completeDiagnostic(result)
         }}
       />
     )
@@ -1322,6 +1609,7 @@ export function TutorApp({
       step={step}
       today={today}
       onBack={() => setStep((current) => Math.max(1, current - 1))}
+      onCancel={editingPlan ? cancelEditingPlan : undefined}
       onContinue={() => {
         if (step < 3) {
           if (step === 2) {

@@ -162,16 +162,45 @@ describe("FileStudyPlanRepository", () => {
     expect(synced.revisionReason).toContain("recent answers");
   });
 
-  it("replaces a stale plan when baseline identity changes", async () => {
+  it("starts a fresh calendar for a new test cycle without replacing the session", async () => {
     const { repo } = await repository();
     const first = await repo.getOrCreate(null, INPUT);
+    const completedTask = first.plan.tasks[0];
+    await repo.setTaskStatus(first.sessionId, completedTask.id, "complete");
     const replacement = await repo.getOrCreate(first.sessionId, {
       ...INPUT,
+      testDate: "2026-09-12",
       current: { english: 27, math: 22, reading: 26 },
     });
 
-    expect(replacement.sessionId).not.toBe(first.sessionId);
-    await expect(repo.get(first.sessionId)).rejects.toThrow("not found");
+    expect(replacement.sessionId).toBe(first.sessionId);
+    expect(replacement.plan.testDate).toBe("2026-09-12");
+    expect(
+      replacement.plan.milestones.find(
+        (milestone) => milestone.id === "test-day",
+      )?.date,
+    ).toBe("2026-09-12");
+    expect(replacement.plan.current).toEqual({
+      english: 27,
+      math: 22,
+      reading: 26,
+    });
+    expect(
+      replacement.plan.tasks.find((task) => task.id === completedTask.id)
+        ?.status,
+    ).toBe("scheduled");
+    expect(
+      replacement.plan.tasks.find((task) => task.id === completedTask.id)
+        ?.completedAt,
+    ).toBeNull();
+    expect(
+      replacement.plan.tasks.every(
+        (task) =>
+          task.date >= replacement.plan.today &&
+          task.date < replacement.plan.testDate,
+      ),
+    ).toBe(true);
+    expect(replacement.plan.revisionReason).toContain("fresh calendar");
   });
 
   it("rebases same-window availability and skills without losing the session", async () => {

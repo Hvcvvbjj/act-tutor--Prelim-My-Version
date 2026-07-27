@@ -24,7 +24,8 @@ export interface NormalizedScoreEvidence {
   source:
     | CurrentScoreInput["kind"]
     | "starter_diagnostic"
-    | "rapid_diagnostic";
+    | "rapid_diagnostic"
+    | "full_test";
   reportedComposite: ActScore | null;
   calculatedComposite: ActScore | null;
   reportedSections: CoreSectionScores | null;

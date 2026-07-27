@@ -201,6 +201,50 @@ describe.sequential("optional learner and judge accounts", () => {
     })
   })
 
+  it("permanently removes the authenticated learner's saved plan", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-delete-plan",
+        displayName: "Delete Plan Learner",
+        password: "DeleteMyPlan!2026",
+        savedPlan,
+      })
+    )
+    const token = signup.cookies.get("scout_auth_session")?.value
+    expect(token).toBeTruthy()
+
+    const deleted = await POST(
+      authRequest(
+        { action: "delete_saved_plan" },
+        `scout_auth_session=${token}`
+      )
+    )
+    expect(deleted.status).toBe(200)
+    await expect(deleted.json()).resolves.toMatchObject({
+      viewer: {
+        authenticated: true,
+        role: "learner",
+        username: "learner-delete-plan",
+        savedPlan: null,
+      },
+    })
+
+    const restored = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-delete-plan",
+        password: "DeleteMyPlan!2026",
+      })
+    )
+    await expect(restored.json()).resolves.toMatchObject({
+      viewer: {
+        username: "learner-delete-plan",
+        savedPlan: null,
+      },
+    })
+  })
+
   it("keeps login failures generic and blocks cross-site account posts", async () => {
     const invalid = await POST(
       authRequest({

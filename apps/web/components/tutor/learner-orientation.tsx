@@ -786,6 +786,9 @@ export function LearnerOrientation({
     () => aggregateEvidence(skillResults ?? []),
     [skillResults]
   )
+  const hasSkillEvidence = (skillResults ?? []).some(
+    (result) => result.total > 0
+  )
   const sectionData = useMemo<Record<CoreSection, ReadonlyArray<PolygonDatum>>>(
     () => ({
       english: skillPolygonData("english", evidence),
@@ -805,24 +808,40 @@ export function LearnerOrientation({
       (total, section) => total + section.measured,
       0
     )
+    const measuredValues = SECTION_ORDER.flatMap((section) =>
+      sectionData[section]
+        .map((datum) => datum.value)
+        .filter((value): value is number => value !== null)
+    )
+    const overallAverage =
+      measuredValues.length > 0
+        ? measuredValues.reduce((total, value) => total + value, 0) /
+          measuredValues.length
+        : null
 
-    return [
-      ...sectionAverages.map(({ section, average, measured }) => ({
-        label: SECTION_LABELS[section],
-        shortLabel: SECTION_LABELS[section],
-        value: average,
-        detail:
-          average === null
-            ? "Not measured yet"
-            : `${observedPercent(average)} average · ${measured} of 4 types measured`,
-      })),
-      {
-        label: "Evidence coverage",
-        shortLabel: "Coverage",
-        value: measuredTotal / 12,
-        detail: `${measuredTotal} of 12 question types measured`,
-      },
-    ] satisfies ReadonlyArray<PolygonDatum>
+    return {
+      measuredTotal,
+      data: [
+        ...sectionAverages.map(({ section, average, measured }) => ({
+          label: SECTION_LABELS[section],
+          shortLabel: SECTION_LABELS[section],
+          value: average,
+          detail:
+            average === null
+              ? "Not measured yet"
+              : `${observedPercent(average)} average · ${measured} of 4 types measured`,
+        })),
+        {
+          label: "All measured question types",
+          shortLabel: "All measured",
+          value: overallAverage,
+          detail:
+            overallAverage === null
+              ? "Not measured yet"
+              : `${observedPercent(overallAverage)} average across ${measuredTotal} measured types`,
+        },
+      ] satisfies ReadonlyArray<PolygonDatum>,
+    }
   }, [sectionData])
 
   useEffect(() => {
@@ -1058,42 +1077,58 @@ export function LearnerOrientation({
                   tabIndex={-1}
                   className={cn(sharedHeadingClass, "mt-4 max-w-4xl")}
                 >
-                  Four honest views of what we know so far.
+                  {hasSkillEvidence
+                    ? "Four honest views of what we know so far."
+                    : "Your skill map needs a few answers first."}
                 </h1>
               </div>
               <p className="border-l-4 border-[var(--scout-sun)] pl-5 text-sm leading-6 text-muted-foreground">
-                Each point is the observed share correct for that exact question
-                type. “Not measured yet” means your {sourceLabel} did not test
-                it—not that you are weak there.
+                {hasSkillEvidence
+                  ? `Each point is the observed share correct for that exact question type. “Not measured yet” means your ${sourceLabel} did not test it—not that you are weak there.`
+                  : "You skipped the starting check, so Scout will not pretend the temporary setup score measured any question type."}
               </p>
             </div>
 
-            <div className="mt-9 grid gap-px overflow-hidden border bg-border lg:grid-cols-2">
-              {SECTION_ORDER.map((section) => (
+            {hasSkillEvidence ? (
+              <div className="mt-9 grid gap-px overflow-hidden border bg-border lg:grid-cols-2">
+                {SECTION_ORDER.map((section) => (
+                  <SkillPolygon
+                    key={section}
+                    title={SECTION_LABELS[section]}
+                    subtitle={
+                      sectionScores
+                        ? `Planning baseline ${normalizeActScore(sectionScores[section])}`
+                        : "Question-type evidence"
+                    }
+                    data={sectionData[section]}
+                  />
+                ))}
                 <SkillPolygon
-                  key={section}
-                  title={SECTION_LABELS[section]}
-                  subtitle={
-                    sectionScores
-                      ? `Planning baseline ${normalizeActScore(sectionScores[section])}`
-                      : "Question-type evidence"
-                  }
-                  data={sectionData[section]}
+                  title="Overall"
+                  subtitle={`${currentScore} now · ${targetScore} goal · ${overallData.measuredTotal} of 12 types measured`}
+                  data={overallData.data}
+                  emphasized
                 />
-              ))}
-              <SkillPolygon
-                title="Overall"
-                subtitle={`${currentScore} now · ${targetScore} goal`}
-                data={overallData}
-                emphasized
-              />
-            </div>
+              </div>
+            ) : (
+              <div className="mt-9 border-2 border-foreground bg-background p-7 sm:p-9">
+                <p className="ink-label text-primary">No measured shape yet</p>
+                <h2 className="mt-3 font-heading text-3xl font-black">
+                  Round 1 will build the evidence honestly.
+                </h2>
+                <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
+                  You’ll still learn all 12 question types. As you answer scored
+                  questions, Scout will replace the temporary starting point
+                  with measured English, Math, Reading, and overall views.
+                </p>
+              </div>
+            )}
 
             <div className="mt-8 flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                These shapes will become more complete as you answer more
-                question types. They are study signals, not official ACT score
-                reports.
+                {hasSkillEvidence
+                  ? "These shapes will become more complete as you answer more question types. They are study signals, not official ACT score reports."
+                  : "No blank polygon is being shown as if it were a weakness. Scout will add the skill views only after it has scored evidence."}
               </p>
               <Button
                 type="button"
