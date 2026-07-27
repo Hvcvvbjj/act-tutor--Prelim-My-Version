@@ -32,7 +32,7 @@ This table records local evidence only. It does not mark an issue `done` before 
 | 5.3          | deterministic dated tasks, checkpoints, rehearsal, milestones, capacity/health, and durable server persistence are implemented                                    | add prerequisite graph and production database transactions                                |
 | 5.4          | per-day availability editing, capacity preview, completion history, catch-up, and future-only rebalance are implemented                                           | add timezone-aware reminders and production cross-device persistence                       |
 | 6.1          | Today/Plan/Progress dashboard, real dated tasks, assignment reasons, completion state, and provisional confidence are implemented                                 | connect hosted baseline history and notification delivery                                  |
-| 6.5          | live mastery signals re-rank future plan tasks while today and completed work stay frozen; deterministic fixtures cover the behavior                              | connect Test Lab results and multi-day hosted evidence transactions                        |
+| 6.5          | live mastery signals re-rank future plan tasks while today and completed work stay frozen; deterministic fixtures cover the behavior                              | connect Timed Practice results and multi-day hosted evidence transactions                   |
 
 The half-length diagnostic is a real end-to-end slice, not a psychometrically finished assessment system. Production database sessions, transactional mastery/baseline finalization, empirical calibration, independent review, and broader longitudinal mastery remain open work. The current file repository is durable for a local single-node demo, but it is not a substitute for multi-instance database transactions.
 
@@ -203,7 +203,7 @@ Acceptance criteria:
 - Enforce an 8-item evidence floor, three-section coverage, precision target, and 12-item cap.
 - Make candidate ranking and the IRT-to-BKT handoff visible.
 - Keep item keys server-side and store ordered, idempotent calibration sessions.
-- **Implemented locally:** the Precision Check, atomic calibration repository, secure API route, representative judge seeding, BKT handoff, model UI, and core/server tests are complete.
+- **Implemented locally:** Quick Check, its atomic calibration repository, secure API route, representative judge seeding, BKT handoff, model UI, and core/server tests are complete.
 
 ## Epic 5 — Plan generator and scheduler
 
@@ -277,7 +277,7 @@ Acceptance criteria:
 - Mistakes never lock the learner out.
 - **Implemented locally:** XP/levels, current and longest streaks, durable mistake notebook, exact-question repair, mastery bars, and mixed checkpoints. Weekly goals and streak grace remain future work.
 
-### 6.7 Build Test Day Lab — P1
+### 6.7 Build Timed Practice — P1
 
 - **Implemented locally:** 12-skill sprint, English/Math/Reading half-length section simulations, and full 66-question core rehearsal.
 - **Implemented locally:** section deadlines, passage-aware runner, confidence/flag/time capture, autosave, review, omissions, and idempotent server scoring.

@@ -77,7 +77,7 @@ const ACCOMMODATION_OPTIONS: ReadonlyArray<
     "Simpler explanations",
     "Starts with shorter, plainer wording.",
   ],
-  ["extendedTime", "Extended-time Test Lab", "Uses a 1.5× time allowance."],
+  ["extendedTime", "Extended Timed Practice", "Uses a 1.5× time allowance."],
   [
     "distractionReduced",
     "Distraction-reduced layout",

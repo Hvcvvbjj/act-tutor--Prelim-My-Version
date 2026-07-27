@@ -10,9 +10,9 @@ ACT preparation usually fails in one of two directions: a static calendar treats
 
 ## What it does
 
-Scout begins with three inputs: goal score, current score or section scores, and test date. A learner without prior scores takes an original 66-question half-length diagnostic across English, Math, and Reading. That baseline becomes a skill-level route rather than a single opaque score. An 8–12 item adaptive Precision Check can then refine uncertainty by selecting the unanswered ACT-shaped item with the most Fisher information while preserving section coverage.
+Scout begins with three inputs: goal score, current score or section scores, and test date. A learner without prior scores takes an original 66-question half-length diagnostic across English, Math, and Reading. That baseline becomes a skill-level route rather than a single opaque score. An 8–12 item adaptive Quick Check can then refine uncertainty by selecting the unanswered ACT-shaped item with the most Fisher information while preserving section coverage.
 
-From there Scout builds a dated study plan that learners can copy as a plain-text weekly agenda, assigns an individualized lesson, serves ACT-shaped practice with optional keyboard shortcuts, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and timed Test Day Lab rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
+From there Scout builds a dated study plan that learners can copy as a plain-text weekly agenda, assigns an individualized lesson, serves ACT-shaped practice with optional keyboard shortcuts, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and Timed Practice rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
 
 Quick Check, Progress, and Learning data make both adaptive decisions visible. Students can inspect:
 
@@ -54,20 +54,20 @@ This hybrid design is intentional. A generative model is strong at explanation a
 
 ## Challenges
 
-The hardest problem was making adaptation both useful and credible from sparse evidence. Short diagnostics can create false certainty, so the Precision Check exposes standard error, will not stop before eight items, requires coverage across every core section, and caps itself at twelve. The Learning Twin uses smoothed priors, exposes uncertainty, and actively prioritizes evidence scarcity. We also had to keep ACT-shaped content and answer keys protected while still showing judges a transparent evidence trail.
+The hardest problem was making adaptation both useful and credible from sparse evidence. Short diagnostics can create false certainty, so Quick Check exposes standard error, will not stop before eight items, requires coverage across every core section, and caps itself at twelve. The Learning Twin uses smoothed priors, exposes uncertainty, and actively prioritizes evidence scarcity. We also had to keep ACT-shaped content and answer keys protected while still showing judges a transparent evidence trail.
 
 Another challenge was fitting a serious learning workflow into a product that feels encouraging rather than clinical. Scout’s field-notebook design, interactive mascot, daily mission, mistake repair, and evidence language turn the model into a coach rather than a black-box analytics page.
 
 ## Accomplishments
 
 - Built a complete score-to-plan-to-lesson-to-practice loop.
-- Built a Bayesian 2PL IRT adaptive Precision Check with visible candidate ranking and a precision stop rule.
+- Built a Bayesian 2PL IRT adaptive Quick Check with visible candidate ranking and a precision stop rule.
 - Wired every calibration answer into the twelve-skill BKT model without awarding fake XP.
 - Implemented twelve live Bayesian skill models with persistent update history.
 - Made the next-skill recommendation inspectable at the feature-contribution level.
 - Kept answer keys and scoring server-side.
 - Added original half-length diagnostic and ACT-shaped question content.
-- Added personalized lessons, spaced reviews, mistake repair, mixed checkpoints, an adaptive calendar, and timed Test Day Lab rehearsals.
+- Added personalized lessons, spaced reviews, mistake repair, mixed checkpoints, an adaptive calendar, and Timed Practice rehearsals.
 - Made the full experience work without an account or paid model key.
 - Added automated core, content, server, type, lint, and production-build checks.
 

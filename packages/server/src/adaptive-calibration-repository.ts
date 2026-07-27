@@ -231,7 +231,7 @@ function applyAnswer(
   },
 ): CalibrationKnowledgeEvidence {
   if (session.status === "complete")
-    throw new RangeError("This precision check is already complete.");
+    throw new RangeError("This Quick Check is already complete.");
   if (session.currentQuestionId !== answer.questionId) {
     throw new RangeError("Calibration questions must be answered in order.");
   }

@@ -121,9 +121,9 @@ For the hackathon demo, add a **Rapid Estimate** mode with roughly 24 balanced q
 - Do not include fake unscored field-test items.
 - Do not branch adaptively inside the baseline; adapt after the baseline so coverage remains comparable.
 
-### 5.3 Adaptive Precision Check
+### 5.3 Adaptive Quick Check
 
-After the fixed diagnostic or score-based placement, offer an 8–12 item adaptive Precision Check. Its job is to reduce model uncertainty and collect stronger direct skill evidence; it must not replace the blueprint-balanced no-score baseline.
+After the fixed diagnostic or score-based placement, offer an 8–12 item adaptive Quick Check. Its job is to reduce model uncertainty and collect stronger direct skill evidence; it must not replace the blueprint-balanced no-score baseline.
 
 - Select each next item with a documented 2PL IRT information score plus section/skill coverage safeguards.
 - Show the learner why the item was selected, the current uncertainty band, and the stop rule.

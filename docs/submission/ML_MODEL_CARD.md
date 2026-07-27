@@ -10,7 +10,7 @@ Scout uses three bounded adaptive layers:
 
 The LLM never scores an answer, chooses a correct key, mutates an ability estimate, awards XP, or changes mastery. Both probabilistic layers run locally without an API key.
 
-## Model A — adaptive Precision Check
+## Model A — adaptive Quick Check
 
 ### Purpose
 

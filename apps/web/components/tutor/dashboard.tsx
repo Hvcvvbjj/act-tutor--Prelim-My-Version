@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   examLabInterpretationReadiness,
@@ -242,16 +242,31 @@ async function rebaseLearningSession(
   return payload
 }
 
-function Brand() {
-  return (
-    <div
-      data-testid="app-brand"
-      className="@container/brand flex min-w-0 items-center gap-2 overflow-hidden sm:gap-2.5"
-    >
+function Brand({ onHome }: { onHome?: () => void }) {
+  const content = (
+    <>
       <ScoutMark className="size-8 shrink-0" />
-      <p className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg @max-[6.5rem]/brand:hidden">
+      <span className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg @max-[6.5rem]/brand:hidden">
         SCOUT <span className="text-primary">ACT</span>
-      </p>
+      </span>
+    </>
+  )
+  const className =
+    "@container/brand flex min-w-0 items-center gap-2 overflow-hidden rounded-lg sm:gap-2.5"
+
+  return onHome ? (
+    <button
+      type="button"
+      data-testid="app-brand"
+      className={`${className} min-h-11 px-1 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none`}
+      aria-label="Scout ACT, go to Today"
+      onClick={onHome}
+    >
+      {content}
+    </button>
+  ) : (
+    <div data-testid="app-brand" className={className}>
+      {content}
     </div>
   )
 }
@@ -315,75 +330,80 @@ function MobileOverflow({
   const { openSettings } = useScoutContext()
   if (!open) return null
   return (
-    <>
-      <button
-        type="button"
-        className="fixed inset-0 z-[44] bg-transparent md:hidden"
-        aria-label="Close More destinations"
-        onClick={onClose}
-      />
-      <div
-        id="mobile-more-destinations"
-        className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
-        role="menu"
-        aria-label="More destinations"
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-11 w-full justify-start"
-          role="menuitem"
-          onPointerEnter={() => preloadDashboardSurface("lab")}
-          onPointerDown={() => preloadDashboardSurface("lab")}
-          onFocus={() => preloadDashboardSurface("lab")}
-          onClick={() => {
-            onNavigate("lab")
-            onClose()
-          }}
+    <div
+      id="mobile-more-destinations"
+      data-more-surface="true"
+      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
+      role="menu"
+      aria-labelledby="mobile-more-title"
+      aria-describedby="mobile-more-description"
+    >
+      <div className="px-3 pt-1 pb-2">
+        <p id="mobile-more-title" className="text-sm font-bold">
+          More from Scout
+        </p>
+        <p
+          id="mobile-more-description"
+          className="mt-1 text-xs leading-5 text-muted-foreground"
         >
-          <FlaskConicalIcon /> Timed practice
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-11 w-full justify-start"
-          role="menuitem"
-          onPointerEnter={() => preloadDashboardSurface("control")}
-          onPointerDown={() => preloadDashboardSurface("control")}
-          onFocus={() => preloadDashboardSurface("control")}
-          onClick={() => {
-            onNavigate("control")
-            onClose()
-          }}
-        >
-          <ShieldCheckIcon /> Learning data
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-11 w-full justify-start"
-          role="menuitem"
-          onClick={() => {
-            onEditPlan()
-            onClose()
-          }}
-        >
-          <PencilLineIcon /> Goal and schedule
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-11 w-full justify-start"
-          role="menuitem"
-          onClick={() => {
-            openSettings()
-            onClose()
-          }}
-        >
-          <Settings2Icon /> Learning settings
-        </Button>
+          Practice, settings, and your learning data.
+        </p>
       </div>
-    </>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        role="menuitem"
+        onPointerEnter={() => preloadDashboardSurface("lab")}
+        onPointerDown={() => preloadDashboardSurface("lab")}
+        onFocus={() => preloadDashboardSurface("lab")}
+        onClick={() => {
+          onNavigate("lab")
+          onClose()
+        }}
+      >
+        <FlaskConicalIcon /> Timed Practice
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        role="menuitem"
+        onPointerEnter={() => preloadDashboardSurface("control")}
+        onPointerDown={() => preloadDashboardSurface("control")}
+        onFocus={() => preloadDashboardSurface("control")}
+        onClick={() => {
+          onNavigate("control")
+          onClose()
+        }}
+      >
+        <ShieldCheckIcon /> Learning data
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        role="menuitem"
+        onClick={() => {
+          onEditPlan()
+          onClose()
+        }}
+      >
+        <PencilLineIcon /> Goal and schedule
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        role="menuitem"
+        onClick={() => {
+          openSettings()
+          onClose()
+        }}
+      >
+        <Settings2Icon /> Learning settings
+      </Button>
+    </div>
   )
 }
 
@@ -403,10 +423,23 @@ function DesktopOverflow({
   return (
     <div
       id="desktop-more-destinations"
-      className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-56 rounded-xl border bg-background p-2 shadow-xl md:block"
+      data-more-surface="true"
+      className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-64 rounded-xl border bg-background p-2 shadow-xl md:block"
       role="menu"
-      aria-label="More destinations"
+      aria-labelledby="desktop-more-title"
+      aria-describedby="desktop-more-description"
     >
+      <div className="px-3 pt-1 pb-2">
+        <p id="desktop-more-title" className="text-sm font-bold">
+          More from Scout
+        </p>
+        <p
+          id="desktop-more-description"
+          className="mt-1 text-xs leading-5 text-muted-foreground"
+        >
+          Practice, settings, and your learning data.
+        </p>
+      </div>
       <Button
         type="button"
         variant="ghost"
@@ -420,7 +453,7 @@ function DesktopOverflow({
           onClose()
         }}
       >
-        <FlaskConicalIcon /> Timed practice
+        <FlaskConicalIcon /> Timed Practice
       </Button>
       <Button
         type="button"
@@ -491,6 +524,8 @@ export function Dashboard({
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const desktopMoreTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileMoreTriggerRef = useRef<HTMLButtonElement>(null)
   const [roundAssessmentView, setRoundAssessmentView] = useState<
     "choice" | "full-test"
   >(() =>
@@ -527,11 +562,32 @@ export function Dashboard({
 
   useEffect(() => {
     if (!moreOpen) return
-    const closeMoreOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMoreOpen(false)
+    const closeMoreOnPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (
+        target instanceof Element &&
+        target.closest('[data-more-surface="true"]')
+      ) {
+        return
+      }
+      setMoreOpen(false)
     }
+    const closeMoreOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setMoreOpen(false)
+      window.requestAnimationFrame(() => {
+        const trigger = window.matchMedia("(min-width: 768px)").matches
+          ? desktopMoreTriggerRef.current
+          : mobileMoreTriggerRef.current
+        trigger?.focus()
+      })
+    }
+    window.addEventListener("pointerdown", closeMoreOnPointerDown)
     window.addEventListener("keydown", closeMoreOnEscape)
-    return () => window.removeEventListener("keydown", closeMoreOnEscape)
+    return () => {
+      window.removeEventListener("pointerdown", closeMoreOnPointerDown)
+      window.removeEventListener("keydown", closeMoreOnEscape)
+    }
   }, [moreOpen])
 
   const refreshLearningSession = useCallback(async () => {
@@ -1107,7 +1163,12 @@ export function Dashboard({
         {workspaceOpen && activeTab === "today" ? null : (
           <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
             <div className="mx-auto grid min-h-14 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-1.5 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
-              <Brand />
+              <Brand
+                onHome={() => {
+                  setMoreOpen(false)
+                  setActiveTab("today")
+                }}
+              />
               <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
                 <TabsList
                   variant="line"
@@ -1127,8 +1188,9 @@ export function Dashboard({
                     Progress
                   </DashboardTab>
                 </TabsList>
-                <div className="relative">
+                <div className="relative" data-more-surface="true">
                   <Button
+                    ref={desktopMoreTriggerRef}
                     type="button"
                     variant={moreOpen || moreActive ? "secondary" : "ghost"}
                     className="min-h-11"
@@ -1416,6 +1478,8 @@ export function Dashboard({
                   </DashboardTab>
                 </TabsList>
                 <Button
+                  ref={mobileMoreTriggerRef}
+                  data-more-surface="true"
                   type="button"
                   variant={moreOpen || moreActive ? "secondary" : "ghost"}
                   className="min-h-14 rounded-none px-1 text-xs"

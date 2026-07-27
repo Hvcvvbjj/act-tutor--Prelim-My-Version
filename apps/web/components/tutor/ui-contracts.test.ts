@@ -33,9 +33,12 @@ describe("mobile navigation contract", () => {
       'aria-current={moreActive ? "page" : undefined}'
     )
     expect(mobileNav).toContain("More")
-    expect(dashboard).toContain("Timed practice")
+    expect(dashboard).toContain("Timed Practice")
     expect(dashboard).toContain("Learning data")
     expect(dashboard).toContain("Learning settings")
+    expect(dashboard).toContain('aria-label="Scout ACT, go to Today"')
+    expect(dashboard).toContain("More from Scout")
+    expect(dashboard).toContain("Practice, settings, and your learning data.")
     expect(dashboard).toContain("sticky top-0 z-50")
   })
 
@@ -61,10 +64,34 @@ describe("mobile navigation contract", () => {
 
     expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(4)
     expect(desktopNav).not.toContain('value="lab"')
-    expect(desktopNav).not.toContain("Timed practice")
+    expect(desktopNav).not.toContain("Timed Practice")
     expect(desktopOverflow).toContain('preloadDashboardSurface("lab")')
     expect(desktopOverflow).toContain('onNavigate("lab")')
-    expect(desktopOverflow).toContain("Timed practice")
+    expect(desktopOverflow).toContain("Timed Practice")
+    expect(dashboard).toContain(
+      "target.closest('[data-more-surface=\"true\"]')"
+    )
+    expect(dashboard).toContain(
+      'window.addEventListener("pointerdown", closeMoreOnPointerDown)'
+    )
+  })
+})
+
+describe("learner-facing terminology contract", () => {
+  it("uses Quick Check and Timed Practice consistently across UI and API feedback", async () => {
+    const copy = (
+      await Promise.all([
+        source("components/tutor/dashboard.tsx"),
+        source("components/tutor/scout-assistant.tsx"),
+        source("components/tutor/exam-lab-setup.tsx"),
+        source("app/api/exam-lab/route.ts"),
+        source("app/api/scout/ask/route.ts"),
+      ])
+    ).join("\n")
+
+    expect(copy).toContain("Quick Check")
+    expect(copy).toContain("Timed Practice")
+    expect(copy).not.toMatch(/\bTest (?:Day )?Lab\b/)
   })
 })
 

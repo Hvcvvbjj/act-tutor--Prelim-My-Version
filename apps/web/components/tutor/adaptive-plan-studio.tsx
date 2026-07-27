@@ -631,13 +631,13 @@ function TaskInspector({
             ? [
                 "Open the 131-question full-length English, Math, and Reading rehearsal.",
                 "Answer under the section timers; explanations stay locked until submission.",
-                "Review raw accuracy and pacing. The result stays in Timed practice and does not update Today or My week.",
+                "Review raw accuracy and pacing. The result stays in Timed Practice and does not update Today or My Week.",
               ]
             : task.kind === "timed"
               ? [
-                  `Open one-section Timed practice for ${task.section ? SECTION_LABELS[task.section] : "the stored section"}.`,
+                  `Open one-section Timed Practice for ${task.section ? SECTION_LABELS[task.section] : "the stored section"}.`,
                   "Answer under that section’s timer; explanations stay locked until submission.",
-                  "Review raw accuracy and pacing. The result stays in Timed practice and does not update Today or My week.",
+                  "Review raw accuracy and pacing. The result stays in Timed Practice and does not update Today or My Week.",
                 ]
               : task.kind === "checkpoint"
                 ? [

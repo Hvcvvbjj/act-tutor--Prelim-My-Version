@@ -142,7 +142,7 @@ describe("Scout server policy", () => {
     expect(answer.nextAction).toBe("Use this on the next item.")
   })
 
-  it("ignores an old Test Lab session outside the Lab screen", () => {
+  it("ignores an old Timed Practice session outside the practice screen", () => {
     const answer = answerFor({
       request: { question: "What can I do on this screen?", screen: "today" },
       preferences,

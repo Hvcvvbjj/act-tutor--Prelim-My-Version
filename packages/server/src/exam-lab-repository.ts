@@ -101,7 +101,7 @@ function assertSession(
 ) {
   if (session.formId !== form.id || session.formVersion !== form.version) {
     throw new RangeError(
-      "This Test Day Lab session belongs to a different form version.",
+      "This Timed Practice session belongs to a different form version.",
     );
   }
   questionsFor(session, form);
@@ -171,17 +171,19 @@ function validateProgress(
     input.currentIndex < 0 ||
     input.currentIndex >= questions.length
   ) {
-    throw new RangeError("Current Test Day Lab question is outside this form.");
+    throw new RangeError(
+      "Current Timed Practice question is outside this form.",
+    );
   }
   if (input.phase !== "questions" && input.phase !== "review")
-    throw new RangeError("Unknown Test Day Lab phase.");
+    throw new RangeError("Unknown Timed Practice phase.");
   const questionMap = new Map(
     questions.map((question) => [question.id, question]),
   );
   for (const [questionId, response] of Object.entries(input.responses)) {
     const question = questionMap.get(questionId);
     if (!question)
-      throw new RangeError(`Unknown Test Day Lab question: ${questionId}.`);
+      throw new RangeError(`Unknown Timed Practice question: ${questionId}.`);
     if (
       !response ||
       (response.choiceId !== null &&
@@ -223,7 +225,7 @@ export class FileExamLabRepository {
     if (value === null) return structuredClone(EMPTY_STORE);
     const parsed = value as ExamLabStoreFile;
     if (parsed.version !== 1 || !parsed.sessions)
-      throw new Error("Unsupported Test Day Lab store format.");
+      throw new Error("Unsupported Timed Practice store format.");
     return parsed;
   }
 
@@ -295,7 +297,7 @@ export class FileExamLabRepository {
   async get(sessionId: string, form: DiagnosticFormSecure) {
     return this.transact((store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Test Day Lab session not found.");
+      if (!session) throw new RangeError("Timed Practice session not found.");
       assertSession(session, form);
       return toPayload(session, form);
     });
@@ -308,7 +310,7 @@ export class FileExamLabRepository {
   ) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Test Day Lab session not found.");
+      if (!session) throw new RangeError("Timed Practice session not found.");
       assertSession(session, form);
       if (session.status === "completed") return toPayload(session, form);
       validateProgress(session, form, input);
@@ -334,7 +336,7 @@ export class FileExamLabRepository {
   async advanceSection(sessionId: string, form: DiagnosticFormSecure) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Test Day Lab session not found.");
+      if (!session) throw new RangeError("Timed Practice session not found.");
       assertSession(session, form);
       if (session.status === "completed") return toPayload(session, form);
       const questions = questionsFor(session, form);
@@ -366,7 +368,7 @@ export class FileExamLabRepository {
   async beginReview(sessionId: string, form: DiagnosticFormSecure) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Test Day Lab session not found.");
+      if (!session) throw new RangeError("Timed Practice session not found.");
       assertSession(session, form);
       if (session.status === "completed") return toPayload(session, form);
       session.phase = "review";
@@ -383,7 +385,7 @@ export class FileExamLabRepository {
   ) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Test Day Lab session not found.");
+      if (!session) throw new RangeError("Timed Practice session not found.");
       assertSession(session, form);
       if (session.status === "completed" && session.result)
         return toPayload(session, form);

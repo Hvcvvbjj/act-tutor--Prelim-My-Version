@@ -1,6 +1,6 @@
 # Scout ACT web app
 
-This is the Next.js frontend for Scout ACT. It contains the three-gate onboarding flow, an 8–12 question adaptive baseline with an optional 66-question practice form, AI-assisted teaching loops, the product-wide Ask Scout layer, Test Lab, a read-only Coach Brief, evidence/data controls, and a durable adaptive learning loop.
+This is the Next.js frontend for Scout ACT. It contains the three-gate onboarding flow, an 8–12 question adaptive baseline with an optional 66-question practice form, AI-assisted teaching loops, the product-wide Ask Scout layer, Timed Practice, a read-only Coach Brief, evidence/data controls, and a durable adaptive learning loop.
 
 Run it from the repository root so the local `@act-tutor/core` workspace package resolves correctly.
 

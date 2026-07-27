@@ -684,8 +684,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   const enlargedFirstHeaderActionBounds = await page
     .locator("header")
     .first()
-    .getByRole("button")
-    .first()
+    .getByRole("button", { name: "Ask Scout" })
     .boundingBox()
   expect(enlargedBrandBounds).not.toBeNull()
   expect(enlargedFirstHeaderActionBounds).not.toBeNull()
@@ -727,7 +726,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(launcher).toBeFocused()
 
   const moreButton = primaryNavigation.getByRole("button", { name: "More" })
-  const moreMenu = page.getByRole("menu", { name: "More destinations" })
+  const moreMenu = page.getByRole("menu", { name: "More from Scout" })
   await moreButton.click()
   await expect(moreMenu.getByRole("menuitem")).toHaveCount(4)
   await expect(
@@ -737,7 +736,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(moreMenu).toBeHidden()
 
   await moreButton.click()
-  await moreMenu.getByRole("menuitem", { name: "Timed practice" }).click()
+  await moreMenu.getByRole("menuitem", { name: "Timed Practice" }).click()
   await expect(moreButton).toHaveAttribute("aria-current", "page")
 
   await moreButton.click()
@@ -902,7 +901,7 @@ test("timed practice opens at the first question on a narrow phone", async ({
   await page.request.delete("/api/exam-lab")
 
   await page.getByRole("button", { name: "More", exact: true }).click()
-  await page.getByRole("menuitem", { name: "Timed practice" }).click()
+  await page.getByRole("menuitem", { name: "Timed Practice" }).click()
   await expect(
     page.getByRole("heading", { name: "Practice the test before test day." })
   ).toBeVisible()
@@ -1186,7 +1185,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   expect(result.unanswered).toBe(result.total - 1)
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Timed practice" }).click()
+  await page.getByRole("menuitem", { name: "Timed Practice" }).click()
 
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")

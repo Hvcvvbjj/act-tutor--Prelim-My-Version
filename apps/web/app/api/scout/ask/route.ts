@@ -290,14 +290,15 @@ export function answerFor(input: {
   if (examMode === "timed-test" && !interfaceOnly) {
     return {
       summary:
-        "I can only help with Test Lab controls while the timer is running.",
+        "I can only help with Timed Practice controls while the timer is running.",
       explanation:
         "I cannot explain the question, give a hint, eliminate choices, or solve it during the timed section. Full help unlocks in review.",
       example: null,
-      technical: "Timed state was read from the server-owned Test Lab session.",
+      technical:
+        "Timed state was read from the server-owned Timed Practice session.",
       nextAction:
         "Keep working, flag the item, or finish the section and open review.",
-      source: "Server-enforced Test Lab assistance policy",
+      source: "Server-enforced Timed Practice assistance policy",
       mode: "guarded",
       receipt: {
         ...receiptBase,
@@ -414,11 +415,12 @@ export function answerFor(input: {
     source = "Reviewed Timed Practice result fields and sync boundary"
     delivery = "reviewed-interface-guidance"
   } else if (examMode === "timed-test" && interfaceOnly) {
-    summary = "Use the Test Lab controls without changing the question content."
+    summary =
+      "Use the Timed Practice controls without changing the question content."
     explanation =
       "Flag saves the item for later. Skip moves on without selecting an answer. Submit is available when the section workflow allows it."
     nextAction = "Use the control you need, then return to the timed work."
-    source = "Reviewed Test Lab interface guidance"
+    source = "Reviewed Timed Practice interface guidance"
     delivery = "reviewed-interface-guidance"
   } else if (examMode === "review" && review) {
     summary = review.correct
@@ -426,7 +428,7 @@ export function answerFor(input: {
       : "This item is ready to review."
     explanation = review.rationale
     nextAction = "Use the explanation on a different item."
-    source = `Scored Test Lab review for ${review.questionId}`
+    source = `Scored Timed Practice review for ${review.questionId}`
   } else if (intent === "calibration-definition") {
     summary = calibration
       ? `Here, “margin of error” means Scout’s estimate is still about ±${calibration.estimate.standardError.toFixed(2)} on its internal scale.`

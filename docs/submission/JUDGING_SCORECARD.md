@@ -11,7 +11,7 @@ This scorecard maps the product to the four equally weighted official judging di
 - Twelve skill models turn section-level evidence into specific instructional targets.
 - Daily missions combine teaching, ACT-shaped practice, mistake repair, spaced repetition, and mixed retrieval.
 - Adaptive Plan Studio preserves completed work and today while rebalancing future assignments.
-- Test Day Lab adds timed section rehearsal, confidence capture, flags, pacing analysis, and an AI-capable debrief.
+- Timed Practice adds timed section rehearsal, confidence capture, flags, pacing analysis, and an AI-capable debrief.
 - Accessibility basics include semantic controls, keyboard-focus treatments, responsive layouts, reduced-motion handling, explicit errors, and no-account entry.
 
 ### Proof to show judges
@@ -30,7 +30,7 @@ The team should avoid claiming measured score improvement without a longitudinal
 ### Evidence already in the product
 
 - Bayesian Knowledge Tracing is in the trusted answer path, not a demo-only visualization.
-- A Bayesian 2PL IRT Precision Check actively selects the next item by Fisher information plus section/skill coverage.
+- A Bayesian 2PL IRT Quick Check actively selects the next item by Fisher information plus section/skill coverage.
 - The public interface exposes ability, uncertainty, an 80% interval, item parameters, top candidate scores, and the stop policy.
 - Every calibration response crosses a tested server boundary into BKT; calibration never awards practice XP.
 - Every server-scored response updates P(Learned), P(Correct next), uncertainty, and the public evidence ledger.

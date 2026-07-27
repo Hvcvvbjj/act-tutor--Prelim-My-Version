@@ -25,12 +25,12 @@ Working in the current slice:
 - server-earned XP, levels, daily/longest streaks, twelve-skill mastery map, due-review queue, and a persistent mistake notebook;
 - lesson completion, immediate trusted feedback, mastery updates, spaced review scheduling, direct skill selection, and visible next-session regeneration.
 - a persistent 12-skill Bayesian learning model that updates each skill estimate, predicted next-answer accuracy, uncertainty, and the next recommendation after every server-scored response;
-- an 8–12 item adaptive **Precision Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
+- an 8–12 item adaptive **Quick Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual planning projections;
 - a one-click judge demo that lands on the last Quick Check question and shows—in plain English—what one answer changed and what Scout deliberately held steady;
 - keyboard answer shortcuts for Quick Check and a copyable plain-text weekly agenda for taking the plan into a calendar, notes app, or message;
-- a complete Test Day Lab with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
+- complete Timed Practice with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
 - timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
@@ -376,7 +376,7 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 - Implemented verification: Vitest unit/route contracts plus Playwright release journeys for Quick Check rebasing and mobile Scout behavior.
 - Planned next: Supabase Postgres with anonymous auth and Row Level Security, Vercel previews, and broader browser coverage.
 - Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with schema and grounding checks plus reviewed fallbacks.
-- Implemented evidence-acquisition model: a Bayesian 2PL IRT Precision Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.
+- Implemented evidence-acquisition model: a Bayesian 2PL IRT Quick Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.
 - Implemented learning model: twelve persistent Bayesian Knowledge Tracing models drive next-skill selection from diagnostic, calibration, and practice evidence. Progress uses plain-language estimates by default; exact parameters and recommendation rules remain available in technical details and Learning data.
 - Required throughout: static authored explanations as the guaranteed fallback.
 
@@ -403,7 +403,7 @@ The first onboarding screen includes **See one answer change the plan**, which l
 3. Show the plain-language skill estimate and **Study next** recommendation; expand technical details only if a judge asks.
 4. Open **Today**, start the personalized lesson, and show the AI-personalized or reviewed-fallback generation stamp.
 
-Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Test Day Lab, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
+Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Timed Practice, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
 
 ## Content and score disclaimer
 

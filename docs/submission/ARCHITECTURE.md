@@ -6,7 +6,7 @@
 flowchart LR
     A["Goal, score evidence, test date"] --> B["Diagnostic or score normalization"]
     B --> C["Server-only scoring"]
-    B --> L["2PL IRT Precision Check"]
+    B --> L["2PL IRT Quick Check"]
     L --> M["Fisher-information item selection"]
     M --> C
     C --> D["12-skill Bayesian Learning Twin"]
@@ -25,7 +25,7 @@ The critical loop is **next-best probe → trusted response → skill-model upda
 
 ## Why 2PL Item Response Theory
 
-The optional Precision Check estimates a single practice-readiness ability parameter, `theta`, with a normal prior and maximum-a-posteriori updates. Each item has an explicit difficulty (`b`) and discrimination (`a`) parameter. At the current estimate, Scout ranks every unanswered item by Fisher information, then adds small section- and skill-coverage bonuses so a mathematically informative test does not become educationally narrow.
+The optional Quick Check estimates a single practice-readiness ability parameter, `theta`, with a normal prior and maximum-a-posteriori updates. Each item has an explicit difficulty (`b`) and discrimination (`a`) parameter. At the current estimate, Scout ranks every unanswered item by Fisher information, then adds small section- and skill-coverage bonuses so a mathematically informative test does not become educationally narrow.
 
 The check cannot stop before eight items. It stops when English, Math, and Reading each have at least two observations and standard error is at or below `0.56`, or when it reaches the twelve-item cap. The displayed 80% interval and readiness index are model diagnostics—not an official ACT score. Current item parameters are reviewed product priors by difficulty band and are explicitly not described as empirically equated ACT parameters.
 
@@ -80,7 +80,7 @@ It may personalize lesson depth, opening, guided explanation, strategy checklist
 | Boundary          | Public client receives                                             | Server retains                              |
 | ----------------- | ------------------------------------------------------------------ | ------------------------------------------- |
 | Diagnostic        | prompt, choices, progress, post-submit feedback                    | answer key, rationale before submission     |
-| Precision Check   | public item, ability interval, information, candidate explanations | answer keys, ordered scoring and persistence |
+| Quick Check       | public item, ability interval, information, candidate explanations | answer keys, ordered scoring and persistence |
 | Practice          | prompt, choices, skill, difficulty                                 | answer key, misconception tags, scoring     |
 | Learning Twin     | probabilities, uncertainty, update event, recommendation features  | trusted response validation and persistence |
 | Generative lesson | structured lesson and provider stamp                               | provider credentials and prompt assembly    |

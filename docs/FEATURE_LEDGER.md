@@ -7,7 +7,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Requirement | Implementation proof |
 | --- | --- |
 | What would change the plan? | My Skills shows the held/changed state, current evidence, change line, responses needed, and correct/incorrect counterfactual from `planCounterfactual`. |
-| Adaptive Precision Check | Quick Check uses 2PL IRT, section coverage, item information, an 8–12 item stop rule, a stop explanation, confidence input, an optional 66-question diagnostic, and a button that rebuilds a no-score learner's plan from the completed baseline. |
+| Adaptive Quick Check | Quick Check uses 2PL IRT, section coverage, item information, an 8–12 item stop rule, a stop explanation, confidence input, an optional 66-question diagnostic, and a button that rebuilds a no-score learner's plan from the completed baseline. |
 | Complete learning loop | Mission → personalized lesson → worked example → guided practice → independent exit ticket → mastery update → scheduled retention. A failed exit ticket changes explanation style; repair uses a different question; teach-back uses a three-part rubric. |
 | Decision history | Evidence Timeline records the answer, information value, skill estimate change, plan change/hold, protected current mission, misconception, and model version. |
 | Spaced review | Reviews use prior state and time since practice, explain the forgetting window, and launch an exact two-question retention session. Mission purposes distinguish new learning, repair, confidence building, and retention. |
@@ -15,7 +15,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Goal-aware planning | Onboarding and Plan use target score, test date, study days, minutes per session, preferred domain, availability, capacity tradeoffs, and no-shame catch-up. |
 | Grounded-generation receipts | Every lesson exposes the objective, reviewed rule, evidence question IDs, provider status, validation result/checks, and generated/fallback delivery. Unsafe or malformed AI output falls back to reviewed content. |
 | Interactive skill map | Fill means mastery, border means certainty, size means score impact, arrows mean prerequisite order, badges mean today/next/review, and selection opens the evidence inspector. |
-| Accessibility accommodations | Reduced motion, larger text, higher contrast, keyboard emphasis, read-aloud, simplified wording, extended Test Lab time, and distraction reduction persist locally. Explanation preferences are collected during onboarding. |
+| Accessibility accommodations | Reduced motion, larger text, higher contrast, keyboard emphasis, read-aloud, simplified wording, extended Timed Practice, and distraction reduction persist locally. Explanation preferences are collected during onboarding. |
 
 ## Learner model
 

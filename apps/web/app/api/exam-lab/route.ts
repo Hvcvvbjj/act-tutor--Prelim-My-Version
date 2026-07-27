@@ -25,7 +25,7 @@ function errorResponse(error: unknown, status = 400) {
       error:
         error instanceof Error
           ? error.message
-          : "The Test Day Lab request failed.",
+          : "The Timed Practice request failed.",
     },
     { status }
   )
@@ -44,13 +44,13 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 
 function requireSessionId(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value
-  if (!sessionId) throw new RangeError("Test Day Lab session not found.")
+  if (!sessionId) throw new RangeError("Timed Practice session not found.")
   return sessionId
 }
 
 function parseStart(body: Record<string, unknown>) {
   if (!MODES.has(body.mode as ExamLabMode))
-    throw new RangeError("Unknown Test Day Lab mode.")
+    throw new RangeError("Unknown Timed Practice mode.")
   const mode = body.mode as ExamLabMode
   const section = body.section
   if (mode === "section" && !SECTIONS.has(section as CoreSection)) {
@@ -67,7 +67,7 @@ function parseStart(body: Record<string, unknown>) {
 
 function parseResponses(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new RangeError("Test Day Lab responses must be an object.")
+    throw new RangeError("Timed Practice responses must be an object.")
   }
   const responses: Record<string, ExamLabResponse> = {}
   for (const [questionId, raw] of Object.entries(value)) {
@@ -118,7 +118,7 @@ export async function PATCH(request: NextRequest) {
       !Number.isInteger(body.currentIndex) ||
       (body.phase !== "questions" && body.phase !== "review")
     ) {
-      throw new RangeError("Test Day Lab progress is malformed.")
+      throw new RangeError("Timed Practice progress is malformed.")
     }
     const session = await examLabSessions.save(
       requireSessionId(request),
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       )
       return NextResponse.json({ session })
     }
-    throw new RangeError("Unknown Test Day Lab action.")
+    throw new RangeError("Unknown Timed Practice action.")
   } catch (error) {
     return errorResponse(error)
   }

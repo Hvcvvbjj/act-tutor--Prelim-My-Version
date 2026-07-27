@@ -376,7 +376,7 @@ function taskCopy(
     return {
       title: "Full-length 131-question rehearsal",
       reason:
-        "This is the final allowed study date before test day, so the fixed schedule rule placed the 131-question English, Math, and Reading rehearsal here. Results currently stay in Timed practice and do not update this calendar.",
+        "This is the final allowed study date before test day, so the fixed schedule rule placed the 131-question English, Math, and Reading rehearsal here. Results currently stay in Timed Practice and do not update this calendar.",
     };
   }
   if (!skill) throw new RangeError("A skill task requires a skill signal.");

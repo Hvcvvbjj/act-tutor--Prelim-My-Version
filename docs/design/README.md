@@ -93,7 +93,7 @@ Temporary implementation captures used for this review were kept outside the rep
 
 ## Adaptive-model extension
 
-The Precision Check extends the accepted dashboard into a live psychometrics workspace. It was grounded in the existing Scout field-notebook system and reviewed against the additional local resources `DSR-006`, `LC-006`, `PAS-002`, `PAS-009`, `ARQ-006`, `AIA-002`, `AIA-004`, `AIA-007`, `AIA-011`, `AIA-017`, `ELP-004`, `ELP-011`, `ELP-017`, `DSM-005`, `RST-008`, `DVA-018`, and `IPQ-019`.
+Quick Check extends the accepted dashboard into a live psychometrics workspace. It was grounded in the existing Scout field-notebook system and reviewed against the additional local resources `DSR-006`, `LC-006`, `PAS-002`, `PAS-009`, `ARQ-006`, `AIA-002`, `AIA-004`, `AIA-007`, `AIA-011`, `AIA-017`, `ELP-004`, `ELP-011`, `ELP-017`, `DSM-005`, `RST-008`, `DVA-018`, and `IPQ-019`.
 
 ### Fidelity and interaction ledger
 

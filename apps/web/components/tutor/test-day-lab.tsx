@@ -398,7 +398,7 @@ export function TestDayLab({
         <div className="mx-auto max-w-6xl px-5 pt-6 sm:px-8">
           <Alert className="bg-background">
             <CircleAlertIcon />
-            <AlertTitle>Timed practice could not continue</AlertTitle>
+            <AlertTitle>Timed Practice could not continue</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>

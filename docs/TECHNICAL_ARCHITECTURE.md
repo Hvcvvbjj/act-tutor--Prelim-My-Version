@@ -10,7 +10,7 @@ flowchart LR
     B --> C[Three-gate onboarding]
     C -->|Prior scores| D[Broad section priors]
     C -->|No prior score| E[Diagnostic assessment]
-    D --> F[2PL IRT Precision Check]
+    D --> F[2PL IRT Quick Check]
     E --> G[Deterministic score estimate]
     G --> F
     F --> H[Beta progress plus Bayesian Learning Twin]
@@ -48,7 +48,7 @@ Cloudflare Workers AI currently lists Qwen text-generation models and provides a
 
 ## 3. Target repository layout
 
-The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, adaptive Precision Check, twelve-skill map, Learning Twin inspector, review queue, mistake notebook, server-contextual Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question practice diagnostic, Test Lab, and focused Playwright release journeys; `packages/core` contains trusted types, scoring, 2PL IRT estimation/selection/stopping, skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, pacing, and typed learning actions; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint checks; `packages/server` contains atomic file-backed calibration, learner, Scout-conversation, study-plan, and simulation sessions plus contract-checked OpenAI-compatible lesson and debrief composers. Supabase, broader browser E2E, CI, empirical parameter calibration, and production monitoring remain target additions.
+The current repository has a working adaptive vertical slice: `apps/web` contains onboarding, the four-stage Daily Mission, adaptive Quick Check, twelve-skill map, Learning Twin inspector, review queue, mistake notebook, server-contextual Scout tutor, lesson/practice/repair/checkpoint workspaces, the Adaptive Plan Studio, the 66-question practice diagnostic, Timed Practice, and focused Playwright release journeys; `packages/core` contains trusted types, scoring, 2PL IRT estimation/selection/stopping, skill signals, targets, Beta progress, Bayesian Knowledge Tracing, interpretable next-skill ranking, spacing, XP, streak, review-queue, dated scheduling, availability/capacity forecasting, future-only rebalancing, pacing, and typed learning actions; `packages/content` contains the versioned half-length form, reviewed lesson foundations, 60 focused practice questions, and Zod blueprint checks; `packages/server` contains atomic file-backed calibration, learner, Scout-conversation, study-plan, and simulation sessions plus contract-checked OpenAI-compatible lesson and debrief composers. Supabase, broader browser E2E, CI, empirical parameter calibration, and production monitoring remain target additions.
 
 ```text
 /
@@ -276,9 +276,9 @@ For MVP:
 
 This is not official equating or a population-calibrated ACT prediction. Those claims require real response data, independent review, and a defensible conversion study.
 
-### Adaptive Precision Check
+### Adaptive Quick Check
 
-The fixed half-length diagnostic remains blueprint-balanced and comparable. After score entry or that baseline, the optional Precision Check uses a Bayesian two-parameter logistic IRT model to refine uncertainty in 8–12 items.
+The fixed half-length diagnostic remains blueprint-balanced and comparable. After score entry or that baseline, the optional Quick Check uses a Bayesian two-parameter logistic IRT model to refine uncertainty in 8–12 items.
 
 At the current ability estimate, every unanswered item is ranked by Fisher information plus section- and first-sample skill-coverage bonuses. A normal prior stabilizes sparse estimates. The check cannot stop before eight responses; it requires at least two observations from every core section and a standard error at or below `0.56`, or stops at the twelve-item cap. The UI exposes the estimate, 80% interval, standard error, candidate ranking, item parameters, and stop reason.
 
@@ -459,7 +459,7 @@ pnpm build
 - XP level boundaries and daily streak continuity;
 - a missed answer persists into the mistake notebook and a correct replay resolves it;
 - mixed checkpoints contain three server-selected skills and never expose answer keys;
-- Test Day Lab sprint/section/core selection is deterministic and version-frozen;
+- Timed Practice sprint/section/core selection is deterministic and version-frozen;
 - timed responses persist choice, confidence, flag state, elapsed time, and current index;
 - simulation reports score omissions as incorrect and calculate pacing plus confidence calibration;
 - AI debrief prompts contain aggregate evidence only and fall back on validation/provider failure;

@@ -10,7 +10,7 @@ The competition rules require original core application logic during the eligibl
 
 ## Local commit evidence already present
 
-The local history records the product build on July 12–13, 2026, including the initial vertical slice, resumable diagnostic, adaptive learning loop, setup documentation, Scout experience restructure, competition-ready Learning Twin, and adaptive IRT Precision Check.
+The local history records the product build on July 12–13, 2026, including the initial vertical slice, resumable diagnostic, adaptive learning loop, setup documentation, Scout experience restructure, competition-ready Learning Twin, and adaptive IRT Quick Check.
 
 ```text
 Adaptive model feature commit: f45cc64caae443727aecd4079858680861d62e5c
@@ -31,7 +31,7 @@ Verification record: this file's immediately following evidence commit
 - Interpretable next-skill feature contributions.
 - Adaptive Daily Mission, mistake repair, spaced reviews, and mixed checkpoints.
 - Adaptive Plan Studio with future-only rebalancing.
-- Test Day Lab pacing, confidence, flag, and debrief analysis.
+- Timed Practice pacing, confidence, flag, and debrief analysis.
 - Structured AI lesson and exam-debrief composition with reviewed fallbacks.
 - Scout visual system, mascot, teaching workspace, and Learning Twin UI.
 

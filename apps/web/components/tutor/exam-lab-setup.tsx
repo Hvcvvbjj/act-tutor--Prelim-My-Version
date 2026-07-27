@@ -77,14 +77,14 @@ export function ExamLabSetup({
     >
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:gap-16">
         <section>
-          <p className="ink-label text-primary">Timed practice</p>
+          <p className="ink-label text-primary">Timed Practice</p>
           <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             Practice the test before test day.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
             {modeLocked
               ? "This round calls for the full-length English, Math, and Reading test. Finish it, review the report, then choose whether to use that evidence for your next lesson round."
-              : "Choose a quick quiz, one section, or a full-length practice test. You’ll get raw accuracy, time per question, and a suggested next action. Timed Practice results stay separate from your study plan, so they do not change Today or My week."}
+              : "Choose a quick quiz, one section, or a full-length practice test. You’ll get raw accuracy, time per question, and a suggested next action. Timed Practice results stay separate from your study plan, so they do not change Today or My Week."}
           </p>
 
           <div

@@ -649,7 +649,7 @@ function TourPreview({ kind }: { kind: TourPreviewKind }) {
         <div className="flex items-center gap-3">
           <Clock3Icon className="size-7 text-primary" />
           <div>
-            <p className="font-bold">Timed practice</p>
+            <p className="font-bold">Timed Practice</p>
             <p className="mt-1 text-xs text-muted-foreground">Optional timer</p>
           </div>
         </div>
