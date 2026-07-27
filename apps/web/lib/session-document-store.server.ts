@@ -24,9 +24,21 @@ const CREATE_STORE_TABLE = `
   )
 `
 
+let tablePromise: Promise<void> | null = null
+
+function cloudflareDatabase(): Promise<D1DatabaseLike | null> {
+  try {
+    const context = getCloudflareContext()
+    return Promise.resolve(
+      (context.env as CloudflareEnv & { DB?: D1DatabaseLike }).DB ?? null
+    )
+  } catch {
+    return Promise.resolve(null)
+  }
+}
+
 class SitesJsonDocumentStore implements JsonDocumentStore {
   readonly key: string
-  private initialized = false
   private readonly fallback: FileJsonDocumentStore
 
   constructor(
@@ -38,19 +50,21 @@ class SitesJsonDocumentStore implements JsonDocumentStore {
   }
 
   private async database(): Promise<D1DatabaseLike | null> {
-    if (process.env.NODE_ENV !== "production") return null
-    try {
-      const context = await getCloudflareContext({ async: true })
-      return (context.env as CloudflareEnv & { DB?: D1DatabaseLike }).DB ?? null
-    } catch {
-      return null
-    }
+    return cloudflareDatabase()
   }
 
   private async ensureTable(database: D1DatabaseLike) {
-    if (this.initialized) return
-    await database.prepare(CREATE_STORE_TABLE).run()
-    this.initialized = true
+    if (!tablePromise) {
+      tablePromise = database
+        .prepare(CREATE_STORE_TABLE)
+        .run()
+        .then(() => undefined)
+        .catch((error) => {
+          tablePromise = null
+          throw error
+        })
+    }
+    await tablePromise
   }
 
   async read(): Promise<unknown | null> {

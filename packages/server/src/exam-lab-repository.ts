@@ -319,7 +319,7 @@ export class FileExamLabRepository {
         responseAnswerStateChanged(session.responses, input.responses)
       ) {
         throw new RangeError(
-          "Time is up. Answers, confidence, and flags can no longer be changed.",
+          "Time is up. Answers and flags can no longer be changed.",
         );
       }
       session.responses = structuredClone(input.responses);

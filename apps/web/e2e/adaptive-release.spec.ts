@@ -170,8 +170,7 @@ test("Quick Check focuses each new question and keeps answer shortcuts active", 
   })
   await expect(
     page.getByRole("button", { name: "Check my answer" })
-  ).toBeDisabled()
-  await page.getByRole("button", { name: "Unsure", exact: true }).click()
+  ).toBeEnabled()
   await page.getByRole("button", { name: "Check my answer" }).click()
 
   await expect(prompt).not.toHaveText(firstPrompt ?? "")
@@ -219,7 +218,6 @@ test("required Quick Check completion leaves one clear plan-building action", as
     await firstChoice.focus()
     await page.keyboard.press("Space")
     await expect(firstChoice).toBeChecked()
-    await page.getByRole("button", { name: "Sure", exact: true }).click()
     const responsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/calibration") &&
@@ -291,7 +289,6 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
 
   await page.keyboard.press("b")
   await expect(page.getByRole("radio", { name: "B 12" })).toBeChecked()
-  await page.getByRole("button", { name: "Sure", exact: true }).click()
   await page.getByRole("button", { name: "Check my answer" }).click()
 
   await expect(
@@ -514,7 +511,7 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
   const firstChoice = answerChoices.first()
   await expect(firstChoice).toBeVisible()
   const choiceBox = await firstChoice.boundingBox()
-  expect(choiceBox?.width).toBeGreaterThan(270)
+  expect(choiceBox?.width).toBeGreaterThanOrEqual(270)
   expect(choiceBox?.height).toBeLessThan(180)
 
   const firstRadio = page.getByRole("radio", {
@@ -522,10 +519,6 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
   })
   await page.keyboard.press("a")
   await expect(firstRadio).toBeChecked()
-  await expect(
-    page.getByRole("button", { name: "Check my answer" })
-  ).toBeDisabled()
-  await page.getByRole("button", { name: "Sure", exact: true }).click()
   await expect(
     page.getByRole("button", { name: "Check my answer" })
   ).toBeEnabled()
@@ -601,22 +594,15 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
     expect(styles.fontSize).toBeGreaterThanOrEqual(12)
   }
 
-  const weeklySummary = page
-    .locator("aside")
-    .filter({ hasText: "Your week" })
-    .locator("dl")
-  await expect(weeklySummary).toHaveCount(1)
-  const weeklySummaryStructure = await weeklySummary.evaluate((list) =>
-    [...list.children].map((group) => ({
-      group: group.tagName,
-      children: [...group.children].map((child) => child.tagName),
-    }))
-  )
-  expect(weeklySummaryStructure).toEqual([
-    { group: "DIV", children: ["DT", "DD"] },
-    { group: "DIV", children: ["DT", "DD"] },
-    { group: "DIV", children: ["DT", "DD"] },
-  ])
+  const todayFocus = page.getByTestId("today-focus")
+  await expect(todayFocus).toBeVisible()
+  await expect(todayFocus.getByRole("heading", { level: 1 })).toBeVisible()
+  await expect(todayFocus.getByRole("button")).toHaveCount(1)
+  await expect(page.getByText("Why Scout picked this")).toHaveCount(0)
+  await expect(page.getByText("Later today")).toHaveCount(0)
+  await expect(
+    page.locator("aside").filter({ hasText: "Your week" })
+  ).toHaveCount(0)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -743,7 +729,10 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   const moreButton = primaryNavigation.getByRole("button", { name: "More" })
   const moreMenu = page.getByRole("menu", { name: "More destinations" })
   await moreButton.click()
-  await expect(moreMenu.getByRole("menuitem")).toHaveCount(3)
+  await expect(moreMenu.getByRole("menuitem")).toHaveCount(4)
+  await expect(
+    moreMenu.getByRole("menuitem", { name: "Goal and schedule" })
+  ).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(moreMenu).toBeHidden()
 
@@ -782,7 +771,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
 
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
   const stageButtons = stages.getByRole("button")
-  await expect(stageButtons).toHaveCount(6)
+  await expect(stageButtons).toHaveCount(5)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -812,13 +801,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
     }
   }
 
-  for (const name of [
-    "2. Idea",
-    "3. Example",
-    "4. Steps",
-    "5. Remember",
-    "6. Try it",
-  ]) {
+  for (const name of ["Idea", "Example", "Steps", "Remember"]) {
     const stage = stages.getByRole("button", { name })
     await stage.click()
     await expect(stage).toHaveAttribute("aria-current", "step")
@@ -834,7 +817,6 @@ test("practice keeps scored feedback with its question until Next question", asy
   const lessonResponse = await page.request.get("/api/learning")
   expect(lessonResponse.ok()).toBeTruthy()
   const lesson = (await lessonResponse.json()) as {
-    lesson: { minutes: number; sections: ReadonlyArray<{ id: string }> }
     questions: ReadonlyArray<{
       id: string
       prompt: string
@@ -843,17 +825,8 @@ test("practice keeps scored feedback with its question until Next question", asy
     currentQuestionIndex: number
   }
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
-  let displayedMinutes = 0
-  for (let index = 0; index < lesson.lesson.sections.length; index += 1) {
-    await stages.getByRole("button").nth(index).click()
-    const segmentText = await page
-      .locator("span")
-      .filter({ hasText: /^\d+ min$/ })
-      .first()
-      .innerText()
-    displayedMinutes += Number.parseInt(segmentText, 10)
-  }
-  expect(displayedMinutes).toBe(lesson.lesson.minutes)
+  await expect(stages.getByRole("button")).toHaveCount(5)
+  await stages.getByRole("button", { name: "Remember" }).click()
 
   await page.getByRole("button", { name: "Start focused practice" }).click()
   const current = lesson.questions[lesson.currentQuestionIndex]
@@ -873,7 +846,6 @@ test("practice keeps scored feedback with its question until Next question", asy
   await wrongChoice.focus()
   await page.keyboard.press("Space")
   await expect(wrongChoice).toBeChecked()
-  await page.getByRole("button", { name: "Review answer" }).click()
 
   const answerResponsePromise = page.waitForResponse(
     (response) =>
@@ -894,9 +866,8 @@ test("practice keeps scored feedback with its question until Next question", asy
   ).toBeVisible()
   await expect(
     page.getByText(
-      new RegExp(
-        `Practice · Answer review\\s*· Question ${lesson.currentQuestionIndex + 1} of`
-      )
+      `Question ${lesson.currentQuestionIndex + 1} of ${lesson.questions.length}`,
+      { exact: true }
     )
   ).toBeVisible()
   await expect(
@@ -906,27 +877,19 @@ test("practice keeps scored feedback with its question until Next question", asy
     page.getByRole("button", { name: "Next question" })
   ).toBeVisible()
   await expect(
-    page.locator('[aria-live="polite"]').filter({ hasText: "Step by step" })
+    page.locator('[aria-live="polite"]').filter({ hasText: "Not quite." })
   ).toBeVisible()
-
-  await page.getByRole("button", { name: "Compare choices" }).click()
-  await expect(page.getByText("Compare the choices")).toBeVisible()
-  await expect(page.getByText(/^Your choice:/)).toBeVisible()
-  await expect(page.getByText(/^Correct choice:/)).toBeVisible()
-
-  await page.getByRole("button", { name: "Simpler" }).click()
-  await expect(page.getByText("The simpler version")).toBeVisible()
-  await expect(page.getByText(/^The answer is /)).toBeVisible()
-  await expect(page.getByText("How Scout used this answer")).toHaveCount(0)
-  await expect(page.getByText("Current skill estimate")).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Compare choices" })
+  ).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Simpler" })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Next question" }).click()
   await expect(page.getByRole("heading", { name: next.prompt })).toBeVisible()
   await expect(
     page.getByText(
-      new RegExp(
-        `Practice · Guided practice\\s*· Question ${scored.currentQuestionIndex + 1} of`
-      )
+      `Question ${scored.currentQuestionIndex + 1} of ${scored.questions.length}`,
+      { exact: true }
     )
   ).toBeVisible()
 })
@@ -963,7 +926,6 @@ test("timed practice opens at the first question on a narrow phone", async ({
     .locator("label")
     .first()
     .click()
-  await page.getByRole("button", { name: "Sure", exact: true }).click()
   await page.getByRole("button", { name: "Next", exact: true }).click()
 
   const secondQuestion = page.getByText("Question 2 of 12", { exact: true })

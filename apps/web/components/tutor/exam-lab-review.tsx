@@ -96,9 +96,7 @@ export function ExamLabReview({
                     <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground capitalize">
                       <span>{question.section}</span>
                       <span>
-                        {response?.choiceId
-                          ? `Answered · ${response.confidence}`
-                          : "Unanswered"}
+                        {response?.choiceId ? "Answered" : "Unanswered"}
                       </span>
                       {response?.flagged ? (
                         <span className="inline-flex items-center gap-1 text-[var(--destructive)]">
@@ -128,9 +126,9 @@ export function ExamLabReview({
             message={
               unanswered
                 ? `${unanswered} unanswered question${unanswered === 1 ? " remains" : "s remain"}. Blanks count as wrong, and Scout will keep their answer explanations hidden.`
-                : "Every question has an answer. Submit when your sure, unsure, and guess labels feel honest."
+                : "Every question has an answer. Submit when you are ready."
             }
-            detail="After you submit, Scout shows what you missed, where you ran out of time, and when you felt sure but were wrong."
+            detail="After you submit, Scout shows what you missed and where you ran out of time."
           />
           <div className="mt-8 border-y-2 border-foreground py-6">
             <p className="flex items-center gap-2 font-semibold">

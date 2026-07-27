@@ -90,11 +90,20 @@ describe("Bayesian learning twin", () => {
       confidence: "guessing",
       observedAt: "2026-07-13T12:00:00.000Z",
     });
+    const unreported = applyKnowledgeObservation(initial, {
+      questionId: "unreported",
+      correct: true,
+      difficulty: "medium",
+      confidence: "unreported",
+      observedAt: "2026-07-13T12:00:00.000Z",
+    });
 
     expect(sure.state.learnedProbability).toBeGreaterThan(
       guess.state.learnedProbability,
     );
     expect(guess.event.informationWeight).toBe(0.48);
+    expect(unreported.event.informationWeight).toBe(1);
+    expect(unreported.event.confidence).toBe("unreported");
   });
 
   it("accepts a bounded learner correction without deleting prior evidence", () => {

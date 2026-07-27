@@ -593,13 +593,13 @@ function fallbackLesson(
         id: "question-type",
         title: "Know the question type",
         explanation: baseLesson.objective,
-        coachPrompt: "What is this question type asking you to notice?",
+        coachPrompt: "Look for the clue that identifies this question type.",
       },
       {
         id: "mental-model",
         title: "Build the main idea",
         explanation: baseLesson.concept,
-        coachPrompt: "What do you need to notice first?",
+        coachPrompt: "Start with the most important clue.",
       },
       {
         id: "guided-example",
@@ -611,24 +611,17 @@ function fallbackLesson(
         id: "decision-rule",
         title: "Follow the decision steps",
         explanation: baseLesson.steps.join(" "),
-        coachPrompt: "Which step prevents the common trap?",
+        coachPrompt: "Use these steps to avoid the common trap.",
       },
       {
         id: "need-to-know",
-        title: "Keep what you need",
-        explanation: `${baseLesson.steps.join(" ")} Watch out for this common mistake: ${baseLesson.trap}`,
-        coachPrompt: "What one step do you need to remember next time?",
-      },
-      {
-        id: "transfer",
-        title: "Try it yourself",
-        explanation: `Watch out for this common mistake: ${baseLesson.trap}`,
-        coachPrompt:
-          "Say the rule once without looking, then try the question.",
+        title: "Avoid the common trap",
+        explanation: baseLesson.trap,
+        coachPrompt: "Watch for this mistake in practice.",
       },
     ],
     strategyChecklist: baseLesson.steps,
-    transferPrompt: `Name the ${baseLesson.title.toLowerCase()} rule before choosing an answer.`,
+    transferPrompt: `Use the ${baseLesson.title.toLowerCase()} steps on each question.`,
     generation: {
       mode: "authored-fallback",
       provider: "Reviewed lesson engine",
@@ -2398,9 +2391,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         occurredAt: now,
         questionId: expectedQuestion.id,
         source: "practice",
-        answerSummary: correct
-          ? `Correct · ${confidence}`
-          : `Missed · ${confidence}`,
+        answerSummary: correct ? "Correct" : "Missed",
         informationLabel:
           evidenceWeight >= 0.85
             ? "high"
@@ -2547,17 +2538,17 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           ?.slice(0, 8) ?? [];
       const rubric = [
         {
-          label: "Names the rule or decision",
+          label: "Identifies the key decision",
           met: ruleWords.some((word) => normalized.includes(word)),
         },
         {
-          label: "Explains why the rule works",
+          label: "Connects the decision to a reason",
           met: /\b(because|so that|which means|therefore|why)\b/.test(
             normalized,
           ),
         },
         {
-          label: "Gives or tests an example",
+          label: "Checks the idea with an example",
           met: /\b(example|for instance|if |such as|try )\b/.test(normalized),
         },
       ];
@@ -2572,10 +2563,10 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         rubric,
         feedback:
           score === 3
-            ? "You named the rule, explained it, and tested it with an example."
+            ? "Saved."
             : score === 2
-              ? "The main idea is there. Add the one missing rubric part before practice."
-              : "Scout found only part of the rule. Use the worked example, then explain the decision again in your own words.",
+              ? "Saved. Review the worked example before practice."
+              : "Review the worked example before practice.",
       };
       const profile = ensureProfile(session);
       profile.teachBackBySkill ??= {};

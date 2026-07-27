@@ -1,34 +1,18 @@
 "use client"
 
-import type {
-  KnowledgeState,
-  LearningSessionPayload,
-  MissionStep,
-} from "@act-tutor/core"
+import type { KnowledgeState, LearningSessionPayload } from "@act-tutor/core"
 import {
   ArrowRightIcon,
-  BookOpenCheckIcon,
-  CalendarDaysIcon,
-  CheckCircle2Icon,
   ChevronRightIcon,
-  Clock3Icon,
-  FlameIcon,
-  GaugeIcon,
-  ListChecksIcon,
   RefreshCwIcon,
-  RotateCcwIcon,
   SparklesIcon,
   TimerResetIcon,
 } from "lucide-react"
 
-import { ScoutMark } from "@/components/tutor/scout"
-import type { GeneratedPlan } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
-import { formatCalendarDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
 interface DailyMissionHubProps {
-  plan: GeneratedPlan
   learning: LearningSessionPayload
   busy: boolean
   onOpenWorkspace: () => void
@@ -40,23 +24,7 @@ interface DailyMissionHubProps {
   onStartChallenge: (skill?: string) => void
   onStartMicro: (skill?: string) => void
   onStartRecovery: () => void
-  canViewTechnicalDetails: boolean
 }
-
-const STEP_META = {
-  learn: {
-    icon: BookOpenCheckIcon,
-  },
-  practice: {
-    icon: ListChecksIcon,
-  },
-  repair: {
-    icon: RotateCcwIcon,
-  },
-  checkpoint: {
-    icon: GaugeIcon,
-  },
-} as const
 
 const SECTION_LABEL = {
   english: "English",
@@ -74,51 +42,50 @@ function getMissionCopy(learning: LearningSessionPayload) {
   switch (learning.mode) {
     case "repair":
       return {
-        label: "Today’s assignment · Retry",
+        label: `Today · ${SECTION_LABEL[learning.mastery.section]}`,
         title: `Retry: ${learning.mastery.label}`,
-        description:
-          "Answer one question you previously missed. The answer updates this skill and, if correct, marks that saved mistake resolved.",
+        description: "Give one missed question another try.",
       }
     case "checkpoint":
       return {
-        label: "Today’s assignment · Quick quiz",
+        label: "Today · Quick quiz",
         title: "3-question mixed quiz",
-        description:
-          "Answer one question from each of three currently prioritized skills. Each answer updates only the skill it tests.",
+        description: "Answer three questions across today’s priority skills.",
       }
     case "retention":
       return {
-        label: "Today’s assignment · Memory check",
+        label: `Today · ${SECTION_LABEL[learning.mastery.section]}`,
         title: `Review ${learning.mastery.label}`,
-        description:
-          "Answer two questions for this skill. Both answers update its estimate and set its next stored review date.",
+        description: "Use two questions to refresh this skill.",
       }
     case "challenge":
       return {
-        label: "Today’s assignment · Challenge",
+        label: `Today · ${SECTION_LABEL[learning.mastery.section]}`,
         title: `Harder ${learning.mastery.label} questions`,
-        description:
-          "Answer three hard questions for this skill. The results update this skill and may move its next review date.",
+        description: "Take on three harder questions in this skill.",
       }
     case "micro":
       return {
-        label: "Today’s assignment · 3 minutes",
+        label: `Today · ${SECTION_LABEL[learning.mastery.section]}`,
         title: `3-minute ${learning.mastery.label} lesson`,
-        description:
-          "Read the short rule, then answer one scored question. That answer updates this skill like regular practice.",
+        description: "Review the idea, then answer one question.",
       }
     case "recovery":
       return {
-        label: "Today’s assignment · Restart",
+        label: "Today · Restart",
         title: "Start again with two questions",
-        description:
-          "Answer two questions from the skills currently ranked highest. This records normal practice; it does not erase missed assignments.",
+        description: "Ease back in with two priority questions.",
       }
     default:
+      const continuingPractice = learning.mission.steps.some(
+        (step) => step.id === "practice" && step.state === "current"
+      )
       return {
-        label: "Today’s assignment",
+        label: `Today · ${SECTION_LABEL[learning.mastery.section]}`,
         title: learning.lesson.title,
-        description: `Read one rule and one worked example, then answer ${learning.questions.length} scored questions. Those answers update ${learning.mastery.label} only.`,
+        description: continuingPractice
+          ? "Continue the practice questions for this skill."
+          : `Learn the question type, then practice it with ${learning.questions.length} questions.`,
       }
   }
 }
@@ -126,10 +93,6 @@ function getMissionCopy(learning: LearningSessionPayload) {
 function MissionAction(props: DailyMissionHubProps) {
   const { learning } = props
   if (learning.status === "complete") {
-    const nextLabel =
-      learning.mission.skillMap.find(
-        (skill) => skill.skill === learning.nextSkill
-      )?.label ?? "next skill"
     return (
       <Button
         type="button"
@@ -138,7 +101,7 @@ function MissionAction(props: DailyMissionHubProps) {
         disabled={props.busy}
         className="w-full sm:w-auto sm:min-w-72"
       >
-        Continue to {nextLabel}
+        Start lesson
         <ArrowRightIcon data-icon="inline-end" />
       </Button>
     )
@@ -196,262 +159,6 @@ function MissionAction(props: DailyMissionHubProps) {
   )
 }
 
-function MissionProgress({ steps }: { steps: ReadonlyArray<MissionStep> }) {
-  return (
-    <ol
-      className="mt-7 grid gap-3 border-t pt-6 sm:grid-cols-2 lg:grid-cols-4"
-      aria-label="Today’s assignment steps"
-    >
-      {steps.map((step, index) => {
-        const meta = STEP_META[step.id]
-        const Icon = meta.icon
-        return (
-          <li
-            key={step.id}
-            className={cn(
-              "relative rounded-lg border p-4",
-              step.state === "current" && "border-primary bg-secondary",
-              step.state === "done" && "border-primary/40",
-              step.state === "queued" && "text-muted-foreground"
-            )}
-            aria-current={step.state === "current" ? "step" : undefined}
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex size-9 items-center justify-center rounded-full border bg-background",
-                  step.state === "current" && "border-primary text-primary",
-                  step.state === "done" &&
-                    "border-primary bg-primary text-primary-foreground"
-                )}
-              >
-                {step.state === "done" ? (
-                  <CheckCircle2Icon className="size-4" />
-                ) : (
-                  <Icon className="size-4" />
-                )}
-              </span>
-              <div>
-                <p className="text-sm font-bold">
-                  {index + 1}. {step.label}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {step.id === "learn"
-                    ? step.state === "done"
-                      ? "Opened"
-                      : step.state === "current"
-                        ? "Open this first"
-                        : "Not started"
-                    : `${step.progress} of ${step.total} answered${step.state === "done" ? " · complete" : ""}`}
-                </p>
-              </div>
-            </div>
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
-function LaterToday(props: DailyMissionHubProps) {
-  const review = props.learning.mission.dueReviews[0]
-  return (
-    <section className="mt-6 border-t pt-5" aria-labelledby="later-title">
-      <p
-        id="later-title"
-        className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase"
-      >
-        Later today
-      </p>
-      {review ? (
-        <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg bg-muted px-4 py-3">
-          <RefreshCwIcon className="size-5 text-primary" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold">Review: {review.label}</p>
-            <p className="text-xs text-muted-foreground">
-              Two-question memory check · due{" "}
-              {formatCalendarDate(review.dueAt.slice(0, 10))}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => props.onStartRetention(review.skill)}
-            disabled={props.busy || props.learning.status !== "complete"}
-          >
-            Review
-            <ChevronRightIcon data-icon="inline-end" />
-          </Button>
-        </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">
-          No review is due yet. Scout will schedule one after you practice.
-        </p>
-      )}
-    </section>
-  )
-}
-
-function PaceControls(props: DailyMissionHubProps) {
-  const ready = props.learning.status === "complete" && !props.busy
-  return (
-    <details className="group border-t">
-      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-        Choose another study option
-        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
-      </summary>
-      <div className="pb-5">
-        <p className="text-sm leading-6 text-muted-foreground">
-          After today&apos;s assignment, choose a shorter session, a harder
-          challenge, or an easy restart.
-        </p>
-        <div className="mt-4 grid gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="justify-start"
-            disabled={!ready}
-            onClick={() => props.onStartMicro()}
-          >
-            3-minute lesson
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="justify-start"
-            disabled={!ready}
-            onClick={() => props.onStartChallenge()}
-          >
-            Harder 3-question challenge
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="justify-start"
-            disabled={!ready}
-            onClick={props.onStartRecovery}
-          >
-            Easy 2-question restart
-          </Button>
-        </div>
-        {!ready ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Finish today&apos;s assignment to unlock these options.
-          </p>
-        ) : null}
-      </div>
-    </details>
-  )
-}
-
-function WeeklySummary(props: DailyMissionHubProps) {
-  const { plan, learning } = props
-  const provisional = plan.adaptiveBaselineRequired === true
-  const isInternalProxy =
-    plan.evidence.source === "rapid_diagnostic" ||
-    plan.evidence.source === "starter_diagnostic" ||
-    plan.evidence.source === "full_test" ||
-    plan.evidence.source === "not_taken"
-  return (
-    <aside className="rounded-xl border bg-background p-5 lg:sticky lg:top-24">
-      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-        Your week
-      </p>
-      <dl className="mt-4 divide-y">
-        <div className="py-4 first:pt-0">
-          <dt className="flex items-center gap-4 font-bold">
-            <CalendarDaysIcon
-              className="size-6 shrink-0 text-primary"
-              aria-hidden="true"
-            />
-            <span>{plan.intensity.studyDaysPerWeek} study days</span>
-          </dt>
-          <dd className="pl-10 text-sm text-muted-foreground">
-            Exact weekdays are editable in My week
-          </dd>
-        </div>
-        <div className="py-4">
-          <dt className="flex items-center gap-4 font-bold">
-            <Clock3Icon
-              className="size-6 shrink-0 text-primary"
-              aria-hidden="true"
-            />
-            <span>{plan.intensity.minutesPerSession} min each</span>
-          </dt>
-          <dd className="pl-10 text-sm text-muted-foreground">Per study day</dd>
-        </div>
-        <div className="py-4">
-          <dt className="flex items-center gap-4 font-bold">
-            <FlameIcon
-              className="size-6 shrink-0 text-[var(--scout-coral)]"
-              aria-hidden="true"
-            />
-            <span>
-              {learning.mission.progress.currentStreak === 0
-                ? "No streak yet"
-                : `${learning.mission.progress.currentStreak}-day streak`}
-            </span>
-          </dt>
-          <dd className="pl-10 text-sm text-muted-foreground">
-            {learning.mission.progress.currentStreak === 0
-              ? "Start with today’s lesson"
-              : "Keep it going"}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="border-t py-5">
-        <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-          Your ACT goal
-        </p>
-        {provisional ? (
-          <div className="mt-4">
-            <p className="text-3xl font-black text-primary tabular-nums">
-              Goal {plan.draft.goal}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Finish the starting check to set your baseline.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-3xl font-black tabular-nums">
-                {plan.currentComposite}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {isInternalProxy
-                  ? "Planning baseline · not an ACT score"
-                  : "Reported planning baseline"}
-              </p>
-            </div>
-            <div className="mb-5 h-px flex-1 border-t border-dashed" />
-            <div className="text-right">
-              <p className="text-3xl font-black text-primary tabular-nums">
-                {plan.draft.goal}
-              </p>
-              <p className="text-sm text-muted-foreground">Goal</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <details className="group border-t">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-          What happens after this?
-          <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
-        </summary>
-        <p className="pb-5 text-sm leading-6 text-muted-foreground">
-          {props.canViewTechnicalDetails
-            ? "Each scored answer updates only its tested skill. Scout then reranks all 12 skills with four fixed factors: predicted chance on a medium item, how uncertain the estimate is, answer count, and a recent miss. The highest total becomes the next recommended skill; this does not recalculate an ACT score."
-            : "Each scored answer updates the skill it tested. Scout then checks your recent answers and amount of practice to choose what should come next. This does not recalculate an ACT score."}
-        </p>
-      </details>
-      <PaceControls {...props} />
-    </aside>
-  )
-}
-
 function SkillRow({
   skill,
   props,
@@ -500,19 +207,46 @@ function SkillRow({
 function ExpandedStudyDetails(props: DailyMissionHubProps) {
   const reviews = props.learning.mission.dueReviews.slice(0, 4)
   const mistakes = props.learning.mission.mistakes.slice(0, 5)
+  const ready = props.learning.status === "complete" && !props.busy
   return (
-    <details className="group rounded-xl border bg-background">
-      <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-6">
-        <span>
-          Other study tools
-          <span className="mt-1 block text-sm font-normal text-muted-foreground">
-            Review past work or choose a different skill after today&apos;s
-            assignment.
-          </span>
-        </span>
-        <ChevronRightIcon className="size-5 transition-transform group-open:rotate-90" />
+    <details className="group mx-auto max-w-4xl border-t">
+      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-1 py-3 text-sm font-semibold text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+        More study options
+        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
       </summary>
-      <div className="grid gap-10 border-t px-5 py-7 sm:px-6 xl:grid-cols-2">
+      <section className="border-t px-1 py-7" aria-labelledby="quick-title">
+        <h2 id="quick-title" className="text-lg font-bold">
+          Quick sessions
+        </h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!ready}
+            onClick={() => props.onStartMicro()}
+          >
+            3-minute lesson
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!ready}
+            onClick={() => props.onStartChallenge()}
+          >
+            Harder challenge
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!ready}
+            onClick={props.onStartRecovery}
+          >
+            Easy restart
+          </Button>
+        </div>
+      </section>
+
+      <div className="grid gap-10 border-t px-1 py-7 xl:grid-cols-2">
         <section aria-labelledby="reviews-title">
           <h2 id="reviews-title" className="text-xl font-bold">
             Due for review
@@ -589,10 +323,7 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
         </section>
       </div>
 
-      <section
-        className="border-t px-5 py-7 sm:px-6"
-        aria-labelledby="skills-title"
-      >
+      <section className="border-t px-1 py-7" aria-labelledby="skills-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 id="skills-title" className="text-xl font-bold">
             All 12 skills
@@ -629,54 +360,67 @@ function ExpandedStudyDetails(props: DailyMissionHubProps) {
 }
 
 export function DailyMissionHub(props: DailyMissionHubProps) {
-  const { learning, plan } = props
-  const missionCopy = getMissionCopy(learning)
+  const { learning } = props
+  const upcomingSkill = learning.mission.skillMap.find(
+    (skill) => skill.skill === learning.nextSkill
+  )
+  const missionCopy =
+    learning.status === "complete" && upcomingSkill
+      ? {
+          label: `Next · ${SECTION_LABEL[upcomingSkill.section]}`,
+          title: upcomingSkill.label,
+          description: `Next question type in round ${learning.cycle.roundNumber}.`,
+        }
+      : getMissionCopy(learning)
   const roundTotal = learning.cycle.requiredSkills.length
   const roundComplete = learning.cycle.completedSkills.length
   const roundLesson = Math.min(roundComplete + 1, roundTotal)
   const roundProgress =
     roundTotal === 0 ? 0 : Math.round((roundComplete / roundTotal) * 100)
-  const currentSkill =
-    learning.learningTwin.skills.find(
-      (skill) => skill.skill === learning.todaySkill
-    ) ?? learning.learningTwin.skills[0]
   const currentRecommendation = learning.learningTwin.recommendation
-  if (!currentSkill) return null
-  const assignmentIsCurrentRecommendation =
-    currentRecommendation.skill === learning.todaySkill
-  return (
-    <div className="space-y-6 pb-6">
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-7 lg:p-8">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-              {missionCopy.label}
-            </p>
-            <span className="text-sm font-semibold text-muted-foreground">
-              {SECTION_LABEL[learning.mastery.section]}
-            </span>
-          </div>
+  const currentStep = learning.mission.steps.find(
+    (step) => step.state === "current"
+  )
+  const nextLabel =
+    currentStep?.id === "learn"
+      ? "Focused practice"
+      : currentStep?.id === "practice"
+        ? "Finish today’s questions"
+        : currentStep?.id === "repair"
+          ? "Your next priority"
+          : currentRecommendation.label
 
-          <h1 className="mt-4 max-w-3xl font-heading text-3xl leading-[1.08] font-black tracking-[-0.025em] sm:text-4xl">
+  return (
+    <div className="pb-10">
+      <section
+        className="mx-auto flex min-h-[calc(100svh-12rem)] max-w-3xl items-center justify-center px-4 py-12 text-center sm:py-16"
+        data-testid="today-focus"
+      >
+        <div className="flex w-full flex-col items-center">
+          <p className="text-xs font-bold tracking-[0.16em] text-primary uppercase">
+            {missionCopy.label}
+          </p>
+          <h1 className="mt-5 max-w-3xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.04em] text-balance sm:text-5xl">
             {missionCopy.title}
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+          <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
             {missionCopy.description}
           </p>
 
-          <div className="mt-5 max-w-2xl rounded-xl border border-primary/15 bg-secondary/60 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="font-bold text-foreground">
-                {learning.cycle.kind === "foundation"
-                  ? "Round 1 · Learn every ACT question type"
-                  : `Round ${learning.cycle.roundNumber} · Based on your latest assessment`}
-              </p>
-              <p className="font-semibold text-muted-foreground">
-                Lesson {roundLesson} of {roundTotal}
-              </p>
+          <div className="mt-9 w-full max-w-sm">
+            <div className="flex items-center justify-between gap-4 text-xs font-semibold text-muted-foreground">
+              <span>
+                Round {learning.cycle.roundNumber}
+                {learning.status === "complete"
+                  ? ""
+                  : ` · ${learning.lesson.minutes} min`}
+              </span>
+              <span>
+                {roundLesson} of {roundTotal}
+              </span>
             </div>
             <div
-              className="mt-2 h-2 overflow-hidden rounded-full bg-background"
+              className="mt-2 h-1 overflow-hidden rounded-full bg-border/70"
               role="progressbar"
               aria-label={`Round ${learning.cycle.roundNumber} lesson progress`}
               aria-valuemin={0}
@@ -690,49 +434,16 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-semibold text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <Clock3Icon className="size-4" aria-hidden="true" />
-              {plan.intensity.minutesPerSession}-minute study block
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <CalendarDaysIcon className="size-4" aria-hidden="true" />
-              {plan.intensity.daysUntilTest} days to ACT
-            </span>
-          </div>
-
-          <div className="mt-6">
+          <div className="mt-10">
             <MissionAction {...props} />
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {learning.status === "complete"
-                ? `Done. Scout used your answers to choose ${currentRecommendation.label} next. Your dated calendar stays the same.`
-                : "Finish these steps. After practice, Scout uses your answers to choose what to study next."}
-            </p>
           </div>
-
-          {learning.status !== "complete" ? (
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/15 bg-secondary/70 p-4">
-              <ScoutMark className="mt-0.5 size-9 shrink-0" />
-              <div>
-                <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-                  Why Scout picked this
-                </p>
-                <p className="mt-1 text-sm leading-6">
-                  {assignmentIsCurrentRecommendation
-                    ? `Scout chose ${currentSkill.label} because your recent answers and amount of practice show it needs attention next. Your ACT goal does not affect this choice.`
-                    : `You already started this assignment, so Scout kept it in place. Finish it before moving to ${currentRecommendation.label}.`}
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          <MissionProgress steps={learning.mission.steps} />
-          <LaterToday {...props} />
-        </section>
-
-        <WeeklySummary {...props} />
-      </div>
-
+          {learning.status === "complete" ? null : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Next: {nextLabel}
+            </p>
+          )}
+        </div>
+      </section>
       <ExpandedStudyDetails {...props} />
     </div>
   )

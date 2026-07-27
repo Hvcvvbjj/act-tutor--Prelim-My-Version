@@ -80,46 +80,38 @@ export function buildAuthoredPersonalizedLesson(
         id: "question-type",
         title: "Know the question type",
         explanation: `${input.skill.label} is part of ${input.skill.category}. ${input.baseLesson.objective}`,
-        coachPrompt: `What words or structure would tell you this is a ${input.skill.label.toLowerCase()} question?`,
+        coachPrompt: `Look for the words or structure that signal a ${input.skill.label.toLowerCase()} question.`,
       },
       {
         id: "mental-model",
         title: "Build the main idea",
         explanation: input.baseLesson.concept,
-        coachPrompt: `In your own words, what must you notice first in a ${input.skill.label.toLowerCase()} question?`,
+        coachPrompt: `Start by noticing the key clue in the ${input.skill.label.toLowerCase()} question.`,
       },
       {
         id: "guided-example",
         title: "See one worked out",
         explanation: `${input.baseLesson.workedExample.prompt} ${input.baseLesson.workedExample.explanation.join(" ")}`,
-        coachPrompt: `Before revealing the answer, name the first step. Then compare it with: ${input.baseLesson.workedExample.answer}.`,
+        coachPrompt: `Follow the first step, then compare your thinking with: ${input.baseLesson.workedExample.answer}.`,
       },
       {
         id: "decision-rule",
         title: "Follow the decision steps",
         explanation: input.baseLesson.steps.join(" "),
-        coachPrompt: `Which step would prevent the common trap: ${input.baseLesson.trap}`,
+        coachPrompt: `Use these steps to avoid the common trap: ${input.baseLesson.trap}`,
       },
       {
         id: "need-to-know",
-        title: "Keep what you need",
-        explanation: `${input.baseLesson.steps.join(" ")} The main trap to avoid is: ${input.baseLesson.trap}`,
-        coachPrompt:
-          "Which one fact or step do you need to remember when this question type appears again?",
-      },
-      {
-        id: "transfer",
-        title: "Try ACT-style wording",
-        explanation: `Your next five questions start ${depth === "foundation" ? "with clear examples and then get harder" : "with harder wording and add time pressure"}. Use the same rule even when the question looks different.`,
-        coachPrompt:
-          "Say the rule once without looking, then try the questions.",
+        title: "Avoid the common trap",
+        explanation: input.baseLesson.trap,
+        coachPrompt: "Watch for this mistake in practice.",
       },
     ],
     strategyChecklist: [
       ...input.baseLesson.steps,
       `Use the last 10 seconds to cross out choices that make this mistake: ${input.baseLesson.trap}`,
     ],
-    transferPrompt: `Before solving, name the ${input.skill.label.toLowerCase()} rule the question is testing.`,
+    transferPrompt: `Use the ${input.skill.label.toLowerCase()} steps from the lesson on each question.`,
     generation: {
       mode: "authored-fallback",
       provider: "Reviewed lesson engine",
@@ -151,7 +143,6 @@ const SECTION_IDS = [
   "guided-example",
   "decision-rule",
   "need-to-know",
-  "transfer",
 ] as const;
 
 function validateGeneratedLesson(
@@ -169,7 +160,7 @@ function validateGeneratedLesson(
     sectionsValue.length !== SECTION_IDS.length
   ) {
     throw new TypeError(
-      "AI lesson must contain exactly six teaching sections.",
+      "AI lesson must contain exactly five teaching sections.",
     );
   }
   const sections = sectionsValue.map((section, index) => {
@@ -220,6 +211,13 @@ function validateGeneratedLesson(
     )
   ) {
     throw new TypeError("AI lesson failed the claim or answer-leakage check.");
+  }
+  if (
+    /\b(in your own words|rewrite the rule|(?:say|state|name) the rule)\b/.test(
+      generatedText,
+    )
+  ) {
+    throw new TypeError("AI lesson includes a retired recall exercise.");
   }
   const reviewedTerms =
     input.baseLesson.concept
@@ -307,7 +305,7 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
               {
                 role: "user",
                 content: JSON.stringify({
-                  task: "Turn the reviewed lesson into six short, plain-English parts for this student.",
+                  task: "Turn the reviewed lesson into five short, plain-English parts for this student.",
                   student: input.plan,
                   diagnosticEvidence: diagnosticEvidence(input) ?? null,
                   skill: input.skill,
@@ -324,7 +322,7 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
                       explanation:
                         "at least three useful sentences written for a teenager",
                       coachPrompt:
-                        "one simple question that makes the student recall the rule",
+                        "one short coaching sentence that helps the student use the lesson",
                     })),
                     strategyChecklist: ["at least four concise steps"],
                     transferPrompt:

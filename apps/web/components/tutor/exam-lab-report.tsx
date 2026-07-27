@@ -10,7 +10,6 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   Clock3Icon,
-  GaugeIcon,
   RotateCcwIcon,
   SparklesIcon,
   TargetIcon,
@@ -34,12 +33,6 @@ const SECTION_LABEL = {
   math: "Math",
   reading: "Reading",
 } as const
-const CONFIDENCE_LABEL = {
-  guess: "Guess",
-  unsure: "Unsure",
-  sure: "Sure",
-} as const
-
 function MetricBar({
   value,
   color = "var(--primary)",
@@ -108,8 +101,8 @@ export function ExamLabReport({
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
             {readiness.sufficient
-              ? "See raw accuracy, average time per answered question, and how your Sure, Unsure, and Guess labels lined up with correctness."
-              : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, confidence pattern, or next lesson from this run.`}{" "}
+              ? "See raw accuracy, average time per answered question, and where to focus next."
+              : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, or next lesson from this run.`}{" "}
             {onUseForNextRound
               ? "These results have not changed Today or My Week yet. Use the action at the end of this report if you want them to set your next lesson round."
               : "These results stay in Timed Practice and do not update Today or My Week."}
@@ -306,10 +299,7 @@ export function ExamLabReport({
       </section>
 
       <div
-        className={cn(
-          "mt-14 grid gap-12 lg:grid-cols-2 lg:gap-16",
-          !readiness.sufficient && "hidden"
-        )}
+        className={cn("mt-14 max-w-3xl", !readiness.sufficient && "hidden")}
         aria-hidden={!readiness.sufficient}
       >
         <section
@@ -366,51 +356,6 @@ export function ExamLabReport({
             overtime; otherwise it labels it “Balanced.”
           </p>
         </section>
-
-        <section
-          className="border-t-2 border-foreground pt-7"
-          aria-labelledby="confidence-title"
-        >
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="ink-label text-primary">Confidence</p>
-              <h2
-                id="confidence-title"
-                className="mt-2 font-heading text-4xl font-bold"
-              >
-                When your confidence matched your answer
-              </h2>
-            </div>
-            <GaugeIcon className="text-primary" />
-          </div>
-          <div className="mt-5 border-t">
-            {result.confidence.map((bucket) => (
-              <div
-                key={bucket.confidence}
-                className="grid grid-cols-[5rem_minmax(0,1fr)_auto] items-center gap-4 border-b py-4"
-              >
-                <span className="font-semibold">
-                  {CONFIDENCE_LABEL[bucket.confidence]}
-                </span>
-                <MetricBar
-                  value={(bucket.accuracy ?? 0) * 100}
-                  color={
-                    bucket.confidence === "sure"
-                      ? "var(--scout-coral)"
-                      : "var(--primary)"
-                  }
-                />
-                <span className="font-mono text-xs font-bold">
-                  {bucket.total ? `${bucket.correct}/${bucket.total}` : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {result.overconfidentMisses} wrong answers marked Sure ·{" "}
-            {result.luckyGuesses} correct answers marked Guess
-          </p>
-        </section>
       </div>
 
       <section
@@ -433,7 +378,7 @@ export function ExamLabReport({
           </div>
           <p className="max-w-sm text-sm leading-6 text-muted-foreground">
             Skills are ordered by lowest raw accuracy; ties use slower average
-            time. Confidence labels are shown but do not change the order.
+            time.
           </p>
         </div>
         <div className="mt-6 grid gap-x-10 lg:grid-cols-2">
@@ -451,15 +396,10 @@ export function ExamLabReport({
                 </div>
                 <MetricBar
                   value={skill.accuracy * 100}
-                  color={
-                    skill.overconfidentMisses
-                      ? "var(--scout-coral)"
-                      : "var(--primary)"
-                  }
+                  color="var(--primary)"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {Math.round(skill.averageSeconds)}s average ·{" "}
-                  {skill.overconfidentMisses} confident misses
+                  {Math.round(skill.averageSeconds)}s average
                 </p>
               </div>
               <span className="font-heading text-3xl font-black">
@@ -577,8 +517,7 @@ export function ExamLabReport({
                       {review.skillLabel}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground capitalize">
-                      {review.section} · {review.confidence ?? "unanswered"} ·{" "}
-                      {review.elapsedSeconds}s
+                      {review.section} · {review.elapsedSeconds}s
                     </p>
                   </div>
                   {review.correct ? (

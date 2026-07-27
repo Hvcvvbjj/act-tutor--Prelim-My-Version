@@ -418,7 +418,7 @@ export function buildAuthoredExamDebrief(
       ],
       priorities: [
         `Start another run and answer at least ${readiness.minimumAnswered} questions before using the result to choose a lesson.`,
-        "Keep marking Guessing, Unsure, or Sure so the completed run can compare confidence with correctness.",
+        "Flag any question you want to revisit before submitting.",
       ],
       nextAction: `Start another timed-practice run and answer at least ${readiness.minimumAnswered} questions before using its score range or study recommendation.`,
       generation: {
@@ -450,9 +450,7 @@ export function buildAuthoredExamDebrief(
       topSection
         ? `Your strongest section was ${topSection.section} at ${Math.round(topSection.accuracy * 100)}%.`
         : "This was your first timing check.",
-      result.overconfidentMisses === 0
-        ? "You had no wrong answers that you felt sure about."
-        : `${result.luckyGuesses} answers you guessed on were right. Review those rules so you can answer them on purpose next time.`,
+      `${result.correct} correct answer${result.correct === 1 ? " is" : "s are"} saved with explanations for review.`,
     ],
     priorities: [
       focus
@@ -460,7 +458,9 @@ export function buildAuthoredExamDebrief(
         : "Take a longer practice test so Scout can find the exact skills to work on.",
       result.pacing.diagnosis === "overinvesting"
         ? "Use two passes: answer the easier questions first, then return to the slow ones."
-        : "Keep marking how sure you feel so Scout can tell the difference between a guess and a skill gap.",
+        : result.pacing.diagnosis === "rushing"
+          ? "Pause for one quick check before moving to the next question."
+          : "Keep the same pace and review every missed question.",
     ],
     nextAction: focus
       ? `Start a short ${focus.label} lesson, then answer five practice questions.`

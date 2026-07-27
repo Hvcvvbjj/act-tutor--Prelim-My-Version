@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
   examLabInterpretationReadiness,
   type CoreSection,
-  type ExamConfidence,
   type ExamLabMode,
   type ExamLabResponse,
   type ExamLabSessionPayload,
@@ -197,7 +196,7 @@ export function TestDayLab({
     openedAt.current = Date.now()
     const response: ExamLabResponse = {
       choiceId: previous?.choiceId ?? null,
-      confidence: previous?.confidence ?? "unsure",
+      confidence: previous?.confidence ?? "sure",
       flagged: previous?.flagged ?? false,
       elapsedSeconds: Math.min(
         7200,
@@ -250,16 +249,6 @@ export function TestDayLab({
       return
     }
     captureCurrent({ choiceId })
-  }
-
-  function confidence(value: ExamConfidence) {
-    if (
-      session &&
-      examLabTimerControls(timeLeft, session.sectionDeadlineAt).locked
-    ) {
-      return
-    }
-    captureCurrent({ confidence: value })
   }
 
   function toggleFlag() {
@@ -432,7 +421,6 @@ export function TestDayLab({
           saveStatus={saveStatus}
           busy={busy}
           onAnswer={answer}
-          onConfidence={confidence}
           onToggleFlag={toggleFlag}
           onMove={move}
           onEndSection={endSection}

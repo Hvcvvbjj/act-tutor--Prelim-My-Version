@@ -1043,7 +1043,7 @@ export function TutorApp({
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "start_new" }),
+      body: JSON.stringify({ action: "start_new_if_completed" }),
     })
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {

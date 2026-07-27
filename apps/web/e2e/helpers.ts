@@ -6,16 +6,16 @@ export async function completeLearnerOrientation(page: Page) {
   ).toBeVisible()
   await page.getByRole("button", { name: "Start the tour" }).click()
 
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 2; index += 1) {
     await page.getByRole("button", { name: "Next feature" }).click()
   }
   await page.getByRole("button", { name: "See my skill profile" }).click()
 
   const measuredProfileHeading = page.getByRole("heading", {
-    name: "Four honest views of what we know so far.",
+    name: "Your question-type map.",
   })
   const emptyProfileHeading = page.getByRole("heading", {
-    name: "Your skill map needs a few answers first.",
+    name: "No skill map yet.",
   })
   await expect(measuredProfileHeading.or(emptyProfileHeading)).toBeVisible()
   if (await measuredProfileHeading.isVisible()) {
@@ -25,7 +25,7 @@ export async function completeLearnerOrientation(page: Page) {
   } else {
     await expect(
       page.getByRole("heading", {
-        name: "Round 1 will build the evidence honestly.",
+        name: "Your first lessons will create it.",
       })
     ).toBeVisible()
   }
@@ -33,8 +33,8 @@ export async function completeLearnerOrientation(page: Page) {
   await page.getByRole("button", { name: "Continue to Mr. Kim" }).click()
   await expect(
     page.getByRole("heading", {
-      name: "Want the question-type tour, or should we jump in?",
+      name: "Want a quick question-type preview?",
     })
   ).toBeVisible()
-  await page.getByRole("button", { name: "Jump into the lessons" }).click()
+  await page.getByRole("button", { name: "Start lesson one" }).click()
 }

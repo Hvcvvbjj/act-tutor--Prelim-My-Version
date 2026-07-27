@@ -14,7 +14,7 @@ describe("exam lab timer controls", () => {
       locked: true,
       endSectionLabel: "End section to continue",
       statusMessage:
-        "Time is up. Answers, confidence, and flags are locked. End this section to continue.",
+        "Time is up. Answers and flags are locked. End this section to continue.",
     })
   })
 

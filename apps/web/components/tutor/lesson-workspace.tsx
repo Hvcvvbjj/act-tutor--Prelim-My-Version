@@ -5,22 +5,18 @@ import type { AnswerConfidence, LearningSessionPayload } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  BrainCircuitIcon,
   CheckCircle2Icon,
   CircleAlertIcon,
-  Clock3Icon,
   LightbulbIcon,
-  SparklesIcon,
-  XIcon,
+  Volume2Icon,
 } from "lucide-react"
 
-import { ScoutCoach, type ScoutMood } from "@/components/tutor/scout"
 import { useScoutContext } from "@/components/tutor/scout-assistant"
 import {
   buildPracticeExplanation,
   lessonSegmentMinutes,
+  lessonSectionsForDisplay,
   shouldHoldPracticeFeedback,
-  type PracticeExplanationStyle,
 } from "@/components/tutor/lesson-workspace-logic"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -29,7 +25,6 @@ import {
   RadioGroup,
   VisuallyHiddenRadioGroupItem,
 } from "@/components/ui/radio-group"
-import { formatCalendarDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
 interface LessonWorkspaceProps {
@@ -40,15 +35,12 @@ interface LessonWorkspaceProps {
   onSectionChange: (index: number) => void
   onChoiceChange: (choice: string) => void
   onCompleteLesson: () => void
-  onTeachBack: (response: string) => void
-  onLessonFeedback: (helpful: boolean, style: string) => Promise<boolean>
   onSubmitAnswer: (metadata: {
     confidence: AnswerConfidence
     selfCorrected: boolean
     responseSeconds: number
   }) => void
   onClose: () => void
-  canViewTechnicalDetails: boolean
 }
 
 const SECTION_SHORT_LABELS = [
@@ -57,29 +49,7 @@ const SECTION_SHORT_LABELS = [
   "Example",
   "Steps",
   "Remember",
-  "Try it",
 ] as const
-
-function GenerationStamp({ learning }: { learning: LearningSessionPayload }) {
-  const ai = learning.lesson.generation.mode === "ai"
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-        {ai ? (
-          <SparklesIcon aria-hidden="true" />
-        ) : (
-          <CheckCircle2Icon aria-hidden="true" />
-        )}
-        {ai ? "Personalized with AI" : "Reviewed lesson"}
-      </span>
-      <span>
-        {ai
-          ? `${learning.lesson.generation.provider} · ${learning.lesson.generation.model}`
-          : "Works without an AI connection"}
-      </span>
-    </div>
-  )
-}
 
 function LessonStage({
   learning,
@@ -87,9 +57,6 @@ function LessonStage({
   submitting,
   onSectionChange,
   onCompleteLesson,
-  onTeachBack,
-  onLessonFeedback,
-  canViewTechnicalDetails,
 }: Pick<
   LessonWorkspaceProps,
   | "learning"
@@ -97,120 +64,58 @@ function LessonStage({
   | "submitting"
   | "onSectionChange"
   | "onCompleteLesson"
-  | "onTeachBack"
-  | "onLessonFeedback"
-  | "canViewTechnicalDetails"
 >) {
-  const section = learning.lesson.sections[activeSection]
-  const isLast = activeSection === learning.lesson.sections.length - 1
+  const lessonSections = lessonSectionsForDisplay(learning.lesson.sections)
+  const visibleSectionIndex = Math.min(
+    activeSection,
+    Math.max(0, lessonSections.length - 1)
+  )
+  const section =
+    lessonSections[visibleSectionIndex] ?? learning.lesson.sections[0]!
+  const isLast = visibleSectionIndex === lessonSections.length - 1
   const sectionHeadingRef = useRef<HTMLHeadingElement>(null)
   const { accommodations, explanationPreferences } = useScoutContext()
-  const [explanationMode, setExplanationMode] = useState<"standard" | "short">(
-    explanationPreferences.depth === "quick" ? "short" : "standard"
-  )
-  const [teachBack, setTeachBack] = useState(learning.teachBack?.response ?? "")
-  const [feedbackState, setFeedbackState] = useState<
-    "idle" | "pending" | "saved" | "failed"
-  >("idle")
-  const currentSkill =
-    learning.learningTwin.skills.find(
-      (skill) => skill.skill === learning.todaySkill
-    ) ?? learning.learningTwin.skills[0]
-  const currentRecommendation = learning.learningTwin.recommendation
-  const assignmentIsCurrentRecommendation =
-    currentRecommendation.skill === learning.todaySkill
+  const useShortExplanation =
+    accommodations.simplified ||
+    explanationPreferences.depth === "quick" ||
+    explanationPreferences.readingLevel === "plain"
+  const displayExplanation = useShortExplanation
+    ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
+    : section.explanation
+  const spokenContent =
+    section.id === "guided-example"
+      ? `${learning.lesson.workedExample.prompt} ${learning.lesson.workedExample.explanation.join(" ")} Answer: ${learning.lesson.workedExample.answer}.`
+      : section.id === "decision-rule"
+        ? learning.lesson.strategyChecklist.join(" ")
+        : displayExplanation
 
   useEffect(() => {
     sectionHeadingRef.current?.focus()
-  }, [activeSection])
-  async function saveFeedback(helpful: boolean) {
-    setFeedbackState("pending")
-    setFeedbackState(
-      (await onLessonFeedback(helpful, explanationMode)) ? "saved" : "failed"
-    )
-  }
-  const displayExplanation =
-    explanationMode === "short"
-      ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
-      : section.explanation
+  }, [visibleSectionIndex])
 
   return (
-    <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_17rem]">
-      <section className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="ink-label text-primary">
-            Part {activeSection + 1} of {learning.lesson.sections.length}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Clock3Icon aria-hidden="true" />
-            {lessonSegmentMinutes(
-              learning.lesson.minutes,
-              learning.lesson.sections.length,
-              activeSection
-            )}{" "}
-            min
-          </span>
-        </div>
+    <section className="mx-auto flex min-h-[calc(100svh-9rem)] w-full max-w-3xl flex-col px-5 py-10 sm:px-8 sm:py-14">
+      <div className="flex-1">
         <h2
           ref={sectionHeadingRef}
           tabIndex={-1}
-          className="mt-4 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] outline-none sm:text-4xl"
+          className="max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
         >
           {section.title}
         </h2>
-        <p className="mt-5 max-w-3xl text-base leading-8 sm:text-lg">
-          {displayExplanation}
-        </p>
-        <details className="group mt-4 max-w-xl">
-          <summary className="cursor-pointer text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-            Change how Scout explains this
-          </summary>
-          <div
-            className="mt-3 flex flex-wrap gap-2"
-            aria-label="Explanation style"
-          >
-            {(
-              [
-                ["standard", "Normal"],
-                ["short", "Concise"],
-              ] as const
-            ).map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={explanationMode === value ? "secondary" : "outline"}
-                aria-pressed={explanationMode === value}
-                onClick={() => setExplanationMode(value)}
-              >
-                {label}
-              </Button>
-            ))}
-            {accommodations.readAloud ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  window.speechSynthesis.cancel()
-                  window.speechSynthesis.speak(
-                    new SpeechSynthesisUtterance(displayExplanation)
-                  )
-                }}
-              >
-                Read this part aloud
-              </Button>
-            ) : null}
-          </div>
-        </details>
+        {section.id !== "guided-example" && section.id !== "decision-rule" ? (
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-foreground/85 sm:text-xl sm:leading-9">
+            {displayExplanation}
+          </p>
+        ) : null}
 
         {section.id === "guided-example" ? (
-          <div className="paper-panel mt-7 border-2 border-foreground px-5 py-5 sm:px-6">
+          <div className="mt-8 border-y border-border py-6">
             <p className="ink-label text-muted-foreground">Worked example</p>
             <p className="mt-3 text-lg leading-7 font-semibold">
               {learning.lesson.workedExample.prompt}
             </p>
-            <p className="mt-4 border-l-4 border-[var(--scout-sun)] pl-4 text-sm leading-7 text-muted-foreground">
+            <p className="mt-4 border-l-4 border-[var(--scout-sun)] pl-4 leading-7 text-muted-foreground">
               {learning.lesson.workedExample.explanation.join(" ")}
             </p>
             <p className="mt-4 font-semibold">
@@ -219,344 +124,77 @@ function LessonStage({
           </div>
         ) : null}
 
-        {section.id === "guided-example" ? (
-          <div className="mt-5 grid border-y-2 border-foreground sm:grid-cols-2 sm:divide-x-2 sm:divide-foreground">
-            <div className="py-4 sm:pr-5">
-              <p className="ink-label text-primary">Solution that works</p>
-              <p className="mt-2 text-sm leading-6">
-                {learning.lesson.workedExample.answer}. It follows this rule:{" "}
-                {learning.lesson.concept}
-              </p>
-            </div>
-            <div className="py-4 sm:pl-5">
-              <p className="ink-label text-[var(--scout-coral-text)]">
-                Tempting wrong path
-              </p>
-              <p className="mt-2 text-sm leading-6">
-                {learning.lesson.trap} Compare the exact decision, not just how
-                the answer sounds.
-              </p>
-            </div>
-          </div>
-        ) : null}
         {section.id === "decision-rule" ? (
-          <ol className="mt-7 border-y-2 border-foreground">
+          <ol className="mt-8 border-y border-border">
             {learning.lesson.strategyChecklist.map((step, index) => (
               <li
                 key={step}
-                className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-start border-b border-border py-4 last:border-0"
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start border-b border-border py-4 last:border-0"
               >
                 <span className="font-mono text-sm font-bold text-primary">
-                  0{index + 1}
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-                <span className="text-sm leading-6 sm:text-base">{step}</span>
+                <span className="leading-7">{step}</span>
               </li>
             ))}
           </ol>
         ) : null}
 
-        {section.id === "transfer" ? (
-          <>
-            <div className="mt-7 border-2 border-dashed border-foreground p-5">
-              <p className="ink-label">Try it yourself</p>
-              <p className="mt-3 text-lg leading-7 font-semibold">
-                {learning.lesson.transferPrompt}
-              </p>
-            </div>
-            <div className="mt-5 border-2 border-foreground bg-[var(--info-surface)] p-5">
-              <label
-                htmlFor="lesson-teach-back"
-                className="ink-label text-primary"
-              >
-                Explain it in your own words
-              </label>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Write the rule, why it works, and one example.
-              </p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                This quick check looks for the rule, a reason, and an example.
-                It checks structure, not whether the explanation itself is
-                correct.
-              </p>
-              <textarea
-                id="lesson-teach-back"
-                value={teachBack}
-                onChange={(event) => setTeachBack(event.target.value)}
-                rows={4}
-                maxLength={1000}
-                className="mt-4 w-full border-2 border-foreground bg-background p-3 text-sm"
-                placeholder="The rule is… It works because… For example…"
-              />
-              <Button
-                type="button"
-                className="mt-3"
-                disabled={teachBack.trim().length < 20 || submitting}
-                onClick={() => onTeachBack(teachBack)}
-              >
-                Check for three required parts
-              </Button>
-              {learning.teachBack ? (
-                <div className="mt-4 border-t pt-4">
-                  <p className="font-bold">
-                    Pattern check: {learning.teachBack.score}/
-                    {learning.teachBack.maxScore} parts
-                  </p>
-                  <ul className="mt-2 grid gap-1 text-sm">
-                    {learning.teachBack.rubric.map((item, index) => (
-                      <li key={item.label}>
-                        {item.met ? "✓" : "○"}{" "}
-                        {[
-                          "Includes a keyword from the lesson rule",
-                          "Includes a why/because phrase",
-                          "Includes an example cue",
-                        ][index] ?? item.label}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-sm">
-                    {learning.teachBack.score === 3
-                      ? "All three text patterns were found."
-                      : learning.teachBack.score === 2
-                        ? "Two text patterns were found. Add the missing part shown above."
-                        : "One or none of the text patterns were found. Use the prompt above to add the missing parts."}{" "}
-                    This checks structure only; it does not grade whether the
-                    explanation is correct.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-
-        <ScoutCoach
-          className="mt-8"
-          mood={activeSection === 1 ? "thinking" : "ready"}
-          message={section.coachPrompt}
-          detail={learning.lesson.evidenceSummary}
-        />
-
-        <div className="mt-8 flex flex-wrap gap-3 border-t pt-6">
+        {accommodations.readAloud ? (
           <Button
             type="button"
-            variant="outline"
-            size="lg"
-            disabled={activeSection === 0}
-            onClick={() => onSectionChange(activeSection - 1)}
+            variant="ghost"
+            className="mt-5 px-0 text-primary hover:bg-transparent"
+            onClick={() => {
+              window.speechSynthesis.cancel()
+              window.speechSynthesis.speak(
+                new SpeechSynthesisUtterance(spokenContent)
+              )
+            }}
           >
-            <ArrowLeftIcon data-icon="inline-start" />
-            Previous
+            <Volume2Icon />
+            Read this part aloud
           </Button>
-          {isLast ? (
-            <Button
-              type="button"
-              size="lg"
-              onClick={onCompleteLesson}
-              disabled={submitting}
-            >
-              <CheckCircle2Icon data-icon="inline-start" />
-              {submitting
-                ? "Saving lesson…"
-                : learning.mode === "micro"
-                  ? "Start one-question practice"
-                  : "Start focused practice"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              onClick={() => onSectionChange(activeSection + 1)}
-            >
-              Next
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
-          )}
-        </div>
-      </section>
+        ) : null}
+      </div>
 
-      <aside className="border-t bg-[var(--rail)] px-5 py-7 lg:border-t-0 lg:border-l lg:px-6">
-        <p className="ink-label text-muted-foreground">Why Scout picked this</p>
-        <p className="mt-3 text-sm leading-6">
-          {currentSkill && assignmentIsCurrentRecommendation
-            ? `Scout chose ${currentSkill.label} because your recent answers and amount of practice show it needs attention next. Your ACT goal does not affect this choice.`
-            : `This assignment was already in progress, so Scout kept it open. Finish it before moving to ${currentRecommendation.label}.`}
-        </p>
-        <div className="mt-6 border-y py-5">
-          <p className="ink-label text-muted-foreground">Lesson depth</p>
-          <p className="mt-2 font-heading text-2xl font-bold capitalize">
-            {learning.lesson.depth}
-          </p>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            {learning.lesson.depth === "foundation"
-              ? "Starts with the core rule and a clear worked example."
-              : learning.lesson.depth === "standard"
-                ? "Uses the core rule with moderate ACT-style variation."
-                : "Uses harder wording with less step-by-step support."}
-          </p>
-          {canViewTechnicalDetails ? (
-            <details className="mt-3 text-xs leading-5 text-muted-foreground">
-              <summary className="cursor-pointer font-semibold text-foreground">
-                How Scout chose this level
-              </summary>
-              <p className="mt-2">
-                Foundation means no matching check evidence or under 45%
-                correct. Standard means 45–79%. Stretch means at least 80% with
-                a goal of 30 or higher. Regular practice does not change this
-                label.
-              </p>
-            </details>
-          ) : null}
-        </div>
-        <p className="ink-label mt-6 text-muted-foreground">Common trap</p>
-        <p className="mt-3 text-sm leading-6">{learning.lesson.trap}</p>
-        {canViewTechnicalDetails ? (
-          <details className="mt-6 border-t pt-5">
-            <summary className="cursor-pointer font-bold">
-              How this lesson was checked
-            </summary>
-            <div className="mt-4">
-              <GenerationStamp learning={learning} />
-            </div>
-            <dl className="mt-4 grid gap-4 text-sm leading-6">
-              <div>
-                <dt className="ink-label text-muted-foreground">Skill goal</dt>
-                <dd className="mt-1">{learning.lessonReceipt.objective}</dd>
-              </div>
-              <div>
-                <dt className="ink-label text-muted-foreground">
-                  Evidence questions
-                </dt>
-                <dd className="mt-1 break-words">
-                  {learning.lessonReceipt.evidenceQuestionIds.length
-                    ? learning.lessonReceipt.evidenceQuestionIds.join(", ")
-                    : "No prior scored question; baseline evidence used"}
-                </dd>
-              </div>
-              <div>
-                <dt className="ink-label text-muted-foreground">
-                  Generator status
-                </dt>
-                <dd className="mt-1">
-                  {learning.lessonReceipt.generatorStatus}
-                </dd>
-              </div>
-              <div>
-                <dt className="ink-label text-muted-foreground">
-                  Delivered as
-                </dt>
-                <dd className="mt-1 font-semibold">
-                  {learning.lessonReceipt.deliveredAs === "generated"
-                    ? "Generated lesson"
-                    : learning.lessonReceipt.deliveredAs === "human-reviewed"
-                      ? "Teacher-reviewed lesson"
-                      : "Reviewed fallback lesson"}
-                </dd>
-              </div>
-              <div>
-                <dt className="ink-label text-muted-foreground">
-                  Reviewed rule
-                </dt>
-                <dd className="mt-1">{learning.lessonReceipt.approvedRule}</dd>
-              </div>
-              <div>
-                <dt className="ink-label text-muted-foreground">
-                  Content check
-                </dt>
-                <dd className="mt-1 font-semibold">
-                  {learning.lessonReceipt.validationResult ===
-                  "automated-checks-passed"
-                    ? "Automated checks passed"
-                    : learning.lessonReceipt.validationResult ===
-                        "human-reviewed"
-                      ? "Teacher review saved"
-                      : "Reviewed fallback used"}
-                </dd>
-              </div>
-            </dl>
-            <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-              {learning.lessonReceipt.validationChecks.map((check) => (
-                <li key={check}>{check}</li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              {learning.lessonReceipt.validationResult ===
-              "automated-checks-passed"
-                ? "These automated checks verify required fields, the approved rule token, and blocked phrases. They do not verify every instructional claim."
-                : learning.lessonReceipt.validationResult === "human-reviewed"
-                  ? "This receipt records a saved teacher review; it does not show when or how thoroughly each claim was checked."
-                  : "The generated draft did not pass the automated gate, so Scout used the reviewed fallback lesson."}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={feedbackState === "pending"}
-                onClick={() => void saveFeedback(true)}
-              >
-                This explanation helped
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={feedbackState === "pending"}
-                onClick={() => void saveFeedback(false)}
-              >
-                Still confusing
-              </Button>
-            </div>
-            {feedbackState !== "idle" ? (
-              <p
-                className="mt-2 text-xs font-semibold"
-                role={feedbackState === "failed" ? "alert" : "status"}
-              >
-                {feedbackState === "pending"
-                  ? "Saving feedback…"
-                  : feedbackState === "saved"
-                    ? "Feedback saved."
-                    : "Feedback was not saved. Try again."}
-              </p>
-            ) : null}
-          </details>
+      <div className="mt-10 flex items-center justify-between gap-3 border-t pt-6">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          disabled={visibleSectionIndex === 0}
+          onClick={() => onSectionChange(visibleSectionIndex - 1)}
+        >
+          <ArrowLeftIcon data-icon="inline-start" />
+          Previous
+        </Button>
+        {isLast ? (
+          <Button
+            type="button"
+            size="lg"
+            onClick={onCompleteLesson}
+            disabled={submitting}
+          >
+            {submitting
+              ? "Saving…"
+              : learning.mode === "micro"
+                ? "Start practice"
+                : "Start focused practice"}
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
         ) : (
-          <div className="mt-6 border-t pt-5">
-            <p className="text-sm font-bold">Was this explanation helpful?</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={feedbackState === "pending"}
-                onClick={() => void saveFeedback(true)}
-              >
-                This explanation helped
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={feedbackState === "pending"}
-                onClick={() => void saveFeedback(false)}
-              >
-                Still confusing
-              </Button>
-            </div>
-            {feedbackState !== "idle" ? (
-              <p
-                className="mt-2 text-xs font-semibold"
-                role={feedbackState === "failed" ? "alert" : "status"}
-              >
-                {feedbackState === "pending"
-                  ? "Saving feedback…"
-                  : feedbackState === "saved"
-                    ? "Feedback saved."
-                    : "Feedback was not saved. Try again."}
-              </p>
-            ) : null}
-          </div>
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => onSectionChange(visibleSectionIndex + 1)}
+          >
+            Next
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
         )}
-      </aside>
-    </div>
+      </div>
+    </section>
   )
 }
 
@@ -566,7 +204,7 @@ function PracticeStage({
   submitting,
   onChoiceChange,
   onSubmitAnswer,
-  canViewTechnicalDetails,
+  onClose,
 }: Pick<
   LessonWorkspaceProps,
   | "learning"
@@ -574,7 +212,7 @@ function PracticeStage({
   | "submitting"
   | "onChoiceChange"
   | "onSubmitAnswer"
-  | "canViewTechnicalDetails"
+  | "onClose"
 >) {
   const answered = learning.answeredQuestionIds.length
   const currentQuestion = learning.questions[learning.currentQuestionIndex]
@@ -603,49 +241,14 @@ function PracticeStage({
         (question) => question.id === displayedQuestion.id
       )
     : learning.currentQuestionIndex
-  const currentSkill =
-    learning.learningTwin.skills.find(
-      (skill) =>
-        skill.skill === (displayedQuestion?.skill ?? learning.todaySkill)
-    ) ??
-    learning.learningTwin.skills.find(
-      (skill) => skill.skill === learning.todaySkill
-    ) ??
-    learning.learningTwin.skills[0]
   const currentRecommendation = learning.learningTwin.recommendation
-  const currentEstimate = currentSkill
-    ? Math.round(currentSkill.learnedProbability * 100)
-    : null
   const progress = Math.round((answered / learning.questions.length) * 100)
-  const practiceLabel =
-    learning.mode === "repair"
-      ? "Retry"
-      : learning.mode === "checkpoint"
-        ? "Mixed quiz"
-        : learning.mode === "retention"
-          ? "Retention check"
-          : learning.mode === "challenge"
-            ? "Mastery challenge"
-            : learning.mode === "recovery"
-              ? "Recovery session"
-              : learning.mode === "micro"
-                ? "Three-minute study"
-                : "Practice"
-  const mood: ScoutMood = visibleFeedback
-    ? visibleFeedback.correct
-      ? "correct"
-      : "repair"
-    : "thinking"
   const isExitTicket =
     (learning.mode === "foundation" || learning.mode === "focus") &&
     displayedQuestionIndex === learning.questions.length - 1
-  const [confidence, setConfidence] = useState<AnswerConfidence>("sure")
-  const [reviewing, setReviewing] = useState(false)
-  const [initialChoice, setInitialChoice] = useState("")
   const [hintLevel, setHintLevel] = useState(0)
-  const [explanationStyle, setExplanationStyle] =
-    useState<PracticeExplanationStyle>("step-by-step")
   const startedAt = useRef<number | null>(null)
+  const feedbackRef = useRef<HTMLDivElement>(null)
   const explanation =
     visibleFeedback && displayedQuestion
       ? buildPracticeExplanation({
@@ -656,7 +259,7 @@ function PracticeStage({
           choices: displayedQuestion.choices,
           concept: learning.lesson.concept,
           strategyChecklist: learning.lesson.strategyChecklist,
-          style: explanationStyle,
+          style: "simple",
         })
       : null
 
@@ -664,101 +267,44 @@ function PracticeStage({
     startedAt.current = window.performance.now()
   }, [displayedQuestion?.id])
 
+  useEffect(() => {
+    if (!showingFeedback) return
+    const frame = window.requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({
+        behavior: "auto",
+        block: "center",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [feedbackIdentity, showingFeedback])
+
   if (learning.status === "complete" && !showingFeedback) {
     const completedIncorrectly = feedback?.correct === false
-    const completionSkill =
-      learning.learningTwin.skills.find(
-        (skill) => skill.skill === feedbackQuestion?.skill
-      ) ?? currentSkill
-    const testedSkills = learning.learningTwin.skills.filter((skill) =>
-      learning.questions.some((question) => question.skill === skill.skill)
-    )
-    const latestDelta = completionSkill?.lastUpdate
-      ? Math.round(completionSkill.lastUpdate.delta * 100)
-      : null
-    const nextReview = learning.lastFeedback?.review
+    const needsAnotherTry = completedIncorrectly && learning.mode === "repair"
+    const roundComplete = learning.cycle.status === "assessment-choice"
     return (
-      <section className="px-5 py-10 sm:px-8 sm:py-12">
-        <ScoutCoach
-          mood={completedIncorrectly ? "repair" : "correct"}
-          message={
-            completedIncorrectly && learning.mode === "repair"
-              ? "Practice complete. This mistake still needs another pass, so Scout kept it available for repair."
-              : testedSkills.length > 1
-                ? `Practice complete. Scout updated the ${testedSkills.length} skills you practiced and chose what to study next.`
-                : `Practice complete. Scout updated its estimate for ${completionSkill?.label ?? "the skill you practiced"} and chose what to study next.`
-          }
-          detail="Your dated My week calendar stays the same."
-        />
-        <h2 className="mt-8 font-heading text-4xl leading-tight font-black tracking-[-0.03em]">
-          {learning.mode === "repair"
-            ? completedIncorrectly
-              ? "One more pass needed."
-              : "Mistake fixed."
-            : learning.mode === "checkpoint"
-              ? "Quiz complete."
-              : learning.mode === "retention"
-                ? "Review complete."
-                : learning.mode === "challenge"
-                  ? "Challenge complete."
-                  : learning.mode === "recovery"
-                    ? "Recovery complete."
-                    : "Practice complete."}
-        </h2>
-        <p className="mt-5 max-w-2xl text-lg leading-8">
-          {completionSkill ? (
-            <>
-              {testedSkills.length > 1 ? "The last answered skill was " : ""}
-              {completionSkill.label}. Scout&apos;s practice estimate is now{" "}
-              <strong>
-                {Math.round(completionSkill.learnedProbability * 100)}%
-              </strong>
-              , based on {completionSkill.evidenceCount} scored{" "}
-              {completionSkill.evidenceCount === 1 ? "answer" : "answers"}. This
-              is not percent correct or an ACT score.
-            </>
-          ) : (
-            "Scout saved the practice answers, but no matching skill estimate was available to display."
-          )}
+      <section className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col justify-center px-5 py-12 text-center sm:px-8">
+        <p className="ink-label text-primary">
+          {needsAnotherTry ? "Saved for later" : "Answers saved"}
         </p>
-        <dl className="mt-8 grid max-w-3xl border-y-2 border-foreground sm:grid-cols-3 sm:divide-x-2 sm:divide-foreground">
-          <div className="px-4 py-5 first:pl-0">
-            <dt className="ink-label text-muted-foreground">
-              Last skill change
-            </dt>
-            <dd className="mt-2 font-heading text-3xl font-bold">
-              {latestDelta === null
-                ? "No update"
-                : `${latestDelta > 0 ? "+" : ""}${latestDelta} points`}
-            </dd>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              How much the latest answer changed this skill estimate.
-            </p>
-          </div>
-          <div className="px-4 py-5">
-            <dt className="ink-label text-muted-foreground">Next review</dt>
-            <dd className="mt-2 font-heading text-2xl font-bold">
-              {nextReview?.nextReviewAt
-                ? formatCalendarDate(nextReview.nextReviewAt.slice(0, 10))
-                : "Pending"}
-            </dd>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {nextReview
-                ? `Scheduled from the latest answer using Scout’s ${nextReview.intervalDays}-day review rule.`
-                : "Scout has not scheduled the next review yet."}
-            </p>
-          </div>
-          <div className="px-4 py-5 last:pr-0">
-            <dt className="ink-label text-muted-foreground">Study next</dt>
-            <dd className="mt-2 text-sm leading-6 font-semibold">
-              {currentRecommendation.label}
-            </dd>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Scout chose this from your recent answers and amount of practice.
-              It does not alter My week automatically.
-            </p>
-          </div>
-        </dl>
+        <h2 className="mt-3 font-heading text-5xl leading-tight font-black tracking-[-0.03em]">
+          {needsAnotherTry ? "Try this one again later." : "Done."}
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
+          {needsAnotherTry
+            ? "It will stay in your review list."
+            : roundComplete
+              ? "Mr. Kim is ready with your next two choices."
+              : `Next: ${currentRecommendation.label}.`}
+        </p>
+        <Button
+          type="button"
+          size="lg"
+          className="mx-auto mt-7"
+          onClick={onClose}
+        >
+          {roundComplete ? "Continue" : "Back to Today"}
+        </Button>
       </section>
     )
   }
@@ -766,33 +312,24 @@ function PracticeStage({
   return (
     <section
       data-practice-workspace
-      className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_20rem]"
+      className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col px-5 py-8 sm:px-8 sm:py-10"
     >
-      <div className="min-w-0 px-5 py-7 sm:px-8 sm:py-9">
-        <div className="flex items-center justify-between gap-4">
-          <p className="ink-label text-primary">
-            {isExitTicket
-              ? "Independent exit ticket"
-              : showingFeedback
-                ? `${practiceLabel} · Answer review`
-                : `${practiceLabel} · Guided practice`}{" "}
-            · Question {displayedQuestionIndex + 1} of{" "}
-            {learning.questions.length}
-          </p>
-          <span className="font-mono text-sm font-bold">{progress}%</span>
-        </div>
-        <Progress value={progress} className="mt-3">
-          <ProgressLabel className="sr-only">
-            Focused practice progress
-          </ProgressLabel>
-        </Progress>
+      <p className="mb-3 text-right text-sm text-muted-foreground tabular-nums">
+        Question {displayedQuestionIndex + 1} of {learning.questions.length}
+      </p>
+      <Progress value={progress}>
+        <ProgressLabel className="sr-only">
+          Focused practice progress
+        </ProgressLabel>
+      </Progress>
 
+      <div className="flex-1">
         {displayedQuestion?.stimulus ? (
-          <div className="mt-7 border-y-2 border-foreground bg-background px-1 py-5 text-base leading-8">
+          <div className="mt-8 border-b border-border pb-6 text-lg leading-8">
             {displayedQuestion.stimulus}
           </div>
         ) : null}
-        <h2 className="mt-7 max-w-3xl font-heading text-2xl leading-tight font-bold tracking-[-0.01em] sm:text-3xl">
+        <h2 className="mt-8 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] sm:text-4xl">
           {displayedQuestion?.prompt}
         </h2>
         {displayedQuestion ? (
@@ -803,8 +340,7 @@ function PracticeStage({
                 : selectedChoice
             }
             onValueChange={(choice) => {
-              if (showingFeedback) return
-              onChoiceChange(choice)
+              if (!showingFeedback) onChoiceChange(choice)
             }}
             disabled={showingFeedback}
             className="mt-7 grid gap-3"
@@ -825,7 +361,7 @@ function PracticeStage({
                 <label
                   key={choice.id}
                   className={cn(
-                    "grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start rounded-lg border border-border bg-background px-4 py-4 text-sm leading-6 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 sm:text-base",
+                    "grid min-h-16 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center rounded-lg border border-border bg-background px-4 py-3 text-base leading-6 transition-[border-color,background-color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
                     showingFeedback
                       ? "cursor-default"
                       : "cursor-pointer hover:border-primary",
@@ -842,18 +378,16 @@ function PracticeStage({
                     value={choice.id}
                     disabled={showingFeedback}
                   />
-                  <span className="col-start-1 row-start-1 font-mono font-bold text-primary">
+                  <span className="font-mono font-bold text-primary">
                     {String.fromCharCode(65 + index)}
                   </span>
-                  <span className="col-start-2 row-start-1 min-w-0">
-                    {choice.text}
-                  </span>
+                  <span className="min-w-0">{choice.text}</span>
                   {correct ? (
-                    <span className="col-start-3 row-start-1 ml-3 text-xs font-bold text-primary">
+                    <span className="ml-3 text-xs font-bold text-primary">
                       Correct
                     </span>
                   ) : selected ? (
-                    <span className="col-start-3 row-start-1 ml-3 text-xs font-bold text-[var(--scout-coral-text)]">
+                    <span className="ml-3 text-xs font-bold text-[var(--scout-coral-text)]">
                       Your choice
                     </span>
                   ) : null}
@@ -862,94 +396,69 @@ function PracticeStage({
             })}
           </RadioGroup>
         ) : null}
+
         {!showingFeedback && !isExitTicket && hintLevel > 0 ? (
-          <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-4">
-            <p className="ink-label">Hint {hintLevel} of 2</p>
-            <p className="mt-2 text-sm leading-6">
+          <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] px-4 py-3">
+            <p className="text-sm leading-6">
               {hintLevel === 1
                 ? learning.lesson.strategyChecklist[0]
                 : learning.lesson.transferPrompt}
             </p>
           </div>
         ) : null}
-        {!showingFeedback ? (
-          <div className="mt-6 border-y py-5">
-            <p className="ink-label text-muted-foreground">How sure are you?</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(
-                [
-                  ["sure", "Sure"],
-                  ["unsure", "Unsure"],
-                  ["guessing", "Guessing"],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant={confidence === value ? "secondary" : "outline"}
-                  aria-pressed={confidence === value}
-                  size="sm"
-                  onClick={() => setConfidence(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Confidence never changes whether your answer is right. It only
-              changes how strongly Scout adjusts this skill estimate.
-            </p>
+
+        {visibleFeedback && explanation ? (
+          <div ref={feedbackRef} className="scroll-m-24">
+            <Alert
+              className="mt-6 border-primary/30 bg-[var(--info-surface)]"
+              aria-live="polite"
+            >
+              {visibleFeedback.correct ? (
+                <CheckCircle2Icon />
+              ) : (
+                <CircleAlertIcon />
+              )}
+              <AlertTitle>
+                {visibleFeedback.correct ? "Correct." : "Not quite."}
+              </AlertTitle>
+              <AlertDescription>
+                {explanation.lines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </AlertDescription>
+            </Alert>
           </div>
         ) : null}
-        {!showingFeedback && reviewing ? (
-          <div className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] p-4">
-            <p className="font-bold">One last look before scoring</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Keep your choice or change it before Scout checks the answer.
-              Changing it is okay; Scout will make a smaller adjustment to this
-              skill estimate.
-            </p>
-          </div>
-        ) : null}
+      </div>
+
+      <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background/95 py-4 backdrop-blur">
         {!showingFeedback && !isExitTicket ? (
           <Button
             type="button"
-            variant="ghost"
-            className="mt-5"
-            disabled={hintLevel >= 2 || reviewing}
+            variant="outline"
+            size="lg"
+            disabled={hintLevel >= 2}
             onClick={() => setHintLevel((level) => Math.min(2, level + 1))}
           >
             <LightbulbIcon />
-            {hintLevel === 0 ? "Give me a hint" : "Give me another hint"}
+            {hintLevel === 0 ? "Hint" : "Another hint"}
           </Button>
-        ) : !showingFeedback ? (
-          <p className="mt-5 text-sm font-semibold">
-            No hints here—this answer checks whether the lesson stuck.
-          </p>
-        ) : null}
+        ) : (
+          <span />
+        )}
         <Button
           type="button"
-          size="xl"
-          className="mt-6"
+          size="lg"
           onClick={() => {
             if (showingFeedback && visibleFeedback) {
               setDismissedFeedbackIdentity(feedbackIdentity ?? null)
-              setReviewing(false)
-              setInitialChoice("")
               setHintLevel(0)
-              setConfidence("sure")
-              setExplanationStyle("step-by-step")
               onChoiceChange("")
               return
             }
-            if (!reviewing) {
-              setInitialChoice(selectedChoice)
-              setReviewing(true)
-              return
-            }
             onSubmitAnswer({
-              confidence,
-              selfCorrected: initialChoice !== selectedChoice,
+              confidence: "unreported",
+              selfCorrected: false,
               responseSeconds: Math.max(
                 1,
                 Math.round(
@@ -962,222 +471,94 @@ function PracticeStage({
           }}
           disabled={(!showingFeedback && !selectedChoice) || submitting}
         >
-          {showingFeedback ? (
-            <ArrowRightIcon data-icon="inline-end" />
-          ) : (
-            <BrainCircuitIcon data-icon="inline-start" />
-          )}
           {showingFeedback
             ? learning.status === "complete"
               ? "Finish practice"
               : "Next question"
             : submitting
-              ? "Checking your answer…"
-              : reviewing
-                ? "Check answer"
-                : "Review answer"}
+              ? "Checking…"
+              : "Check answer"}
+          <ArrowRightIcon data-icon="inline-end" />
         </Button>
       </div>
-
-      <aside className="border-t bg-[var(--rail)] px-5 py-7 lg:border-t-0 lg:border-l lg:px-6">
-        <ScoutCoach
-          mood={mood}
-          message={
-            visibleFeedback
-              ? visibleFeedback.correct
-                ? "Correct. Say the rule in your own words before moving on."
-                : `Not quite. Read the explanation, then choose ${
-                    learning.status === "complete"
-                      ? "Finish practice"
-                      : "Next question"
-                  }.`
-              : undefined
-          }
-          detail={visibleFeedback?.rationale ?? learning.lesson.transferPrompt}
-        />
-        {visibleFeedback && explanation ? (
-          <Alert className="mt-7 bg-background" aria-live="polite">
-            {visibleFeedback.correct ? (
-              <CheckCircle2Icon />
-            ) : (
-              <CircleAlertIcon />
-            )}
-            <AlertTitle>{explanation.title}</AlertTitle>
-            <AlertDescription>
-              {explanation.ordered ? (
-                <ol className="list-decimal space-y-2 pl-5">
-                  {explanation.lines.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ol>
-              ) : (
-                <div className="space-y-2">
-                  {explanation.lines.map((line) => (
-                    <p key={line}>{line}</p>
-                  ))}
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {visibleFeedback && !visibleFeedback.correct ? (
-          <div className="mt-4">
-            <p className="ink-label text-muted-foreground">
-              Explain it another way
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {(
-                [
-                  ["step-by-step", "Step by step"],
-                  ["compare", "Compare choices"],
-                  ["simple", "Simpler"],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  key={value}
-                  type="button"
-                  size="sm"
-                  variant={explanationStyle === value ? "secondary" : "outline"}
-                  onClick={() => setExplanationStyle(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {visibleFeedback && canViewTechnicalDetails ? (
-          <details className="mt-4 text-xs leading-5 text-muted-foreground">
-            <summary className="cursor-pointer font-semibold text-foreground">
-              How Scout used this answer
-            </summary>
-            <p className="mt-2">
-              Update multiplier:{" "}
-              {Math.round(visibleFeedback.evidenceWeight * 100)}%. This is the
-              confidence multiplier (Sure 100%, Unsure 78%, or Guessing 48%)
-              multiplied by 82% when you changed your choice before checking, or
-              by 100% when you kept it. Correctness selects the model&apos;s
-              correct-answer or wrong-answer calculation; the multiplier
-              controls how strongly that calculation changes the prior estimate.
-            </p>
-          </details>
-        ) : null}
-        {canViewTechnicalDetails ? (
-          <div className="mt-7 border-t pt-5">
-            <p className="ink-label text-muted-foreground">
-              Current skill estimate
-            </p>
-            <p className="mt-2 font-heading text-3xl font-black">
-              {currentEstimate === null ? "Unavailable" : `${currentEstimate}%`}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {currentSkill?.label ?? "No matching skill"}
-            </p>
-            <details className="mt-3 text-xs text-muted-foreground">
-              <summary className="cursor-pointer font-semibold text-foreground">
-                What this number means
-              </summary>
-              <p className="mt-2">
-                {currentSkill
-                  ? `Scout built this from ${currentSkill.evidenceCount} scored ${currentSkill.evidenceCount === 1 ? "answer" : "answers"}. It is not percent correct or an ACT score.`
-                  : "Scout could not find a matching skill estimate for this question."}
-              </p>
-            </details>
-          </div>
-        ) : null}
-      </aside>
     </section>
   )
 }
 
 export function LessonWorkspace(props: LessonWorkspaceProps) {
+  const lessonSections = lessonSectionsForDisplay(
+    props.learning.lesson.sections
+  )
+  const workspaceTitle =
+    props.learning.mode === "checkpoint"
+      ? "Mixed quiz"
+      : props.learning.mode === "recovery"
+        ? "Recovery"
+        : props.learning.mastery.label
+  const positionLabel = props.learning.lessonComplete
+    ? "Practice"
+    : `${Math.min(props.activeSection + 1, lessonSections.length)} of ${
+        lessonSections.length
+      }`
+  const segmentMinutes = props.learning.lessonComplete
+    ? null
+    : lessonSegmentMinutes(
+        props.learning.lesson.minutes,
+        lessonSections.length,
+        props.activeSection
+      )
+
   return (
-    <div className="paper-panel overflow-hidden rounded-xl border bg-background">
-      <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-3 border-b bg-background px-4 py-3 text-foreground sm:px-6">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-            {props.learning.mode === "repair"
-              ? "Retry a missed question"
-              : props.learning.mode === "checkpoint"
-                ? "Mixed quiz"
-                : props.learning.mode === "retention"
-                  ? "Forgetting protection"
-                  : props.learning.mode === "challenge"
-                    ? "Mastery challenge"
-                    : props.learning.mode === "recovery"
-                      ? "Recovery session"
-                      : props.learning.mode === "micro"
-                        ? "Three-minute study"
-                        : "Today’s lesson"}
-          </p>
-          <h1 className="mt-1 text-base leading-snug font-bold break-words sm:text-lg">
-            {props.learning.mode === "repair"
-              ? `Try again: ${props.learning.mastery.label}`
-              : props.learning.mode === "checkpoint"
-                ? "Three-skill check"
-                : props.learning.mode === "retention"
-                  ? `Two-question review: ${props.learning.mastery.label}`
-                  : props.learning.mode === "challenge"
-                    ? `Prove it: ${props.learning.mastery.label}`
-                    : props.learning.mode === "recovery"
-                      ? "Two-skill reset"
-                      : props.learning.lesson.title}
-          </h1>
-        </div>
-        {!props.learning.lessonComplete ? (
-          <nav
-            className="order-3 grid w-full grid-cols-3 gap-1 sm:order-none sm:flex sm:w-auto sm:flex-wrap"
-            aria-label="Lesson stages"
-          >
-            {SECTION_SHORT_LABELS.slice(
-              0,
-              props.learning.lesson.sections.length
-            ).map((label, index) => (
-              <Button
-                key={label}
-                type="button"
-                variant={props.activeSection === index ? "secondary" : "ghost"}
-                aria-current={
-                  props.activeSection === index ? "step" : undefined
-                }
-                size="sm"
-                className={cn(
-                  "min-w-0 px-1.5 text-xs text-foreground sm:px-3 sm:text-[0.8rem]",
-                  props.activeSection === index && "text-secondary-foreground"
-                )}
-                onClick={() => props.onSectionChange(index)}
-              >
-                {index + 1}. {label}
-              </Button>
-            ))}
-          </nav>
-        ) : (
-          <span className="text-xs font-bold tracking-[0.1em] text-primary uppercase">
-            {props.learning.mode === "repair"
-              ? "1 replay"
-              : props.learning.mode === "checkpoint"
-                ? "3 mixed questions"
-                : props.learning.mode === "retention"
-                  ? "2 review questions"
-                  : props.learning.mode === "challenge"
-                    ? "3 hard questions"
-                    : props.learning.mode === "recovery"
-                      ? "2 recovery questions"
-                      : props.learning.mode === "micro"
-                        ? "1 quick question"
-                        : "Focused practice"}
-          </span>
-        )}
+    <div className="min-h-[calc(100svh-3.5rem)] bg-background">
+      <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-border px-4 sm:px-7">
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          className="justify-self-start px-0 text-primary hover:bg-transparent"
           onClick={props.onClose}
           aria-label="Close lesson workspace"
         >
-          <XIcon />
+          <ArrowLeftIcon data-icon="inline-start" />
+          Back to Today
         </Button>
+        <h1 className="max-w-64 truncate text-center text-sm font-bold sm:max-w-md sm:text-base">
+          {workspaceTitle}
+        </h1>
+        <p className="justify-self-end text-sm text-muted-foreground tabular-nums">
+          {positionLabel}
+          {segmentMinutes === null ? null : (
+            <span className="hidden sm:inline"> · {segmentMinutes} min</span>
+          )}
+        </p>
       </header>
+
+      {!props.learning.lessonComplete ? (
+        <nav
+          className="mx-auto grid w-full max-w-5xl grid-cols-5 px-3 pt-4 sm:px-7"
+          aria-label="Lesson stages"
+        >
+          {SECTION_SHORT_LABELS.slice(0, lessonSections.length).map(
+            (label, index) => (
+              <Button
+                key={label}
+                type="button"
+                variant="ghost"
+                aria-current={
+                  props.activeSection === index ? "step" : undefined
+                }
+                className={cn(
+                  "min-w-0 rounded-none border-b-2 border-border px-1 py-3 text-xs text-muted-foreground sm:text-sm",
+                  props.activeSection === index &&
+                    "border-primary text-primary hover:text-primary"
+                )}
+                onClick={() => props.onSectionChange(index)}
+              >
+                {label}
+              </Button>
+            )
+          )}
+        </nav>
+      ) : null}
 
       {props.learning.lessonComplete ? (
         <PracticeStage

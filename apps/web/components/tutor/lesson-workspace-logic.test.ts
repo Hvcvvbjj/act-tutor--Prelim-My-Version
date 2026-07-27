@@ -3,21 +3,32 @@ import { describe, expect, it } from "vitest"
 import {
   buildPracticeExplanation,
   lessonSegmentMinutes,
+  lessonSectionsForDisplay,
   shouldHoldPracticeFeedback,
 } from "@/components/tutor/lesson-workspace-logic"
 
 describe("lesson workspace learner flow", () => {
+  it("hides the retired rewrite-the-rule step from new and saved lessons", () => {
+    expect(
+      lessonSectionsForDisplay([
+        { id: "question-type" },
+        { id: "need-to-know" },
+        { id: "transfer" },
+      ])
+    ).toEqual([{ id: "question-type" }, { id: "need-to-know" }])
+  })
+
   it("distributes the lesson estimate across the actual number of sections", () => {
-    const sixPartLesson = Array.from({ length: 6 }, (_, index) =>
-      lessonSegmentMinutes(15, 6, index)
+    const fivePartLesson = Array.from({ length: 5 }, (_, index) =>
+      lessonSegmentMinutes(15, 5, index)
     )
-    const shortLesson = Array.from({ length: 6 }, (_, index) =>
-      lessonSegmentMinutes(10, 6, index)
+    const shortLesson = Array.from({ length: 5 }, (_, index) =>
+      lessonSegmentMinutes(10, 5, index)
     )
 
-    expect(sixPartLesson).toEqual([3, 3, 3, 2, 2, 2])
-    expect(sixPartLesson.reduce((sum, minutes) => sum + minutes, 0)).toBe(15)
-    expect(shortLesson).toEqual([2, 2, 2, 2, 1, 1])
+    expect(fivePartLesson).toEqual([3, 3, 3, 3, 3])
+    expect(fivePartLesson.reduce((sum, minutes) => sum + minutes, 0)).toBe(15)
+    expect(shortLesson).toEqual([2, 2, 2, 2, 2])
     expect(shortLesson.reduce((sum, minutes) => sum + minutes, 0)).toBe(10)
     expect(lessonSegmentMinutes(3, 1, 0)).toBe(3)
   })
@@ -78,7 +89,7 @@ describe("lesson workspace learner flow", () => {
     ).toBe(true)
   })
 
-  it("builds distinct learner-facing alternate explanations", () => {
+  it("keeps incorrect-answer feedback concise in every display mode", () => {
     const input = {
       correct: false,
       rationale: "A comma alone cannot join two complete sentences.",
@@ -102,21 +113,12 @@ describe("lesson workspace learner flow", () => {
     })
     const simpler = buildPracticeExplanation({ ...input, style: "simple" })
 
-    expect(steps.title).toBe("Step by step")
-    expect(steps.ordered).toBe(true)
-    expect(steps.lines).toContain(
-      "Name the rule: Check whether both sides are complete sentences."
-    )
-    expect(comparison.lines).toContain("Your choice: Keep the comma")
-    expect(comparison.lines).toContain("Correct choice: Use a semicolon")
-    expect(simpler.title).toBe("The simpler version")
-    expect(simpler.lines[0]).toBe("The answer is Use a semicolon.")
-    expect(
-      new Set([
-        steps.lines.join(" "),
-        comparison.lines.join(" "),
-        simpler.lines.join(" "),
+    for (const explanation of [steps, comparison, simpler]) {
+      expect(explanation.title).toBe("Review")
+      expect(explanation.ordered).toBe(false)
+      expect(explanation.lines).toEqual([
+        "The answer is Use a semicolon. A comma alone cannot join two complete sentences.",
       ])
-    ).toHaveLength(3)
+    }
   })
 })

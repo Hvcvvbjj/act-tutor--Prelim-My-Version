@@ -372,12 +372,11 @@ export function answerFor(input: {
           ? "For example, a standard error of 0.60 means ±0.60 in theta units. The separate 80% interval is wider because it uses ±1.281552 × standard error. Neither number maps to ACT points."
           : (learning?.lesson.workedExample.prompt ??
             `Try the same ${lessonTitle} rule on a new item before checking your work.`)
-      nextAction =
-        "Use the same rule on the new example without copying the earlier answer."
+      nextAction = "Try the new example, then check your work."
     } else if (/more simply|explain (that|this)/.test(lower)) {
       summary = plainWords(previous.answer.summary)
       explanation = plainWords(previous.answer.explanation)
-      nextAction = "Say the idea back in one sentence, then continue."
+      nextAction = "Use the simpler version on the current question."
     } else if (/why does this matter/.test(lower)) {
       explanation = `${previous.answer.explanation} It matters because Scout uses that evidence to choose what you practice next without pretending one answer proves everything.`
     } else if (/show (that|the) rule/.test(lower)) {
@@ -409,7 +408,7 @@ export function answerFor(input: {
   ) {
     summary = "Timed Practice results stay inside Timed Practice."
     explanation =
-      "The report shows raw accuracy, average time per answered question, and self-reported confidence labels. It does not update Today, My Week, or the skill web."
+      "The report shows raw accuracy and average time per answered question. It does not update Today, My Week, or the skill web."
     nextAction =
       "Use the report as a practice observation, not a mastery score."
     source = "Reviewed Timed Practice result fields and sync boundary"
@@ -426,8 +425,7 @@ export function answerFor(input: {
       ? "Your submitted answer was correct."
       : "This item is ready to review."
     explanation = review.rationale
-    nextAction =
-      "Explain the rule in your own words, then try a different item."
+    nextAction = "Use the explanation on a different item."
     source = `Scored Test Lab review for ${review.questionId}`
   } else if (intent === "calibration-definition") {
     summary = calibration
@@ -448,8 +446,7 @@ export function answerFor(input: {
       summary = `The selected text belongs to the reviewed ${lessonTitle} material.`
       explanation = rule
       example = `Selected text: “${request.selectedText}”`
-      nextAction =
-        "Use the reviewed rule to restate the selection in your own words."
+      nextAction = "Use the reviewed rule on the current question."
     } else {
       summary = "I can’t tie that selection to the reviewed lesson or question."
       explanation =
@@ -498,21 +495,19 @@ export function answerFor(input: {
       "Open Progress and choose the skill to see the answers behind the estimate."
     source = "Server learning state"
   } else if (intent === "hint") {
-    summary = "Start by naming the rule before comparing choices."
+    summary = "Start with the first decision step."
     explanation = rule
-    example =
-      "Cross out a choice only when you can name the exact rule it breaks."
+    example = "Cross out a choice when it clearly conflicts with the lesson."
     nextAction = "Use the first guided hint, then make your own choice."
   } else if (intent === "example") {
     summary = "Use the same decision on a fresh example."
     explanation = rule
     example = learning?.lesson.workedExample.prompt ?? null
-    nextAction = "Say which rule you would check first."
+    nextAction = "Apply the first step before comparing choices."
   } else if (intent === "rule" || intent === "simplify") {
     summary = rule
     explanation = objective
-    nextAction =
-      "Say the rule once in your own words, then use it on the next item."
+    nextAction = "Use this on the next item."
   } else if (request.screen === "plan") {
     summary = studyPlan
       ? `${studyPlan.availability.entries.length} weekdays and ${studyPlan.forecast.weeklyCapacity} minutes per week are available to the calendar generator.`

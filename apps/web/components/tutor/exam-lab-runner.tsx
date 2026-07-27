@@ -2,7 +2,6 @@
 
 import type {
   DiagnosticQuestionPublic,
-  ExamConfidence,
   ExamLabSessionPayload,
 } from "@act-tutor/core"
 import {
@@ -31,7 +30,6 @@ interface ExamLabRunnerProps {
   saveStatus: "saved" | "saving" | "error"
   busy: boolean
   onAnswer: (choiceId: string) => void
-  onConfidence: (confidence: ExamConfidence) => void
   onToggleFlag: () => void
   onMove: (index: number) => void
   onEndSection: () => void
@@ -105,7 +103,6 @@ export function ExamLabRunner({
   saveStatus,
   busy,
   onAnswer,
-  onConfidence,
   onToggleFlag,
   onMove,
   onEndSection,
@@ -310,42 +307,6 @@ export function ExamLabRunner({
               </label>
             ))}
           </RadioGroup>
-
-          <fieldset
-            className={cn("mt-7 border-y py-5", timer.locked && "opacity-60")}
-            disabled={timer.locked}
-          >
-            <legend className="ink-label text-muted-foreground">
-              How sure are you?
-            </legend>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["guess", "Guessing"],
-                  ["unsure", "Unsure"],
-                  ["sure", "Sure"],
-                ] as const
-              ).map(([confidence, label]) => (
-                <Button
-                  key={confidence}
-                  type="button"
-                  variant={
-                    response?.confidence === confidence && response.choiceId
-                      ? "default"
-                      : "outline"
-                  }
-                  aria-pressed={
-                    response?.confidence === confidence &&
-                    Boolean(response.choiceId)
-                  }
-                  onClick={() => onConfidence(confidence)}
-                  disabled={timer.locked || !response?.choiceId}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </fieldset>
 
           <div className="mt-7 flex items-center justify-between gap-3">
             <Button

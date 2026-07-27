@@ -256,38 +256,6 @@ function Brand() {
   )
 }
 
-function ScoreRoute({ plan }: { plan: GeneratedPlan }) {
-  const isInternalProxy =
-    plan.evidence.source === "rapid_diagnostic" ||
-    plan.evidence.source === "starter_diagnostic" ||
-    plan.evidence.source === "full_test" ||
-    plan.evidence.source === "not_taken"
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background px-3.5 py-2">
-      <div>
-        <p className="text-base leading-none font-black tabular-nums">
-          {plan.currentComposite}{" "}
-          <span className="text-xs font-normal text-muted-foreground">
-            {isInternalProxy ? "planning baseline" : "reported baseline"}
-          </span>
-        </p>
-      </div>
-      <ArrowRightIcon
-        className="size-4 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <div>
-        <p className="text-base leading-none font-black text-primary tabular-nums">
-          {plan.draft.goal}{" "}
-          <span className="text-xs font-normal text-muted-foreground">
-            goal
-          </span>
-        </p>
-      </div>
-    </div>
-  )
-}
-
 function AccessibleTestDayLab({
   initialMode,
   initialSection,
@@ -336,10 +304,12 @@ function ScoutHeaderButton({ onOpen }: { onOpen: () => void }) {
 function MobileOverflow({
   open,
   onNavigate,
+  onEditPlan,
   onClose,
 }: {
   open: boolean
   onNavigate: (tab: DashboardDestination) => void
+  onEditPlan: () => void
   onClose: () => void
 }) {
   const { openSettings } = useScoutContext()
@@ -394,6 +364,18 @@ function MobileOverflow({
           className="min-h-11 w-full justify-start"
           role="menuitem"
           onClick={() => {
+            onEditPlan()
+            onClose()
+          }}
+        >
+          <PencilLineIcon /> Goal and schedule
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 w-full justify-start"
+          role="menuitem"
+          onClick={() => {
             openSettings()
             onClose()
           }}
@@ -408,10 +390,12 @@ function MobileOverflow({
 function DesktopOverflow({
   open,
   onNavigate,
+  onEditPlan,
   onClose,
 }: {
   open: boolean
   onNavigate: (tab: DashboardDestination) => void
+  onEditPlan: () => void
   onClose: () => void
 }) {
   const { openSettings } = useScoutContext()
@@ -452,6 +436,18 @@ function DesktopOverflow({
         }}
       >
         <ShieldCheckIcon /> Learning data
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-11 w-full justify-start"
+        role="menuitem"
+        onClick={() => {
+          onEditPlan()
+          onClose()
+        }}
+      >
+        <PencilLineIcon /> Goal and schedule
       </Button>
       <Button
         type="button"
@@ -645,39 +641,6 @@ export function Dashboard({
       )
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  async function submitTeachBack(response: string) {
-    setSubmitting(true)
-    try {
-      setLearning(await learningRequest({ action: "teach_back", response }))
-      setLearningError(null)
-    } catch (error) {
-      setLearningError(
-        error instanceof Error
-          ? error.message
-          : "Could not check the teach-back."
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function submitLessonFeedback(helpful: boolean, style: string) {
-    try {
-      setLearning(
-        await learningRequest({ action: "lesson_feedback", helpful, style })
-      )
-      setLearningError(null)
-      return true
-    } catch (error) {
-      setLearningError(
-        error instanceof Error
-          ? error.message
-          : "Could not save lesson feedback."
-      )
-      return false
     }
   }
 
@@ -979,7 +942,10 @@ export function Dashboard({
     setLearningError(null)
   }
 
-  if (learning?.cycle.status === "assessment-choice") {
+  if (
+    learning?.cycle.status === "assessment-choice" &&
+    !(workspaceOpen && activeTab === "today")
+  ) {
     if (roundAssessmentView === "full-test") {
       return (
         <ScoutProvider
@@ -1132,82 +1098,76 @@ export function Dashboard({
           if (isDashboardDestination(value)) setActiveTab(value)
           setMoreOpen(false)
         }}
-        className="min-h-svh scroll-pb-24 gap-0 bg-[var(--canvas)] pb-24 md:scroll-pb-0 md:pb-0"
+        className={`min-h-svh gap-0 bg-[var(--canvas)] ${
+          workspaceOpen && activeTab === "today"
+            ? ""
+            : "scroll-pb-24 pb-24 md:scroll-pb-0 md:pb-0"
+        }`}
       >
-        <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
-          <div className="mx-auto grid min-h-14 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-1.5 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
-            <Brand />
-            <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
-              <TabsList
-                variant="line"
-                className="min-h-11 bg-transparent"
-                aria-label="Study navigation"
-              >
-                <DashboardTab value="today" className="min-h-11">
-                  Today
-                </DashboardTab>
-                <DashboardTab value="plan" className="min-h-11">
-                  My week
-                </DashboardTab>
-                <DashboardTab value="calibrate" className="min-h-11">
-                  Quick Check
-                </DashboardTab>
-                <DashboardTab value="progress" className="min-h-11">
-                  Progress
-                </DashboardTab>
-              </TabsList>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant={moreOpen || moreActive ? "secondary" : "ghost"}
-                  className="min-h-11"
-                  aria-expanded={moreOpen}
-                  aria-haspopup="menu"
-                  aria-controls="desktop-more-destinations"
-                  aria-current={moreActive ? "page" : undefined}
-                  onClick={() => setMoreOpen((current) => !current)}
+        {workspaceOpen && activeTab === "today" ? null : (
+          <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
+            <div className="mx-auto grid min-h-14 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-1.5 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
+              <Brand />
+              <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
+                <TabsList
+                  variant="line"
+                  className="min-h-11 bg-transparent"
+                  aria-label="Study navigation"
                 >
-                  More{" "}
-                  <ChevronDownIcon
-                    className={
-                      moreOpen
-                        ? "rotate-180 transition-transform"
-                        : "transition-transform"
-                    }
-                    data-icon="inline-end"
+                  <DashboardTab value="today" className="min-h-11">
+                    Today
+                  </DashboardTab>
+                  <DashboardTab value="plan" className="min-h-11">
+                    My week
+                  </DashboardTab>
+                  <DashboardTab value="calibrate" className="min-h-11">
+                    Quick Check
+                  </DashboardTab>
+                  <DashboardTab value="progress" className="min-h-11">
+                    Progress
+                  </DashboardTab>
+                </TabsList>
+                <div className="relative">
+                  <Button
+                    type="button"
+                    variant={moreOpen || moreActive ? "secondary" : "ghost"}
+                    className="min-h-11"
+                    aria-expanded={moreOpen}
+                    aria-haspopup="menu"
+                    aria-controls="desktop-more-destinations"
+                    aria-current={moreActive ? "page" : undefined}
+                    onClick={() => setMoreOpen((current) => !current)}
+                  >
+                    More{" "}
+                    <ChevronDownIcon
+                      className={
+                        moreOpen
+                          ? "rotate-180 transition-transform"
+                          : "transition-transform"
+                      }
+                      data-icon="inline-end"
+                    />
+                  </Button>
+                  <DesktopOverflow
+                    open={moreOpen}
+                    onNavigate={setActiveTab}
+                    onEditPlan={onEditPlan}
+                    onClose={() => setMoreOpen(false)}
                   />
-                </Button>
-                <DesktopOverflow
-                  open={moreOpen}
-                  onNavigate={setActiveTab}
-                  onClose={() => setMoreOpen(false)}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 justify-self-end sm:gap-2">
+                <ScoutHeaderButton onOpen={() => setMoreOpen(false)} />
+                <AccountAccess
+                  viewer={viewer}
+                  savedPlan={savedPlan}
+                  onViewerChange={onViewerChange}
+                  className="w-11 px-0 [&>span]:hidden"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-1.5 justify-self-end sm:gap-3">
-              <ScoutHeaderButton onOpen={() => setMoreOpen(false)} />
-              <div className="hidden sm:block">
-                <ScoreRoute plan={plan} />
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-11"
-                onClick={onEditPlan}
-                aria-label="Edit goal and study schedule"
-              >
-                <PencilLineIcon />
-              </Button>
-              <AccountAccess
-                viewer={viewer}
-                savedPlan={savedPlan}
-                onViewerChange={onViewerChange}
-                className="max-w-40 px-2 sm:max-w-52"
-              />
-            </div>
-          </div>
-        </header>
+          </header>
+        )}
 
         {visibleLearningError ? (
           <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
@@ -1219,7 +1179,10 @@ export function Dashboard({
           </div>
         ) : null}
 
-        {plan.baselineSkipped && activeTab !== "lab" ? (
+        {plan.baselineSkipped &&
+        activeTab !== "lab" &&
+        activeTab !== "calibrate" &&
+        !(workspaceOpen && activeTab === "today") ? (
           <div className="mx-auto w-full max-w-[86rem] px-4 pt-4 sm:px-7">
             <Alert className="border-primary bg-[var(--info-surface)]">
               <CircleGaugeIcon />
@@ -1251,7 +1214,11 @@ export function Dashboard({
           <main
             id={activeTab === "today" ? "main-content" : undefined}
             tabIndex={activeTab === "today" ? -1 : undefined}
-            className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8"
+            className={
+              workspaceOpen
+                ? "w-full bg-background"
+                : "mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8"
+            }
           >
             {workspaceOpen && learning ? (
               <LessonWorkspace
@@ -1262,23 +1229,20 @@ export function Dashboard({
                 onSectionChange={setActiveSection}
                 onChoiceChange={setSelectedChoice}
                 onCompleteLesson={completeLesson}
-                onTeachBack={submitTeachBack}
-                onLessonFeedback={submitLessonFeedback}
                 onSubmitAnswer={submitAnswer}
                 onClose={() => setWorkspaceOpen(false)}
-                canViewTechnicalDetails={viewer.technicalDetails}
               />
             ) : learning ? (
               <DailyMissionHub
-                plan={plan}
                 learning={learning}
                 busy={submitting}
-                canViewTechnicalDetails={viewer.technicalDetails}
                 onOpenWorkspace={() => {
                   void loadLessonWorkspace()
                   setWorkspaceOpen(true)
                 }}
-                onStartNext={() => startMissionAction({ action: "start_next" })}
+                onStartNext={() =>
+                  startMissionAction({ action: "start_next" }, true)
+                }
                 onStartSkill={(skill) =>
                   startMissionAction({ action: "start_skill", skill })
                 }
@@ -1424,51 +1388,62 @@ export function Dashboard({
           </div>
         ) : null}
 
-        <nav
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl md:hidden"
-          aria-label="Primary study navigation"
-        >
-          <div className="grid w-full grid-cols-5">
-            <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
-              <DashboardTab value="today" className="min-h-14 px-1 text-xs">
-                Today
-              </DashboardTab>
-              <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
-                Week
-              </DashboardTab>
-              <DashboardTab value="calibrate" className="min-h-14 px-1 text-xs">
-                Check
-              </DashboardTab>
-              <DashboardTab value="progress" className="min-h-14 px-1 text-xs">
-                Progress
-              </DashboardTab>
-            </TabsList>
-            <Button
-              type="button"
-              variant={moreOpen || moreActive ? "secondary" : "ghost"}
-              className="min-h-14 rounded-none px-1 text-xs"
-              aria-expanded={moreOpen}
-              aria-haspopup="menu"
-              aria-controls="mobile-more-destinations"
-              aria-current={moreActive ? "page" : undefined}
-              onClick={() => setMoreOpen((current) => !current)}
+        {workspaceOpen && activeTab === "today" ? null : (
+          <>
+            <nav
+              className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl md:hidden"
+              aria-label="Primary study navigation"
             >
-              <ChevronDownIcon
-                className={
-                  moreOpen
-                    ? "rotate-180 transition-transform"
-                    : "transition-transform"
-                }
-              />{" "}
-              More
-            </Button>
-          </div>
-        </nav>
-        <MobileOverflow
-          open={moreOpen}
-          onNavigate={setActiveTab}
-          onClose={() => setMoreOpen(false)}
-        />
+              <div className="grid w-full grid-cols-5">
+                <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
+                  <DashboardTab value="today" className="min-h-14 px-1 text-xs">
+                    Today
+                  </DashboardTab>
+                  <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
+                    Week
+                  </DashboardTab>
+                  <DashboardTab
+                    value="calibrate"
+                    className="min-h-14 px-1 text-xs"
+                  >
+                    Check
+                  </DashboardTab>
+                  <DashboardTab
+                    value="progress"
+                    className="min-h-14 px-1 text-xs"
+                  >
+                    Progress
+                  </DashboardTab>
+                </TabsList>
+                <Button
+                  type="button"
+                  variant={moreOpen || moreActive ? "secondary" : "ghost"}
+                  className="min-h-14 rounded-none px-1 text-xs"
+                  aria-expanded={moreOpen}
+                  aria-haspopup="menu"
+                  aria-controls="mobile-more-destinations"
+                  aria-current={moreActive ? "page" : undefined}
+                  onClick={() => setMoreOpen((current) => !current)}
+                >
+                  <ChevronDownIcon
+                    className={
+                      moreOpen
+                        ? "rotate-180 transition-transform"
+                        : "transition-transform"
+                    }
+                  />{" "}
+                  More
+                </Button>
+              </div>
+            </nav>
+            <MobileOverflow
+              open={moreOpen}
+              onNavigate={setActiveTab}
+              onEditPlan={onEditPlan}
+              onClose={() => setMoreOpen(false)}
+            />
+          </>
+        )}
       </Tabs>
     </ScoutProvider>
   )

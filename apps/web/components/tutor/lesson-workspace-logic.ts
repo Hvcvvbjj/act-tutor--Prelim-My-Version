@@ -22,6 +22,12 @@ export interface PracticeExplanation {
   ordered: boolean
 }
 
+export function lessonSectionsForDisplay<T extends { id: string }>(
+  sections: readonly T[]
+) {
+  return sections.filter((section) => section.id !== "transfer")
+}
+
 function firstSentence(value: string) {
   return value.split(/(?<=[.!?])\s+/)[0] ?? value
 }
@@ -64,12 +70,8 @@ export function shouldHoldPracticeFeedback({
 export function buildPracticeExplanation({
   correct,
   rationale,
-  selectedChoiceId,
   correctChoiceId,
   choices,
-  concept,
-  strategyChecklist,
-  style,
 }: PracticeExplanationInput): PracticeExplanation {
   if (correct) {
     return {
@@ -79,45 +81,13 @@ export function buildPracticeExplanation({
     }
   }
 
-  const selectedChoice =
-    choices.find((choice) => choice.id === selectedChoiceId)?.text ??
-    selectedChoiceId
   const correctChoice =
     choices.find((choice) => choice.id === correctChoiceId)?.text ??
     correctChoiceId
 
-  if (style === "compare") {
-    return {
-      title: "Compare the choices",
-      lines: [
-        `Your choice: ${selectedChoice}`,
-        `Correct choice: ${correctChoice}`,
-        `The difference: ${rationale}`,
-      ],
-      ordered: false,
-    }
-  }
-
-  if (style === "simple") {
-    return {
-      title: "The simpler version",
-      lines: [
-        `The answer is ${correctChoice}.`,
-        firstSentence(rationale),
-        `Remember: ${firstSentence(concept)}`,
-      ],
-      ordered: false,
-    }
-  }
-
   return {
-    title: "Step by step",
-    lines: [
-      `Name the rule: ${strategyChecklist[0] ?? concept}`,
-      `Check your choice against that rule: ${selectedChoice}`,
-      `Choose the answer that follows the rule: ${correctChoice}`,
-      rationale,
-    ],
-    ordered: true,
+    title: "Review",
+    lines: [`The answer is ${correctChoice}. ${firstSentence(rationale)}`],
+    ordered: false,
   }
 }

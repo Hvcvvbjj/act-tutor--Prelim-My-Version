@@ -329,6 +329,13 @@ describe("FileLearningSessionRepository", () => {
       expect(payload.todaySkill).toBe("sentence-boundaries");
       expect(payload.mode).toBe("foundation");
       expect(payload.lesson.depth).toBe("foundation");
+      expect(payload.lesson.sections).toHaveLength(5);
+      expect(
+        payload.lesson.sections.map((section) => section.id),
+      ).not.toContain("transfer");
+      expect(JSON.stringify(payload.lesson)).not.toMatch(
+        /in your own words|say the rule|name the rule|rewrite the rule/i,
+      );
       expect(payload.cycle).toEqual({
         roundNumber: 1,
         kind: "foundation",
@@ -1114,6 +1121,7 @@ describe("FileLearningSessionRepository", () => {
         "A complete sentence needs a subject and verb because it must finish the thought. For example, I can test whether it stands alone.",
       );
       expect(teachBack.teachBack?.score).toBeGreaterThanOrEqual(2);
+      expect(teachBack.teachBack?.feedback).toBe("Saved.");
 
       const before = teachBack.learningTwin.skills.find(
         (state) => state.skill === "sentence-boundaries",

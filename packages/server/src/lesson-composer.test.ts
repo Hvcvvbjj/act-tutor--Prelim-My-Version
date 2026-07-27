@@ -23,7 +23,7 @@ const input: LessonCompositionInput = {
     concept:
       "An ACT inference is a conclusion the passage makes likely, not a creative possibility.",
     steps: [
-      "Restate the relevant lines.",
+      "Use the relevant lines.",
       "Predict the smallest supported conclusion.",
       "Reject choices that add a new motive or absolute claim.",
     ],
@@ -64,15 +64,17 @@ describe("lesson composition", () => {
     );
     expect(lesson.depth).toBe("foundation");
     expect(lesson.whyAssigned).toContain("1 of 4");
-    expect(lesson.sections).toHaveLength(6);
+    expect(lesson.sections).toHaveLength(5);
     expect(lesson.sections.map((section) => section.id)).toEqual([
       "question-type",
       "mental-model",
       "guided-example",
       "decision-rule",
       "need-to-know",
-      "transfer",
     ]);
+    expect(JSON.stringify(lesson)).not.toMatch(
+      /in your own words|say the rule|name the rule|rewrite the rule/i,
+    );
     expect(lesson.strategyChecklist.length).toBeGreaterThanOrEqual(4);
     expect(lesson.generation.mode).toBe("authored-fallback");
   });
@@ -89,37 +91,31 @@ describe("lesson composition", () => {
           "question-type",
           "Spot the question type",
           "A supported inference question asks for the smallest conclusion made likely by the passage. It never gives permission to invent a motive, event, or absolute claim.",
-          "What wording tells you the question is asking for an inference rather than a stated detail?",
+          "Look for wording that asks for an inference rather than a stated detail.",
         ],
         [
           "mental-model",
           "Shrink the claim",
           "Treat an inference as the smallest conclusion made likely by the cited lines. Start from what the text proves, then add only one cautious step beyond it.",
-          "Which word in your prediction makes the claim cautious rather than absolute?",
+          "Keep the prediction cautious rather than absolute.",
         ],
         [
           "guided-example",
           "Trace the evidence",
           "Read the curator example and underline the repeated behavior. That repetition signals concern without proving a specific disaster or motive.",
-          "What is the narrowest conclusion supported by checking humidity twice?",
+          "Start with the repeated behavior and choose the narrowest conclusion.",
         ],
         [
           "decision-rule",
           "Run the two-part test",
           "First point to the exact evidence. Then inspect every new noun, motive, and absolute word in the answer choice because each needs separate support.",
-          "Which new claim would force you to reject an otherwise plausible choice?",
+          "Reject an otherwise plausible choice when it adds an unsupported claim.",
         ],
         [
           "need-to-know",
           "Keep the burden of proof",
           "Every important part of an inference needs support from the passage. Reject a choice when its key noun, motive, certainty, or event appears only in the answer.",
-          "Which unsupported addition is easiest for you to miss when an answer otherwise sounds reasonable?",
-        ],
-        [
-          "transfer",
-          "Hold up under time",
-          "Use the same evidence test when the passage is longer. The location of the proof changes, but the burden of proof for every answer stays fixed.",
-          "State the rule before beginning the focused set.",
+          "Keep every important part of the answer tied to the passage.",
         ],
       ].map(([id, title, explanation, coachPrompt]) => ({
         id,
@@ -129,7 +125,7 @@ describe("lesson composition", () => {
       })),
       strategyChecklist: [
         "Locate the relevant lines",
-        "Restate only what they establish",
+        "Use only what they establish",
         "Predict a cautious conclusion",
         "Reject unsupported additions",
       ],
@@ -150,7 +146,11 @@ describe("lesson composition", () => {
     const lesson = await composer.compose(input);
     expect(lesson.generation.mode).toBe("ai");
     expect(lesson.generation.model).toBe("qwen-test");
+    expect(lesson.sections).toHaveLength(5);
     expect(lesson.sections[0].id).toBe("question-type");
+    expect(JSON.stringify(lesson)).not.toMatch(
+      /in your own words|say the rule|name the rule|rewrite the rule/i,
+    );
   });
 
   it("falls back safely when model output is malformed", async () => {
@@ -168,6 +168,6 @@ describe("lesson composition", () => {
     });
     const lesson = await composer.compose(input);
     expect(lesson.generation.mode).toBe("authored-fallback");
-    expect(lesson.sections).toHaveLength(6);
+    expect(lesson.sections).toHaveLength(5);
   });
 });

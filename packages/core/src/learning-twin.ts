@@ -305,8 +305,11 @@ export function applyKnowledgeObservation(
   const parameters = PARAMETERS_BY_DIFFICULTY[observation.difficulty];
   const confidence = observation.confidence ?? "sure";
   const informationWeight =
-    (confidence === "sure" ? 1 : confidence === "unsure" ? 0.78 : 0.48) *
-    (observation.selfCorrected ? 0.82 : 1);
+    (confidence === "sure" || confidence === "unreported"
+      ? 1
+      : confidence === "unsure"
+        ? 0.78
+        : 0.48) * (observation.selfCorrected ? 0.82 : 1);
   const learnedBefore = clamp(state.learnedProbability);
   const learnedLikelihood = observation.correct
     ? learnedBefore * (1 - parameters.slip)

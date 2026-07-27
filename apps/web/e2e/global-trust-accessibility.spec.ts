@@ -98,7 +98,6 @@ test("compact desktop navigation keeps primary controls easy to target", async (
     page.getByRole("tab", { name: "Progress" }),
     header.getByRole("button", { name: "More" }),
     header.getByRole("button", { name: "Ask Scout" }),
-    header.getByRole("button", { name: "Edit goal and study schedule" }),
     header.getByRole("button", { name: "Sign in / save progress" }),
   ]
 
@@ -108,6 +107,15 @@ test("compact desktop navigation keeps primary controls easy to target", async (
     expect(bounds!.height).toBeGreaterThanOrEqual(44)
     expect(bounds!.width).toBeGreaterThanOrEqual(44)
   }
+
+  await header.getByRole("button", { name: "More" }).click()
+  const goalAndSchedule = page.getByRole("menuitem", {
+    name: "Goal and schedule",
+  })
+  const goalBounds = await goalAndSchedule.boundingBox()
+  expect(goalBounds).not.toBeNull()
+  expect(goalBounds!.height).toBeGreaterThanOrEqual(44)
+  await header.getByRole("button", { name: "More" }).click()
 
   await header.getByRole("button", { name: "Sign in / save progress" }).click()
   const account = page.getByRole("dialog", { name: "Welcome back." })

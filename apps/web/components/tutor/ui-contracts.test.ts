@@ -88,9 +88,11 @@ describe("shared visual system contract", () => {
     expect(buttons).toContain('"h-9 gap-2 px-3.5')
     expect(tabs).toContain("group-data-horizontal/tabs:h-9")
     expect(tabs).toContain("data-active:text-primary")
+    expect(mission).toContain('data-testid="today-focus"')
     expect(mission).toContain(
-      "paper-panel min-w-0 rounded-2xl border border-border/80 bg-card"
+      "min-h-[calc(100svh-12rem)] max-w-3xl items-center justify-center"
     )
+    expect(mission).not.toContain("lg:grid-cols-[minmax(0,1fr)_19rem]")
     expect(onboarding).toContain("grid grid-cols-3 gap-2")
     expect(onboarding).toContain(
       "paper-panel w-full rounded-2xl border border-border/80 bg-card"
@@ -157,9 +159,18 @@ describe("learner-facing model language", () => {
     const diagnosticRunner = await source(
       "components/tutor/diagnostic-runner.tsx"
     )
-    expect(dashboard).toContain('"planning baseline"')
-    expect(mission).toContain("Planning baseline · not an ACT score")
-    expect(mission).toContain("No streak yet")
+    expect(dashboard).not.toContain("function ScoreRoute")
+    expect(dashboard).toContain("<PencilLineIcon /> Goal and schedule")
+    expect(dashboard).toContain(
+      'startMissionAction({ action: "start_next" }, true)'
+    )
+    expect(dashboard).toContain('!(workspaceOpen && activeTab === "today")')
+    expect(mission).toContain("Next: {nextLabel}")
+    expect(mission).toContain("Continue the practice questions for this skill.")
+    expect(mission).not.toContain("Why Scout picked this")
+    expect(mission).not.toContain("Later today")
+    expect(mission).not.toContain("Planning baseline · not an ACT score")
+    expect(mission).not.toContain("No streak yet")
     expect(onboarding).toContain(
       "This is a planning goal—not a score prediction"
     )
@@ -170,7 +181,9 @@ describe("learner-facing model language", () => {
     expect(onboarding).toContain("Create my starter plan")
     expect(onboarding).not.toContain("Preview Scout with sample answers")
     expect(quickCheck).toContain("Scout may")
-    expect(quickCheck).toContain("gives Scout the clearest next")
+    expect(quickCheck).toContain(
+      'latestEvent.correct ? "Correct." : "Not quite."'
+    )
     expect(quickCheck).toContain("Correct—Scout adjusted your next steps.")
     expect(quickCheck).toContain("1 · Question match")
     expect(quickCheck).toContain("Still next")
@@ -180,18 +193,25 @@ describe("learner-facing model language", () => {
     expect(studyPlan).toContain('label: "Add study time"')
     expect(learnerModel).not.toContain("This records two adjacent answers")
     expect(learningData).toContain("See what Scout knows about your learning")
-    expect(lesson).toContain("Current skill estimate")
+    expect(lesson).toContain('"Check answer"')
+    expect(lesson).not.toContain("How sure are you?")
+    expect(lesson).not.toContain("Review answer")
+    expect(lesson).not.toContain("Why Scout picked this")
+    expect(lesson).not.toContain("Change how Scout explains this")
+    expect(lesson).not.toContain("section.coachPrompt")
     expect(lesson).not.toContain("practice-priority total")
+    expect(lesson).toContain("lessonSegmentMinutes(")
     expect(progress).toContain("Your skill practice picture")
     expect(progress).toContain("How Scout chose this skill")
-    expect(timedPractice).toContain("Sure, Unsure, or Guessing")
+    expect(timedPractice).not.toContain("Sure, Unsure, or Guessing")
+    expect(timedPractice).not.toContain("self-reported confidence")
     expect(diagnosticIntro).toContain("Find your starting point")
     expect(diagnosticIntro).not.toContain(
       "Create an internal planning baseline"
     )
     expect(diagnosticRunner).toContain("Your practice starting range")
     expect(diagnosticRunner).not.toContain("Your internal planning range")
-    expect(mission).toContain("how uncertain the estimate is")
+    expect(mission).not.toContain("how uncertain the estimate is")
     expect(studyPlan).not.toContain("BKT estimate")
   })
 })
@@ -241,7 +261,8 @@ describe("deadline learner UX contract", () => {
     expect(quickCheck).toContain(
       'window.addEventListener("keydown", chooseWithKeyboard)'
     )
-    expect(quickCheck).toContain("What happens after I answer?")
+    expect(quickCheck).not.toContain("What happens after I answer?")
+    expect(quickCheck).not.toContain("Why this question?")
     expect(studyPlan).toContain("navigator.clipboard.writeText")
     expect(studyPlan).toContain("Copy week")
     expect(studyPlan).toContain("Week copied")
@@ -254,6 +275,8 @@ describe("deadline learner UX contract", () => {
     const quickCheck = await source(
       "components/tutor/adaptive-calibration-lab.tsx"
     )
+    const examRunner = await source("components/tutor/exam-lab-runner.tsx")
+    const testDayLab = await source("components/tutor/test-day-lab.tsx")
     const questionTransition = quickCheck.slice(
       quickCheck.indexOf("const currentQuestionId"),
       quickCheck.indexOf("async function submitAnswer")
@@ -284,10 +307,16 @@ describe("deadline learner UX contract", () => {
     expect(questionTransition).not.toContain("showLatestAnswer")
     expect(quickCheck).toContain('role="status"')
     expect(quickCheck).toContain("setShowLatestAnswer(true)")
-    expect(quickCheck).toContain("useState<AnswerConfidence | null>(null)")
     expect(quickCheck).toContain(
-      "disabled={!selectedChoice || !confidence || busy}"
+      'const DEFAULT_ANSWER_CONFIDENCE = "unreported" as const'
     )
+    expect(quickCheck).toContain("confidence: DEFAULT_ANSWER_CONFIDENCE")
+    expect(quickCheck).toContain("disabled={!selectedChoice || busy}")
+    expect(quickCheck).not.toContain("How sure are you?")
+    expect(quickCheck).not.toContain("Choose one before checking")
+    expect(examRunner).not.toContain("How sure are you?")
+    expect(examRunner).not.toContain('"Guessing"')
+    expect(testDayLab).toContain('confidence: previous?.confidence ?? "sure"')
     expect(quickCheck).not.toContain("(optional)")
   })
 })
@@ -314,7 +343,7 @@ describe("practice timing contract", () => {
     expect(report).toContain("not included above")
     expect(report).toContain("Incomplete timed practice")
     expect(report).toContain(
-      "it will not infer a score, strength, pacing pattern, confidence pattern, or next lesson"
+      "it will not infer a score, strength, pacing pattern, or next lesson"
     )
   })
 })

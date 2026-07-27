@@ -39,8 +39,7 @@ const MODES = [
     id: "section",
     title: "One-section practice",
     meta: "36–50 questions · full section timing",
-    description:
-      "Practice one section, then compare time and self-reported confidence with correctness.",
+    description: "Practice one section, then compare time with correctness.",
     icon: BookOpenCheckIcon,
   },
   {
@@ -85,7 +84,7 @@ export function ExamLabSetup({
           <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
             {modeLocked
               ? "This round calls for the full-length English, Math, and Reading test. Finish it, review the report, then choose whether to use that evidence for your next lesson round."
-              : "Choose a quick quiz, one section, or a full-length practice test. You’ll get raw accuracy, time per question, a confidence breakdown, and a suggested next action. Timed Practice results stay separate from your study plan, so they do not change Today or My week."}
+              : "Choose a quick quiz, one section, or a full-length practice test. You’ll get raw accuracy, time per question, and a suggested next action. Timed Practice results stay separate from your study plan, so they do not change Today or My week."}
           </p>
 
           <div
@@ -211,11 +210,11 @@ export function ExamLabSetup({
         <aside className="lg:pt-8">
           <ScoutCoach
             mood="ready"
-            message="Treat this as practice, not a final judgment. Compare how long you spent and how sure you felt with which answers were correct."
+            message="Treat this as practice, not a final judgment. Compare how long you spent with which answers were correct."
             detail={
               modeLocked
                 ? "Answer keys stay hidden until you submit. After the report, you can explicitly use the completed full-length result to build the next lesson round."
-                : "Answer keys stay hidden until you submit. The report uses correctness, elapsed time, and the confidence label you chose. It stays inside Timed Practice and does not update Today or My Week."
+                : "Answer keys stay hidden until you submit. The report uses correctness and elapsed time. It stays inside Timed Practice and does not update Today or My Week."
             }
           />
           <section className="mt-8 border-y-2 border-foreground py-6">
@@ -230,7 +229,7 @@ export function ExamLabSetup({
                 ],
                 [
                   GaugeIcon,
-                  "Mark confidence honestly: Sure, Unsure, or Guessing.",
+                  "Answer each question, then flag anything you want to revisit.",
                 ],
                 [
                   ShieldCheckIcon,

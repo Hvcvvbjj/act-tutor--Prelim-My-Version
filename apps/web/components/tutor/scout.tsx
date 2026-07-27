@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils"
 export type ScoutMood = "ready" | "thinking" | "correct" | "repair"
 
 const MOOD_COPY: Record<ScoutMood, string> = {
-  ready: "I’ll show you the rule, then you’ll try it on a new question.",
-  thinking: "Slow down and ask what the question is really testing.",
-  correct: "Correct. Now explain why the other close answer is wrong.",
-  repair: "Not quite. Find the first step where your reasoning went off track.",
+  ready: "Here’s the key idea.",
+  thinking: "Take another look at the question.",
+  correct: "Correct. Keep going.",
+  repair: "Not quite. Check the first step and try again.",
 }
 
 export function ScoutMark({

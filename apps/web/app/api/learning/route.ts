@@ -605,7 +605,9 @@ export async function POST(request: NextRequest) {
           questionId: body.questionId,
           choiceId: body.choiceId,
           confidence:
-            body.confidence === "unsure" || body.confidence === "guessing"
+            body.confidence === "unsure" ||
+            body.confidence === "guessing" ||
+            body.confidence === "unreported"
               ? body.confidence
               : "sure",
           selfCorrected: body.selfCorrected === true,

@@ -81,8 +81,16 @@ describe("learning mastery", () => {
       confidence: "guessing",
       answeredAt: "2026-07-12T12:00:00.000Z",
     });
+    const unreported = applyPracticeAttempt(seed, {
+      skill: sentenceSkill.slug,
+      correct: true,
+      difficulty: "medium",
+      confidence: "unreported",
+      answeredAt: "2026-07-12T12:00:00.000Z",
+    });
 
     expect(sure.mastery.mastery).toBeGreaterThan(guessed.mastery.mastery);
+    expect(unreported.mastery.mastery).toBe(sure.mastery.mastery);
   });
 
   it("keeps today's skill stable while letting the future task change", () => {

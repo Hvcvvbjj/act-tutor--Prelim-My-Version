@@ -6,7 +6,7 @@ import type { LearningTwinSnapshot } from "./learning-twin";
 export type SkillSlug = string;
 export type PracticeDifficulty = "easy" | "medium" | "hard";
 export type MasteryBand = "new" | "building" | "steady" | "secure";
-export type AnswerConfidence = "sure" | "unsure" | "guessing";
+export type AnswerConfidence = "sure" | "unsure" | "guessing" | "unreported";
 export type ExplanationDepth = "quick" | "normal" | "detailed";
 export type ReadingLevel = "plain" | "standard" | "advanced";
 export type ExampleStyle = "school" | "sports" | "gaming" | "everyday";
@@ -381,7 +381,11 @@ export function answerEvidenceWeight(
   selfCorrected = false,
 ) {
   const confidenceWeight =
-    confidence === "sure" ? 1 : confidence === "unsure" ? 0.78 : 0.48;
+    confidence === "sure" || confidence === "unreported"
+      ? 1
+      : confidence === "unsure"
+        ? 0.78
+        : 0.48;
   return Math.round(confidenceWeight * (selfCorrected ? 0.82 : 1) * 100) / 100;
 }
 

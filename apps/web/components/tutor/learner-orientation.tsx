@@ -11,15 +11,10 @@ import {
   ArrowRightIcon,
   BookOpenCheckIcon,
   BrainCircuitIcon,
-  CalendarDaysIcon,
-  CheckCircle2Icon,
   CircleGaugeIcon,
   Clock3Icon,
   MessageCircleIcon,
   RouteIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  TargetIcon,
 } from "lucide-react"
 
 import { ScoutMark } from "@/components/tutor/scout"
@@ -40,7 +35,7 @@ export interface LearnerOrientationProps {
 }
 
 type OrientationStage = "score" | "tour" | "profile" | "choice" | "explain"
-type TourPreviewKind = "today" | "week" | "check" | "progress" | "practice"
+type TourPreviewKind = "plan" | "check" | "practice"
 
 interface SkillDefinition {
   slug: string
@@ -79,29 +74,25 @@ const SECTION_SKILLS = {
       slug: "sentence-boundaries",
       label: "Sentence boundaries",
       shortLabel: "Boundaries",
-      explanation:
-        "Tell complete sentences from fragments and run-ons before choosing punctuation.",
+      explanation: "Spot fragments and run-ons before choosing punctuation.",
     },
     {
       slug: "punctuation-and-commas",
       label: "Punctuation and commas",
       shortLabel: "Punctuation",
-      explanation:
-        "Use punctuation for sentence structure, not simply where you hear a pause.",
+      explanation: "Match punctuation to the sentence’s structure.",
     },
     {
       slug: "concision-and-redundancy",
       label: "Concision and redundancy",
       shortLabel: "Concision",
-      explanation:
-        "Keep the clearest complete wording and remove ideas that repeat the same job.",
+      explanation: "Cut repeated ideas and keep the clearest complete version.",
     },
     {
       slug: "logical-transitions",
       label: "Logical transitions",
       shortLabel: "Transitions",
-      explanation:
-        "Choose a transition by the relationship between ideas: continuation, contrast, cause, or result.",
+      explanation: "Match the transition to contrast, cause, or continuation.",
     },
   ],
   math: [
@@ -110,28 +101,27 @@ const SECTION_SKILLS = {
       label: "Ratios and percent",
       shortLabel: "Ratios",
       explanation:
-        "Name the whole, translate the relationship, and check whether the result is reasonable.",
+        "Translate the relationship, solve it, then check the scale.",
     },
     {
       slug: "linear-equations",
       label: "Linear equations",
       shortLabel: "Equations",
       explanation:
-        "Undo operations in order while keeping both sides of an equation balanced.",
+        "Undo operations in order while keeping both sides balanced.",
     },
     {
       slug: "functions-and-modeling",
       label: "Functions and modeling",
       shortLabel: "Functions",
       explanation:
-        "Connect inputs and outputs across formulas, tables, graphs, and real situations.",
+        "Connect inputs and outputs across equations, tables, and graphs.",
     },
     {
       slug: "geometry-and-measurement",
       label: "Geometry and measurement",
       shortLabel: "Geometry",
-      explanation:
-        "Decide whether a problem asks for length, area, volume, or angle measure before choosing a formula.",
+      explanation: "Identify the measurement before choosing a formula.",
     },
   ],
   reading: [
@@ -140,90 +130,49 @@ const SECTION_SKILLS = {
       label: "Central ideas and details",
       shortLabel: "Central ideas",
       explanation:
-        "Find the passage’s controlling point and separate it from a single interesting detail.",
+        "Separate the passage’s main point from a supporting detail.",
     },
     {
       slug: "textual-evidence-and-details",
       label: "Textual evidence and details",
       shortLabel: "Evidence",
-      explanation:
-        "Locate the exact support in the passage and choose only what those lines prove.",
+      explanation: "Choose only what the cited lines actually support.",
     },
     {
       slug: "supported-inference",
       label: "Supported inference",
       shortLabel: "Inference",
       explanation:
-        "Take one careful step beyond the words without adding an unsupported motive or claim.",
+        "Take one careful step beyond the text—without adding a story.",
     },
     {
       slug: "author-purpose-and-structure",
       label: "Author purpose and structure",
       shortLabel: "Purpose",
-      explanation:
-        "Identify the job a sentence or paragraph does, such as contrast, example, cause, or background.",
+      explanation: "Identify what a sentence or paragraph is doing.",
     },
   ],
 } as const satisfies Record<CoreSection, ReadonlyArray<SkillDefinition>>
 
 const TOUR_STEPS = [
   {
-    label: "Today",
-    title: "Start with one clear route.",
-    copy: "Today keeps the next lesson, short practice, and review in one place, so you always know what to do first.",
-    points: [
-      "See the next required step",
-      "Finish work in small, schedulable pieces",
-      "Return without losing your place",
-    ],
+    label: "Today + My Week",
+    title: "One plan, two views.",
+    copy: "Today shows what to do next. My Week shows when it fits.",
     icon: RouteIcon,
-    preview: "today",
+    preview: "plan",
   },
   {
-    label: "My week",
-    title: "See the work before the week starts.",
-    copy: "Your weekly plan breaks preparation into manageable days and shows how each session moves you toward test day.",
-    points: [
-      "Preview each study day",
-      "See lesson and practice time",
-      "Keep test day in view",
-    ],
-    icon: CalendarDaysIcon,
-    preview: "week",
-  },
-  {
-    label: "Quick Check",
-    title: "Get a useful signal without a full test.",
-    copy: "A Quick Check uses 8–12 adaptive questions to update what Scout has measured and what still needs evidence.",
-    points: [
-      "Shorter than a full diagnostic",
-      "Adapts as you answer",
-      "Leaves untested skills marked as not measured",
-    ],
+    label: "Checks + Progress",
+    title: "See what Scout has measured.",
+    copy: "Quick Checks update your skill map. Progress shows what changed.",
     icon: CircleGaugeIcon,
     preview: "check",
   },
   {
-    label: "Progress",
-    title: "Know what changed—and why.",
-    copy: "Progress separates observed question-type results from planning scores, so a small sample never pretends to be a final grade.",
-    points: [
-      "Review section baselines",
-      "See measured question types",
-      "Spot where more evidence is needed",
-    ],
-    icon: TargetIcon,
-    preview: "progress",
-  },
-  {
     label: "Coach and practice",
-    title: "Ask for help, then rehearse the clock.",
-    copy: "Mr. Kim can explain a step in plain English, while timed practice helps you learn when to move on.",
-    points: [
-      "Ask for a hint or explanation",
-      "Practice with test-like timing",
-      "Review the reasoning after you answer",
-    ],
+    title: "Get help when you need it.",
+    copy: "Ask Mr. Kim for an explanation, then practice with or without a timer.",
     icon: MessageCircleIcon,
     preview: "practice",
   },
@@ -420,12 +369,10 @@ function SkillPolygon({
   title,
   subtitle,
   data,
-  emphasized = false,
 }: {
   title: string
   subtitle: string
   data: ReadonlyArray<PolygonDatum>
-  emphasized?: boolean
 }) {
   const allMeasured = data.every((datum) => datum.value !== null)
   const measuredCount = data.filter((datum) => datum.value !== null).length
@@ -439,21 +386,18 @@ function SkillPolygon({
     : ""
 
   return (
-    <section
-      className={cn(
-        "border-t-4 bg-background p-5 sm:p-6",
-        emphasized ? "border-t-[var(--scout-coral)]" : "border-t-primary"
-      )}
-    >
-      <div className="min-h-20">
-        <p className="ink-label text-muted-foreground">{subtitle}</p>
-        <h2 className="mt-2 font-heading text-2xl font-black">{title}</h2>
-      </div>
+    <section className="flex min-w-0 flex-col bg-background p-5 sm:p-7">
+      <header className="text-center">
+        <h2 className="font-heading text-2xl font-black">{title}</h2>
+        <p className="mt-2 text-xs font-semibold text-muted-foreground">
+          {subtitle}
+        </p>
+      </header>
 
-      <div className="mt-3 flex justify-center">
+      <div className="mt-5 flex flex-1 items-center justify-center">
         <svg
           viewBox="0 0 240 240"
-          className="aspect-square w-full max-w-64 overflow-visible"
+          className="aspect-square w-full max-w-60 overflow-visible"
           aria-hidden="true"
           focusable="false"
         >
@@ -486,9 +430,9 @@ function SkillPolygon({
           {allMeasured ? (
             <polygon
               points={dataPoints}
-              fill={emphasized ? "var(--scout-coral)" : "var(--primary)"}
+              fill="var(--primary)"
               fillOpacity="0.16"
-              stroke={emphasized ? "var(--scout-coral)" : "var(--primary)"}
+              stroke="var(--primary)"
               strokeWidth="3"
               strokeLinejoin="round"
             />
@@ -513,7 +457,7 @@ function SkillPolygon({
                   y1={start.y}
                   x2={end.x}
                   y2={end.y}
-                  stroke={emphasized ? "var(--scout-coral)" : "var(--primary)"}
+                  stroke="var(--primary)"
                   strokeWidth="3"
                   strokeLinecap="round"
                 />
@@ -534,7 +478,7 @@ function SkillPolygon({
                 cy={point.y}
                 r="4.5"
                 fill="var(--background)"
-                stroke={emphasized ? "var(--scout-coral)" : "var(--primary)"}
+                stroke="var(--primary)"
                 strokeWidth="3"
               />
             )
@@ -562,7 +506,7 @@ function SkillPolygon({
                     ? "var(--muted-foreground)"
                     : "var(--foreground)"
                 }
-                fontSize="9.5"
+                fontSize="11"
                 fontWeight="700"
               >
                 {datum.shortLabel}
@@ -572,31 +516,29 @@ function SkillPolygon({
         </svg>
       </div>
 
-      {measuredCount < data.length ? (
-        <p className="mt-1 text-center text-xs leading-5 text-muted-foreground">
-          Partial shape: {data.length - measuredCount}{" "}
-          {data.length - measuredCount === 1 ? "area was" : "areas were"} not
-          measured.
-        </p>
-      ) : null}
-
-      <dl className="mt-5 divide-y border-y">
+      <p className="mt-2 text-center font-mono text-xs font-bold text-muted-foreground">
+        {measuredCount} of {data.length} measured
+      </p>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-4 text-xs">
         {data.map((datum) => (
           <div
-            key={datum.label}
-            className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline sm:gap-4"
+            key={`visible-${datum.label}`}
+            className="flex min-w-0 items-center justify-between gap-2"
           >
-            <dt className="text-sm font-semibold">{datum.label}</dt>
-            <dd
-              className={cn(
-                "text-sm sm:text-right",
-                datum.value === null
-                  ? "font-medium text-muted-foreground"
-                  : "font-mono text-xs font-bold text-primary"
-              )}
-            >
-              {datum.detail}
+            <dt className="truncate text-muted-foreground">
+              {datum.shortLabel}
+            </dt>
+            <dd className="shrink-0 font-mono font-bold">
+              {datum.value === null ? "—" : observedPercent(datum.value)}
             </dd>
+          </div>
+        ))}
+      </dl>
+      <dl className="sr-only">
+        {data.map((datum) => (
+          <div key={datum.label}>
+            <dt>{datum.label}</dt>
+            <dd>{datum.detail}</dd>
           </div>
         ))}
       </dl>
@@ -605,73 +547,55 @@ function SkillPolygon({
 }
 
 function TourPreview({ kind }: { kind: TourPreviewKind }) {
-  if (kind === "today") {
+  if (kind === "plan") {
     return (
-      <div className="w-full space-y-3" aria-hidden="true">
-        {[
-          ["Lesson", "Question types first", "7 min"],
-          ["Practice", "Try three examples", "6 min"],
-          ["Review", "Explain one answer", "3 min"],
-        ].map(([label, title, time], index) => (
-          <div
-            key={label}
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border bg-background p-3"
-          >
-            <span
-              className={cn(
-                "flex size-8 items-center justify-center rounded-full text-xs font-black",
-                index === 0
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              {index + 1}
-            </span>
+      <div className="w-full border bg-background" aria-hidden="true">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4">
+          <span className="flex size-9 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
+            1
+          </span>
+          <div>
+            <p className="ink-label text-primary">Today</p>
+            <p className="mt-1 text-sm font-bold">Question types first</p>
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">7 min</span>
+        </div>
+        <div className="border-t p-4">
+          <div className="flex items-baseline justify-between gap-4">
             <div>
-              <p className="ink-label text-muted-foreground">{label}</p>
-              <p className="mt-1 text-sm font-bold">{title}</p>
+              <p className="ink-label text-muted-foreground">My Week</p>
+              <p className="mt-1 text-sm font-bold">Three short sessions</p>
             </div>
             <span className="font-mono text-xs text-muted-foreground">
-              {time}
+              36 min
             </span>
           </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (kind === "week") {
-    return (
-      <div className="w-full" aria-hidden="true">
-        <div className="grid grid-cols-5 gap-2">
-          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => (
-            <div
-              key={day}
-              className={cn(
-                "border px-2 py-4 text-center",
-                index === 2 ? "border-primary bg-secondary" : "bg-background"
-              )}
-            >
-              <p className="ink-label text-muted-foreground">{day}</p>
-              <span
+          <div className="mt-4 grid grid-cols-5 gap-2">
+            {["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => (
+              <div
+                key={day}
                 className={cn(
-                  "mx-auto mt-4 block size-3 rounded-full",
-                  index === 2
-                    ? "bg-primary"
-                    : index < 2
-                      ? "bg-[var(--scout-sun)]"
-                      : "border-2 border-border"
+                  "border px-2 py-3 text-center",
+                  index === 2 ? "border-primary bg-secondary" : "bg-background"
                 )}
-              />
-              <p className="mt-3 font-mono text-xs">
-                {index === 2 ? "16 min" : index < 2 ? "Done" : "12 min"}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center gap-3 border-l-4 border-[var(--scout-coral)] bg-[var(--coach-surface)] p-3">
-          <CalendarDaysIcon className="size-5" />
-          <p className="text-sm font-semibold">Test day stays visible.</p>
+              >
+                <p className="ink-label text-muted-foreground">{day}</p>
+                <span
+                  className={cn(
+                    "mx-auto mt-4 block size-3 rounded-full",
+                    index === 2
+                      ? "bg-primary"
+                      : index < 2
+                        ? "bg-[var(--scout-sun)]"
+                        : "border-2 border-border"
+                  )}
+                />
+                <p className="mt-3 font-mono text-xs">
+                  {index === 2 ? "12m" : index < 2 ? "Done" : "—"}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -696,40 +620,20 @@ function TourPreview({ kind }: { kind: TourPreviewKind }) {
           <span>Adapts as you go</span>
           <span>Question 4</span>
         </div>
-      </div>
-    )
-  }
-
-  if (kind === "progress") {
-    return (
-      <div
-        className="w-full space-y-5 border bg-background p-5"
-        aria-hidden="true"
-      >
-        {[
-          ["English", "Measured", "w-[72%]"],
-          ["Math", "More evidence needed", "w-[46%]"],
-          ["Reading", "Measured", "w-[63%]"],
-        ].map(([section, state, width]) => (
-          <div key={section}>
-            <div className="flex items-end justify-between gap-3">
-              <p className="font-bold">{section}</p>
-              <p className="text-xs text-muted-foreground">{state}</p>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-              <div className={cn("h-full rounded-full bg-primary", width)} />
-            </div>
+        <div className="mt-5 border-t pt-4">
+          <div className="flex items-center justify-between gap-4">
+            <p className="ink-label text-muted-foreground">Progress</p>
+            <p className="text-xs font-semibold text-primary">
+              Skill map updated
+            </p>
           </div>
-        ))}
-        <p className="border-t pt-4 text-xs leading-5 text-muted-foreground">
-          Observed results and planning scores stay clearly labeled.
-        </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="w-full space-y-4" aria-hidden="true">
+    <div className="w-full border bg-background" aria-hidden="true">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 bg-[var(--coach-surface)] p-4">
         <MessageCircleIcon className="mt-1 size-6 text-[var(--scout-coral-text)]" />
         <div>
@@ -741,14 +645,12 @@ function TourPreview({ kind }: { kind: TourPreviewKind }) {
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-4 border bg-background p-4">
+      <div className="flex items-center justify-between gap-4 border-t p-4">
         <div className="flex items-center gap-3">
           <Clock3Icon className="size-7 text-primary" />
           <div>
             <p className="font-bold">Timed practice</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Practice pacing without hiding the review.
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Optional timer</p>
           </div>
         </div>
         <span className="font-mono text-sm font-bold">04:32</span>
@@ -820,7 +722,6 @@ export function LearnerOrientation({
         : null
 
     return {
-      measuredTotal,
       data: [
         ...sectionAverages.map(({ section, average, measured }) => ({
           label: SECTION_LABELS[section],
@@ -867,77 +768,49 @@ export function LearnerOrientation({
   return (
     <div className="min-h-svh bg-[var(--canvas)] text-foreground">
       <header className="border-b bg-background">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-baseline gap-3">
-            <span className="font-brand text-lg font-black tracking-[-0.02em]">
-              Scout ACT
-            </span>
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              New learner orientation
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-            <ShieldCheckIcon className="size-4 text-primary" />
-            Your results stay labeled
-          </div>
+        <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <span className="font-brand text-lg font-black tracking-[-0.02em]">
+            Scout ACT
+          </span>
+          <span className="text-sm text-muted-foreground">Orientation</span>
         </div>
       </header>
 
       <main
-        className="mx-auto min-h-[calc(100svh-4rem)] max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
+        className="mx-auto min-h-[calc(100svh-4rem)] max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8"
         aria-label="New learner orientation"
       >
         {stage === "score" ? (
-          <section className="grid min-h-[calc(100svh-10rem)] items-center gap-10 py-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:gap-16">
-            <div className="animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+          <section className="mx-auto flex min-h-[calc(100svh-9rem)] max-w-3xl items-center justify-center py-6 text-center">
+            <div className="w-full animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
               <p className="ink-label text-primary">{completionLabel}</p>
               <h1
                 ref={headingRef}
                 tabIndex={-1}
-                className={cn(sharedHeadingClass, "mt-4 max-w-3xl")}
+                className={cn(sharedHeadingClass, "mx-auto mt-4 max-w-3xl")}
               >
                 Your starting point is ready.
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-                This is a planning baseline—not a promise or a limit. Your
-                lessons will change as Scout sees more work.
+              <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-muted-foreground">
+                A planning starting point, not a limit. Scout updates it as you
+                work.
               </p>
-              <div className="mt-8 flex items-start gap-4 border-l-4 border-[var(--scout-sun)] pl-5">
-                <SparklesIcon className="mt-1 size-5 shrink-0 text-[var(--scout-coral-text)]" />
-                <p className="max-w-xl text-sm leading-6">
-                  First, take a short tour. Then you’ll see exactly which
-                  question types were measured before Mr. Kim helps you choose
-                  what comes next.
+
+              <div className="mx-auto mt-9 max-w-xl border-y py-7">
+                <p className="ink-label text-muted-foreground">
+                  Planning score
+                </p>
+                <div className="mt-2 font-heading text-[8rem] leading-none font-black text-primary tabular-nums sm:text-[10rem]">
+                  <ScoreCountUp
+                    score={currentScore}
+                    reducedMotion={reducedMotion}
+                    onReady={setScoreReady}
+                  />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-muted-foreground">
+                  Goal: <span className="text-foreground">{targetScore}</span>
                 </p>
               </div>
-            </div>
-
-            <div className="paper-panel border-2 border-foreground bg-background p-6 sm:p-8">
-              <p className="ink-label text-muted-foreground">
-                Current planning score
-              </p>
-              <div className="mt-4 font-heading text-8xl leading-none font-black text-primary tabular-nums sm:text-9xl">
-                <ScoreCountUp
-                  score={currentScore}
-                  reducedMotion={reducedMotion}
-                  onReady={setScoreReady}
-                />
-              </div>
-
-              <dl className="mt-8 grid grid-cols-2 gap-4 border-y py-5">
-                <div>
-                  <dt className="ink-label text-muted-foreground">Starting</dt>
-                  <dd className="mt-2 font-heading text-3xl font-black">
-                    {currentScore}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="ink-label text-muted-foreground">Goal</dt>
-                  <dd className="mt-2 font-heading text-3xl font-black">
-                    {targetScore}
-                  </dd>
-                </div>
-              </dl>
 
               <p className="sr-only" aria-live="polite">
                 {scoreReady
@@ -947,7 +820,7 @@ export function LearnerOrientation({
               <Button
                 type="button"
                 size="xl"
-                className="mt-7 w-full"
+                className="mt-8 w-full max-w-sm"
                 disabled={!scoreReady}
                 onClick={() => setStage("tour")}
               >
@@ -959,10 +832,10 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "tour" ? (
-          <section className="mx-auto max-w-6xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
+          <section className="mx-auto max-w-4xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="ink-label text-primary">
-                Feature tour · {tourIndex + 1} of {TOUR_STEPS.length}
+                Tour · {tourIndex + 1} of {TOUR_STEPS.length}
               </p>
               <ol className="flex gap-2" aria-label="Feature tour progress">
                 {TOUR_STEPS.map((step, index) => (
@@ -993,38 +866,25 @@ export function LearnerOrientation({
               const StepIcon = step.icon
 
               return (
-                <div className="mt-8 grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)] lg:gap-16">
-                  <div>
-                    <div className="flex size-14 items-center justify-center rounded-full bg-secondary text-primary">
-                      <StepIcon className="size-7" aria-hidden="true" />
-                    </div>
-                    <p className="ink-label mt-7 text-muted-foreground">
-                      {step.label}
-                    </p>
-                    <h1
-                      ref={headingRef}
-                      tabIndex={-1}
-                      className={cn(sharedHeadingClass, "mt-3 max-w-3xl")}
-                    >
-                      {step.title}
-                    </h1>
-                    <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-                      {step.copy}
-                    </p>
-                    <ul className="mt-7 space-y-3">
-                      {step.points.map((point) => (
-                        <li
-                          key={point}
-                          className="flex items-start gap-3 text-sm leading-6"
-                        >
-                          <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-primary" />
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
+                <div className="mt-7 text-center">
+                  <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-secondary text-primary">
+                    <StepIcon className="size-5" aria-hidden="true" />
                   </div>
+                  <p className="ink-label mt-4 text-muted-foreground">
+                    {step.label}
+                  </p>
+                  <h1
+                    ref={headingRef}
+                    tabIndex={-1}
+                    className="mx-auto mt-2 max-w-3xl font-heading text-4xl leading-[1.04] font-black tracking-[-0.035em] outline-none sm:text-5xl"
+                  >
+                    {step.title}
+                  </h1>
+                  <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+                    {step.copy}
+                  </p>
 
-                  <div className="paper-panel flex min-h-96 items-center border p-5 sm:p-7">
+                  <div className="paper-panel mx-auto mt-7 flex min-h-64 max-w-2xl items-center border p-5 text-left sm:p-7">
                     <TourPreview kind={step.preview} />
                   </div>
                 </div>
@@ -1068,68 +928,58 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "profile" ? (
-          <section className="mx-auto max-w-7xl animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:items-end">
-              <div>
-                <p className="ink-label text-primary">Your starting profile</p>
-                <h1
-                  ref={headingRef}
-                  tabIndex={-1}
-                  className={cn(sharedHeadingClass, "mt-4 max-w-4xl")}
-                >
-                  {hasSkillEvidence
-                    ? "Four honest views of what we know so far."
-                    : "Your skill map needs a few answers first."}
-                </h1>
-              </div>
-              <p className="border-l-4 border-[var(--scout-sun)] pl-5 text-sm leading-6 text-muted-foreground">
+          <section className="mx-auto max-w-5xl animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+            <div className="text-center">
+              <p className="ink-label text-primary">Your starting profile</p>
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className={cn(sharedHeadingClass, "mx-auto mt-4 max-w-4xl")}
+              >
                 {hasSkillEvidence
-                  ? `Each point is the observed share correct for that exact question type. “Not measured yet” means your ${sourceLabel} did not test it—not that you are weak there.`
-                  : "You skipped the starting check, so Scout will not pretend the temporary setup score measured any question type."}
+                  ? "Your question-type map."
+                  : "No skill map yet."}
+              </h1>
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {hasSkillEvidence
+                  ? `These four shapes use only what your ${sourceLabel} measured. Blank points were not tested.`
+                  : "Scout will build these four views from your first scored questions."}
               </p>
             </div>
 
             {hasSkillEvidence ? (
-              <div className="mt-9 grid gap-px overflow-hidden border bg-border lg:grid-cols-2">
+              <div className="mt-8 grid gap-px overflow-hidden border bg-border sm:grid-cols-2">
                 {SECTION_ORDER.map((section) => (
                   <SkillPolygon
                     key={section}
                     title={SECTION_LABELS[section]}
                     subtitle={
                       sectionScores
-                        ? `Planning baseline ${normalizeActScore(sectionScores[section])}`
-                        : "Question-type evidence"
+                        ? `Planning score ${normalizeActScore(sectionScores[section])}`
+                        : "Question types"
                     }
                     data={sectionData[section]}
                   />
                 ))}
                 <SkillPolygon
                   title="Overall"
-                  subtitle={`${currentScore} now · ${targetScore} goal · ${overallData.measuredTotal} of 12 types measured`}
+                  subtitle={`${currentScore} now · ${targetScore} goal`}
                   data={overallData.data}
-                  emphasized
                 />
               </div>
             ) : (
-              <div className="mt-9 border-2 border-foreground bg-background p-7 sm:p-9">
-                <p className="ink-label text-primary">No measured shape yet</p>
-                <h2 className="mt-3 font-heading text-3xl font-black">
-                  Round 1 will build the evidence honestly.
+              <div className="mx-auto mt-8 max-w-2xl border-y bg-background px-4 py-8 text-center sm:px-8">
+                <h2 className="font-heading text-2xl font-black">
+                  Your first lessons will create it.
                 </h2>
-                <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
-                  You’ll still learn all 12 question types. As you answer scored
-                  questions, Scout will replace the temporary starting point
-                  with measured English, Math, Reading, and overall views.
+                <p className="mt-3 leading-7 text-muted-foreground">
+                  You’ll still learn all 12 question types. Scout adds the
+                  English, Math, Reading, and overall shapes as you answer.
                 </p>
               </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                {hasSkillEvidence
-                  ? "These shapes will become more complete as you answer more question types. They are study signals, not official ACT score reports."
-                  : "No blank polygon is being shown as if it were a weakness. Scout will add the skill views only after it has scored evidence."}
-              </p>
+            <div className="mt-8 flex justify-center">
               <Button
                 type="button"
                 size="xl"
@@ -1143,78 +993,65 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "choice" ? (
-          <section className="mx-auto grid min-h-[calc(100svh-10rem)] max-w-6xl items-center gap-10 py-6 lg:grid-cols-[minmax(18rem,0.65fr)_minmax(0,1.35fr)] lg:gap-16">
-            <div
-              className="flex justify-center lg:justify-start"
-              aria-hidden="true"
-            >
+          <section className="mx-auto flex min-h-[calc(100svh-9rem)] max-w-4xl items-center justify-center py-6 text-center">
+            <div className="w-full animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
               <ScoutMark
                 mood="ready"
-                className="size-44 motion-reduce:animate-none sm:size-56"
+                className="mx-auto size-28 motion-reduce:animate-none sm:size-36"
               />
-            </div>
-
-            <div className="animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
-              <p className="ink-label text-[var(--scout-coral-text)]">
-                Mr. Kim
+              <p className="ink-label mt-5 text-[var(--scout-coral-text)]">
+                Mr. Kim · Scout’s in-app coach
               </p>
               <h1
                 ref={headingRef}
                 tabIndex={-1}
-                className={cn(sharedHeadingClass, "mt-4 max-w-3xl")}
+                className={cn(sharedHeadingClass, "mx-auto mt-4 max-w-3xl")}
               >
-                Want the question-type tour, or should we jump in?
+                Want a quick question-type preview?
               </h1>
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">
-                Either way, your first lesson round covers all 12 question types
-                and what you need to know. Your results will personalize later
-                rounds after that foundation is complete.
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
+                See the 12 types now, or start lesson one. Round one teaches all
+                of them either way.
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
                 <button
                   type="button"
-                  className="group min-h-44 border-2 border-primary bg-background p-5 text-left transition-[background-color,transform] hover:bg-secondary focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring active:translate-y-px motion-reduce:transition-none"
+                  className="group min-h-36 border-2 border-primary bg-background p-5 text-left transition-[background-color,transform] hover:bg-secondary focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring active:translate-y-px motion-reduce:transition-none"
                   onClick={() => {
                     setExplainerIndex(0)
                     setStage("explain")
                   }}
                 >
                   <BrainCircuitIcon className="size-7 text-primary" />
-                  <span className="mt-5 block font-heading text-xl font-black">
-                    Explain the question types
+                  <span className="mt-4 block font-heading text-xl font-black">
+                    Show me the question types
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-muted-foreground">
-                    Take a three-part preview, then begin the same universal
-                    lesson sequence.
+                    Preview English, Math, and Reading.
                   </span>
                 </button>
 
                 <button
                   type="button"
-                  className="group min-h-44 border-2 border-foreground bg-foreground p-5 text-left text-background transition-[transform,opacity] hover:opacity-90 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring active:translate-y-px motion-reduce:transition-none"
+                  className="group min-h-36 border-2 border-foreground bg-foreground p-5 text-left text-background transition-[transform,opacity] hover:opacity-90 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-ring active:translate-y-px motion-reduce:transition-none"
                   onClick={() => finish("start-lessons")}
                 >
                   <BookOpenCheckIcon className="size-7 text-[var(--scout-sun)]" />
-                  <span className="mt-5 block font-heading text-xl font-black">
-                    Jump into the lessons
+                  <span className="mt-4 block font-heading text-xl font-black">
+                    Start lesson one
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-background/75">
-                    Skip this preview. The lessons still teach every question
-                    type before personalizing.
+                    Skip the preview and begin.
                   </span>
                 </button>
               </div>
-
-              <p className="mt-5 text-xs leading-5 text-muted-foreground">
-                Mr. Kim is Scout’s in-app coach persona, not a human teacher.
-              </p>
             </div>
           </section>
         ) : null}
 
         {stage === "explain" ? (
-          <section className="mx-auto max-w-5xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
+          <section className="mx-auto max-w-4xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
             {(() => {
               const section = SECTION_ORDER[explainerIndex]
               const skills = SECTION_SKILLS[section]
@@ -1243,46 +1080,35 @@ export function LearnerOrientation({
                     </div>
                   </div>
 
-                  <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,0.58fr)_minmax(0,1.42fr)] lg:gap-12">
-                    <div>
-                      <p className="ink-label text-muted-foreground">
-                        {SECTION_LABELS[section]}
-                      </p>
-                      <h1
-                        ref={headingRef}
-                        tabIndex={-1}
-                        className={cn(sharedHeadingClass, "mt-3")}
-                      >
-                        Four kinds of work you’ll learn to recognize.
-                      </h1>
-                      <p className="mt-6 text-base leading-7 text-muted-foreground">
-                        This is the map, not the full lesson. Each lesson will
-                        teach the rule, walk through an example, and let you
-                        practice it.
-                      </p>
-                    </div>
-
-                    <ol className="divide-y border-y bg-background">
-                      {skills.map((skill, index) => (
-                        <li
-                          key={skill.slug}
-                          className="grid gap-3 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:px-2"
-                        >
-                          <span className="flex size-9 items-center justify-center rounded-full bg-secondary font-mono text-sm font-black text-primary">
-                            {index + 1}
-                          </span>
-                          <div>
-                            <h2 className="font-heading text-xl font-black">
-                              {skill.label}
-                            </h2>
-                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                              {skill.explanation}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
+                  <div className="mt-8 text-center">
+                    <h1
+                      ref={headingRef}
+                      tabIndex={-1}
+                      className={cn(sharedHeadingClass, "mx-auto")}
+                    >
+                      {SECTION_LABELS[section]} question types
+                    </h1>
+                    <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
+                      These four patterns make up your first{" "}
+                      {SECTION_LABELS[section]} lessons.
+                    </p>
                   </div>
+
+                  <ol className="mt-8 grid gap-px overflow-hidden border bg-border sm:grid-cols-2">
+                    {skills.map((skill, index) => (
+                      <li key={skill.slug} className="bg-background p-5 sm:p-6">
+                        <span className="font-mono text-xs font-black text-primary">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <h2 className="mt-3 font-heading text-xl font-black">
+                          {skill.label}
+                        </h2>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {skill.explanation}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
 
                   <div className="mt-10 flex items-center justify-between border-t pt-6">
                     <Button
@@ -1312,7 +1138,7 @@ export function LearnerOrientation({
                       }}
                     >
                       {explainerIndex === SECTION_ORDER.length - 1
-                        ? "Start universal lessons"
+                        ? "Start lessons"
                         : `Next: ${SECTION_LABELS[SECTION_ORDER[explainerIndex + 1]]}`}
                       <ArrowRightIcon data-icon="inline-end" />
                     </Button>

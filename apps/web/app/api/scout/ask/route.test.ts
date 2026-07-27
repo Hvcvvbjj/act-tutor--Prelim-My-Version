@@ -120,6 +120,26 @@ describe("Scout server policy", () => {
     expect(answer.receipt.intent).toBe("hint")
     expect(answer.explanation).toContain("comma alone")
     expect(answer.summary).not.toContain("won’t choose")
+    expect(answer.summary).toContain("first decision step")
+    expect(JSON.stringify(answer)).not.toMatch(
+      /in your own words|say the rule|name the rule|rewrite the rule/i
+    )
+  })
+
+  it("ends rule explanations with a direct next step", () => {
+    const answer = answerFor({
+      request: {
+        question: "What rule should I use?",
+        screen: "today",
+        questionId: "practice-1",
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+
+    expect(answer.receipt.intent).toBe("rule")
+    expect(answer.nextAction).toBe("Use this on the next item.")
   })
 
   it("ignores an old Test Lab session outside the Lab screen", () => {

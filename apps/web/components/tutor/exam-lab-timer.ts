@@ -10,7 +10,7 @@ export function examLabTimerControls(
     locked,
     endSectionLabel: locked ? "End section to continue" : "End section",
     statusMessage: locked
-      ? "Time is up. Answers, confidence, and flags are locked. End this section to continue."
+      ? "Time is up. Answers and flags are locked. End this section to continue."
       : null,
   }
 }
