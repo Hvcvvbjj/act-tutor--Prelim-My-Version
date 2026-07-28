@@ -766,7 +766,11 @@ export function TutorApp({
   const [orientationResumeProfile, setOrientationResumeProfile] =
     useState(false)
   const [roundZeroGateStatus, setRoundZeroGateStatus] =
-    useState<RoundZeroGateStatus>(restoredAtLoad ? "checking" : "idle")
+    useState<RoundZeroGateStatus>(
+      restoredAtLoad || pendingSetupAtLoad?.resumeSurface === "diagnostic"
+        ? "checking"
+        : "idle"
+    )
 
   useEffect(() => {
     if (roundZeroGateStatus !== "checking") return
@@ -777,6 +781,11 @@ export function TutorApp({
         const payload = (await response.json().catch(() => null)) as unknown
         if (!active) return
         if (response.ok && hasCompletedRoundZeroDiagnostic(payload)) {
+          if (isDiagnosticSurface(surface)) {
+            void loadDiagnosticRunner()
+            setDiagnosticPurpose("baseline")
+            setSurface("diagnostic-runner")
+          }
           setRoundZeroGateStatus("verified")
           return
         }
@@ -801,7 +810,7 @@ export function TutorApp({
     return () => {
       active = false
     }
-  }, [roundZeroGateStatus])
+  }, [roundZeroGateStatus, surface])
 
   useEffect(() => {
     if (!orientationTourActive) return
@@ -889,6 +898,7 @@ export function TutorApp({
               })
             )
             setDashboardInitialTab("calibrate")
+            setRoundZeroGateStatus("checking")
             setSurface(parsed.resumeSurface)
           }
         }

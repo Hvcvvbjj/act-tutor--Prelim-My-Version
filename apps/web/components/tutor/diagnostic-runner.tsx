@@ -423,8 +423,8 @@ function ResultsView({
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         Your practice range is {result.compositeRange.low}–
         {result.compositeRange.high}. I&apos;ll use{" "}
-        {result.compositeRange.estimate} to build your plan. It isn&apos;t an
-        official ACT score or prediction.
+        {`${result.compositeRange.estimate} to build your plan.`} It isn&apos;t
+        an official ACT score or prediction.
       </p>
 
       <div className="mt-9 border-y-2 border-foreground py-6">

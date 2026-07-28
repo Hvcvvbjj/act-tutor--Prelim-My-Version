@@ -99,7 +99,9 @@ export async function openReportedScorePlan(page: Page, composite = 24) {
   await completeServerDiagnostic(page)
 
   await page.reload()
-  await page.getByRole("button", { name: "Start diagnostic" }).click()
+  await expect(
+    page.getByRole("button", { name: "Start diagnostic" })
+  ).toHaveCount(0)
   await expect(
     page.getByRole("heading", { name: /^Your starting estimate is \d+\.$/ })
   ).toBeVisible()
