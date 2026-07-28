@@ -2,10 +2,9 @@
 
 import type { MotivationBadge, MotivationBadgeCategory } from "@act-tutor/core"
 import {
-  POINTS_PER_ACT_POINT,
-  actScoreEquivalentFromPoints,
+  POINTS_PER_MOMENTUM_LEVEL,
   buildMotivationBadges,
-  pointsProgressToNextActPoint,
+  pointsProgressToNextMomentumLevel,
 } from "@act-tutor/core"
 import {
   ArrowRightIcon,
@@ -31,7 +30,7 @@ const CATEGORY_COPY: Record<
 > = {
   streak: { label: "Streak", icon: FlameIcon },
   mastery: { label: "Mastery", icon: ShieldCheckIcon },
-  improvement: { label: "Improvement", icon: GaugeIcon },
+  improvement: { label: "Momentum", icon: GaugeIcon },
   consistency: { label: "Consistency", icon: CalendarCheck2Icon },
   milestone: { label: "Milestone", icon: TrophyIcon },
 }
@@ -134,7 +133,7 @@ export interface BadgesSurfaceProps {
   totalAnswered: number
   secureSkills: number
   totalSkills: number
-  startingScore: number
+  currentScore: number
   goalScore: number
   className?: string
   onContinueStudying?: () => void
@@ -150,7 +149,7 @@ export function BadgesSurface({
   totalAnswered,
   secureSkills,
   totalSkills,
-  startingScore,
+  currentScore,
   goalScore,
   className,
   onContinueStudying,
@@ -166,8 +165,7 @@ export function BadgesSurface({
     secureSkills,
     totalSkills,
   })
-  const pointProgress = pointsProgressToNextActPoint(points)
-  const scoreEquivalent = actScoreEquivalentFromPoints(startingScore, points)
+  const pointProgress = pointsProgressToNextMomentumLevel(points)
   const earned = badges.filter((badge) => badge.earned)
   const nextBadge = badges
     .filter((badge) => !badge.earned)
@@ -175,7 +173,8 @@ export function BadgesSurface({
       (left, right) =>
         right.progress / right.target - left.progress / left.target
     )[0]
-  const scoreGap = Math.max(0, goalScore - scoreEquivalent)
+  const scoreGap = Math.max(0, goalScore - currentScore)
+  const nextMomentumLevel = pointProgress.completedLevels + 1
 
   return (
     <main
@@ -214,24 +213,24 @@ export function BadgesSurface({
           <div className="flex items-center gap-2 text-primary">
             <SparklesIcon className="size-5" aria-hidden="true" />
             <h2 id="points-title" className="text-sm font-black">
-              Points toward your next ACT point
+              Points toward momentum level {nextMomentumLevel}
             </h2>
           </div>
           <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <p className="font-heading text-5xl font-black tracking-[-0.05em] tabular-nums sm:text-6xl">
-              {pointProgress.pointsInCurrentActPoint.toLocaleString("en-US")}
+              {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")}
             </p>
             <p className="text-lg font-bold text-muted-foreground">
-              / {POINTS_PER_ACT_POINT.toLocaleString("en-US")} pts
+              / {POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} pts
             </p>
           </div>
           <div
             className="mt-5 h-3 overflow-hidden rounded-full bg-muted"
             role="progressbar"
-            aria-label="Points toward the next ACT score point"
+            aria-label={`Points toward momentum level ${nextMomentumLevel}`}
             aria-valuemin={0}
-            aria-valuemax={POINTS_PER_ACT_POINT}
-            aria-valuenow={pointProgress.pointsInCurrentActPoint}
+            aria-valuemax={POINTS_PER_MOMENTUM_LEVEL}
+            aria-valuenow={pointProgress.pointsInCurrentLevel}
           >
             <div
               className="h-full rounded-full bg-[var(--scout-coral)] transition-[width] duration-500 motion-reduce:transition-none"
@@ -240,21 +239,17 @@ export function BadgesSurface({
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="font-semibold">
-              {pointProgress.pointsUntilNextActPoint.toLocaleString("en-US")}{" "}
-              points until your next +1 ACT marker
+              {pointProgress.pointsUntilNextLevel.toLocaleString("en-US")}{" "}
+              points until momentum level {nextMomentumLevel}
             </p>
             <p className="text-muted-foreground">
-              {POINTS_PER_ACT_POINT.toLocaleString("en-US")} points = +1 ACT
-              point
+              {POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} points = one
+              momentum level
             </p>
           </div>
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            Points-based score estimate:{" "}
-            <strong className="text-foreground">
-              {formatScore(scoreEquivalent)}
-            </strong>{" "}
-            from a {formatScore(startingScore)} baseline. It is a motivation
-            marker, not a test result.
+            Momentum levels reward completed study. They never change or predict
+            an ACT score; only scored evidence can update Scout’s ACT estimates.
           </p>
         </div>
 
@@ -291,7 +286,7 @@ export function BadgesSurface({
                   className="size-4 text-primary"
                   aria-hidden="true"
                 />
-                To goal score
+                Current-to-goal gap
               </dt>
               <dd className="font-mono text-lg font-black tabular-nums">
                 {scoreGap > 0 ? `${formatScore(scoreGap)} pts` : "Reached"}

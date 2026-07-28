@@ -79,6 +79,8 @@ describe("Scout server policy", () => {
     expect(answer.summary).toBe("Full-week streak is your closest badge.")
     expect(answer.explanation).toContain("1,250 points")
     expect(answer.explanation).toContain("4-day streak")
+    expect(answer.example).toContain("one momentum level")
+    expect(answer.example).not.toContain("one ACT point")
     expect(answer.source).toBe("Server learning progress and fixed badge rules")
     expect(answer.receipt.questionId).toBeNull()
     expect(answer.receipt.skillId).toBeNull()

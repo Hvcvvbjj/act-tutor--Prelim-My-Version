@@ -11,11 +11,9 @@ import {
 
 import { MasteryProfile } from "@/components/tutor/mastery-profile"
 import { ScoutCoach } from "@/components/tutor/scout"
-import type { GeneratedPlan } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
 
 interface LearningTwinLabProps {
-  plan: GeneratedPlan
   learning: LearningSessionPayload | null
   onOpenLesson: () => void
   canViewTechnicalDetails: boolean
@@ -172,7 +170,6 @@ function TechnicalMethod() {
 }
 
 export function LearningTwinLab({
-  plan,
   learning,
   onOpenLesson,
   canViewTechnicalDetails,
@@ -239,7 +236,6 @@ export function LearningTwinLab({
         onSelect={setSelectedSkill}
         canViewTechnicalDetails={canViewTechnicalDetails}
         points={learning.mission.progress.xp}
-        startingScore={plan.currentComposite}
       />
 
       <AnswerHistory learning={learning} />

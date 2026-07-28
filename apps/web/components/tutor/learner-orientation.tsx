@@ -735,9 +735,9 @@ export function LearnerOrientation({
                   : "Your reported score sets the starting point. Diagnostic and practice answers fill in each question type without inventing detail."}
               </p>
               <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
-                Study points never inflate this map. Badges uses 1,000 points as
-                a +1 ACT-point motivation marker; only scored answers change
-                these polygons.
+                Study points never inflate this map. Badges uses points for
+                momentum levels; only scored answers change these polygons or
+                Scout’s ACT estimates.
               </p>
             </div>
 

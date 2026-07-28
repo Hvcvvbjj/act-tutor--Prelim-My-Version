@@ -1245,7 +1245,6 @@ export function Dashboard({
         <TabsContent value="progress">
           {activeTab === "progress" ? (
             <LearningTwinLab
-              plan={plan}
               learning={learning}
               onOpenLesson={() => {
                 void loadLessonWorkspace()
@@ -1268,7 +1267,7 @@ export function Dashboard({
               totalAnswered={learning.mission.progress.totalAnswered}
               secureSkills={secureSkillCount}
               totalSkills={learning.learningTwin.skills.length}
-              startingScore={plan.currentComposite}
+              currentScore={plan.currentComposite}
               goalScore={plan.draft.goal}
               onContinueStudying={() => setActiveTab("today")}
             />

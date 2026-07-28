@@ -55,7 +55,7 @@ const TOUR_STEPS = [
     target: "nav-badges",
     eyebrow: "Badges",
     title: "Momentum has its own home.",
-    copy: "Streaks, mastery, consistency, milestones, and the 1,000-points-to-one-ACT-point motivation marker are all visible here.",
+    copy: "Streaks, mastery, consistency, milestones, and study-point momentum levels are all visible here. Points never predict an ACT score.",
   },
   {
     target: "mr-kim",

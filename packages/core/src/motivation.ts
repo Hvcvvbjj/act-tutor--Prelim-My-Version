@@ -1,4 +1,4 @@
-export const POINTS_PER_ACT_POINT = 1_000;
+export const POINTS_PER_MOMENTUM_LEVEL = 1_000;
 
 export type MotivationBadgeCategory =
   "streak" | "mastery" | "improvement" | "consistency" | "milestone";
@@ -37,36 +37,14 @@ function nonNegativeInteger(value: number, label: string) {
   return Math.floor(value);
 }
 
-function actScore(value: number, label: string) {
-  if (!Number.isFinite(value) || value < 1 || value > 36) {
-    throw new RangeError(`${label} must be between 1 and 36.`);
-  }
-  return value;
-}
-
-export function actScoreImprovementFromPoints(points: number) {
-  return nonNegativeInteger(points, "Points") / POINTS_PER_ACT_POINT;
-}
-
-export function actScoreEquivalentFromPoints(
-  startingScore: number,
-  points: number,
-) {
-  return Math.min(
-    36,
-    actScore(startingScore, "Starting score") +
-      actScoreImprovementFromPoints(points),
-  );
-}
-
-export function pointsProgressToNextActPoint(points: number) {
+export function pointsProgressToNextMomentumLevel(points: number) {
   const normalized = nonNegativeInteger(points, "Points");
-  const pointsInCurrentActPoint = normalized % POINTS_PER_ACT_POINT;
+  const pointsInCurrentLevel = normalized % POINTS_PER_MOMENTUM_LEVEL;
   return {
-    completedActPoints: Math.floor(normalized / POINTS_PER_ACT_POINT),
-    pointsInCurrentActPoint,
-    pointsUntilNextActPoint: POINTS_PER_ACT_POINT - pointsInCurrentActPoint,
-    progress: pointsInCurrentActPoint / POINTS_PER_ACT_POINT,
+    completedLevels: Math.floor(normalized / POINTS_PER_MOMENTUM_LEVEL),
+    pointsInCurrentLevel,
+    pointsUntilNextLevel: POINTS_PER_MOMENTUM_LEVEL - pointsInCurrentLevel,
+    progress: pointsInCurrentLevel / POINTS_PER_MOMENTUM_LEVEL,
   };
 }
 
@@ -100,7 +78,7 @@ export function buildMotivationBadges(
     input.completedRounds ?? 0,
     "Completed rounds",
   );
-  const improvement = actScoreImprovementFromPoints(input.points);
+  const points = nonNegativeInteger(input.points, "Points");
 
   return [
     badge(
@@ -138,18 +116,18 @@ export function buildMotivationBadges(
     badge(
       "improvement-1",
       "improvement",
-      "One-point climb",
-      `Earn ${POINTS_PER_ACT_POINT.toLocaleString("en-US")} study points.`,
-      improvement,
-      1,
+      "Momentum level one",
+      `Earn ${POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} study points.`,
+      points,
+      POINTS_PER_MOMENTUM_LEVEL,
     ),
     badge(
       "improvement-3",
       "improvement",
-      "Three-point climb",
-      `Earn ${(POINTS_PER_ACT_POINT * 3).toLocaleString("en-US")} study points.`,
-      improvement,
-      3,
+      "Momentum level three",
+      `Earn ${(POINTS_PER_MOMENTUM_LEVEL * 3).toLocaleString("en-US")} study points.`,
+      points,
+      POINTS_PER_MOMENTUM_LEVEL * 3,
     ),
     badge(
       "consistency-10",

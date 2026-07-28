@@ -1,40 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  POINTS_PER_ACT_POINT,
-  actScoreEquivalentFromPoints,
-  actScoreImprovementFromPoints,
+  POINTS_PER_MOMENTUM_LEVEL,
   buildMotivationBadges,
-  pointsProgressToNextActPoint,
+  pointsProgressToNextMomentumLevel,
 } from "./motivation";
 
 describe("motivation points", () => {
-  it("maps exactly 1,000 points to one ACT point of improvement", () => {
-    expect(POINTS_PER_ACT_POINT).toBe(1_000);
-    expect(actScoreImprovementFromPoints(1_000)).toBe(1);
-    expect(actScoreImprovementFromPoints(2_500)).toBe(2.5);
-    expect(actScoreEquivalentFromPoints(24, 2_500)).toBe(26.5);
+  it("uses exactly 1,000 points per momentum level", () => {
+    expect(POINTS_PER_MOMENTUM_LEVEL).toBe(1_000);
   });
 
-  it("caps the point-based score equivalent at 36", () => {
-    expect(actScoreEquivalentFromPoints(35, 4_000)).toBe(36);
-  });
-
-  it("shows deterministic progress toward the next score point", () => {
-    expect(pointsProgressToNextActPoint(2_350)).toEqual({
-      completedActPoints: 2,
-      pointsInCurrentActPoint: 350,
-      pointsUntilNextActPoint: 650,
+  it("shows deterministic progress toward the next momentum level", () => {
+    expect(pointsProgressToNextMomentumLevel(2_350)).toEqual({
+      completedLevels: 2,
+      pointsInCurrentLevel: 350,
+      pointsUntilNextLevel: 650,
       progress: 0.35,
     });
   });
 
-  it("rejects invalid points and scores", () => {
-    expect(() => actScoreImprovementFromPoints(-1)).toThrow(
+  it("rejects invalid points", () => {
+    expect(() => pointsProgressToNextMomentumLevel(-1)).toThrow(
       "Points must be non-negative.",
-    );
-    expect(() => actScoreEquivalentFromPoints(37, 0)).toThrow(
-      "Starting score must be between 1 and 36.",
     );
   });
 });
@@ -62,9 +50,10 @@ describe("motivation badges", () => {
     expect(badges.find((item) => item.id === "improvement-1")?.earned).toBe(
       true,
     );
-    expect(badges.find((item) => item.id === "improvement-3")?.progress).toBe(
-      1.2,
-    );
+    expect(badges.find((item) => item.id === "improvement-3")).toMatchObject({
+      progress: 1_200,
+      target: 3_000,
+    });
     expect(badges.find((item) => item.id === "consistency-10")?.earned).toBe(
       true,
     );

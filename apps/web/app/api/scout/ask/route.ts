@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import {
   buildMotivationBadges,
   classifyScoutIntent,
-  POINTS_PER_ACT_POINT,
+  POINTS_PER_MOMENTUM_LEVEL,
   SCOUT_SCREENS,
   type AdaptiveCalibrationPayload,
   type AdaptiveStudyPlan,
@@ -554,7 +554,7 @@ export function answerFor(input: {
       explanation = nextBadge
         ? `You have ${badgeProgress.points.toLocaleString("en-US")} points, a ${badgeProgress.currentStreak}-day streak, and ${badgeProgress.secureSkills} of ${badgeProgress.totalSkills} secure skills. ${nextBadge.title} is at ${nextBadge.progress} of ${nextBadge.target}.`
         : `You have earned every current badge. You have ${badgeProgress.points.toLocaleString("en-US")} points and a ${badgeProgress.currentStreak}-day streak.`
-      example = `${POINTS_PER_ACT_POINT.toLocaleString("en-US")} study points move the motivation marker by one ACT point. That marker does not replace a diagnostic or test score.`
+      example = `${POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} study points earn one momentum level. Momentum levels reward studying; they never change or predict an ACT score.`
       nextAction = nextBadge
         ? nextBadge.description
         : "Keep studying to protect your streak and secure skills."

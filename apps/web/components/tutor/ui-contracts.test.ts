@@ -295,6 +295,33 @@ describe("learner-facing model language", () => {
   })
 })
 
+describe("motivation and score evidence contract", () => {
+  it("keeps study points separate from ACT score estimates", async () => {
+    const badges = await source("components/tutor/badges-surface.tsx")
+    const progress = await source("components/tutor/mastery-profile.tsx")
+    const orientation = await source("components/tutor/learner-orientation.tsx")
+    const tour = await source("components/tutor/dashboard-tour.tsx")
+    const assistant = await source("app/api/scout/ask/route.ts")
+    const learnerCopy = [badges, progress, orientation, tour, assistant].join(
+      "\n"
+    )
+    const normalizedBadges = badges.replace(/\s+/g, " ")
+    const normalizedProgress = progress.replace(/\s+/g, " ")
+
+    expect(learnerCopy).toContain("momentum level")
+    expect(normalizedBadges).toContain(
+      "They never change or predict an ACT score; only scored evidence"
+    )
+    expect(normalizedProgress).toContain(
+      "Points reward study momentum; only scored answers shape"
+    )
+    expect(learnerCopy).not.toContain("Points-based score estimate")
+    expect(learnerCopy).not.toContain("points = +1 ACT")
+    expect(learnerCopy).not.toContain("matching ACT-scale marker")
+    expect(learnerCopy).not.toContain("one ACT point")
+  })
+})
+
 describe("deadline performance contract", () => {
   it("defers secondary tutor modules and preloads them from user intent", async () => {
     const tutor = await source("components/tutor/tutor-app.tsx")

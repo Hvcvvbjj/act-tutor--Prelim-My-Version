@@ -6,10 +6,7 @@ import type {
   LearningTwinRecommendation,
   RecommendationContribution,
 } from "@act-tutor/core"
-import {
-  actScoreEquivalentFromPoints,
-  pointsProgressToNextActPoint,
-} from "@act-tutor/core"
+import { pointsProgressToNextMomentumLevel } from "@act-tutor/core"
 
 import { cn } from "@/lib/utils"
 
@@ -440,7 +437,6 @@ export function MasteryProfile({
   onSelect,
   canViewTechnicalDetails,
   points,
-  startingScore,
 }: {
   skills: ReadonlyArray<KnowledgeState>
   recommendation: LearningTwinRecommendation
@@ -448,7 +444,6 @@ export function MasteryProfile({
   onSelect: (skill: string) => void
   canViewTechnicalDetails: boolean
   points: number
-  startingScore: number
 }) {
   const selected =
     skills.find((skill) => skill.skill === selectedSkill) ?? skills[0]
@@ -466,11 +461,7 @@ export function MasteryProfile({
     100,
     contributions.reduce((sum, item) => sum + item.points, 0)
   )
-  const pointProgress = pointsProgressToNextActPoint(points)
-  const pointScoreEquivalent = actScoreEquivalentFromPoints(
-    startingScore,
-    points
-  )
+  const pointProgress = pointsProgressToNextMomentumLevel(points)
   const selectedSkillHeadingRef = useRef<HTMLHeadingElement>(null)
 
   function selectSkill(skill: string) {
@@ -515,17 +506,16 @@ export function MasteryProfile({
             <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
               <div className="mb-5 border-y border-white/20 py-3">
                 <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                  Points score marker
+                  Study momentum
                 </p>
                 <p className="mt-1 font-heading text-3xl font-black tabular-nums">
-                  {pointScoreEquivalent}
+                  Level {pointProgress.completedLevels}
                 </p>
                 <p className="mt-1 text-xs leading-5 text-white/65">
-                  {pointProgress.pointsInCurrentActPoint.toLocaleString(
-                    "en-US"
-                  )}{" "}
-                  / 1,000 points toward the next marker. Scored answers shape
-                  the polygon; points set this matching ACT-scale marker.
+                  {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")} /
+                  1,000 points toward level {pointProgress.completedLevels + 1}.
+                  Points reward study momentum; only scored answers shape the
+                  skill map and ACT estimates.
                 </p>
               </div>
               <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
