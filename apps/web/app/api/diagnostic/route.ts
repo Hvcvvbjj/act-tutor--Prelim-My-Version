@@ -98,6 +98,12 @@ function assertCurrentForm(body: Record<string, unknown>) {
   }
 }
 
+function parsePurpose(value: unknown): "baseline" | "round" {
+  if (value === undefined || value === "baseline") return "baseline"
+  if (value === "round") return "round"
+  throw new RangeError("Unknown diagnostic purpose.")
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await diagnosticSessions.getOrCreate(
@@ -132,11 +138,30 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>
+    if (body.action === "answer_remediation") {
+      if (
+        typeof body.questionId !== "string" ||
+        typeof body.choiceId !== "string"
+      ) {
+        throw new RangeError("A review question and answer are required.")
+      }
+      const payload = await diagnosticSessions.answerRemediation(
+        requireSessionId(request),
+        RAPID_DIAGNOSTIC_FORM,
+        {
+          questionId: body.questionId,
+          choiceId: body.choiceId,
+        }
+      )
+      return NextResponse.json(payload)
+    }
     if (body.action === "start_new") {
+      const purpose = parsePurpose(body.purpose)
       const existingSessionId = request.cookies.get(SESSION_COOKIE)?.value
       const session = await diagnosticSessions.startNew(
         existingSessionId ?? null,
-        RAPID_DIAGNOSTIC_FORM
+        RAPID_DIAGNOSTIC_FORM,
+        purpose
       )
       const response = NextResponse.json(session.payload)
       response.headers.set("Cache-Control", "no-store")
@@ -145,15 +170,21 @@ export async function POST(request: NextRequest) {
       return response
     }
     if (body.action === "start_new_if_completed") {
+      const purpose = parsePurpose(body.purpose)
       const current = await diagnosticSessions.getOrCreate(
         request.cookies.get(SESSION_COOKIE)?.value ?? null,
-        RAPID_DIAGNOSTIC_FORM
+        RAPID_DIAGNOSTIC_FORM,
+        purpose
       )
       const session =
-        current.payload.status === "completed"
+        current.payload.status === "completed" &&
+        (purpose === "baseline" ||
+          current.payload.purpose !== purpose ||
+          current.payload.remediation?.status === "complete")
           ? await diagnosticSessions.startNew(
               current.sessionId,
-              RAPID_DIAGNOSTIC_FORM
+              RAPID_DIAGNOSTIC_FORM,
+              purpose
             )
           : current
       const response = NextResponse.json(session.payload)

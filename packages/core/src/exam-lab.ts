@@ -3,6 +3,7 @@ import type {
   DiagnosticQuestionPublic,
   DiagnosticQuestionSecure,
 } from "./diagnostic";
+import type { AssessmentRemediationProgress } from "./assessment-remediation";
 import { calculateEmrComposite } from "./scoring";
 import type { CoreSection } from "./types";
 
@@ -137,6 +138,7 @@ export interface ExamLabSessionPayload {
   sectionStartedAt: string;
   sectionDeadlineAt: string;
   result: ExamLabResult | null;
+  remediation: AssessmentRemediationProgress | null;
 }
 
 export interface ExamLabInterpretationReadiness {

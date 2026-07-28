@@ -9,16 +9,20 @@ import {
   buildDueReviews,
   calculateLearningStreak,
   chooseNextSkill,
+  createAssessmentRemediationProgress,
   createInitialKnowledgeState,
   createInitialMastery,
   learnerLevel,
   LEARNING_TWIN_MODEL,
   rankKnowledgeStates,
+  recordAssessmentRemediationResponse,
   recommendKnowledgeState,
+  requiredCorrectForLessonCheck,
   toPublicPracticeQuestion,
   xpForPractice,
   type DailyMissionSummary,
   type AnswerConfidence,
+  type AssessmentRemediationProgress,
   type CoachBrief,
   type DiagnosticSkillResult,
   type LearningCycleState,
@@ -27,6 +31,7 @@ import {
   type LearningDecisionEvent,
   type LearningAnswerCommand,
   type LessonContent,
+  type LessonCheckResult,
   type LessonPlanContext,
   type LearningTwinEvent,
   type KnowledgeState,
@@ -96,6 +101,21 @@ interface StoredMistake {
   misconception?: string | null;
 }
 
+interface StoredLessonCheck {
+  id: string;
+  roundNumber: number;
+  cycleKind: LearningCycleState["kind"];
+  skill: string;
+  lesson: PersonalizedLessonContent;
+  correct: number;
+  total: 5;
+  requiredCorrect: 3 | 4;
+  passedInitially: boolean;
+  submittedAt: string;
+  completedAt: string | null;
+  remediation: AssessmentRemediationProgress | null;
+}
+
 interface StoredLearnerProgress {
   xp: number;
   activeDates: string[];
@@ -139,6 +159,8 @@ interface StoredLearningSession {
     capturedAt: string;
     evidenceQuestionIds: string[];
   };
+  lessonChecks?: StoredLessonCheck[];
+  activeLessonCheckId?: string | null;
   profile?: StoredLearnerProgress;
   planContext?: LessonPlanContext;
   repairMistakeId?: string | null;
@@ -349,7 +371,7 @@ function finiteRoundSkillsWithCoverage(
       all.indexOf(skill) === index &&
       bank.skills.some((candidate) => candidate.slug === skill),
   );
-  const limit = Math.min(6, bank.skills.length);
+  const limit = bank.skills.length;
   const selected = candidates.slice(0, limit);
 
   for (const section of ["english", "math", "reading"] as const) {
@@ -676,6 +698,65 @@ function publicMistakes(
       return right.createdAt.localeCompare(left.createdAt);
     })
     .slice(0, 50);
+}
+
+function lessonHistory(session: StoredLearningSession): LessonCheckResult[] {
+  return (session.lessonChecks ?? [])
+    .flatMap((check) =>
+      check.completedAt
+        ? [
+            {
+              id: check.id,
+              roundNumber: check.roundNumber,
+              cycleKind: check.cycleKind,
+              skill: check.skill,
+              lesson: lessonWithoutMeta(check.lesson),
+              correct: check.correct,
+              total: check.total,
+              requiredCorrect: check.requiredCorrect,
+              passedInitially: check.passedInitially,
+              completedAt: check.completedAt,
+            } satisfies LessonCheckResult,
+          ]
+        : [],
+    )
+    .sort(
+      (left, right) =>
+        left.roundNumber - right.roundNumber ||
+        left.completedAt.localeCompare(right.completedAt),
+    );
+}
+
+function lessonRemediation(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+): LearningSessionPayload["remediation"] {
+  if (!session.activeLessonCheckId) return null;
+  const check = session.lessonChecks?.find(
+    (candidate) => candidate.id === session.activeLessonCheckId,
+  );
+  if (!check?.remediation) return null;
+  const mistakes = new Map(
+    publicMistakes(session, bank).map((mistake) => [
+      mistake.questionId,
+      mistake,
+    ]),
+  );
+  return {
+    checkId: check.id,
+    correct: check.correct,
+    total: check.total,
+    requiredCorrect: check.requiredCorrect,
+    progress: {
+      ...check.remediation,
+      requiredQuestionIds: [...check.remediation.requiredQuestionIds],
+      responses: { ...check.remediation.responses },
+    },
+    items: check.remediation.requiredQuestionIds.flatMap((questionId) => {
+      const mistake = mistakes.get(questionId);
+      return mistake ? [mistake] : [];
+    }),
+  };
 }
 
 function planCounterfactual(
@@ -1165,12 +1246,15 @@ function toPayload(
   const answeredQuestionIds = session.answers.map(
     (answer) => answer.questionId,
   );
+  const remediation = lessonRemediation(session, bank);
   const status =
-    answeredQuestionIds.length === questions.length
-      ? "complete"
-      : session.lessonComplete
-        ? "practice"
-        : "lesson";
+    remediation?.progress.status === "required"
+      ? "remediation"
+      : answeredQuestionIds.length === questions.length
+        ? "complete"
+        : session.lessonComplete
+          ? "practice"
+          : "lesson";
   const activeSkill =
     lastFeedback?.mastery.skill ??
     questions[Math.min(answeredQuestionIds.length, questions.length - 1)]
@@ -1232,6 +1316,8 @@ function toPayload(
     trustReport: learningTrustReport(session, bank, learningTwinBySkill),
     teachBack:
       ensureProfile(session).teachBackBySkill?.[session.todaySkill] ?? null,
+    lessonHistory: lessonHistory(session),
+    remediation,
   };
 }
 
@@ -1323,6 +1409,12 @@ function recordActivity(profile: StoredLearnerProgress, now: string) {
 }
 
 function isComplete(session: StoredLearningSession) {
+  if (session.activeLessonCheckId) {
+    const activeCheck = session.lessonChecks?.find(
+      (check) => check.id === session.activeLessonCheckId,
+    );
+    if (activeCheck?.remediation?.status === "required") return false;
+  }
   return session.answers.length === session.questionIds.length;
 }
 
@@ -1393,7 +1485,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
                 : existing.todaySkill;
               const remainingSlots = Math.max(
                 1,
-                Math.min(6, bank.skills.length) - cycle.completedSkills.length,
+                bank.skills.length - cycle.completedSkills.length,
               );
               const remaining = [
                 activeSkill,
@@ -1591,6 +1683,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.previousNextSkill = previousSkill;
       session.nextSkill = nextSkill;
       session.mode = cycle.kind === "foundation" ? "foundation" : "focus";
+      session.activeLessonCheckId = null;
       session.lessonComplete = false;
       session.questionIds = getQuestions(bank, nextSkill).map(
         (question) => question.id,
@@ -1777,6 +1870,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.previousNextSkill = previousSkill;
       session.nextSkill = nextSkill;
       session.mode = "focus";
+      session.activeLessonCheckId = null;
       session.lessonComplete = false;
       session.questionIds = getQuestions(bank, nextSkill).map(
         (question) => question.id,
@@ -1874,6 +1968,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.previousNextSkill = session.nextSkill;
       session.nextSkill = skillSlug;
       session.mode = cycle.kind === "foundation" ? "foundation" : "focus";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = null;
       const returnTarget = session.returnSkillAfterPrerequisite;
       if (!returnTarget || PREREQUISITES[returnTarget] !== skillSlug) {
@@ -1933,6 +2028,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         throw new RangeError("That practice question is unavailable.");
       session.todaySkill = mistake.skill;
       session.mode = "repair";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = mistake.id;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
@@ -1973,6 +2069,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const profile = ensureProfile(session);
       session.todaySkill = ranked[0].skill;
       session.mode = "checkpoint";
+      session.activeLessonCheckId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
       session.questionIds = questionIds;
@@ -2004,6 +2101,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const questions = leastExposedQuestions(bank, profile, skillSlug, 2);
       session.todaySkill = skillSlug;
       session.mode = "retention";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
@@ -2038,6 +2136,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       });
       session.todaySkill = skill.slug;
       session.mode = "challenge";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
@@ -2076,6 +2175,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       });
       session.todaySkill = skill.slug;
       session.mode = "micro";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = false;
@@ -2123,6 +2223,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       );
       session.todaySkill = ranked[0].skill;
       session.mode = "recovery";
+      session.activeLessonCheckId = null;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.lessonComplete = true;
@@ -2277,11 +2378,38 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         session.todaySkill,
       );
       const completingMission = session.answers.length === questions.length - 1;
+      const completingLessonCheck =
+        completingMission &&
+        (session.mode === "foundation" || session.mode === "focus");
+      if (completingLessonCheck && !session.planContext) {
+        throw new RangeError(
+          "The lesson check is missing its goal-score context.",
+        );
+      }
+      const lessonCheckCorrect = completingLessonCheck
+        ? session.answers.filter((item) => item.feedback.correct).length +
+          (correct ? 1 : 0)
+        : 0;
+      const lessonCheckRequired = completingLessonCheck
+        ? requiredCorrectForLessonCheck(session.planContext!.goalScore)
+        : null;
+      const requiresLessonRemediation =
+        lessonCheckRequired !== null &&
+        lessonCheckCorrect < lessonCheckRequired;
       let recommendation = rankedRecommendation;
       let recommendationReason = rankedRecommendation.reason;
       const { cycle } = ensureCycle(session, bank);
-      if (cycle.kind === "foundation") {
-        if (session.mode === "foundation" && completingMission) {
+      if (requiresLessonRemediation) {
+        const currentState = learningTwinBySkill[session.todaySkill];
+        if (!currentState) {
+          throw new RangeError(
+            `Learning Twin state is missing for ${session.todaySkill}.`,
+          );
+        }
+        recommendation = recommendKnowledgeState([currentState]);
+        recommendationReason = `Mr. Kim will review every missed item with you before ${getSkill(bank, session.todaySkill).label} is marked complete.`;
+      } else if (cycle.kind === "foundation") {
+        if (session.mode === "foundation" && completingLessonCheck) {
           advanceFoundationCycle(session, bank);
         }
         const foundationNextSkill = cycle.nextSkill ?? session.todaySkill;
@@ -2302,7 +2430,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
                 : `After this task, Round 1 continues with ${getSkill(bank, foundationNextSkill).label}.`;
         session.returnSkillAfterPrerequisite = null;
       } else {
-        if (session.mode === "focus" && completingMission) {
+        if (session.mode === "focus" && completingLessonCheck) {
           advanceAdaptiveCycle(session, bank);
         }
         const adaptiveNextSkill = cycle.nextSkill ?? session.todaySkill;
@@ -2449,6 +2577,37 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           profile.mistakes = profile.mistakes.slice(-100);
         }
       }
+      if (completingLessonCheck && lessonCheckRequired !== null) {
+        const wrongQuestionIds = session.answers
+          .filter((item) => !item.feedback.correct)
+          .map((item) => item.questionId);
+        const checkId = randomUUID();
+        const remediation = requiresLessonRemediation
+          ? createAssessmentRemediationProgress(wrongQuestionIds, now)
+          : null;
+        const check: StoredLessonCheck = {
+          id: checkId,
+          roundNumber: cycle.roundNumber,
+          cycleKind: cycle.kind,
+          skill: session.todaySkill,
+          lesson:
+            session.lesson ??
+            fallbackLesson(getLesson(bank, session.todaySkill), session),
+          correct: lessonCheckCorrect,
+          total: 5,
+          requiredCorrect: lessonCheckRequired,
+          passedInitially: !requiresLessonRemediation,
+          submittedAt: now,
+          completedAt: requiresLessonRemediation ? null : now,
+          remediation,
+        };
+        session.lessonChecks = [...(session.lessonChecks ?? []), check].slice(
+          -100,
+        );
+        session.activeLessonCheckId = requiresLessonRemediation
+          ? checkId
+          : null;
+      }
       if (
         session.answers.length === questions.length &&
         !profile.completionXpAwarded
@@ -2459,6 +2618,131 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       }
       await this.writeStore(store);
       return toPayload(session, bank, feedback);
+    });
+  }
+
+  async answerLessonRemediation(
+    sessionId: string,
+    bank: LearningBankInput,
+    answer: { questionId: string; choiceId: string },
+  ): Promise<LearningSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Learning session not found.");
+      assertSessionMatchesBank(session, bank);
+      const check = session.lessonChecks?.find(
+        (candidate) => candidate.id === session.activeLessonCheckId,
+      );
+      if (!check?.remediation) {
+        throw new RangeError("This lesson does not need required review.");
+      }
+      if (check.remediation.status === "complete") {
+        return toPayload(
+          session,
+          bank,
+          session.answers.at(-1)?.feedback ?? null,
+        );
+      }
+      if (check.remediation.responses[answer.questionId]?.correctedAt) {
+        return toPayload(
+          session,
+          bank,
+          session.answers.at(-1)?.feedback ?? null,
+        );
+      }
+      const currentQuestionId = check.remediation.requiredQuestionIds.find(
+        (questionId) => !check.remediation?.responses[questionId]?.correctedAt,
+      );
+      if (!currentQuestionId || currentQuestionId !== answer.questionId) {
+        throw new RangeError(
+          "Finish the current missed item before moving to another one.",
+        );
+      }
+      const question = bank.practice.find(
+        (candidate) => candidate.id === answer.questionId,
+      );
+      if (!question || question.skill !== check.skill) {
+        throw new RangeError(
+          "That question is not part of this lesson review.",
+        );
+      }
+      if (!question.choices.some((choice) => choice.id === answer.choiceId)) {
+        throw new RangeError("Unknown practice choice.");
+      }
+      const now = new Date().toISOString();
+      const correct = answer.choiceId === question.correctChoiceId;
+      check.remediation = recordAssessmentRemediationResponse(
+        check.remediation,
+        {
+          questionId: answer.questionId,
+          choiceId: answer.choiceId,
+          correct,
+          answeredAt: now,
+        },
+      );
+      const profile = ensureProfile(session);
+      const mistake = profile.mistakes.find(
+        (candidate) =>
+          candidate.questionId === answer.questionId &&
+          candidate.resolvedAt === null,
+      );
+      if (!mistake) {
+        throw new RangeError("The missed item is no longer available.");
+      }
+      mistake.selectedChoiceId = answer.choiceId;
+      mistake.lastAttemptAt = now;
+      mistake.attempts += 1;
+      if (correct) mistake.resolvedAt = now;
+      recordActivity(profile, now);
+
+      if (check.remediation.status === "complete") {
+        check.completedAt = now;
+        const { cycle } = ensureCycle(session, bank);
+        if (
+          cycle.kind !== check.cycleKind ||
+          cycle.roundNumber !== check.roundNumber
+        ) {
+          throw new RangeError(
+            "This lesson review belongs to a different learning round.",
+          );
+        }
+        if (cycle.kind === "foundation") {
+          advanceFoundationCycle(session, bank);
+        } else {
+          advanceAdaptiveCycle(session, bank);
+        }
+        const nextSkill = cycle.nextSkill ?? session.todaySkill;
+        const nextState = ensureLearningTwin(session, bank)[nextSkill];
+        if (!nextState) {
+          throw new RangeError(
+            `Learning Twin state is missing for ${nextSkill}.`,
+          );
+        }
+        const previousNextSkill = session.nextSkill;
+        session.previousNextSkill = previousNextSkill;
+        session.nextSkill = nextSkill;
+        session.futureTask = {
+          todaySkill: session.todaySkill,
+          nextSkill,
+          changed: nextSkill !== previousNextSkill,
+          reason:
+            cycle.status === "assessment-choice"
+              ? `Round ${cycle.roundNumber} is complete. Choose the next assessment with Mr. Kim.`
+              : `${getSkill(bank, check.skill).label} is complete. Continue with ${getSkill(bank, nextSkill).label}.`,
+        };
+        session.returnSkillAfterPrerequisite = null;
+      } else {
+        session.futureTask = {
+          todaySkill: session.todaySkill,
+          nextSkill: session.todaySkill,
+          changed: false,
+          reason:
+            "Mr. Kim is reviewing each missed item before the next lesson opens.",
+        };
+      }
+      session.updatedAt = now;
+      await this.writeStore(store);
+      return toPayload(session, bank, session.answers.at(-1)?.feedback ?? null);
     });
   }
 

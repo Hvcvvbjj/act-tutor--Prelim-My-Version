@@ -70,6 +70,17 @@ const pendingSetup = {
   diagnosticPurpose: "baseline",
 }
 
+const reportedScorePendingSetup = {
+  ...pendingSetup,
+  draft: {
+    ...pendingSetup.draft,
+    priorScoreChoice: "composite_only",
+    composite: 27,
+  },
+  resumeSurface: "diagnostic",
+  onboardingStep: 3,
+}
+
 const pendingOnboardingSetup = {
   version: 1,
   savedAt: "2000-01-01T00:00:00.000Z",
@@ -386,6 +397,53 @@ describe.sequential("optional learner and judge accounts", () => {
       viewer: {
         savedPlan: { currentComposite: 18 },
         pendingSetup: null,
+      },
+    })
+  })
+
+  it("keeps a reported starting score while the full diagnostic is pending", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-reported-diagnostic",
+        displayName: "Reported Score Learner",
+        password: "ReportedDiagnostic!2026",
+        pendingSetup: reportedScorePendingSetup,
+      })
+    )
+
+    expect(signup.status).toBe(201)
+    await expect(signup.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: null,
+        pendingSetup: {
+          resumeSurface: "diagnostic",
+          onboardingStep: 3,
+          draft: {
+            priorScoreChoice: "composite_only",
+            composite: 27,
+            startingCheckChoice: "take",
+          },
+        },
+      },
+    })
+
+    const login = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-reported-diagnostic",
+        password: "ReportedDiagnostic!2026",
+      })
+    )
+    await expect(login.json()).resolves.toMatchObject({
+      viewer: {
+        pendingSetup: {
+          resumeSurface: "diagnostic",
+          draft: {
+            priorScoreChoice: "composite_only",
+            composite: 27,
+          },
+        },
       },
     })
   })

@@ -47,7 +47,6 @@ interface OnboardingProps {
   onCancel?: () => void
   onContinue: () => void
   onDismissWelcome: () => void
-  onStartFullDiagnostic: () => void
   onJudgeDemo: () => void
   showWelcome: boolean
   onViewerChange: (viewer: AuthViewer) => void
@@ -243,7 +242,6 @@ export function Onboarding({
   onCancel,
   onContinue,
   onDismissWelcome,
-  onStartFullDiagnostic,
   onJudgeDemo,
   showWelcome,
   onViewerChange,
@@ -288,28 +286,12 @@ export function Onboarding({
                 SCOUT <span className="text-primary">ACT</span>
               </p>
             </div>
-            <nav
-              className="hidden items-center gap-7 text-sm font-bold text-muted-foreground lg:flex"
-              aria-label="Welcome"
-            >
+            <nav className="hidden lg:block" aria-label="Welcome">
               <a
                 href="/how-scout-works"
                 className="transition-colors hover:text-foreground"
               >
                 How it works
-              </a>
-              <button
-                type="button"
-                className="transition-colors hover:text-foreground"
-                onClick={onStartFullDiagnostic}
-              >
-                Full diagnostic
-              </button>
-              <a
-                href="#meet-mr-kim"
-                className="transition-colors hover:text-foreground"
-              >
-                Meet Mr. Kim
               </a>
             </nav>
             <div className="flex items-center">
@@ -335,7 +317,7 @@ export function Onboarding({
                 <span className="text-primary">real baseline.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Enter a recent score, or take Scout&apos;s full 66-question
+                Enter a recent score and take Scout&apos;s full 66-question
                 diagnostic. Mr. Kim turns the result into lessons you can fit
                 into an actual week.
               </p>
@@ -403,7 +385,12 @@ export function Onboarding({
         <StepTracker step={step} />
 
         <div className="mx-auto mt-7 max-w-4xl">
-          <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-7">
+          <section
+            className={cn(
+              "paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-7",
+              step === 1 && "text-center"
+            )}
+          >
             <h1
               ref={stepHeadingRef}
               tabIndex={-1}
@@ -411,7 +398,12 @@ export function Onboarding({
             >
               {stepCopy.title}
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
+            <p
+              className={cn(
+                "mt-3 max-w-2xl text-base leading-7 text-muted-foreground",
+                step === 1 && "mx-auto"
+              )}
+            >
               {stepCopy.description}
             </p>
             {viewer.technicalDetails && stepCopy.technical ? (
@@ -433,7 +425,7 @@ export function Onboarding({
                     Choose a Composite score from 1 to 36. This plan uses
                     English, Math, and Reading to calculate the Composite.
                   </FieldDescription>
-                  <div className="mt-7 grid w-full max-w-lg grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:gap-8">
+                  <div className="mx-auto mt-7 grid w-full max-w-lg grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-center sm:gap-8">
                     <Button
                       type="button"
                       size="icon-lg"
@@ -790,7 +782,12 @@ export function Onboarding({
               ) : null}
             </div>
 
-            <div className="mt-6 flex max-w-2xl flex-col gap-3 sm:flex-row">
+            <div
+              className={cn(
+                "mt-6 flex max-w-2xl flex-col gap-3 sm:flex-row",
+                step === 1 && "mx-auto justify-center"
+              )}
+            >
               {onCancel ? (
                 <Button
                   type="button"
@@ -821,16 +818,16 @@ export function Onboarding({
                 className="h-auto min-h-12 w-full min-w-0 px-3 py-3 whitespace-normal sm:h-12 sm:flex-1 sm:px-6 sm:py-0 sm:whitespace-nowrap"
               >
                 {step === 3
-                  ? draft.priorScoreChoice === "never"
-                    ? "Start my full diagnostic"
-                    : stepCopy.next
+                  ? onCancel
+                    ? "Save plan changes"
+                    : "Continue to full diagnostic"
                   : stepCopy.next}
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             </div>
 
             {step === 1 && viewer.technicalDetails ? (
-              <div className="mt-5 flex max-w-2xl justify-end border-t pt-4">
+              <div className="mx-auto mt-5 flex max-w-2xl justify-center border-t pt-4">
                 <Button
                   type="button"
                   variant="link"

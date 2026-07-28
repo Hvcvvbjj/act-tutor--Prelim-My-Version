@@ -1,6 +1,11 @@
 import type { DiagnosticSkillResult } from "./diagnostic";
+import type { AssessmentRemediationProgress } from "./assessment-remediation";
 import type { CoreSection, CoreSectionScores } from "./types";
-import type { DailyMissionSummary, LearningSessionMode } from "./mission";
+import type {
+  DailyMissionSummary,
+  LearningSessionMode,
+  MistakeRecordPublic,
+} from "./mission";
 import type { LearningTwinSnapshot } from "./learning-twin";
 
 export type SkillSlug = string;
@@ -340,6 +345,28 @@ export interface PracticeFeedback {
   futureTask: FutureTaskDecision;
 }
 
+export interface LessonCheckResult {
+  id: string;
+  roundNumber: number;
+  cycleKind: LearningCycleKind;
+  skill: SkillSlug;
+  lesson: PersonalizedLessonContent;
+  correct: number;
+  total: 5;
+  requiredCorrect: 3 | 4;
+  passedInitially: boolean;
+  completedAt: string;
+}
+
+export interface LessonRemediationState {
+  checkId: string;
+  correct: number;
+  total: 5;
+  requiredCorrect: 3 | 4;
+  progress: AssessmentRemediationProgress;
+  items: ReadonlyArray<MistakeRecordPublic>;
+}
+
 export interface LearningSessionPayload {
   sessionId: string;
   bankVersion: string;
@@ -354,7 +381,7 @@ export interface LearningSessionPayload {
   currentQuestionIndex: number;
   mastery: MasteryState;
   futureTask: FutureTaskDecision;
-  status: "lesson" | "practice" | "complete";
+  status: "lesson" | "practice" | "remediation" | "complete";
   updatedAt: string;
   lastFeedback: PracticeFeedback | null;
   mode: LearningSessionMode;
@@ -368,6 +395,15 @@ export interface LearningSessionPayload {
   learnerModel: LearnerModelReport;
   trustReport: LearningTrustReport;
   teachBack: TeachBackResult | null;
+  lessonHistory?: ReadonlyArray<LessonCheckResult>;
+  remediation?: LessonRemediationState | null;
+}
+
+export function requiredCorrectForLessonCheck(goalScore: number): 3 | 4 {
+  if (!Number.isInteger(goalScore) || goalScore < 1 || goalScore > 36) {
+    throw new RangeError("Goal score must be an ACT score from 1 to 36.");
+  }
+  return goalScore >= 30 ? 4 : 3;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {

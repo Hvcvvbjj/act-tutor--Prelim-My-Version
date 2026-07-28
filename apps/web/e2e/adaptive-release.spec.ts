@@ -1,4 +1,9 @@
-import { expect, test, type Page } from "@playwright/test"
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test"
 import { ACT_PRACTICE_QUESTIONS } from "@act-tutor/content"
 
 import { openReportedScorePlan } from "./helpers"
@@ -12,6 +17,34 @@ interface CalibrationPayload {
   status: "in_progress" | "complete"
   responseCount: number
   currentQuestion: CalibrationQuestion | null
+}
+
+async function completeRoundZeroDiagnostic(request: APIRequestContext) {
+  const response = await request.post("/api/diagnostic", {
+    data: { action: "start_new_if_completed" },
+  })
+  expect(response.ok()).toBeTruthy()
+  const session = (await response.json()) as {
+    form: {
+      id: string
+      version: string
+      questions: ReadonlyArray<{
+        id: string
+        choices: ReadonlyArray<{ id: string }>
+      }>
+    }
+  }
+  const completed = await request.post("/api/diagnostic", {
+    data: {
+      formId: session.form.id,
+      formVersion: session.form.version,
+      answers: session.form.questions.map((question) => ({
+        questionId: question.id,
+        choiceId: question.choices[0]!.id,
+      })),
+    },
+  })
+  expect(completed.ok()).toBeTruthy()
 }
 
 async function openStarterPlan(page: Page) {
@@ -82,7 +115,9 @@ test("a learner without a score starts the full 66-question diagnostic", async (
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
   await expect(page.getByText("Skip for now")).toHaveCount(0)
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Start my full diagnostic" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
 
   await expect(
     page.getByRole("heading", { name: "Find your starting point." })
@@ -100,6 +135,7 @@ test("an optional Quick Check preserves the current foundation lesson while refr
 }) => {
   await request.delete("/api/learning")
   await request.delete("/api/calibration")
+  await completeRoundZeroDiagnostic(request)
 
   const startedResponse = await request.post("/api/learning", {
     data: {
@@ -116,6 +152,12 @@ test("an optional Quick Check preserves the current foundation lesson while refr
   })
   expect(startedResponse.ok()).toBeTruthy()
   const started = await startedResponse.json()
+  expect(started.learningTwin.evidence.diagnostic).toBe(66)
+  expect(
+    started.learningTwin.skills.every(
+      (skill: { priorSource: string }) => skill.priorSource === "diagnostic"
+    )
+  ).toBe(true)
 
   let calibration = (await (
     await request.get("/api/calibration")
@@ -380,11 +422,11 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   await expect(selectedSkillHeading).toBeFocused()
   await expect(
     selectedSkillDetail.getByRole("heading", {
-      name: "What Scout recommends now",
+      name: /^(Why Scout prioritizes this|Current adaptive priority)$/,
     })
   ).toBeVisible()
   await expect(selectedSkillDetail).toContainText(
-    "Scout currently recommends Sentence boundaries."
+    /highest (adaptive|evidence-based practice) priority/
   )
   const selectedSkillBounds = await selectedSkillHeading.boundingBox()
   const progressNavigationBounds = await primaryNavigation.boundingBox()
@@ -525,7 +567,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
     }
   }
 
-  for (const name of ["Idea", "Example", "Steps", "Remember"]) {
+  for (const name of ["Idea", "Example", "Method", "Need to know"]) {
     const stage = stages.getByRole("button", { name })
     await stage.click()
     await expect(stage).toHaveAttribute("aria-current", "step")
@@ -550,7 +592,7 @@ test("practice keeps scored feedback with its question until Next question", asy
   }
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
   await expect(stages.getByRole("button")).toHaveCount(5)
-  await stages.getByRole("button", { name: "Remember" }).click()
+  await stages.getByRole("button", { name: "Need to know" }).click()
 
   await page.getByRole("button", { name: "Start focused practice" }).click()
   const current = lesson.questions[lesson.currentQuestionIndex]
@@ -685,7 +727,7 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
   ).toBeVisible()
 })
 
-test("an in-progress full diagnostic resumes without discarding the guest plan", async ({
+test("an in-progress full diagnostic resumes, preserves the plan, and keeps Lessons locked", async ({
   page,
 }) => {
   await openFullDiagnostic(page)
@@ -705,11 +747,23 @@ test("an in-progress full diagnostic resumes without discarding the guest plan",
   await expect(resumedFirstAnswer).toBeChecked()
 
   await page.getByRole("button", { name: "Save and exit" }).click()
-  await page.getByRole("button", { name: "Return to dashboard" }).click()
-  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
   await expect(
-    page.getByRole("button", { name: "Sign in / save progress" })
+    page.getByRole("heading", { name: "Find your starting point." })
   ).toBeVisible()
+  await expect(page.getByTestId("lessons-command-center")).toHaveCount(0)
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("ai-act-tutor-placement-v3")
+        if (!raw) return null
+        return (
+          JSON.parse(raw) as {
+            guestPlan?: { currentComposite?: number }
+          }
+        ).guestPlan?.currentComposite
+      })
+    )
+    .toBe(24)
 })
 
 test("diagnostic review makes the first unanswered question the primary action", async ({
@@ -1024,7 +1078,12 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
     page.getByText(`${result.unanswered} unanswered`, { exact: true })
   ).toBeVisible()
   await expect(accuracy).not.toContainText("%")
-  await expect(page.getByText("1 answered", { exact: true })).toBeVisible()
+  await expect(
+    page.getByText(
+      `${result.total - result.unanswered}/${result.total}`,
+      { exact: true }
+    )
+  ).toBeVisible()
 
   const answeredSection = result.review.find(
     (answer) => answer.selectedChoiceId !== null

@@ -70,4 +70,23 @@ describe("assessment presentation contract", () => {
     expect(setup).toContain("complete ACT-length section")
     expect(runner).toContain("{assessmentLabel}")
   })
+
+  it("requires focused missed-question remediation only after round assessments", async () => {
+    const [remediation, diagnostic, testDayLab, learningRoute] =
+      await Promise.all([
+        source("components/tutor/assessment-remediation.tsx"),
+        source("components/tutor/diagnostic-runner.tsx"),
+        source("components/tutor/test-day-lab.tsx"),
+        source("app/api/learning/route.ts"),
+      ])
+
+    expect(remediation).toContain("Let&apos;s fix this one.")
+    expect(remediation).toContain("Check answer")
+    expect(remediation).toContain("Ask Mr. Kim about this")
+    expect(diagnostic).toContain('purpose === "round"')
+    expect(diagnostic).toContain('action: "answer_remediation"')
+    expect(testDayLab).toContain('action: "answer_remediation"')
+    expect(testDayLab).toContain("requireRoundRemediation")
+    expect(learningRoute).toContain("assertRoundRemediationComplete")
+  })
 })

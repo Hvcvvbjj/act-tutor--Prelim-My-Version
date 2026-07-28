@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeftIcon, ArrowRightIcon, XIcon } from "lucide-react"
 
+import {
+  spotlightRect,
+  type TourSpotlightRect,
+} from "@/components/tutor/dashboard-tour-geometry"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 
@@ -65,29 +69,30 @@ const TOUR_STEPS = [
   },
 ] as const
 
-interface TourRect {
-  top: number
-  left: number
-  right: number
-  bottom: number
-  width: number
-  height: number
+interface TourRect extends TourSpotlightRect {
+  radius: number
 }
 
-function boundedRect(element: Element): TourRect {
-  const rect = element.getBoundingClientRect()
-  const padding = 8
-  const top = Math.max(6, rect.top - padding)
-  const left = Math.max(6, rect.left - padding)
-  const right = Math.min(window.innerWidth - 6, rect.right + padding)
-  const bottom = Math.min(window.innerHeight - 6, rect.bottom + padding)
+function tourTarget(target: string) {
+  return document.querySelector<HTMLElement>(`[data-tour-id="${target}"]`)
+}
+
+function boundedRect(element: HTMLElement): TourRect | null {
+  const targetRect = element.getBoundingClientRect()
+  const rect = spotlightRect(targetRect, {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  })
+  if (!rect) return null
+  const targetRadius = Number.parseFloat(
+    window.getComputedStyle(element).borderTopLeftRadius
+  )
   return {
-    top,
-    left,
-    right,
-    bottom,
-    width: Math.max(1, right - left),
-    height: Math.max(1, bottom - top),
+    ...rect,
+    radius: Math.max(
+      12,
+      Math.min(28, (Number.isFinite(targetRadius) ? targetRadius : 4) + 8)
+    ),
   }
 }
 
@@ -104,13 +109,38 @@ export function DashboardTour() {
   const step = TOUR_STEPS[index]
 
   const measure = useCallback(() => {
-    const target = document.querySelector(`[data-tour-id="${step.target}"]`)
+    const target = tourTarget(step.target)
     setRect(target ? boundedRect(target) : null)
+  }, [step.target])
+
+  const revealTarget = useCallback(() => {
+    const target = tourTarget(step.target)
+    if (!target) {
+      setRect(null)
+      return
+    }
+    const targetBounds = target.getBoundingClientRect()
+    const fullyVisible =
+      targetBounds.top >= 6 &&
+      targetBounds.left >= 6 &&
+      targetBounds.bottom <= window.innerHeight - 6 &&
+      targetBounds.right <= window.innerWidth - 6
+    if (!fullyVisible) {
+      target.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block:
+          targetBounds.height > window.innerHeight - 48 ? "start" : "center",
+        inline: "center",
+      })
+    }
+    setRect(boundedRect(target))
   }, [step.target])
 
   useEffect(() => {
     const openTour = () => {
-      if (!window.matchMedia("(min-width: 900px)").matches) return
+      if (!window.matchMedia("(min-width: 1024px)").matches) return
       setIndex(0)
       setOpen(true)
     }
@@ -130,20 +160,26 @@ export function DashboardTour() {
 
   useEffect(() => {
     if (!open) return
-    const frame = window.requestAnimationFrame(measure)
-    const delayed = window.setTimeout(measure, 120)
-    const poll = window.setInterval(measure, 300)
-    window.addEventListener("resize", measure)
+    const target = tourTarget(step.target)
+    const frame = window.requestAnimationFrame(revealTarget)
+    const delayed = window.setTimeout(revealTarget, 120)
+    const settled = window.setTimeout(revealTarget, 520)
+    const poll = window.setInterval(revealTarget, 300)
+    const resizeObserver = new ResizeObserver(measure)
+    if (target) resizeObserver.observe(target)
+    window.addEventListener("resize", revealTarget)
     window.addEventListener("scroll", measure, true)
     dialogRef.current?.focus({ preventScroll: true })
     return () => {
       window.cancelAnimationFrame(frame)
       window.clearTimeout(delayed)
+      window.clearTimeout(settled)
       window.clearInterval(poll)
-      window.removeEventListener("resize", measure)
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", revealTarget)
       window.removeEventListener("scroll", measure, true)
     }
-  }, [measure, open])
+  }, [measure, open, revealTarget, step.target])
 
   const close = useCallback(() => {
     window.localStorage.setItem(DASHBOARD_TOUR_STORAGE_KEY, "done")
@@ -191,11 +227,11 @@ export function DashboardTour() {
       {rect ? (
         <>
           <div
-            className="absolute inset-x-0 top-0 bg-[#020918]/82 backdrop-blur-[1px]"
+            className="absolute inset-x-0 top-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[height] duration-300 ease-out motion-reduce:transition-none"
             style={{ height: rect.top }}
           />
           <div
-            className="absolute left-0 bg-[#020918]/82 backdrop-blur-[1px]"
+            className="absolute left-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top,width,height] duration-300 ease-out motion-reduce:transition-none"
             style={{
               top: rect.top,
               width: rect.left,
@@ -203,7 +239,7 @@ export function DashboardTour() {
             }}
           />
           <div
-            className="absolute right-0 bg-[#020918]/82 backdrop-blur-[1px]"
+            className="absolute right-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top,width,height] duration-300 ease-out motion-reduce:transition-none"
             style={{
               top: rect.top,
               width: window.innerWidth - rect.right,
@@ -211,21 +247,23 @@ export function DashboardTour() {
             }}
           />
           <div
-            className="absolute inset-x-0 bottom-0 bg-[#020918]/82 backdrop-blur-[1px]"
+            className="absolute inset-x-0 bottom-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top] duration-300 ease-out motion-reduce:transition-none"
             style={{ top: rect.bottom }}
           />
           <div
-            className="pointer-events-auto absolute rounded-xl border-2 border-primary shadow-[0_0_0_4px_rgb(242_138_59_/_0.22),0_0_32px_rgb(242_138_59_/_0.3)]"
+            data-tour-spotlight={step.target}
+            className="pointer-events-auto absolute border-2 border-[var(--scout-coral)] shadow-[0_0_0_6px_rgb(242_138_59_/_0.2),0_0_42px_rgb(242_138_59_/_0.42)] ring-2 ring-background transition-[top,left,width,height,border-radius] duration-300 ease-out motion-reduce:transition-none"
             style={{
               top: rect.top,
               left: rect.left,
               width: rect.width,
               height: rect.height,
+              borderRadius: rect.radius,
             }}
           />
         </>
       ) : (
-        <div className="absolute inset-0 bg-[#020918]/82 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-[#020918]/78 backdrop-blur-[2px]" />
       )}
 
       <div
@@ -234,34 +272,47 @@ export function DashboardTour() {
         aria-modal="true"
         aria-label={`Scout dashboard tour, step ${index + 1} of ${TOUR_STEPS.length}`}
         tabIndex={-1}
-        className="fixed max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-foreground bg-background p-5 text-foreground shadow-[0_22px_70px_rgb(0_0_0_/_0.32)] outline-none"
+        className="fixed max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-foreground/25 bg-background text-foreground shadow-[0_26px_80px_rgb(0_0_0_/_0.38)] transition-[top,left] duration-300 ease-out outline-none motion-reduce:transition-none"
         style={dialogStyle}
       >
-        <div className="flex items-start gap-3">
-          <ScoutMark className="size-12" />
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[0.65rem] font-black tracking-[0.12em] text-primary uppercase">
-              {step.eyebrow} · {index + 1} of {TOUR_STEPS.length}
-            </p>
-            <h2 className="mt-2 font-heading text-2xl leading-tight font-black">
-              {step.title}
-            </h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="-mt-2 -mr-2"
-            aria-label="Skip website tour"
-            onClick={close}
-          >
-            <XIcon />
-          </Button>
+        <div className="h-1 bg-border" aria-hidden="true">
+          <div
+            className="h-full bg-[var(--scout-coral)] transition-[width] duration-300 ease-out motion-reduce:transition-none"
+            style={{ width: `${((index + 1) / TOUR_STEPS.length) * 100}%` }}
+          />
         </div>
-        <p className="mt-4 text-sm leading-6 text-muted-foreground">
-          {step.copy}
-        </p>
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            <ScoutMark className="size-11" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-[0.65rem] font-black tracking-[0.12em] text-primary uppercase">
+                  {step.eyebrow}
+                </p>
+                <span className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6rem] font-black tracking-[0.08em] text-muted-foreground uppercase">
+                  Step {index + 1} of {TOUR_STEPS.length}
+                </span>
+              </div>
+              <h2 className="mt-2 font-heading text-2xl leading-tight font-black">
+                {step.title}
+              </h2>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="-mt-2 -mr-2"
+              aria-label="Skip website tour"
+              onClick={close}
+            >
+              <XIcon />
+            </Button>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            {step.copy}
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-border bg-secondary/55 px-5 py-4">
           <Button
             type="button"
             variant="ghost"
@@ -281,7 +332,7 @@ export function DashboardTour() {
               setIndex((current) => current + 1)
             }}
           >
-            {index === TOUR_STEPS.length - 1 ? "Start studying" : "Next"}
+            {index === TOUR_STEPS.length - 1 ? "Finish tour" : "Next"}
             {index < TOUR_STEPS.length - 1 ? (
               <ArrowRightIcon data-icon="inline-end" />
             ) : null}

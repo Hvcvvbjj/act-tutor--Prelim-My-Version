@@ -197,9 +197,7 @@ export function LessonTimeline({
         <ol className="mx-auto mt-6 max-w-4xl">
           {lessons.map((lesson, index) => {
             const interactive =
-              lesson.status !== "locked" &&
-              lesson.status !== "completed" &&
-              Boolean(onSelectLesson)
+              lesson.status !== "locked" && Boolean(onSelectLesson)
             const expanded = lesson.status === "current"
             const content = (
               <LessonContent

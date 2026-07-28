@@ -306,6 +306,21 @@ async function withRepository<T>(
   }
 }
 
+async function completeFirstLessonCheck(
+  repo: FileLearningSessionRepository,
+  sessionId: string,
+  choices: ReadonlyArray<"A" | "B">,
+) {
+  let payload = await repo.completeLesson(sessionId, bank);
+  for (const [index, choiceId] of choices.entries()) {
+    payload = await repo.answerQuestion(sessionId, bank, {
+      questionId: `sentence-boundaries-practice-${index + 1}`,
+      choiceId,
+    });
+  }
+  return payload;
+}
+
 describe("FileLearningSessionRepository", () => {
   it("starts a public learning session without answer keys", async () => {
     await withRepository(async (repo) => {
@@ -362,6 +377,155 @@ describe("FileLearningSessionRepository", () => {
       expect(JSON.stringify(payload.learningTwin)).not.toContain(
         "correctChoiceId",
       );
+    });
+  });
+
+  it("passes a goal-under-30 lesson check at three of five and saves it for review", async () => {
+    await withRepository(async (repo) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan: { ...plan, goalScore: 29 },
+      });
+      const completed = await completeFirstLessonCheck(
+        repo,
+        started.sessionId,
+        ["B", "B", "A", "A", "A"],
+      );
+
+      expect(completed.status).toBe("complete");
+      expect(completed.remediation).toBeNull();
+      expect(completed.cycle.completedSkills).toEqual(["sentence-boundaries"]);
+      expect(completed.lessonHistory).toEqual([
+        expect.objectContaining({
+          roundNumber: 1,
+          skill: "sentence-boundaries",
+          correct: 3,
+          total: 5,
+          requiredCorrect: 3,
+          passedInitially: true,
+        }),
+      ]);
+      expect(completed.lessonHistory?.[0]?.lesson.title).toBe(
+        "Sentence boundaries",
+      );
+    });
+  });
+
+  it("holds a goal-30 lesson at three of five until every miss is corrected", async () => {
+    await withRepository(async (repo, filePath) => {
+      const started = await repo.getOrCreate(null, bank, {
+        skill: "sentence-boundaries",
+        plan: { ...plan, goalScore: 30 },
+      });
+      const held = await completeFirstLessonCheck(repo, started.sessionId, [
+        "B",
+        "B",
+        "A",
+        "A",
+        "A",
+      ]);
+
+      expect(held.status).toBe("remediation");
+      expect(held.cycle.completedSkills).toEqual([]);
+      expect(held.cycle.nextSkill).toBe("sentence-boundaries");
+      expect(held.lessonHistory).toEqual([]);
+      expect(held.remediation).toMatchObject({
+        correct: 3,
+        total: 5,
+        requiredCorrect: 4,
+        progress: {
+          status: "required",
+          requiredQuestionIds: [
+            "sentence-boundaries-practice-1",
+            "sentence-boundaries-practice-2",
+          ],
+        },
+      });
+      expect(held.remediation?.items).toEqual([
+        expect.objectContaining({
+          questionId: "sentence-boundaries-practice-1",
+          correctChoiceText: "Correct",
+          rationale: "The correct answer follows the tested rule.",
+        }),
+        expect.objectContaining({
+          questionId: "sentence-boundaries-practice-2",
+        }),
+      ]);
+      await expect(
+        repo.beginFocus(started.sessionId, bank, {
+          plan: { ...plan, goalScore: 30 },
+        }),
+      ).rejects.toThrow("Finish the current mission");
+
+      const resumed = await new FileLearningSessionRepository(filePath).get(
+        started.sessionId,
+        bank,
+      );
+      expect(resumed.status).toBe("remediation");
+      await expect(
+        repo.answerLessonRemediation(started.sessionId, bank, {
+          questionId: "sentence-boundaries-practice-2",
+          choiceId: "A",
+        }),
+      ).rejects.toThrow("Finish the current missed item");
+
+      const missedAgain = await repo.answerLessonRemediation(
+        started.sessionId,
+        bank,
+        {
+          questionId: "sentence-boundaries-practice-1",
+          choiceId: "B",
+        },
+      );
+      expect(missedAgain.status).toBe("remediation");
+      expect(
+        missedAgain.remediation?.progress.responses[
+          "sentence-boundaries-practice-1"
+        ],
+      ).toMatchObject({ attempts: 1, correctedAt: null });
+
+      const firstFixed = await repo.answerLessonRemediation(
+        started.sessionId,
+        bank,
+        {
+          questionId: "sentence-boundaries-practice-1",
+          choiceId: "A",
+        },
+      );
+      expect(firstFixed.status).toBe("remediation");
+      expect(
+        firstFixed.remediation?.progress.responses[
+          "sentence-boundaries-practice-1"
+        ]?.correctedAt,
+      ).not.toBeNull();
+
+      const allFixed = await repo.answerLessonRemediation(
+        started.sessionId,
+        bank,
+        {
+          questionId: "sentence-boundaries-practice-2",
+          choiceId: "A",
+        },
+      );
+      expect(allFixed.status).toBe("complete");
+      expect(allFixed.remediation?.progress.status).toBe("complete");
+      expect(allFixed.cycle.completedSkills).toEqual(["sentence-boundaries"]);
+      expect(allFixed.cycle.nextSkill).toBe("linear-equations");
+      expect(allFixed.mission.unresolvedMistakes).toBe(0);
+      expect(allFixed.lessonHistory).toEqual([
+        expect.objectContaining({
+          correct: 3,
+          requiredCorrect: 4,
+          passedInitially: false,
+        }),
+      ]);
+
+      const next = await repo.beginFocus(started.sessionId, bank, {
+        plan: { ...plan, goalScore: 30 },
+      });
+      expect(next.todaySkill).toBe("linear-equations");
+      expect(next.remediation).toBeNull();
+      expect(next.lessonHistory).toHaveLength(1);
     });
   });
 
@@ -1077,7 +1241,7 @@ describe("FileLearningSessionRepository", () => {
           prerequisiteBank,
           {
             questionId: `linear-equations-practice-${index}`,
-            choiceId: "B",
+            choiceId: index === 1 ? "B" : "A",
           },
         );
       }
@@ -1611,14 +1775,19 @@ describe("FileLearningSessionRepository", () => {
           "math-tertiary",
           "linear-equations",
           "sentence-boundaries",
+          "supported-inference",
         ],
         completedSkills: [],
         nextSkill: "english-secondary",
       });
-      expect(adaptive.cycle.requiredSkills).toHaveLength(6);
-      expect(new Set(adaptive.cycle.requiredSkills).size).toBe(6);
-      expect(adaptive.cycle.requiredSkills).not.toContain(
-        "supported-inference",
+      expect(adaptive.cycle.requiredSkills).toHaveLength(
+        learningBank.skills.length,
+      );
+      expect(new Set(adaptive.cycle.requiredSkills).size).toBe(
+        learningBank.skills.length,
+      );
+      expect(adaptive.cycle.requiredSkills).toEqual(
+        expect.arrayContaining(learningBank.skills.map((skill) => skill.slug)),
       );
       expect(adaptive.todaySkill).toBe(adaptive.cycle.nextSkill);
       expect(adaptive.mode).toBe("focus");
@@ -1700,13 +1869,19 @@ describe("FileLearningSessionRepository", () => {
         }),
       ).rejects.toThrow("cannot be skipped or repeated");
 
-      const lastAdaptiveSkill = adaptive.cycle.requiredSkills.at(-1);
-      expect(lastAdaptiveSkill).toBeDefined();
+      const lastAdaptiveSkill = "sentence-boundaries";
+      const completionOrder = [
+        ...adaptive.cycle.requiredSkills.filter(
+          (skill) => skill !== lastAdaptiveSkill,
+        ),
+        lastAdaptiveSkill,
+      ];
       const adaptiveStore = JSON.parse(await readFile(filePath, "utf8")) as {
         sessions: Record<
           string,
           {
             cycle: {
+              requiredSkills: string[];
               completedSkills: string[];
               nextSkill: string | null;
               status: string;
@@ -1714,10 +1889,12 @@ describe("FileLearningSessionRepository", () => {
           }
         >;
       };
+      adaptiveStore.sessions[started.sessionId].cycle.requiredSkills =
+        completionOrder;
       adaptiveStore.sessions[started.sessionId].cycle.completedSkills =
-        adaptive.cycle.requiredSkills.slice(0, -1);
+        completionOrder.slice(0, -1);
       adaptiveStore.sessions[started.sessionId].cycle.nextSkill =
-        lastAdaptiveSkill ?? null;
+        lastAdaptiveSkill;
       adaptiveStore.sessions[started.sessionId].cycle.status = "lessons";
       await writeFile(filePath, `${JSON.stringify(adaptiveStore, null, 2)}\n`);
       let adaptiveComplete = await repo.beginFocus(
@@ -1744,8 +1921,8 @@ describe("FileLearningSessionRepository", () => {
         roundNumber: 2,
         kind: "adaptive",
         status: "assessment-choice",
-        requiredSkills: adaptive.cycle.requiredSkills,
-        completedSkills: adaptive.cycle.requiredSkills,
+        requiredSkills: completionOrder,
+        completedSkills: completionOrder,
         nextSkill: null,
       });
       expect(adaptiveComplete.mission.progress.xp).toBeGreaterThan(

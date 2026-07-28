@@ -289,6 +289,61 @@ test("compact desktop navigation keeps primary controls easy to target", async (
     .toEqual({ pageWidth: 1024, viewportWidth: 1024 })
 })
 
+test("the desktop tour scrolls to and precisely spotlights the real lesson action", async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 1100, height: 700 })
+  await openReportedScorePlan(page)
+
+  await page.getByRole("button", { name: "Open settings" }).click()
+  await page
+    .getByRole("dialog", { name: "Settings" })
+    .getByRole("button", { name: "Replay website tour" })
+    .click()
+
+  const tour = page.getByRole("dialog", {
+    name: "Scout dashboard tour, step 1 of 9",
+  })
+  await expect(tour).toBeVisible()
+  await tour.getByRole("button", { name: "Next" }).click()
+  await expect(
+    page.getByRole("dialog", {
+      name: "Scout dashboard tour, step 2 of 9",
+    })
+  ).toBeVisible()
+
+  const action = page.locator('[data-tour-id="lesson-action"]')
+  const spotlight = page.locator('[data-tour-spotlight="lesson-action"]')
+  await expect(action).toBeInViewport()
+  await expect(spotlight).toBeVisible()
+  await expect
+    .poll(async () => {
+      const [actionBox, spotlightBox] = await Promise.all([
+        action.boundingBox(),
+        spotlight.boundingBox(),
+      ])
+      if (!actionBox || !spotlightBox) return Number.POSITIVE_INFINITY
+      const centerDeltaX = Math.abs(
+        actionBox.x +
+          actionBox.width / 2 -
+          (spotlightBox.x + spotlightBox.width / 2)
+      )
+      const centerDeltaY = Math.abs(
+        actionBox.y +
+          actionBox.height / 2 -
+          (spotlightBox.y + spotlightBox.height / 2)
+      )
+      return Math.max(centerDeltaX, centerDeltaY)
+    })
+    .toBeLessThanOrEqual(1)
+
+  const actionBox = await action.boundingBox()
+  expect(actionBox).not.toBeNull()
+  expect(actionBox!.y).toBeGreaterThanOrEqual(0)
+  expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(700)
+})
+
 test("learner actions stay comfortably targetable across the core study surfaces", async ({
   page,
 }) => {

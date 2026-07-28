@@ -224,9 +224,10 @@ describe("FileExamLabRepository", () => {
     });
   });
 
-  it("scores blanks as wrong without exposing their answer keys", async () => {
+  it("scores blanks as wrong and requires each one in post-submit remediation", async () => {
     await withRepo(async (repo) => {
       const started = await repo.start(form, { mode: "core" });
+      expect(JSON.stringify(started.payload)).not.toContain("Reason e1");
       const math = await repo.advanceSection(started.sessionId, form);
       expect(math.progress.currentSection).toBe("math");
       const reading = await repo.advanceSection(started.sessionId, form);
@@ -235,12 +236,20 @@ describe("FileExamLabRepository", () => {
       expect(review.progress.phase).toBe("review");
       const result = await repo.finalize(started.sessionId, form);
       expect(result.result?.unanswered).toBe(6);
-      expect(result.result?.review).toEqual([]);
-      expect(JSON.stringify(result.result)).not.toContain("Reason e1");
+      expect(result.result?.review).toHaveLength(6);
+      expect(result.result?.review[0]).toMatchObject({
+        selectedChoiceId: null,
+        correct: false,
+        rationale: "Reason e1",
+      });
+      expect(result.remediation).toMatchObject({
+        status: "required",
+        requiredQuestionIds: questions.map((question) => question.id),
+      });
     });
   });
 
-  it("sanitizes unanswered review keys from legacy completed sessions", async () => {
+  it("derives required blank remediation for legacy completed sessions", async () => {
     await withRepo(async (repo, filePath) => {
       const started = await repo.start(form, { mode: "core" });
       await repo.advanceSection(started.sessionId, form);
@@ -255,34 +264,79 @@ describe("FileExamLabRepository", () => {
             result: {
               review: unknown[];
             };
+            remediation?: unknown;
           }
         >;
       };
-      stored.sessions[started.sessionId].result.review = [
-        {
-          questionId: "e1",
-          section: "english",
-          skill: "boundaries",
-          skillLabel: "boundaries",
-          selectedChoiceId: null,
-          correctChoiceId: "a",
-          correct: false,
-          rationale: "Reason e1",
-          confidence: null,
-          flagged: false,
-          elapsedSeconds: 0,
-          expectedSeconds: 45,
-        },
-      ];
+      stored.sessions[started.sessionId].result.review = [];
+      delete stored.sessions[started.sessionId].remediation;
       await writeFile(filePath, `${JSON.stringify(stored, null, 2)}\n`);
 
       const resumed = new FileExamLabRepository(filePath);
       const loaded = await resumed.get(started.sessionId, form);
       expect(loaded.result?.review).toEqual([]);
-      expect(JSON.stringify(loaded.result)).not.toContain("Reason e1");
-      const idempotent = await resumed.finalize(started.sessionId, form);
-      expect(idempotent.result?.review).toEqual([]);
-      expect(JSON.stringify(idempotent.result)).not.toContain("Reason e1");
+      expect(loaded.remediation?.requiredQuestionIds).toEqual(
+        questions.map((question) => question.id),
+      );
+    });
+  });
+
+  it("persists wrong and corrected remediation retries", async () => {
+    await withRepo(async (repo, filePath) => {
+      const started = await repo.start(form, { mode: "core" });
+      const responses = Object.fromEntries(
+        questions.map((question, index) => [
+          question.id,
+          {
+            choiceId:
+              index === 0
+                ? question.choices.find(
+                    (choice) => choice.id !== question.correctChoiceId,
+                  )!.id
+                : question.correctChoiceId,
+            confidence: "unreported" as const,
+            flagged: false,
+            elapsedSeconds: 30,
+          },
+        ]),
+      );
+      await repo.save(started.sessionId, form, {
+        currentIndex: 0,
+        phase: "questions",
+        responses,
+      });
+      await repo.advanceSection(started.sessionId, form);
+      await repo.advanceSection(started.sessionId, form);
+      await repo.advanceSection(started.sessionId, form);
+      const completed = await repo.finalize(started.sessionId, form);
+      expect(completed.remediation?.requiredQuestionIds).toEqual(["e1"]);
+
+      const wrong = await repo.answerRemediation(started.sessionId, form, {
+        questionId: "e1",
+        choiceId: "b",
+      });
+      expect(wrong.remediation?.responses.e1).toMatchObject({
+        attempts: 1,
+        correctedAt: null,
+      });
+
+      const restarted = new FileExamLabRepository(filePath);
+      const corrected = await restarted.answerRemediation(
+        started.sessionId,
+        form,
+        {
+          questionId: "e1",
+          choiceId: "a",
+        },
+      );
+      expect(corrected.remediation).toMatchObject({
+        status: "complete",
+        responses: {
+          e1: {
+            attempts: 2,
+          },
+        },
+      });
     });
   });
 

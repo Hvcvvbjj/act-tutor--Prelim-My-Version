@@ -25,9 +25,7 @@ test("Progress keeps its skill comparison readable at mobile and desktop sizes",
   await expect(overview).toContainText("English")
   await expect(overview).toContainText("Math")
   await expect(overview).toContainText("Reading")
-  await expect(overview).toContainText(
-    "Starting estimates only · no scored answers yet"
-  )
+  await expect(overview).toContainText("4 of 4 skills have scored evidence")
   await expect(radar).toBeHidden()
   await page.getByRole("button", { name: /Ratios and percent/ }).click()
   await expect(

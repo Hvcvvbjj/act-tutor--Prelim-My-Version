@@ -29,6 +29,10 @@ import {
   RadioGroup,
   VisuallyHiddenRadioGroupItem,
 } from "@/components/ui/radio-group"
+import {
+  RapidAnswerCoachDialog,
+  useRapidAnswerCoach,
+} from "@/components/tutor/rapid-answer-coach"
 import { cn } from "@/lib/utils"
 
 interface AdaptiveCalibrationLabProps {
@@ -516,6 +520,10 @@ export function AdaptiveCalibrationLab({
   const initialLoad = useRef<Promise<AdaptiveCalibrationPayload> | null>(null)
   const questionHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousQuestionIdRef = useRef<string | null>(null)
+  const rapidAnswerCoach = useRapidAnswerCoach(
+    payload?.sessionId ?? "quick-check-loading",
+    payload?.answeredQuestionIds ?? []
+  )
 
   useEffect(() => {
     let active = true
@@ -644,6 +652,7 @@ export function AdaptiveCalibrationLab({
         choiceId: selectedChoice,
         confidence: DEFAULT_ANSWER_CONFIDENCE,
       })
+      rapidAnswerCoach.recordAnswer(question.id)
       setPayload(next)
       setSelectedChoice("")
       setError(null)
@@ -755,404 +764,418 @@ export function AdaptiveCalibrationLab({
       : null
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-7 sm:py-7 lg:py-8"
-      data-representative-demo={representativeDemo ? "true" : "false"}
-    >
-      {payload.status === "complete" ? null : question ? (
-        <section
-          className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-1 py-1"
-          aria-labelledby="quick-check-heading"
-        >
-          <h1
-            id="quick-check-heading"
-            className="font-heading text-xl font-black tracking-[-0.02em] sm:text-2xl"
+    <>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-7 sm:py-7 lg:py-8"
+        data-representative-demo={representativeDemo ? "true" : "false"}
+      >
+        {payload.status === "complete" ? null : question ? (
+          <section
+            className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-1 py-1"
+            aria-labelledby="quick-check-heading"
           >
-            Quick Check
-          </h1>
-          <p
-            className="text-right text-xs text-muted-foreground sm:text-sm"
-            role="status"
-            aria-live="polite"
-            aria-label={`${timeRemainingLabel}. Question ${payload.responseCount + 1} of up to ${payload.maximumItems}.`}
-          >
-            {timeRemainingLabel} · {payload.responseCount + 1}/
-            {payload.maximumItems}
-          </p>
-        </section>
-      ) : (
-        <section
-          className="paper-panel mx-auto max-w-3xl rounded-2xl border border-border/80 bg-card p-4 sm:p-6"
-          aria-labelledby="quick-check-heading"
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center">
-            <div>
-              <div className="hidden items-center gap-3 text-primary sm:flex">
-                <CrosshairIcon className="size-5" aria-hidden="true" />
-                <p className="ink-label">Adaptive starting point</p>
-              </div>
-              <h1
-                id="quick-check-heading"
-                className="font-heading text-3xl leading-tight font-black tracking-[-0.025em] sm:mt-2 sm:text-4xl"
-              >
-                Quick Check
-              </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
-                Answer 8–12 questions. Scout may stop after eight once English,
-                Math, and Reading are covered. The answers refine your starting
-                skill estimates. Round 1 still teaches all 12 question types.
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-muted/75 px-4 py-2.5 sm:py-3">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="ink-label hidden text-muted-foreground sm:block">
-                    Time remaining
-                  </p>
-                  <p className="text-lg font-black sm:mt-1 sm:text-xl">
-                    {timeRemainingLabel}
-                  </p>
-                </div>
-                <p
-                  className="text-right text-xs whitespace-nowrap text-muted-foreground"
-                  role="status"
-                  aria-live="polite"
-                >
-                  Question {payload.responseCount + 1} of up to{" "}
-                  {payload.maximumItems}
-                </p>
-              </div>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-border sm:mt-3"
-                aria-hidden="true"
-              >
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (payload.responseCount / payload.maximumItems) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {payload.representativeDemo && payload.status !== "complete" ? (
-        <Alert className="mx-auto mt-3 max-w-3xl border-primary/50 bg-secondary px-4 py-3">
-          <ScanSearchIcon />
-          <AlertTitle>Seven sample answers are loaded</AlertTitle>
-          <AlertDescription>Answer once to watch Scout react.</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {latestEvent && showLatestAnswer && payload.status !== "complete" ? (
-        <div
-          className={cn(
-            "mx-auto mt-6 grid max-w-3xl grid-cols-[auto_1fr] gap-3 border-l-4 px-5 py-4",
-            latestEvent.correct
-              ? "border-primary bg-secondary"
-              : "border-destructive bg-destructive/10"
-          )}
-          role="status"
-        >
-          {latestEvent.correct ? (
-            <CheckCircle2Icon className="text-primary" />
-          ) : (
-            <CircleAlertIcon className="text-destructive" />
-          )}
-          <div>
-            <p className="font-bold">
-              {latestEvent.correct ? "Correct." : "Not quite."}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {payload.learningTwinUpdated
-                ? "Scout adjusted the next question."
-                : "The answer saved, but the skill update will retry."}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {payload.status === "complete" &&
-      proof &&
-      (canViewTechnicalDetails || payload.representativeDemo) ? (
-        <>
-          <AdaptiveProofReplay
-            proof={proof}
-            onInspectLearningTwin={onInspectLearningTwin}
-            onReturnToToday={onReturnToToday}
-            canViewTechnicalDetails={canViewTechnicalDetails}
-            representativeDemo={payload.representativeDemo}
-            adaptiveBaselineRequired={adaptiveBaselineRequired}
-          />
-          {adaptiveBaselineRequired ? (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
-              <div>
-                <p className="font-heading text-2xl font-black">
-                  Build my plan from these answers
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {preserveReportedScore
-                    ? "Your reported ACT score stays as the planning baseline. These answers refine your question-type estimates for later rounds; Round 1 still covers all 12 types."
-                    : "Scout will turn these answers into a temporary planning baseline for your schedule."}
-                </p>
-              </div>
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() => void applyAdaptiveBaseline()}
-              >
-                {busy ? "Saving your plan…" : "Build my study plan"}
-              </Button>
-            </div>
-          ) : null}
-        </>
-      ) : payload.status === "complete" || !question ? (
-        <section className="mx-auto max-w-2xl py-14 text-center">
-          <CheckCircle2Icon
-            className="mx-auto size-10 text-primary"
-            aria-hidden="true"
-          />
-          <p className="ink-label mt-4 text-primary">Quick Check complete</p>
-          <h2 className="mt-3 font-heading text-4xl font-black sm:text-5xl">
-            Starting point saved.
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-            Scout used {payload.responseCount} answers to build your starting
-            skill profile.
-          </p>
-          {canViewTechnicalDetails ? (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Internal placement index: {payload.estimate.readinessIndex}/100
-            </p>
-          ) : null}
-          <div className="mx-auto mt-7 flex max-w-sm flex-col gap-3">
-            {adaptiveBaselineRequired ? (
-              <Button
-                type="button"
-                size="lg"
-                disabled={busy}
-                onClick={() => void applyAdaptiveBaseline()}
-              >
-                {busy ? "Building my plan…" : "Build my plan from this check"}
-              </Button>
-            ) : (
-              <Button type="button" size="lg" onClick={onReturnToToday}>
-                Back to Lessons
-                <ArrowRightIcon data-icon="inline-end" />
-              </Button>
-            )}
-          </div>
-          {error ? (
+            <h1
+              id="quick-check-heading"
+              className="font-heading text-xl font-black tracking-[-0.02em] sm:text-2xl"
+            >
+              Quick Check
+            </h1>
             <p
-              className="mt-3 text-sm font-semibold text-destructive"
-              role="alert"
+              className="text-right text-xs text-muted-foreground sm:text-sm"
+              role="status"
+              aria-live="polite"
+              aria-label={`${timeRemainingLabel}. Question ${payload.responseCount + 1} of up to ${payload.maximumItems}.`}
             >
-              {error}
+              {timeRemainingLabel} · {payload.responseCount + 1}/
+              {payload.maximumItems}
             </p>
-          ) : null}
-        </section>
-      ) : (
-        <div
-          className="mx-auto mt-5 max-w-3xl"
-          data-testid="quick-check-question-card"
-        >
-          <section className="px-1 py-3 sm:py-5">
-            <p className="font-mono text-xs font-black text-primary uppercase">
-              {SECTION_LABELS[question.section]}
-              {canViewTechnicalDetails ? ` · ${question.difficulty}` : ""}
-            </p>
-            {question.stimulus ? (
-              <article
-                data-testid="quick-check-stimulus"
-                className="mt-4 border-l-4 border-primary bg-muted/55 px-4 py-4 text-sm leading-7 sm:px-5"
-              >
-                {question.passageTitle ? (
-                  <p className="mb-3 font-heading text-xl font-black sm:text-2xl">
-                    {question.passageTitle}
-                  </p>
-                ) : null}
-                <p>{focusedStimulus ?? question.stimulus}</p>
-                {focusedStimulus ? (
-                  <details className="mt-3 border-t border-foreground/15 pt-2">
-                    <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                      Full passage
-                    </summary>
-                    <p className="pb-2 text-muted-foreground">
-                      {question.stimulus}
-                    </p>
-                  </details>
-                ) : null}
-              </article>
-            ) : null}
-            {question.lineReference ? (
-              <p className="mt-5 font-mono text-xs font-black text-muted-foreground uppercase">
-                {question.lineReference}
-              </p>
-            ) : null}
-            <h2
-              ref={questionHeadingRef}
-              tabIndex={-1}
-              className="mt-5 scroll-mt-20 text-lg leading-7 font-bold outline-none sm:text-xl sm:leading-8"
-            >
-              {question.prompt}
-            </h2>
-            <RadioGroup
-              value={selectedChoice}
-              onValueChange={setSelectedChoice}
-              aria-label={`Answer choices for Quick Check question ${payload.responseCount + 1}`}
-              className="mt-5 gap-2.5"
-            >
-              {question.choices.map((choice, index) => (
-                <label
-                  key={choice.id}
-                  data-testid="quick-check-choice"
-                  className={cn(
-                    "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6 transition-[background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:border-primary hover:bg-muted/50",
-                    selectedChoice === choice.id &&
-                      "border-primary bg-secondary ring-1 ring-primary/20"
-                  )}
-                >
-                  <VisuallyHiddenRadioGroupItem value={choice.id} />
-                  <strong className="font-mono text-base text-primary">
-                    {String.fromCharCode(65 + index)}
-                  </strong>
-                  <span className="min-w-0">{choice.text}</span>
-                </label>
-              ))}
-            </RadioGroup>
-            <p className="sr-only">Keyboard: 1–4 or A–D chooses an answer.</p>
-            {error ? (
-              <Alert variant="destructive" className="mt-5">
-                <CircleAlertIcon />
-                <AlertTitle>Answer not recorded</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : null}
-            <Button
-              type="button"
-              size="xl"
-              className="mt-4 w-full"
-              disabled={!selectedChoice || busy}
-              onClick={() => void submitAnswer()}
-            >
-              {busy ? (
-                <LoaderCircleIcon className="animate-spin" />
-              ) : (
-                <ShieldCheckIcon />
-              )}
-              {busy ? "Recording my answer…" : "Check my answer"}
-              {!busy ? <ArrowRightIcon data-icon="inline-end" /> : null}
-            </Button>
           </section>
-        </div>
-      )}
-
-      {canViewTechnicalDetails ? (
-        <details className="group mx-auto mt-6 max-w-3xl border-y-2 border-foreground bg-[var(--rail)]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-5 font-bold text-foreground marker:content-none sm:px-6">
-            <span className="flex items-center gap-3">
-              <GaugeIcon className="size-5 text-primary" aria-hidden="true" />
-              How Scout chose this question
-              <span className="font-normal text-muted-foreground">
-                (technical details)
-              </span>
-            </span>
-            <span className="font-mono text-xs font-black uppercase group-open:hidden">
-              Show
-            </span>
-            <span className="hidden font-mono text-xs font-black uppercase group-open:inline">
-              Hide
-            </span>
-          </summary>
-          <div className="border-t-2 border-foreground bg-background px-4 py-7 sm:px-6">
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Scout uses a two-parameter Item Response Theory-shaped model (2PL
-              IRT). Easy, medium, and hard questions use preset difficulty and
-              discrimination constants assigned in this app; they are not
-              calibrated from a national sample. Unanswered items are ranked by
-              Fisher information at the current theta, plus +1.35 for an unseen
-              section, +0.24 for the least-covered section, and +0.12 for an
-              unseen skill. Current theta: {signed(payload.estimate.theta)}.
-              Model version: {payload.model.version}.
-            </p>
-
-            {question ? (
-              <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
-                <div>
-                  <div className="flex items-center gap-3 text-primary">
-                    <BrainCircuitIcon className="size-5" aria-hidden="true" />
-                    <p className="ink-label">Current model estimate</p>
-                  </div>
-                  <div className="mt-5">
-                    <ModelBand payload={payload} />
-                  </div>
+        ) : (
+          <section
+            className="paper-panel mx-auto max-w-3xl rounded-2xl border border-border/80 bg-card p-4 sm:p-6"
+            aria-labelledby="quick-check-heading"
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center">
+              <div>
+                <div className="hidden items-center gap-3 text-primary sm:flex">
+                  <CrosshairIcon className="size-5" aria-hidden="true" />
+                  <p className="ink-label">Adaptive starting point</p>
                 </div>
+                <h1
+                  id="quick-check-heading"
+                  className="font-heading text-3xl leading-tight font-black tracking-[-0.025em] sm:mt-2 sm:text-4xl"
+                >
+                  Quick Check
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
+                  Answer 8–12 questions. Scout may stop after eight once
+                  English, Math, and Reading are covered. The answers refine
+                  your starting skill estimates. Round 1 still teaches all 12
+                  question types.
+                </p>
+              </div>
 
-                <div>
-                  <p className="ink-label text-primary">Selection data</p>
-                  <div className="mt-3">
-                    <MetricRow
-                      label="Item information"
-                      detail="How informative the item is at current theta before coverage bonuses"
-                      value={
-                        selectedCandidate
-                          ? selectedCandidate.itemInformation.toFixed(2)
-                          : "—"
-                      }
-                      accent
-                    />
-                    <MetricRow
-                      label="Predicted correct"
-                      detail="Calculated from theta and preset item parameters"
-                      value={
-                        selectedCandidate
-                          ? `${Math.round(selectedCandidate.probabilityCorrect * 100)}%`
-                          : "—"
-                      }
-                    />
-                    <MetricRow
-                      label="Difficulty"
-                      detail="Question-bank category mapped to fixed constants in code"
-                      value={question.difficulty}
-                    />
-                  </div>
-                  <div className="mt-7 border-t-2 border-foreground pt-6">
-                    <h3 className="font-heading text-2xl font-black">
-                      Candidate ranking
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Ranking score = item information + section and skill
-                      coverage bonuses. It is not a probability. Exact ties use
-                      higher unbonused item information, then the question-bank
-                      item ID. Displayed scores are rounded to two decimals.
+              <div className="rounded-xl bg-muted/75 px-4 py-2.5 sm:py-3">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="ink-label hidden text-muted-foreground sm:block">
+                      Time remaining
                     </p>
-                    <ol className="mt-4">
-                      {payload.selection?.candidates.map((candidate, index) => (
-                        <CandidateRow
-                          key={candidate.id}
-                          candidate={candidate}
-                          rank={index + 1}
-                          selected={
-                            candidate.id === payload.selection?.selectedItemId
-                          }
-                        />
-                      ))}
-                    </ol>
+                    <p className="text-lg font-black sm:mt-1 sm:text-xl">
+                      {timeRemainingLabel}
+                    </p>
                   </div>
+                  <p
+                    className="text-right text-xs whitespace-nowrap text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Question {payload.responseCount + 1} of up to{" "}
+                    {payload.maximumItems}
+                  </p>
+                </div>
+                <div
+                  className="mt-2 h-1.5 overflow-hidden rounded-full bg-border sm:mt-3"
+                  aria-hidden="true"
+                >
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (payload.responseCount / payload.maximumItems) * 100
+                      )}%`,
+                    }}
+                  />
                 </div>
               </div>
-            ) : null}
+            </div>
+          </section>
+        )}
+
+        {payload.representativeDemo && payload.status !== "complete" ? (
+          <Alert className="mx-auto mt-3 max-w-3xl border-primary/50 bg-secondary px-4 py-3">
+            <ScanSearchIcon />
+            <AlertTitle>Seven sample answers are loaded</AlertTitle>
+            <AlertDescription>
+              Answer once to watch Scout react.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {latestEvent && showLatestAnswer && payload.status !== "complete" ? (
+          <div
+            className={cn(
+              "mx-auto mt-6 grid max-w-3xl grid-cols-[auto_1fr] gap-3 border-l-4 px-5 py-4",
+              latestEvent.correct
+                ? "border-primary bg-secondary"
+                : "border-destructive bg-destructive/10"
+            )}
+            role="status"
+          >
+            {latestEvent.correct ? (
+              <CheckCircle2Icon className="text-primary" />
+            ) : (
+              <CircleAlertIcon className="text-destructive" />
+            )}
+            <div>
+              <p className="font-bold">
+                {latestEvent.correct ? "Correct." : "Not quite."}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {payload.learningTwinUpdated
+                  ? "Scout adjusted the next question."
+                  : "The answer saved, but the skill update will retry."}
+              </p>
+            </div>
           </div>
-        </details>
-      ) : null}
-    </main>
+        ) : null}
+
+        {payload.status === "complete" &&
+        proof &&
+        (canViewTechnicalDetails || payload.representativeDemo) ? (
+          <>
+            <AdaptiveProofReplay
+              proof={proof}
+              onInspectLearningTwin={onInspectLearningTwin}
+              onReturnToToday={onReturnToToday}
+              canViewTechnicalDetails={canViewTechnicalDetails}
+              representativeDemo={payload.representativeDemo}
+              adaptiveBaselineRequired={adaptiveBaselineRequired}
+            />
+            {adaptiveBaselineRequired ? (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-5">
+                <div>
+                  <p className="font-heading text-2xl font-black">
+                    Build my plan from these answers
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {preserveReportedScore
+                      ? "Your reported ACT score stays as the planning baseline. These answers refine your question-type estimates for later rounds; Round 1 still covers all 12 types."
+                      : "Scout will turn these answers into a temporary planning baseline for your schedule."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void applyAdaptiveBaseline()}
+                >
+                  {busy ? "Saving your plan…" : "Build my study plan"}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        ) : payload.status === "complete" || !question ? (
+          <section className="mx-auto max-w-2xl py-14 text-center">
+            <CheckCircle2Icon
+              className="mx-auto size-10 text-primary"
+              aria-hidden="true"
+            />
+            <p className="ink-label mt-4 text-primary">Quick Check complete</p>
+            <h2 className="mt-3 font-heading text-4xl font-black sm:text-5xl">
+              Starting point saved.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
+              Scout used {payload.responseCount} answers to build your starting
+              skill profile.
+            </p>
+            {canViewTechnicalDetails ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Internal placement index: {payload.estimate.readinessIndex}/100
+              </p>
+            ) : null}
+            <div className="mx-auto mt-7 flex max-w-sm flex-col gap-3">
+              {adaptiveBaselineRequired ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={busy}
+                  onClick={() => void applyAdaptiveBaseline()}
+                >
+                  {busy ? "Building my plan…" : "Build my plan from this check"}
+                </Button>
+              ) : (
+                <Button type="button" size="lg" onClick={onReturnToToday}>
+                  Back to Lessons
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Button>
+              )}
+            </div>
+            {error ? (
+              <p
+                className="mt-3 text-sm font-semibold text-destructive"
+                role="alert"
+              >
+                {error}
+              </p>
+            ) : null}
+          </section>
+        ) : (
+          <div
+            className="mx-auto mt-5 max-w-3xl"
+            data-testid="quick-check-question-card"
+          >
+            <section className="px-1 py-3 sm:py-5">
+              <p className="font-mono text-xs font-black text-primary uppercase">
+                {SECTION_LABELS[question.section]}
+                {canViewTechnicalDetails ? ` · ${question.difficulty}` : ""}
+              </p>
+              {question.stimulus ? (
+                <article
+                  data-testid="quick-check-stimulus"
+                  className="mt-4 border-l-4 border-primary bg-muted/55 px-4 py-4 text-sm leading-7 sm:px-5"
+                >
+                  {question.passageTitle ? (
+                    <p className="mb-3 font-heading text-xl font-black sm:text-2xl">
+                      {question.passageTitle}
+                    </p>
+                  ) : null}
+                  <p>{focusedStimulus ?? question.stimulus}</p>
+                  {focusedStimulus ? (
+                    <details className="mt-3 border-t border-foreground/15 pt-2">
+                      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                        Full passage
+                      </summary>
+                      <p className="pb-2 text-muted-foreground">
+                        {question.stimulus}
+                      </p>
+                    </details>
+                  ) : null}
+                </article>
+              ) : null}
+              {question.lineReference ? (
+                <p className="mt-5 font-mono text-xs font-black text-muted-foreground uppercase">
+                  {question.lineReference}
+                </p>
+              ) : null}
+              <h2
+                ref={questionHeadingRef}
+                tabIndex={-1}
+                className="mt-5 scroll-mt-20 text-lg leading-7 font-bold outline-none sm:text-xl sm:leading-8"
+              >
+                {question.prompt}
+              </h2>
+              <RadioGroup
+                value={selectedChoice}
+                onValueChange={setSelectedChoice}
+                aria-label={`Answer choices for Quick Check question ${payload.responseCount + 1}`}
+                className="mt-5 gap-2.5"
+              >
+                {question.choices.map((choice, index) => (
+                  <label
+                    key={choice.id}
+                    data-testid="quick-check-choice"
+                    className={cn(
+                      "grid cursor-pointer grid-cols-[2.25rem_minmax(0,1fr)] items-start rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6 transition-[background-color,border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 focus-within:outline-none hover:border-primary hover:bg-muted/50",
+                      selectedChoice === choice.id &&
+                        "border-primary bg-secondary ring-1 ring-primary/20"
+                    )}
+                  >
+                    <VisuallyHiddenRadioGroupItem value={choice.id} />
+                    <strong className="font-mono text-base text-primary">
+                      {String.fromCharCode(65 + index)}
+                    </strong>
+                    <span className="min-w-0">{choice.text}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+              <p className="sr-only">Keyboard: 1–4 or A–D chooses an answer.</p>
+              {error ? (
+                <Alert variant="destructive" className="mt-5">
+                  <CircleAlertIcon />
+                  <AlertTitle>Answer not recorded</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
+              <Button
+                type="button"
+                size="xl"
+                className="mt-4 w-full"
+                disabled={!selectedChoice || busy}
+                onClick={() => void submitAnswer()}
+              >
+                {busy ? (
+                  <LoaderCircleIcon className="animate-spin" />
+                ) : (
+                  <ShieldCheckIcon />
+                )}
+                {busy ? "Recording my answer…" : "Check my answer"}
+                {!busy ? <ArrowRightIcon data-icon="inline-end" /> : null}
+              </Button>
+            </section>
+          </div>
+        )}
+
+        {canViewTechnicalDetails ? (
+          <details className="group mx-auto mt-6 max-w-3xl border-y-2 border-foreground bg-[var(--rail)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-5 font-bold text-foreground marker:content-none sm:px-6">
+              <span className="flex items-center gap-3">
+                <GaugeIcon className="size-5 text-primary" aria-hidden="true" />
+                How Scout chose this question
+                <span className="font-normal text-muted-foreground">
+                  (technical details)
+                </span>
+              </span>
+              <span className="font-mono text-xs font-black uppercase group-open:hidden">
+                Show
+              </span>
+              <span className="hidden font-mono text-xs font-black uppercase group-open:inline">
+                Hide
+              </span>
+            </summary>
+            <div className="border-t-2 border-foreground bg-background px-4 py-7 sm:px-6">
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                Scout uses a two-parameter Item Response Theory-shaped model
+                (2PL IRT). Easy, medium, and hard questions use preset
+                difficulty and discrimination constants assigned in this app;
+                they are not calibrated from a national sample. Unanswered items
+                are ranked by Fisher information at the current theta, plus
+                +1.35 for an unseen section, +0.24 for the least-covered
+                section, and +0.12 for an unseen skill. Current theta:{" "}
+                {signed(payload.estimate.theta)}. Model version:{" "}
+                {payload.model.version}.
+              </p>
+
+              {question ? (
+                <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
+                  <div>
+                    <div className="flex items-center gap-3 text-primary">
+                      <BrainCircuitIcon className="size-5" aria-hidden="true" />
+                      <p className="ink-label">Current model estimate</p>
+                    </div>
+                    <div className="mt-5">
+                      <ModelBand payload={payload} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="ink-label text-primary">Selection data</p>
+                    <div className="mt-3">
+                      <MetricRow
+                        label="Item information"
+                        detail="How informative the item is at current theta before coverage bonuses"
+                        value={
+                          selectedCandidate
+                            ? selectedCandidate.itemInformation.toFixed(2)
+                            : "—"
+                        }
+                        accent
+                      />
+                      <MetricRow
+                        label="Predicted correct"
+                        detail="Calculated from theta and preset item parameters"
+                        value={
+                          selectedCandidate
+                            ? `${Math.round(selectedCandidate.probabilityCorrect * 100)}%`
+                            : "—"
+                        }
+                      />
+                      <MetricRow
+                        label="Difficulty"
+                        detail="Question-bank category mapped to fixed constants in code"
+                        value={question.difficulty}
+                      />
+                    </div>
+                    <div className="mt-7 border-t-2 border-foreground pt-6">
+                      <h3 className="font-heading text-2xl font-black">
+                        Candidate ranking
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Ranking score = item information + section and skill
+                        coverage bonuses. It is not a probability. Exact ties
+                        use higher unbonused item information, then the
+                        question-bank item ID. Displayed scores are rounded to
+                        two decimals.
+                      </p>
+                      <ol className="mt-4">
+                        {payload.selection?.candidates.map(
+                          (candidate, index) => (
+                            <CandidateRow
+                              key={candidate.id}
+                              candidate={candidate}
+                              rank={index + 1}
+                              selected={
+                                candidate.id ===
+                                payload.selection?.selectedItemId
+                              }
+                            />
+                          )
+                        )}
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </details>
+        ) : null}
+      </main>
+      <RapidAnswerCoachDialog
+        open={rapidAnswerCoach.open}
+        onDismiss={rapidAnswerCoach.dismiss}
+      />
+    </>
   )
 }

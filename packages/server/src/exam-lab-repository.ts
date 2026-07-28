@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  createAssessmentRemediationProgress,
   examLabInitialSection,
   examLabMinutes,
   nextExamSection,
+  recordAssessmentRemediationResponse,
   scoreExamLab,
   selectExamLabQuestions,
   toPublicExamQuestion,
   type CoreSection,
+  type AssessmentRemediationProgress,
   type DiagnosticFormSecure,
   type ExamConfidence,
   type ExamDebrief,
@@ -57,6 +60,7 @@ interface StoredExamLabSession {
   sectionDeadlineAt: string;
   timeMultiplier?: 1 | 1.5;
   result: ExamLabResult | null;
+  remediation?: AssessmentRemediationProgress | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,13 +117,27 @@ function assertSession(
 }
 
 function toPublicResult(result: ExamLabResult | null): ExamLabResult | null {
-  if (!result) return null;
-  return {
-    ...result,
-    review: result.review.filter(
-      (question) => question.selectedChoiceId !== null,
-    ),
-  };
+  return result;
+}
+
+function remediationFor(
+  session: StoredExamLabSession,
+  form: DiagnosticFormSecure,
+): AssessmentRemediationProgress | null {
+  if (session.status !== "completed" || !session.result) return null;
+  return (
+    session.remediation ??
+    createAssessmentRemediationProgress(
+      questionsFor(session, form)
+        .filter(
+          (question) =>
+            session.responses[question.id]?.choiceId !==
+            question.correctChoiceId,
+        )
+        .map((question) => question.id),
+      session.updatedAt,
+    )
+  );
 }
 
 function toPayload(
@@ -143,6 +161,7 @@ function toPayload(
     sectionStartedAt: session.sectionStartedAt,
     sectionDeadlineAt: session.sectionDeadlineAt,
     result: toPublicResult(session.result),
+    remediation: remediationFor(session, form),
   };
 }
 
@@ -290,6 +309,7 @@ export class FileExamLabRepository {
             (input.timeMultiplier ?? 1),
         ),
         result: null,
+        remediation: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -400,14 +420,59 @@ export class FileExamLabRepository {
       const debrief: ExamDebrief = await debriefComposer.compose(scored);
       session.result = {
         ...scored,
-        review: scored.review.filter(
-          (question) => question.selectedChoiceId !== null,
-        ),
         debrief,
       };
       session.status = "completed";
       session.phase = "results";
       session.updatedAt = new Date().toISOString();
+      session.remediation = createAssessmentRemediationProgress(
+        questions
+          .filter(
+            (question) =>
+              session.responses[question.id]?.choiceId !==
+              question.correctChoiceId,
+          )
+          .map((question) => question.id),
+        session.updatedAt,
+      );
+      await this.writeStore(store);
+      return toPayload(session, form);
+    });
+  }
+
+  async answerRemediation(
+    sessionId: string,
+    form: DiagnosticFormSecure,
+    input: { questionId: string; choiceId: string },
+  ): Promise<ExamLabSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Timed Practice session not found.");
+      assertSession(session, form);
+      if (session.status !== "completed" || !session.result) {
+        throw new RangeError(
+          "Finish the full-length test before reviewing missed questions.",
+        );
+      }
+      const question = questionsFor(session, form).find(
+        (candidate) => candidate.id === input.questionId,
+      );
+      if (!question) {
+        throw new RangeError("That test question is not available.");
+      }
+      if (!question.choices.some((choice) => choice.id === input.choiceId)) {
+        throw new RangeError("That answer choice is not available.");
+      }
+      const progress = remediationFor(session, form);
+      if (!progress) {
+        throw new Error("The full-test review could not be prepared.");
+      }
+      session.remediation = recordAssessmentRemediationResponse(progress, {
+        questionId: input.questionId,
+        choiceId: input.choiceId,
+        correct: input.choiceId === question.correctChoiceId,
+      });
+      session.updatedAt = session.remediation.updatedAt;
       await this.writeStore(store);
       return toPayload(session, form);
     });

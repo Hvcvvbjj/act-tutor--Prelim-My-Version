@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import { completeServerDiagnostic } from "./helpers"
+
 const PAST_TEST_DATE = "2026-07-20"
 const NEXT_TEST_DATE = "2026-09-12"
 
@@ -65,6 +67,7 @@ async function seedPastTestPlan(page: Page) {
     },
     { pastTestDate: PAST_TEST_DATE }
   )
+  await completeServerDiagnostic(page)
 }
 
 test("Mr. Kim compares a reported score with the official onboarding baseline", async ({

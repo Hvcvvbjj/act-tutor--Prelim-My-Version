@@ -11,31 +11,32 @@ This fork now contains a working local vertical slice plus the product specifica
 Working in the current slice:
 
 - a responsive three-step onboarding flow for goal score, prior scores, and test date;
-- prior-score branches for full section scores or a low-confidence Composite-only starting point, plus a never-tested path;
+- prior-score branches for full section scores or a Composite-only starting point, plus a never-tested path;
 - versioned local draft persistence across refreshes;
 - deterministic English/Math/Reading Composite calculation, goal-aligned section targets, and runway-based plan intensity in `packages/core`;
 - a generated Today/Plan/Progress dashboard with a durable adaptive learner profile;
 - an Adaptive Plan Studio that turns availability into dated lesson, focus, review, mixed timed practice, checkpoint, and rehearsal assignments through test day;
 - editable per-day study minutes, week navigation, milestone tracking, task completion, catch-up, capacity estimates, and future-only rebalancing that freezes today and completed history;
-- a no-score path that starts with an 8–12 question information-gain Quick Check, atomically rebuilds the server-owned lesson, skill estimates, plan, and Today mission, and keeps an original reviewed 66-question half-length diagnostic available for more evidence;
+- a required, resumable 66-question Round 0 diagnostic for every learner before the Lessons tab opens, whether or not a prior score was entered;
+- an optional 8–12 question information-gain Quick Check for refreshing skill evidence after the required starting diagnostic;
 - a server response boundary that withholds answer keys and rationales until the completed diagnostic is submitted.
 - anonymous, cookie-bound diagnostic sessions with atomic local-file writes and idempotent final submission.
 - a versioned 12-skill learning taxonomy, 12 reviewed lesson foundations, AI-generated personalized four-stage teaching sequences, and 60 focused practice questions;
-- a four-stage Daily Mission loop: personalized lesson, five-question focused set, replayable mistake repair, and a three-skill mixed checkpoint;
+- a segmented 12-lesson foundation round, five-question lesson checks, and required Mr. Kim correction of every missed check question before the next lesson unlocks;
 - server-earned XP, levels, daily/longest streaks, twelve-skill mastery map, due-review queue, and a persistent mistake notebook;
 - lesson completion, immediate trusted feedback, mastery updates, spaced review scheduling, direct skill selection, and visible next-session regeneration.
 - a persistent 12-skill Bayesian learning model that updates each skill estimate, predicted next-answer accuracy, uncertainty, and the next recommendation after every server-scored response;
 - an 8–12 item adaptive **Quick Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual planning projections;
-- a one-click judge demo that lands on the last Quick Check question and shows—in plain English—what one answer changed and what Scout deliberately held steady;
-- keyboard answer shortcuts for Quick Check and a copyable plain-text weekly agenda for taking the plan into a calendar, notes app, or message;
+- a server-verified judge demo for quickly reviewing the complete learning cycle without weakening the real learner gate;
+- keyboard answer shortcuts for Quick Check and an adjustable weekly schedule that spreads work across the learner's available days;
 - complete Timed Practice with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
-- timed section clocks, passage-aware navigation, confidence labels, flags, autosave/resume, omission review, and server-owned scoring;
-- score-range, section, skill, pacing, and confidence-calibration reports plus an aggregate-only AI debrief with a reviewed fallback.
+- timed section clocks, passage-aware navigation, flags, autosave/resume, omission review, and server-owned scoring;
+- score-range, section, skill, and pacing reports plus an aggregate-only AI debrief with a reviewed fallback.
 - an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
 - a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
-- exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, teach-back scoring, alternate teaching styles, and question-exposure protection;
+- exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, alternate teaching styles, and question-exposure protection;
 - a Learning data workspace for bounded learner-model corrections, ACT pacing advice and manual score scenarios, model-choice explanations, an honest imported group-metric viewer, single-learner question history, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
 
 Still placeholders or future milestones:
@@ -281,7 +282,8 @@ the local development server, or redeploy the hosted site, after changing these
 values.
 
 For local-only development, Scout can instead use Ollama's OpenAI-compatible
-endpoint for generated lessons and debriefs:
+endpoint for Mr. Kim chat, generated lessons, and debriefs. This path does not
+need a paid API key:
 
 ```dotenv
 AI_TUTOR_BASE_URL=http://127.0.0.1:11434/v1
@@ -289,11 +291,12 @@ AI_TUTOR_MODEL=qwen3:4b
 AI_TUTOR_API_KEY=
 ```
 
-Mr. Kim's chat header says **AI tutor online** when the hosted key is present,
-and each generated answer carries a server-side AI receipt. A successful
-generated lesson is labeled **AI-personalized lesson**. If a provider is
-unavailable or returns invalid output, Scout safely uses reviewed guidance
-instead. The model cannot change scoring or the learner's saved results.
+On supported desktop Chrome installations, Mr. Kim can also use Chrome's
+built-in on-device language model without a server key. The chat header says
+which AI path answered. A successful generated lesson is labeled
+**AI-personalized lesson**. If every model path is unavailable or returns
+invalid output, Scout safely uses reviewed guidance instead. No model can
+change scoring or the learner's saved results.
 
 ### Optional session-storage locations
 
@@ -376,7 +379,7 @@ The website opens directly into a three-part placement flow:
 2. Current Composite and section scores, Composite only, or “I have never taken the ACT.”
 3. Next planned ACT date.
 
-The intended complete experience gives students with prior scores a provisional study plan immediately, followed by short skill probes in their first sessions. Students without prior scores take a truncated, half-length diagnostic. Both completed paths will produce:
+The complete starting experience accepts a reported score when one is available, then requires the same full 66-question Round 0 diagnostic for every learner before lessons unlock. That diagnostic produces:
 
 - an estimated baseline and confidence range;
 - strengths and weaknesses at the skill level;
@@ -399,7 +402,7 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 
 The three layers have deliberately different jobs: **IRT chooses what to ask, BKT chooses what to teach, and the LLM chooses how to explain it.** Code owns answer keys, scoring, dates, evidence validation, and spaced repetition. The product remains fully usable when the generative provider is disabled because both probabilistic models and reviewed lessons run locally.
 
-For the fastest product tour, click **See one answer change the plan** on the first screen. The demo opens directly on one final ACT-style Quick Check question. Submit it to see the question-match index, matching skill estimate, and next-lesson decision together—including when Scout holds the plan steady instead of overreacting. The seven preloaded answers are clearly labeled examples.
+For the fastest product tour, use the server-verified judge account. The regular learner path intentionally keeps the complete Round 0 diagnostic gate intact.
 
 ## Planning documents
 
@@ -413,12 +416,12 @@ For the fastest product tour, click **See one answer change the plan** on the fi
 
 ## Hackathon demo target
 
-The first onboarding screen includes **See one answer change the plan**, which loads a clearly labeled representative diagnostic profile without an account or API key. The competition-facing two-minute path is:
+The competition-facing two-minute path uses the server-verified judge account:
 
-1. Answer the final ACT-shaped **Quick Check** item and show the three-part proof replay.
-2. Choose **View my skills** and show the same answer in **Recent scored answers**.
-3. Show the plain-language skill estimate and **Study next** recommendation; expand technical details only if a judge asks.
-4. Open **Today**, start the personalized lesson, and show the AI-personalized or reviewed-fallback generation stamp.
+1. Show the required Round 0 result and the four diagnostic-based skill polygons.
+2. Run the dashboard spotlight tour over the real navigation and lesson action.
+3. Open the 12-lesson timeline and a segmented foundation lesson.
+4. Show Mr. Kim's missed-question correction loop and the next-round diagnostic choice.
 
 Use the rehearsed [two-minute demo script](docs/submission/DEMO_SCRIPT.md). The broader Plan Studio, Timed Practice, mistake-repair, and no-score diagnostic flows remain available for judge questions after the video.
 

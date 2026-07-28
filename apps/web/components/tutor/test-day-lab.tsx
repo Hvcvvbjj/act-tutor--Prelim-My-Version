@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
+  type AssessmentRemediationProgress,
   examLabInterpretationReadiness,
   type CoreSection,
   type ExamLabMode,
@@ -15,9 +16,19 @@ import { ExamLabReview } from "@/components/tutor/exam-lab-review"
 import { ExamLabRunner } from "@/components/tutor/exam-lab-runner"
 import { ExamLabSetup } from "@/components/tutor/exam-lab-setup"
 import { examLabTimerControls } from "@/components/tutor/exam-lab-timer"
+import {
+  AssessmentRemediation,
+  type AssessmentRemediationItem,
+} from "@/components/tutor/assessment-remediation"
+import {
+  RapidAnswerCoachDialog,
+  useRapidAnswerCoach,
+} from "@/components/tutor/rapid-answer-coach"
+import { useScoutContext } from "@/components/tutor/scout-assistant"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-type LabScreen = "loading" | "setup" | "runner" | "review" | "results"
+type LabScreen =
+  "loading" | "setup" | "runner" | "review" | "results" | "remediation"
 type SaveStatus = "saved" | "saving" | "error"
 
 interface SessionResponse {
@@ -25,8 +36,16 @@ interface SessionResponse {
   error?: string
 }
 
-function screenFor(session: ExamLabSessionPayload): LabScreen {
-  if (session.status === "completed") return "results"
+function screenFor(
+  session: ExamLabSessionPayload,
+  requireRemediation = false
+): LabScreen {
+  if (session.status === "completed")
+    return requireRemediation &&
+      session.mode === "core" &&
+      session.remediation?.status === "required"
+      ? "remediation"
+      : "results"
   return session.progress.phase === "review" ? "review" : "runner"
 }
 
@@ -63,6 +82,7 @@ export function TestDayLab({
   onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
   lockToInitialMode?: boolean
 }) {
+  const { openScout } = useScoutContext()
   const [screen, setScreen] = useState<LabScreen>("loading")
   const [session, setSession] = useState<ExamLabSessionPayload | null>(null)
   const [mode, setMode] = useState<ExamLabMode>(initialMode)
@@ -75,8 +95,17 @@ export function TestDayLab({
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
   const openedAt = useRef(0)
+  const requireRoundRemediation = Boolean(onUseForNextRound)
   const activeQuestionIndex = session?.progress.currentIndex
   const activeSection = session?.progress.currentSection
+  const rapidAnswerCoach = useRapidAnswerCoach(
+    session?.id ?? "exam-lab-loading",
+    session
+      ? Object.entries(session.progress.responses)
+          .filter(([, response]) => response.choiceId !== null)
+          .map(([questionId]) => questionId)
+      : []
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -89,7 +118,7 @@ export function TestDayLab({
       .then(({ session: resumed }) => {
         if (resumed && (!lockToInitialMode || resumed.mode === initialMode)) {
           setSession(resumed)
-          setScreen(screenFor(resumed))
+          setScreen(screenFor(resumed, requireRoundRemediation))
           openedAt.current = Date.now()
         } else {
           setScreen("setup")
@@ -105,7 +134,7 @@ export function TestDayLab({
         setScreen("setup")
       })
     return () => controller.abort()
-  }, [initialMode, lockToInitialMode])
+  }, [initialMode, lockToInitialMode, requireRoundRemediation])
 
   useEffect(() => {
     if (!session || screen !== "runner") return
@@ -254,7 +283,13 @@ export function TestDayLab({
     ) {
       return
     }
-    captureCurrent({ choiceId })
+    if (!session) return
+    const question = session.questions[session.progress.currentIndex]
+    const wasAnswered =
+      session.progress.responses[question.id]?.choiceId !== null &&
+      session.progress.responses[question.id]?.choiceId !== undefined
+    const updated = captureCurrent({ choiceId })
+    if (updated && !wasAnswered) rapidAnswerCoach.recordAnswer(question.id)
   }
 
   function toggleFlag() {
@@ -368,6 +403,10 @@ export function TestDayLab({
     ) {
       return
     }
+    if (session.remediation?.status === "required") {
+      setScreen("remediation")
+      return
+    }
     setApplyingToPlan(true)
     setError(null)
     try {
@@ -381,6 +420,22 @@ export function TestDayLab({
     } finally {
       setApplyingToPlan(false)
     }
+  }
+
+  async function answerRemediation(
+    questionId: string,
+    choiceId: string
+  ): Promise<AssessmentRemediationProgress> {
+    const updated = await labRequest("POST", {
+      action: "answer_remediation",
+      questionId,
+      choiceId,
+    })
+    if (!updated?.remediation) {
+      throw new Error("This missed question could not be checked.")
+    }
+    setSession(updated)
+    return updated.remediation
   }
 
   if (screen === "loading") {
@@ -460,7 +515,51 @@ export function TestDayLab({
           applyingToPlan={applyingToPlan}
           canViewTechnicalDetails={canViewTechnicalDetails}
         />
+      ) : screen === "remediation" && session?.result && session.remediation ? (
+        <main
+          data-hide-global-footer
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-svh bg-[var(--canvas)] px-5 sm:px-8"
+        >
+          <AssessmentRemediation
+            assessmentLabel={assessmentLabel}
+            progress={session.remediation}
+            items={session.remediation.requiredQuestionIds.flatMap(
+              (questionId): AssessmentRemediationItem[] => {
+                const question = session.questions.find(
+                  (candidate) => candidate.id === questionId
+                )
+                const review = session.result?.review.find(
+                  (candidate) => candidate.questionId === questionId
+                )
+                return question && review
+                  ? [
+                      {
+                        question,
+                        selectedChoiceId: review.selectedChoiceId,
+                        correctChoiceId: review.correctChoiceId,
+                        rationale: review.rationale,
+                      },
+                    ]
+                  : []
+              }
+            )}
+            onSubmit={answerRemediation}
+            onAskMrKim={(questionId) =>
+              openScout(
+                "Explain this missed question in a different way.",
+                questionId
+              )
+            }
+            onComplete={() => void applyToNextRound()}
+          />
+        </main>
       ) : null}
+      <RapidAnswerCoachDialog
+        open={rapidAnswerCoach.open}
+        onDismiss={rapidAnswerCoach.dismiss}
+      />
     </>
   )
 }

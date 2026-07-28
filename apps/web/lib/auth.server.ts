@@ -636,12 +636,6 @@ export function parsePendingTutorSetup(value: unknown): PendingTutorSetup {
   const draft = parseDraft(input.draft, {
     allowIncompleteScoreSetup: resumeSurface === "onboarding",
   })
-  if (resumeSurface === "diagnostic" && draft.priorScoreChoice !== "never") {
-    throw new AuthRequestError(
-      "A diagnostic setup must be for a learner without a starting score.",
-      400
-    )
-  }
   return {
     version: 1,
     savedAt: new Date().toISOString(),

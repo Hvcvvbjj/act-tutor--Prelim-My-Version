@@ -36,6 +36,11 @@ export type LearningActionRequest =
     } & PlanFields)
   | ({ action: "rebase_after_calibration" } & Omit<PlanFields, "currentScore">)
   | { action: "complete_lesson" }
+  | {
+      action: "answer_lesson_remediation";
+      questionId: string;
+      choiceId: string;
+    }
   | ({ action: "start_next" } & PlanFields)
   | ({ action: "start_skill"; skill: string } & PlanFields)
   | { action: "start_repair"; mistakeId: string }

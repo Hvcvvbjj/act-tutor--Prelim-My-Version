@@ -223,7 +223,12 @@ export function LearningTwinLab({
           </p>
         </div>
         {learning.status !== "complete" ? (
-          <Button type="button" variant="outline" onClick={onOpenLesson}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full min-w-0 whitespace-normal sm:w-auto sm:whitespace-nowrap"
+            onClick={onOpenLesson}
+          >
             Continue lesson: {current.label}
             <ArrowRightIcon data-icon="inline-end" />
           </Button>

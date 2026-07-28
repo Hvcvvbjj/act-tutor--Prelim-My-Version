@@ -39,7 +39,7 @@ test("goal and schedule setup are keyboard-editable and preview the real commitm
     .toEqual({ pageWidth: 390, viewportWidth: 390 })
 })
 
-test("entered ACT values become the starting score without a Quick Check gate", async ({
+test("entered ACT values are retained while the full diagnostic builds the skill map", async ({
   page,
 }) => {
   await page.goto("/")
@@ -51,18 +51,28 @@ test("entered ACT values become the starting score without a Quick Check gate", 
   await page.getByRole("spinbutton", { name: "Math ACT score" }).fill("22")
   await page.getByRole("spinbutton", { name: "Reading ACT score" }).fill("24")
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Create my first plan" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
 
   await expect(
-    page.getByRole("heading", { name: "Your starting score is ready." })
+    page.getByRole("heading", { name: "Find your starting point." })
   ).toBeVisible()
   await expect(
-    page.getByText("Your current starting score is 29.")
-  ).toBeAttached()
+    page.getByText("Your score is set. The skill map starts empty.", {
+      exact: true,
+    })
+  ).toBeVisible()
   await expect(page.getByText("Quick Check complete")).toHaveCount(0)
   await expect(
-    page.getByRole("heading", { name: "Find your starting point." })
+    page.getByRole("heading", { name: "Your starting score is ready." })
   ).toHaveCount(0)
+  await page.reload()
+  await expect(
+    page.getByText("Your score is set. The skill map starts empty.", {
+      exact: true,
+    })
+  ).toBeVisible()
 })
 
 test("a first-time ACT learner starts the resumable full diagnostic", async ({
@@ -78,7 +88,9 @@ test("a first-time ACT learner starts the resumable full diagnostic", async ({
   ).toBeVisible()
   await expect(page.getByText("Skip for now")).toHaveCount(0)
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Start my full diagnostic" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
 
   await expect(
     page.getByRole("heading", { name: "Find your starting point." })
@@ -120,7 +132,9 @@ test("account signup saves and restores an in-progress starting diagnostic", asy
   await page.getByRole("button", { name: "Add my starting score" }).click()
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Start my full diagnostic" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
   await page.getByRole("button", { name: "Start diagnostic" }).click()
   await page
     .getByRole("radiogroup", { name: "Answer choices for question 1" })
@@ -206,6 +220,7 @@ test("signing into an empty account from setup attaches the local draft", async 
   await signup.getByLabel("Username").fill(username)
   await signup.getByLabel("Password").fill(password)
   await signup.getByRole("button", { name: "Create my account" }).click()
+  await expect(page.getByRole("button", { name: "Draft Login" })).toBeVisible()
   const logout = await page.request.post("/api/auth", {
     data: { action: "logout" },
   })
@@ -397,7 +412,7 @@ test("legacy prefilled defaults do not return as learner evidence", async ({
   ).toBeVisible()
 })
 
-test("a full diagnostic keeps its identity after orientation reloads", async ({
+test("a saved-plan label cannot bypass the server-verified Round 0 diagnostic", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -472,8 +487,16 @@ test("a full diagnostic keeps its identity after orientation reloads", async ({
   })
 
   await page.goto("/")
-  await expect(page.getByText("Diagnostic complete")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
+  await expect(
+    page.getByText(/66 original questions across English, Math, and Reading/)
+  ).toBeVisible()
+  await expect(page.getByText("Diagnostic complete")).toHaveCount(0)
   await page.reload()
-  await expect(page.getByText("Diagnostic complete")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
   await expect(page.getByText("Quick Check complete")).toHaveCount(0)
 })

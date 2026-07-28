@@ -11,9 +11,10 @@ interface DiagnosticIntroProps {
   backLabel?: string
   error?: string | null
   goal: number
+  hasReportedScore?: boolean
   purpose?: "baseline" | "round"
   testDate: string
-  onBack: () => void
+  onBack?: () => void
   onStart: () => void
 }
 
@@ -27,6 +28,7 @@ export function DiagnosticIntro({
   backLabel,
   error,
   goal,
+  hasReportedScore = false,
   purpose = "baseline",
   testDate,
   onBack,
@@ -48,14 +50,33 @@ export function DiagnosticIntro({
         tabIndex={-1}
         className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16"
       >
-        <Button type="button" variant="ghost" onClick={onBack}>
-          <ArrowLeftIcon data-icon="inline-start" />
-          {backLabel ??
-            (purpose === "round"
-              ? "Return to assessment choice"
-              : "Change my starting information")}
-        </Button>
+        {onBack ? (
+          <Button type="button" variant="ghost" onClick={onBack}>
+            <ArrowLeftIcon data-icon="inline-start" />
+            {backLabel ??
+              (purpose === "round"
+                ? "Return to assessment choice"
+                : "Change my starting information")}
+          </Button>
+        ) : null}
         <section className="mx-auto mt-10 max-w-3xl">
+          {purpose === "baseline" ? (
+            <div className="mb-9 grid items-center gap-4 rounded-2xl border border-primary/30 bg-secondary p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:p-6">
+              <ScoutMark className="size-16" />
+              <div>
+                <p className="ink-label text-primary">Mr. Kim</p>
+                <p className="mt-2 font-heading text-xl leading-7 font-black sm:text-2xl">
+                  {hasReportedScore
+                    ? "Your score is set. The skill map starts empty."
+                    : "Your plan is set. The skill map starts empty."}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  The full diagnostic fills it with evidence from every question
+                  type.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <p className="ink-label text-primary">
             {purpose === "round" ? "Next lesson round" : "Starting diagnostic"}
           </p>

@@ -32,6 +32,88 @@ afterEach(async () => {
 })
 
 describe("diagnostic attempt preparation", () => {
+  it("starts the first round diagnostic instead of holding an unremediated Round 0 baseline", async () => {
+    temporaryDirectory = await mkdtemp(
+      join(tmpdir(), "scout-diagnostic-purpose-")
+    )
+    process.env.DIAGNOSTIC_STORE_PATH = join(
+      temporaryDirectory,
+      "diagnostic-sessions.json"
+    )
+    vi.resetModules()
+    const { GET, POST } = await import("./route")
+
+    const initialResponse = await GET(
+      new NextRequest("http://localhost/api/diagnostic")
+    )
+    const initial = await initialResponse.json()
+    const initialCookie = initialResponse.cookies.get(
+      "ai_act_diag_session"
+    )?.value
+    expect(initial.purpose).toBe("baseline")
+
+    const completedResponse = await POST(
+      diagnosticRequest(
+        {
+          formId: initial.form.id,
+          formVersion: initial.form.version,
+          answers: initial.form.questions.map(
+            (question: { id: string; choices: Array<{ id: string }> }) => ({
+              questionId: question.id,
+              choiceId: question.choices[0].id,
+            })
+          ),
+        },
+        `ai_act_diag_session=${initialCookie}`
+      )
+    )
+    const completed = await completedResponse.json()
+    expect(completed.status).toBe("completed")
+
+    const roundResponse = await POST(
+      diagnosticRequest(
+        { action: "start_new_if_completed", purpose: "round" },
+        `ai_act_diag_session=${initialCookie}`
+      )
+    )
+    const round = await roundResponse.json()
+    expect(round).toMatchObject({
+      purpose: "round",
+      status: "in_progress",
+    })
+    expect(round.attemptId).not.toBe(initial.attemptId)
+
+    const roundCookie = roundResponse.cookies.get(
+      "ai_act_diag_session"
+    )?.value
+    const completedRoundResponse = await POST(
+      diagnosticRequest(
+        {
+          formId: round.form.id,
+          formVersion: round.form.version,
+          answers: round.form.questions.map(
+            (question: { id: string; choices: Array<{ id: string }> }) => ({
+              questionId: question.id,
+              choiceId: question.choices[0].id,
+            })
+          ),
+        },
+        `ai_act_diag_session=${roundCookie}`
+      )
+    )
+    const completedRound = await completedRoundResponse.json()
+    if (completedRound.remediation.status === "required") {
+      const heldRoundResponse = await POST(
+        diagnosticRequest(
+          { action: "start_new_if_completed", purpose: "round" },
+          `ai_act_diag_session=${roundCookie}`
+        )
+      )
+      const heldRound = await heldRoundResponse.json()
+      expect(heldRound.attemptId).toBe(round.attemptId)
+    }
+  })
+
   it("replaces a completed attempt but preserves saved progress when the active attempt is reopened", async () => {
     temporaryDirectory = await mkdtemp(
       join(tmpdir(), "scout-diagnostic-route-")
@@ -67,8 +149,8 @@ describe("diagnostic attempt preparation", () => {
         `ai_act_diag_session=${initialCookie}`
       )
     )
-    expect((await completedResponse.json()).status).toBe("completed")
-
+    const completed = await completedResponse.json()
+    expect(completed.status).toBe("completed")
     const freshResponse = await POST(
       diagnosticRequest(
         { action: "start_new_if_completed" },

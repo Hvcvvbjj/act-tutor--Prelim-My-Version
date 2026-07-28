@@ -23,6 +23,12 @@ import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import {
+  answerWithOnDeviceMrKimAI,
+  ON_DEVICE_AI_CHECK,
+  onDeviceAIAvailability,
+  prepareOnDeviceMrKimAI,
+} from "@/lib/mr-kim-on-device"
+import {
   DEFAULT_ACCOMMODATIONS,
   DEFAULT_EXPLANATION_PREFERENCES,
   readScoutSettings,
@@ -44,7 +50,7 @@ interface ScoutProviderValue {
     key: K,
     value: ExplanationPreferences[K]
   ) => void
-  openScout: (question?: string) => void
+  openScout: (question?: string, questionId?: string | null) => void
   openSettings: () => void
 }
 
@@ -203,12 +209,21 @@ export function ScoutProvider({
   const [scoutOpen, setScoutOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const [question, setQuestion] = useState("")
+  const [contextQuestionId, setContextQuestionId] = useState<string | null>(
+    null
+  )
   const [visibleMessages, setVisibleMessages] = useState<
     Array<{ screen: string; message: ScoutMessage }>
   >([])
   const [selectedText, setSelectedText] = useState("")
   const [assistantError, setAssistantError] = useState<string | null>(null)
-  const [aiAvailable, setAiAvailable] = useState(false)
+  const [serverAiAvailable, setServerAiAvailable] = useState(false)
+  const [onDeviceAiStatus, setOnDeviceAiStatus] = useState<
+    "checking" | "available" | "downloadable" | "downloading" | "unavailable"
+  >("checking")
+  const [onDeviceAiProgress, setOnDeviceAiProgress] = useState<number | null>(
+    null
+  )
   const [busy, setBusy] = useState(false)
   const scoutDialogRef = useRef<HTMLElement | null>(null)
   const toolsDialogRef = useRef<HTMLElement | null>(null)
@@ -226,7 +241,7 @@ export function ScoutProvider({
           )
         }
         if (cancelled) return
-        setAiAvailable(Boolean(payload.aiAvailable))
+        setServerAiAvailable(Boolean(payload.aiAvailable))
         setVisibleMessages(
           payload.messages.slice(-15).map((message) => ({
             screen: message.screen ?? "today",
@@ -277,6 +292,16 @@ export function ScoutProvider({
           error instanceof Error ? error.message : "Scout could not load."
         )
       })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void onDeviceAIAvailability().then((availability) => {
+      if (!cancelled) setOnDeviceAiStatus(availability)
+    })
     return () => {
       cancelled = true
     }
@@ -413,6 +438,8 @@ export function ScoutProvider({
       return ["Why is this on my schedule?", "What if I miss a day?"]
     if (activeTab === "lab")
       return ["Which practice should I choose?", "How should I pace this?"]
+    if (activeTab === "diagnostic-review")
+      return ["Explain this differently", "Why is that answer correct?"]
     return ["Give me a hint", "Explain this more simply"]
   }, [activeTab])
 
@@ -426,6 +453,8 @@ export function ScoutProvider({
     if (activeTab === "plan") return "Ask about your schedule or missed work."
     if (activeTab === "lab")
       return "Ask about pacing or Timed Practice controls."
+    if (activeTab === "diagnostic-review")
+      return "Ask about the missed diagnostic question you are reviewing."
     return "Ask for a hint or a simpler explanation."
   }, [activeTab])
 
@@ -435,15 +464,39 @@ export function ScoutProvider({
   )
   const latestMessage = screenMessages.at(-1)?.message
   const earlierMessages = screenMessages.slice(0, -1)
-  const latestWasGenerated = Boolean(
+  const latestWasHostedAI = Boolean(
     latestMessage?.answer.receipt.checks.includes("openai-responses-api")
   )
+  const latestWasFreeServerAI = Boolean(
+    latestMessage?.answer.receipt.checks.includes("openai-compatible-chat")
+  )
+  const latestWasOnDeviceAI = Boolean(
+    latestMessage?.answer.receipt.checks.includes(ON_DEVICE_AI_CHECK)
+  )
+  const freeAiCanRun =
+    onDeviceAiStatus === "available" ||
+    onDeviceAiStatus === "downloadable" ||
+    onDeviceAiStatus === "downloading"
 
   async function ask(nextQuestion = question, selection: string | null = null) {
     if (!nextQuestion.trim()) return
     setBusy(true)
     setAssistantError(null)
     try {
+      const onDevicePreparation =
+        !serverAiAvailable && freeAiCanRun
+          ? (() => {
+              if (onDeviceAiStatus !== "available") {
+                setOnDeviceAiStatus("downloading")
+                setOnDeviceAiProgress(0)
+              }
+              return prepareOnDeviceMrKimAI({
+                onDownloadProgress: (progress) => {
+                  setOnDeviceAiProgress(progress)
+                },
+              })
+            })()
+          : null
       const response = await fetch("/api/scout/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -451,9 +504,10 @@ export function ScoutProvider({
           question: nextQuestion,
           screen: activeTab,
           questionId:
-            activeTab === "today"
+            contextQuestionId ??
+            (activeTab === "today"
               ? (learning?.questions[learning.currentQuestionIndex]?.id ?? null)
-              : null,
+              : null),
           selectedText: selection,
         }),
       })
@@ -464,20 +518,51 @@ export function ScoutProvider({
           "error" in payload ? payload.error : "Scout could not answer."
         )
       const nextMessages = [...payload.messages]
-      setAiAvailable(Boolean(payload.aiAvailable))
-      const latestMessage = nextMessages.at(-1)
-      if (latestMessage) {
+      setServerAiAvailable(Boolean(payload.aiAvailable))
+      const serverMessage = nextMessages.at(-1)
+      let displayedMessage = serverMessage
+      if (
+        serverMessage &&
+        !serverMessage.answer.receipt.checks.some((check) =>
+          ["openai-responses-api", "openai-compatible-chat"].includes(check)
+        ) &&
+        freeAiCanRun
+      ) {
+        await onDevicePreparation
+        const enhancedAnswer = await answerWithOnDeviceMrKimAI({
+          question: nextQuestion,
+          answer: serverMessage.answer,
+          history: screenMessages.map((entry) => entry.message),
+          onDownloadProgress: (progress) => {
+            setOnDeviceAiProgress(progress)
+          },
+        })
+        if (enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK)) {
+          setOnDeviceAiStatus("available")
+          displayedMessage = { ...serverMessage, answer: enhancedAnswer }
+        } else {
+          setOnDeviceAiStatus(
+            await onDeviceAIAvailability().catch(() => "unavailable" as const)
+          )
+        }
+        setOnDeviceAiProgress(null)
+      }
+      if (displayedMessage) {
         setVisibleMessages((current) =>
           [
             ...current.filter((entry) => entry.screen !== activeTab),
             ...current.filter((entry) => entry.screen === activeTab).slice(-2),
-            { screen: activeTab, message: latestMessage },
+            { screen: activeTab, message: displayedMessage },
           ].slice(-15)
         )
       }
       setQuestion("")
       if (accommodations.readAloud)
-        speak(`${payload.answer.summary} ${payload.answer.explanation}`)
+        speak(
+          `${displayedMessage?.answer.summary ?? payload.answer.summary} ${
+            displayedMessage?.answer.explanation ?? payload.answer.explanation
+          }`
+        )
     } catch (error) {
       setAssistantError(
         error instanceof Error ? error.message : "Scout could not answer."
@@ -493,8 +578,9 @@ export function ScoutProvider({
       explanationPreferences,
       setAccommodation: saveAccommodation,
       setExplanationPreference: saveExplanationPreference,
-      openScout: (nextQuestion) => {
+      openScout: (nextQuestion, nextQuestionId) => {
         lastFocusRef.current = document.activeElement as HTMLElement | null
+        setContextQuestionId(nextQuestionId ?? null)
         setScoutOpen(true)
         if (nextQuestion) setQuestion(nextQuestion)
       },
@@ -552,12 +638,18 @@ export function ScoutProvider({
                 <p className="font-heading text-2xl font-black">Mr. Kim</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
                   {latestMessage
-                    ? latestWasGenerated
-                      ? "AI answer grounded in your Scout work"
-                      : "Reviewed Scout guidance"
-                    : aiAvailable
+                    ? latestWasOnDeviceAI
+                      ? "Free AI · grounded on this device"
+                      : latestWasFreeServerAI
+                        ? "Free AI · grounded in your Scout work"
+                        : latestWasHostedAI
+                          ? "AI answer grounded in your Scout work"
+                          : "Reviewed Scout guidance"
+                    : serverAiAvailable
                       ? "AI tutor online"
-                      : "Reviewed Scout guidance"}
+                      : freeAiCanRun
+                        ? "Free on-device AI ready"
+                        : "Reviewed Scout guidance"}
                 </p>
               </div>
               <Button
@@ -669,7 +761,14 @@ export function ScoutProvider({
                 className="mt-3 w-full"
                 disabled={busy || !question.trim()}
               >
-                <SendIcon /> {busy ? "Getting an answer…" : "Ask Mr. Kim"}
+                <SendIcon />{" "}
+                {busy
+                  ? onDeviceAiProgress === null
+                    ? "Getting an answer…"
+                    : `Preparing free AI… ${Math.round(
+                        onDeviceAiProgress * 100
+                      )}%`
+                  : "Ask Mr. Kim"}
               </Button>
             </form>
           </aside>

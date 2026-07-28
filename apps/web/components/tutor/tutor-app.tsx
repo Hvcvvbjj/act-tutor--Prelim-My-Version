@@ -18,8 +18,16 @@ import {
 } from "@act-tutor/core"
 
 import { Onboarding } from "@/components/tutor/onboarding"
+import {
+  ScoutProvider,
+  useScoutContext,
+} from "@/components/tutor/scout-assistant"
 import type { TestDayCheckInResult } from "@/components/tutor/test-day-check-in"
 import { DASHBOARD_TOUR_STORAGE_KEY } from "@/components/tutor/dashboard-tour"
+import {
+  hasCompletedRoundZeroDiagnostic,
+  hasResumableRoundZeroDiagnostic,
+} from "@/components/tutor/round-zero-gate"
 import {
   applyEditedPlanJourney,
   applyReportedScoreSource,
@@ -58,6 +66,7 @@ type TutorSurface =
   | "diagnostic-runner"
   | "test-day-check-in"
 type DashboardInitialTab = "today" | "calibrate"
+type RoundZeroGateStatus = "idle" | "checking" | "verified" | "required"
 
 function isDiagnosticSurface(
   value: unknown
@@ -124,6 +133,34 @@ const DiagnosticIntro = dynamic(loadDiagnosticIntro, {
 const DiagnosticRunner = dynamic(loadDiagnosticRunner, {
   loading: () => <TutorSurfaceLoading message="Preparing your questions…" />,
 })
+
+function CoachedDiagnosticRunner({
+  viewer,
+  purpose,
+  onBack,
+  onComplete,
+}: {
+  viewer: AuthViewer
+  purpose: DiagnosticPurpose
+  onBack: () => void
+  onComplete: (result: DiagnosticResult) => void
+}) {
+  const { openScout } = useScoutContext()
+  return (
+    <DiagnosticRunner
+      onBack={onBack}
+      canViewTechnicalDetails={viewer.technicalDetails}
+      purpose={purpose}
+      onAskMrKim={(questionId) =>
+        openScout(
+          "Explain this missed diagnostic question in a different way.",
+          questionId
+        )
+      }
+      onComplete={onComplete}
+    />
+  )
+}
 
 interface TutorAppProps {
   today: string
@@ -728,6 +765,43 @@ export function TutorApp({
   const [orientationTourActive, setOrientationTourActive] = useState(false)
   const [orientationResumeProfile, setOrientationResumeProfile] =
     useState(false)
+  const [roundZeroGateStatus, setRoundZeroGateStatus] =
+    useState<RoundZeroGateStatus>(restoredAtLoad ? "checking" : "idle")
+
+  useEffect(() => {
+    if (roundZeroGateStatus !== "checking") return
+    let active = true
+
+    void fetch("/api/diagnostic", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as unknown
+        if (!active) return
+        if (response.ok && hasCompletedRoundZeroDiagnostic(payload)) {
+          setRoundZeroGateStatus("verified")
+          return
+        }
+        setDiagnosticPurpose("baseline")
+        setDashboardInitialTab(undefined)
+        if (response.ok && hasResumableRoundZeroDiagnostic(payload)) {
+          void loadDiagnosticRunner()
+          setSurface("diagnostic-runner")
+        } else {
+          setSurface("diagnostic")
+        }
+        setRoundZeroGateStatus("required")
+      })
+      .catch(() => {
+        if (!active) return
+        setDiagnosticPurpose("baseline")
+        setDashboardInitialTab(undefined)
+        setSurface("diagnostic")
+        setRoundZeroGateStatus("required")
+      })
+
+    return () => {
+      active = false
+    }
+  }, [roundZeroGateStatus])
 
   useEffect(() => {
     if (!orientationTourActive) return
@@ -776,6 +850,7 @@ export function TutorApp({
               setDraft(restoredGuestPlan.draft)
               setPlan(restoredGuestPlan)
               setSurface(surfaceForPlan(restoredGuestPlan))
+              setRoundZeroGateStatus("checking")
               setWelcomeComplete(true)
               resumableSetupAvailable = true
             } else if (
@@ -1005,6 +1080,7 @@ export function TutorApp({
       setDraft(restored.draft)
       setPlan(restored)
       setSurface(surfaceForPlan(restored))
+      setRoundZeroGateStatus("checking")
       setWelcomeComplete(true)
       setError(null)
       return
@@ -1022,7 +1098,7 @@ export function TutorApp({
         throw new Error("Choose what you know about your current ACT scores.")
       }
 
-      if (draft.priorScoreChoice === "never") {
+      if (draft.priorScoreChoice === "never" || !editingPlan) {
         const nextDraft = {
           ...draft,
           startingCheckChoice: "take" as const,
@@ -1033,7 +1109,10 @@ export function TutorApp({
             method: "POST",
             cache: "no-store",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "start_new_if_completed" }),
+            body: JSON.stringify({
+              action: "start_new_if_completed",
+              purpose: "baseline",
+            }),
           }),
         ])
         if (!response.ok) {
@@ -1155,7 +1234,10 @@ export function TutorApp({
       method: "POST",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "start_new_if_completed" }),
+      body: JSON.stringify({
+        action: "start_new_if_completed",
+        purpose: "round",
+      }),
     })
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
@@ -1241,16 +1323,50 @@ export function TutorApp({
         }
       }
       setDiagnosticPurpose("baseline")
+      setRoundZeroGateStatus("verified")
+      setDashboardInitialTab("today")
+      const reportedEvidence =
+        !plan && draft.priorScoreChoice !== "never"
+          ? draft.priorScoreChoice === "composite_only"
+            ? normalizeCurrentScore({
+                kind: "composite_only",
+                composite: draft.composite,
+                ...(draft.scienceEnabled ? { science: draft.science } : {}),
+              })
+            : normalizeCurrentScore({
+                kind: "section_scores",
+                composite: draft.composite,
+                english: draft.english,
+                math: draft.math,
+                reading: draft.reading,
+                ...(draft.scienceEnabled ? { science: draft.science } : {}),
+              })
+          : null
+      const planBaseline =
+        reportedEvidence && draft.priorScoreChoice !== "composite_only"
+          ? (reportedEvidence.planningBaseline ?? result.planningBaseline)
+          : result.planningBaseline
+      const planEvidence = reportedEvidence
+        ? {
+            ...reportedEvidence,
+            planningBaseline: planBaseline,
+          }
+        : evidence
+      const planComposite =
+        reportedEvidence?.reportedComposite ??
+        reportedEvidence?.calculatedComposite ??
+        result.compositeRange.estimate
       const nextPlan = buildPlanFromEvidence(
-        evidence,
-        result.planningBaseline,
-        result.compositeRange.estimate,
+        planEvidence,
+        planBaseline,
+        planComposite,
         result,
         draft,
         {
           profileSkillResults: [...result.skillResults],
           profileSource: "diagnostic",
-          journey: plan?.journey,
+          journey:
+            plan?.journey ?? applyReportedScoreSource(newTutorJourney(), draft),
           adaptiveBaselineRequired: false,
           baselineSkipped: false,
           save: false,
@@ -1578,7 +1694,10 @@ export function TutorApp({
     }
   }
 
-  if (!storageReady && !restoredAtLoad) {
+  if (
+    roundZeroGateStatus === "checking" ||
+    (!storageReady && !restoredAtLoad)
+  ) {
     return <TutorSurfaceLoading message="Checking for a saved plan…" />
   }
 
@@ -1602,7 +1721,7 @@ export function TutorApp({
                   : undefined
         }
         onStartDashboardTour={() => {
-          if (!window.matchMedia("(min-width: 900px)").matches) return false
+          if (!window.matchMedia("(min-width: 1024px)").matches) return false
           try {
             window.localStorage.removeItem(DASHBOARD_TOUR_STORAGE_KEY)
           } catch {
@@ -1623,6 +1742,7 @@ export function TutorApp({
             },
           }
           setPlan(nextPlan)
+          setDashboardInitialTab("today")
           setOrientationResumeProfile(false)
           setSurface("dashboard")
           setError(null)
@@ -1666,6 +1786,7 @@ export function TutorApp({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   action: "start_new_if_completed",
+                  purpose: "baseline",
                 }),
               })
               if (!response.ok) {
@@ -1708,16 +1829,21 @@ export function TutorApp({
         }
         error={error}
         goal={draft.goal}
+        hasReportedScore={draft.priorScoreChoice !== "never"}
         purpose={diagnosticPurpose}
         testDate={draft.testDate}
-        onBack={() => {
-          setError(null)
-          if (diagnosticPurpose === "round") {
-            setSurface("dashboard")
-            return
-          }
-          returnFromBaselineDiagnostic()
-        }}
+        onBack={
+          roundZeroGateStatus === "required"
+            ? undefined
+            : () => {
+                setError(null)
+                if (diagnosticPurpose === "round") {
+                  setSurface("dashboard")
+                  return
+                }
+                returnFromBaselineDiagnostic()
+              }
+        }
         onStart={() => {
           void loadDiagnosticRunner()
           setSurface("diagnostic-runner")
@@ -1728,14 +1854,20 @@ export function TutorApp({
 
   if (surface === "diagnostic-runner") {
     return (
-      <DiagnosticRunner
-        onBack={() => setSurface("diagnostic")}
+      <ScoutProvider
+        activeTab="diagnostic-review"
+        learning={null}
         canViewTechnicalDetails={viewer.technicalDetails}
-        purpose={diagnosticPurpose}
-        onComplete={(result) => {
-          void completeDiagnostic(result)
-        }}
-      />
+      >
+        <CoachedDiagnosticRunner
+          viewer={viewer}
+          onBack={() => setSurface("diagnostic")}
+          purpose={diagnosticPurpose}
+          onComplete={(result) => {
+            void completeDiagnostic(result)
+          }}
+        />
+      </ScoutProvider>
     )
   }
 
@@ -1779,16 +1911,6 @@ export function TutorApp({
       }}
       showWelcome={!welcomeComplete}
       onDismissWelcome={() => setWelcomeComplete(true)}
-      onStartFullDiagnostic={() => {
-        setDraft((current) => ({
-          ...current,
-          priorScoreChoice: "never",
-          startingCheckChoice: "take",
-        }))
-        setStep(1)
-        setError(null)
-        setWelcomeComplete(true)
-      }}
       onJudgeDemo={() => {
         setWelcomeComplete(true)
         void launchJudgeDemo()

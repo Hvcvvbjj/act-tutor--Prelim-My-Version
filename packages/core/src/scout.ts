@@ -5,6 +5,7 @@ export const SCOUT_SCREENS = [
   "progress",
   "badges",
   "lab",
+  "diagnostic-review",
   "control",
 ] as const;
 

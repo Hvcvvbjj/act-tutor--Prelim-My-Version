@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import type {
+  AssessmentRemediationProgress,
   CoreSection,
   DiagnosticAnswer,
   DiagnosticFormPublic,
@@ -26,6 +27,14 @@ import {
   formatAssessmentTime,
   resolveAssessmentDeadline,
 } from "@/components/tutor/assessment-display"
+import {
+  AssessmentRemediation,
+  type AssessmentRemediationItem,
+} from "@/components/tutor/assessment-remediation"
+import {
+  RapidAnswerCoachDialog,
+  useRapidAnswerCoach,
+} from "@/components/tutor/rapid-answer-coach"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -41,9 +50,10 @@ interface DiagnosticRunnerProps {
   onComplete: (result: DiagnosticResult, attemptId: string) => void
   canViewTechnicalDetails: boolean
   purpose: "baseline" | "round"
+  onAskMrKim?: (questionId: string) => void
 }
 
-type RunnerPhase = "questions" | "review" | "results"
+type RunnerPhase = "questions" | "review" | "results" | "remediation"
 type RunnerStatus = "loading" | "ready" | "submitting" | "error"
 type SaveStatus = "saved" | "saving" | "error"
 
@@ -553,6 +563,7 @@ function ResultsView({
 export function DiagnosticRunner({
   onBack,
   onComplete,
+  onAskMrKim,
   canViewTechnicalDetails,
   purpose,
 }: DiagnosticRunnerProps) {
@@ -562,6 +573,8 @@ export function DiagnosticRunner({
   const [phase, setPhase] = useState<RunnerPhase>("questions")
   const [status, setStatus] = useState<RunnerStatus>("loading")
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [remediation, setRemediation] =
+    useState<AssessmentRemediationProgress | null>(null)
   const [attemptId, setAttemptId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
@@ -574,6 +587,10 @@ export function DiagnosticRunner({
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
   const timedSubmitAttempted = useRef(false)
+  const rapidAnswerCoach = useRapidAnswerCoach(
+    attemptId ?? "diagnostic-loading",
+    Object.keys(answers)
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -593,7 +610,12 @@ export function DiagnosticRunner({
         setCurrentIndex(session.progress.currentIndex)
         if (session.status === "completed" && session.result) {
           setResult(session.result)
-          setPhase("results")
+          setRemediation(session.remediation)
+          setPhase(
+            purpose === "round" && session.remediation?.status === "required"
+              ? "remediation"
+              : "results"
+          )
         } else {
           const deadline = restoreDiagnosticDeadline(session)
           setTimerDeadline(deadline)
@@ -613,10 +635,15 @@ export function DiagnosticRunner({
       })
 
     return () => controller.abort()
-  }, [])
+  }, [purpose])
 
   useEffect(() => {
-    if (timerDeadline === null || phase === "results") return
+    if (
+      timerDeadline === null ||
+      phase === "results" ||
+      phase === "remediation"
+    )
+      return
     const updateClock = () => {
       const next = assessmentSecondsRemaining(timerDeadline, Date.now())
       setTimeRemaining(next)
@@ -723,6 +750,7 @@ export function DiagnosticRunner({
 
         setAttemptId(body.attemptId)
         setResult(body.result)
+        setRemediation(body.remediation)
         setPhase("results")
         setStatus("ready")
         try {
@@ -748,6 +776,7 @@ export function DiagnosticRunner({
     if (
       !timeExpired ||
       phase === "results" ||
+      phase === "remediation" ||
       status !== "ready" ||
       timedSubmitAttempted.current
     ) {
@@ -764,6 +793,32 @@ export function DiagnosticRunner({
     } catch {
       setSaveStatus("error")
     }
+  }
+
+  async function answerRemediation(
+    questionId: string,
+    choiceId: string
+  ): Promise<AssessmentRemediationProgress> {
+    const response = await fetch("/api/diagnostic", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "answer_remediation",
+        questionId,
+        choiceId,
+      }),
+    })
+    const body = (await response.json()) as DiagnosticSessionPayload & {
+      error?: string
+    }
+    if (!response.ok || !body.remediation) {
+      throw new Error(
+        body.error ?? "This missed question could not be checked."
+      )
+    }
+    setRemediation(body.remediation)
+    return body.remediation
   }
 
   if (status === "loading") {
@@ -803,158 +858,213 @@ export function DiagnosticRunner({
 
   const question = form.questions[currentIndex]
   return (
-    <div
-      data-hide-global-footer
-      className="min-h-svh bg-background text-foreground"
-    >
-      <header className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
-        <div className="flex min-w-0 items-center gap-3">
-          <ScoutMark className="size-11" />
-          <div className="min-w-0">
-            <p className="font-brand text-xl font-black tracking-tight sm:text-2xl">
-              SCOUT ACT
-            </p>
-            <p className="truncate text-sm text-muted-foreground">
-              {form.title}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-4">
-          {phase !== "results" && timeRemaining !== null ? (
-            <div
-              role="timer"
-              aria-label={`Diagnostic time remaining: ${formatAssessmentTime(timeRemaining)}`}
-              className={cn(
-                "flex min-h-11 items-center gap-2 border-2 border-foreground px-3 py-1.5",
-                timeRemaining <= 300 &&
-                  "border-[var(--scout-coral)] bg-[var(--coach-surface)] text-destructive"
-              )}
-            >
-              <Clock3Icon
-                className={cn("size-4", timeRemaining <= 60 && "animate-pulse")}
-                aria-hidden="true"
-              />
-              <span>
-                <span className="hidden text-[0.62rem] font-bold tracking-wide uppercase lg:block">
-                  {timeRemaining === 0 ? "Time is up" : "Time remaining"}
-                </span>
-                <span className="block font-mono text-sm font-black tabular-nums sm:text-base">
-                  {formatAssessmentTime(timeRemaining)}
-                </span>
-              </span>
-            </div>
-          ) : null}
-          <span
-            className={cn(
-              "hidden items-center gap-2 text-sm sm:flex",
-              saveStatus === "error"
-                ? "text-destructive"
-                : "text-muted-foreground"
-            )}
-            role={saveStatus === "error" ? "alert" : "status"}
-          >
-            {saveStatus === "saving" ? (
-              <LoaderCircleIcon
-                className="size-4 animate-spin"
-                aria-hidden="true"
-              />
-            ) : saveStatus === "saved" ? (
-              <CheckCircle2Icon
-                className="size-4 text-primary"
-                aria-hidden="true"
-              />
-            ) : (
-              <CircleAlertIcon className="size-4" aria-hidden="true" />
-            )}
-            {saveStatus === "saving"
-              ? "Saving…"
-              : saveStatus === "saved"
-                ? "Saved"
-                : "Save failed"}
-          </span>
-          <Button type="button" variant="ghost" onClick={saveAndExit}>
-            Save and exit
-          </Button>
-        </div>
-        {saveStatus === "error" ? (
-          <p
-            className="flex w-full items-center gap-2 text-sm font-semibold text-destructive sm:hidden"
-            role="alert"
-          >
-            <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
-            Save failed. Your latest progress may not be saved.
-          </p>
-        ) : null}
-      </header>
-
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto flex max-w-[96rem] flex-col px-4 py-7 sm:px-8 lg:py-10"
+    <>
+      <div
+        data-hide-global-footer
+        className="min-h-svh bg-background text-foreground"
       >
-        {phase === "questions" ? (
-          <QuestionView
-            form={form}
-            question={question}
-            currentIndex={currentIndex}
-            answers={answers}
-            returnToReview={reviewReturnIndex === currentIndex}
-            onAnswer={(choiceId) => {
-              const nextAnswers = { ...answers, [question.id]: choiceId }
-              setAnswers(nextAnswers)
-              if (reviewReturnIndex === currentIndex) {
-                returnToReview(nextAnswers)
-                return
-              }
-              persistProgress(nextAnswers, currentIndex, "questions")
-            }}
-            onPrevious={() => {
-              setReviewReturnIndex(null)
-              moveToQuestion(Math.max(0, currentIndex - 1))
-            }}
-            onNext={() => {
-              if (reviewReturnIndex === currentIndex) {
-                returnToReview()
-                return
-              }
-              if (currentIndex === form.questions.length - 1) {
-                setPhase("review")
-                persistProgress(answers, currentIndex, "review")
-                return
-              }
-              moveToQuestion(currentIndex + 1)
-            }}
-          />
-        ) : phase === "review" ? (
-          <ReviewView
-            form={form}
-            answers={answers}
-            timeExpired={timeExpired}
-            status={status}
-            error={error}
-            onEdit={editFromReview}
-            onSubmit={() => {
-              timedSubmitAttempted.current = true
-              void submitDiagnostic(timeExpired)
-            }}
-          />
-        ) : result ? (
-          <ResultsView
-            result={result}
-            purpose={purpose}
-            onComplete={() => {
-              if (!attemptId) {
-                setError(
-                  "This diagnostic attempt is missing its saved identity. Reload it before continuing."
-                )
-                return
-              }
-              onComplete(result, attemptId)
-            }}
-            canViewTechnicalDetails={canViewTechnicalDetails}
-          />
-        ) : null}
-      </main>
-    </div>
+        <header className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
+          <div className="flex min-w-0 items-center gap-3">
+            <ScoutMark className="size-11" />
+            <div className="min-w-0">
+              <p className="font-brand text-xl font-black tracking-tight sm:text-2xl">
+                SCOUT ACT
+              </p>
+              <p className="truncate text-sm text-muted-foreground">
+                {form.title}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4">
+            {(phase === "questions" || phase === "review") &&
+            timeRemaining !== null ? (
+              <div
+                role="timer"
+                aria-label={`Diagnostic time remaining: ${formatAssessmentTime(timeRemaining)}`}
+                className={cn(
+                  "flex min-h-11 items-center gap-2 border-2 border-foreground px-3 py-1.5",
+                  timeRemaining <= 300 &&
+                    "border-[var(--scout-coral)] bg-[var(--coach-surface)] text-destructive"
+                )}
+              >
+                <Clock3Icon
+                  className={cn(
+                    "size-4",
+                    timeRemaining <= 60 && "animate-pulse"
+                  )}
+                  aria-hidden="true"
+                />
+                <span>
+                  <span className="hidden text-[0.62rem] font-bold tracking-wide uppercase lg:block">
+                    {timeRemaining === 0 ? "Time is up" : "Time remaining"}
+                  </span>
+                  <span className="block font-mono text-sm font-black tabular-nums sm:text-base">
+                    {formatAssessmentTime(timeRemaining)}
+                  </span>
+                </span>
+              </div>
+            ) : null}
+            <span
+              className={cn(
+                "hidden items-center gap-2 text-sm sm:flex",
+                saveStatus === "error"
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              )}
+              role={saveStatus === "error" ? "alert" : "status"}
+            >
+              {saveStatus === "saving" ? (
+                <LoaderCircleIcon
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
+              ) : saveStatus === "saved" ? (
+                <CheckCircle2Icon
+                  className="size-4 text-primary"
+                  aria-hidden="true"
+                />
+              ) : (
+                <CircleAlertIcon className="size-4" aria-hidden="true" />
+              )}
+              {saveStatus === "saving"
+                ? "Saving…"
+                : saveStatus === "saved"
+                  ? "Saved"
+                  : "Save failed"}
+            </span>
+            <Button type="button" variant="ghost" onClick={saveAndExit}>
+              Save and exit
+            </Button>
+          </div>
+          {saveStatus === "error" ? (
+            <p
+              className="flex w-full items-center gap-2 text-sm font-semibold text-destructive sm:hidden"
+              role="alert"
+            >
+              <CircleAlertIcon className="size-4 shrink-0" aria-hidden="true" />
+              Save failed. Your latest progress may not be saved.
+            </p>
+          ) : null}
+        </header>
+
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto flex max-w-[96rem] flex-col px-4 py-7 sm:px-8 lg:py-10"
+        >
+          {phase === "questions" ? (
+            <QuestionView
+              form={form}
+              question={question}
+              currentIndex={currentIndex}
+              answers={answers}
+              returnToReview={reviewReturnIndex === currentIndex}
+              onAnswer={(choiceId) => {
+                rapidAnswerCoach.recordAnswer(question.id)
+                const nextAnswers = { ...answers, [question.id]: choiceId }
+                setAnswers(nextAnswers)
+                if (reviewReturnIndex === currentIndex) {
+                  returnToReview(nextAnswers)
+                  return
+                }
+                persistProgress(nextAnswers, currentIndex, "questions")
+              }}
+              onPrevious={() => {
+                setReviewReturnIndex(null)
+                moveToQuestion(Math.max(0, currentIndex - 1))
+              }}
+              onNext={() => {
+                if (reviewReturnIndex === currentIndex) {
+                  returnToReview()
+                  return
+                }
+                if (currentIndex === form.questions.length - 1) {
+                  setPhase("review")
+                  persistProgress(answers, currentIndex, "review")
+                  return
+                }
+                moveToQuestion(currentIndex + 1)
+              }}
+            />
+          ) : phase === "review" ? (
+            <ReviewView
+              form={form}
+              answers={answers}
+              timeExpired={timeExpired}
+              status={status}
+              error={error}
+              onEdit={editFromReview}
+              onSubmit={() => {
+                timedSubmitAttempted.current = true
+                void submitDiagnostic(timeExpired)
+              }}
+            />
+          ) : phase === "remediation" && result && remediation ? (
+            <AssessmentRemediation
+              assessmentLabel="Diagnostic"
+              progress={remediation}
+              items={remediation.requiredQuestionIds.flatMap(
+                (questionId): AssessmentRemediationItem[] => {
+                  const question = form.questions.find(
+                    (candidate) => candidate.id === questionId
+                  )
+                  const feedback = result.feedback.find(
+                    (candidate) => candidate.questionId === questionId
+                  )
+                  return question && feedback
+                    ? [
+                        {
+                          question,
+                          selectedChoiceId:
+                            feedback.selectedChoiceId ===
+                            UNANSWERED_DIAGNOSTIC_CHOICE_ID
+                              ? null
+                              : feedback.selectedChoiceId,
+                          correctChoiceId: feedback.correctChoiceId,
+                          rationale: feedback.rationale,
+                        },
+                      ]
+                    : []
+                }
+              )}
+              onSubmit={answerRemediation}
+              onAskMrKim={onAskMrKim}
+              onComplete={() => {
+                if (!attemptId) {
+                  setError(
+                    "This diagnostic attempt is missing its saved identity. Reload it before continuing."
+                  )
+                  return
+                }
+                onComplete(result, attemptId)
+              }}
+            />
+          ) : result ? (
+            <ResultsView
+              result={result}
+              purpose={purpose}
+              onComplete={() => {
+                if (purpose === "round" && remediation?.status === "required") {
+                  setPhase("remediation")
+                  return
+                }
+                if (!attemptId) {
+                  setError(
+                    "This diagnostic attempt is missing its saved identity. Reload it before continuing."
+                  )
+                  return
+                }
+                onComplete(result, attemptId)
+              }}
+              canViewTechnicalDetails={canViewTechnicalDetails}
+            />
+          ) : null}
+        </main>
+      </div>
+      <RapidAnswerCoachDialog
+        open={rapidAnswerCoach.open}
+        onDismiss={rapidAnswerCoach.dismiss}
+      />
+    </>
   )
 }

@@ -75,6 +75,70 @@ describe("mobile navigation contract", () => {
   })
 })
 
+describe("dashboard tour interaction contract", () => {
+  it("centers the spotlight on the real action and brings targets into view", async () => {
+    const tour = await source("components/tutor/dashboard-tour.tsx")
+    const lessons = await source("components/tutor/lessons-command-center.tsx")
+    const tutorApp = await source("components/tutor/tutor-app.tsx")
+
+    expect(lessons).not.toMatch(/<div\s+data-tour-id="lesson-action"/)
+    expect(lessons).toMatch(/<Button[\s\S]{0,240}data-tour-id="lesson-action"/)
+    expect(tour).toContain("target.scrollIntoView")
+    expect(tour).toContain("data-tour-spotlight={step.target}")
+    expect(tour).toContain("(min-width: 1024px)")
+    expect(tutorApp).toContain("(min-width: 1024px)")
+  })
+
+  it("keeps the welcome header focused and routes every first plan to the diagnostic", async () => {
+    const onboarding = await source("components/tutor/onboarding.tsx")
+    const tutorApp = await source("components/tutor/tutor-app.tsx")
+    const diagnosticIntro = await source(
+      "components/tutor/diagnostic-intro.tsx"
+    )
+    const welcomeNav =
+      onboarding.match(
+        /<nav[\s\S]*?aria-label="Welcome"[\s\S]*?<\/nav>/
+      )?.[0] ?? ""
+
+    expect(welcomeNav).toContain("How it works")
+    expect(welcomeNav).not.toContain("Full diagnostic")
+    expect(welcomeNav).not.toContain("Meet Mr. Kim")
+    expect(onboarding).toContain('step === 1 && "text-center"')
+    expect(onboarding).toContain('"mx-auto mt-7 grid w-full max-w-lg')
+    expect(onboarding).toContain("Continue to full diagnostic")
+    expect(tutorApp).toContain(
+      'draft.priorScoreChoice === "never" || !editingPlan'
+    )
+    expect(diagnosticIntro).toContain(
+      "Your score is set. The skill map starts empty."
+    )
+    expect(diagnosticIntro).toContain("<ScoutMark")
+    expect(diagnosticIntro).toContain("Mr. Kim")
+  })
+})
+
+describe("Mr. Kim pace-check contract", () => {
+  it("covers every scored question flow without counting choice changes", async () => {
+    const coach = await source("components/tutor/rapid-answer-coach.tsx")
+    const diagnostic = await source("components/tutor/diagnostic-runner.tsx")
+    const quickCheck = await source(
+      "components/tutor/adaptive-calibration-lab.tsx"
+    )
+    const timedPractice = await source("components/tutor/test-day-lab.tsx")
+    const dashboard = await source("components/tutor/dashboard.tsx")
+
+    expect(coach).toContain("You answered 10 questions in under 30 seconds.")
+    expect(coach).toContain("Slow down for the next one.")
+    expect(diagnostic).toContain("rapidAnswerCoach.recordAnswer(question.id)")
+    expect(quickCheck).toContain("rapidAnswerCoach.recordAnswer(question.id)")
+    expect(timedPractice).toContain("if (updated && !wasAnswered)")
+    expect(timedPractice).toContain(
+      "rapidAnswerCoach.recordAnswer(question.id)"
+    )
+    expect(dashboard).toContain("rapidAnswerCoach.recordAnswer(question.id)")
+  })
+})
+
 describe("learner-facing terminology contract", () => {
   it("uses Quick Check and Timed Practice consistently across UI and API feedback", async () => {
     const copy = (
@@ -218,7 +282,7 @@ describe("learner-facing model language", () => {
     expect(onboarding).toContain("Open the judge demo")
     expect(onboarding).toContain("viewer.technicalDetails")
     expect(onboarding).not.toContain("Skip for now")
-    expect(onboarding).toContain("Start my full diagnostic")
+    expect(onboarding).toContain("Continue to full diagnostic")
     expect(onboarding).toContain("Your full diagnostic will set the baseline.")
     expect(tutorApp).toContain('return "diagnostic"')
     expect(tutorApp).not.toContain("temporary 18")
@@ -236,7 +300,9 @@ describe("learner-facing model language", () => {
       'latestEvent.correct ? "Correct." : "Not quite."'
     )
     expect(quickCheck).toContain("Scout updated your skill estimates.")
-    expect(quickCheck).toContain("Round 1 still teaches all 12 question types.")
+    expect(quickCheck).toMatch(
+      /Round 1 still teaches all 12\s+question types\./
+    )
     expect(quickCheck).not.toContain("lesson order")
     expect(quickCheck).not.toContain("Take the full 66-question diagnostic")
     expect(quickCheck).toContain("1 · Question match")

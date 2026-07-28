@@ -2,6 +2,7 @@ import {
   buildCalibrationLearningBaseline,
   examLabInterpretationReadiness,
   normalizeAnswerConfidence,
+  type AssessmentRemediationProgress,
   type DiagnosticSkillResult,
   type LearningAnswerCommand,
   type LessonPlanContext,
@@ -9,7 +10,7 @@ import {
 import { type NextRequest, NextResponse } from "next/server"
 
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
-import { syncLinkedSession } from "@/lib/auth.server"
+import { syncLinkedSession, viewerForRequest } from "@/lib/auth.server"
 import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
 import { diagnosticSessions } from "@/lib/diagnostic-sessions.server"
 import { getExamLabSession } from "@/lib/exam-lab.server"
@@ -26,6 +27,20 @@ const DIAGNOSTIC_COOKIE = "ai_act_diag_session"
 const EXAM_LAB_COOKIE = "scout_exam_lab_session"
 const MAX_SKILL_RESULTS = 24
 const MAX_ASSESSMENT_QUESTIONS = 200
+const ROUND_ZERO_REQUIRED_MESSAGE =
+  "Complete Scout's full 66-question diagnostic before opening Lessons."
+
+export function assertRoundRemediationComplete(
+  source: "diagnostic" | "full-test",
+  remediation: AssessmentRemediationProgress | null
+) {
+  if (remediation?.status === "complete") return
+  throw new RangeError(
+    source === "diagnostic"
+      ? "Correct every missed diagnostic question with Mr. Kim before starting the next lesson round."
+      : "Correct every missed full-test question with Mr. Kim before starting the next lesson round."
+  )
+}
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
   response.cookies.set(SESSION_COOKIE, sessionId, {
@@ -144,6 +159,7 @@ async function resolveRoundAssessment(
         "Finish the current diagnostic before starting the next lesson round."
       )
     }
+    assertRoundRemediationComplete("diagnostic", session.remediation)
     return {
       assessmentKey: `diagnostic:${session.attemptId}`,
       diagnosticSkillResults: [...session.result.skillResults],
@@ -171,6 +187,7 @@ async function resolveRoundAssessment(
         "Complete enough of the current full-length test for Scout to interpret it before starting the next lesson round."
       )
     }
+    assertRoundRemediationComplete("full-test", session.remediation)
     const sectionScores = Object.fromEntries(
       result.sections.map((section) => [
         section.section,
@@ -210,6 +227,46 @@ async function resolveRoundAssessment(
   throw new RangeError(
     "Choose a completed diagnostic or full-length test for the next round."
   )
+}
+
+async function completedRoundZeroSkillResults(request: NextRequest) {
+  const sessionId = request.cookies.get(DIAGNOSTIC_COOKIE)?.value
+  if (!sessionId) {
+    throw new RangeError(ROUND_ZERO_REQUIRED_MESSAGE)
+  }
+  try {
+    const session = await diagnosticSessions.get(
+      sessionId,
+      RAPID_DIAGNOSTIC_FORM
+    )
+    if (
+      session.status !== "completed" ||
+      !session.result ||
+      session.form.questions.length !== 66
+    ) {
+      throw new RangeError(ROUND_ZERO_REQUIRED_MESSAGE)
+    }
+    return [...session.result.skillResults]
+  } catch (error) {
+    if (
+      error instanceof RangeError &&
+      error.message === ROUND_ZERO_REQUIRED_MESSAGE
+    ) {
+      throw error
+    }
+    throw new RangeError(ROUND_ZERO_REQUIRED_MESSAGE)
+  }
+}
+
+async function existingLearningSessionId(request: NextRequest) {
+  const sessionId = request.cookies.get(SESSION_COOKIE)?.value
+  if (!sessionId) return null
+  try {
+    await learningSessions.get(sessionId, LEARNING_BANK)
+    return sessionId
+  } catch {
+    return null
+  }
 }
 
 function parseAnswerCommand(value: unknown): LearningAnswerCommand {
@@ -313,6 +370,10 @@ function parsePlanContext(body: Record<string, unknown>) {
 
 export async function GET(request: NextRequest) {
   try {
+    const viewer = await viewerForRequest(request)
+    if (viewer.role !== "judge") {
+      await completedRoundZeroSkillResults(request)
+    }
     const payload = await learningSessions.get(
       requireSessionId(request),
       LEARNING_BANK
@@ -415,14 +476,21 @@ export async function POST(request: NextRequest) {
     if (action === "start") {
       if (typeof body.skill !== "string")
         throw new RangeError("Learning skill is required.")
+      const submittedSkillResults = parseDiagnosticSkillResults(
+        body.diagnosticSkillResults
+      )
+      const viewer = await viewerForRequest(request)
+      const diagnosticSkillResults =
+        viewer.role === "judge" && submittedSkillResults.length > 0
+          ? submittedSkillResults
+          : await completedRoundZeroSkillResults(request)
+      const existingSessionId = await existingLearningSessionId(request)
       const session = await learningSessions.getOrCreate(
-        request.cookies.get(SESSION_COOKIE)?.value ?? null,
+        existingSessionId,
         LEARNING_BANK,
         {
           skill: body.skill,
-          diagnosticSkillResults: parseDiagnosticSkillResults(
-            body.diagnosticSkillResults
-          ),
+          diagnosticSkillResults,
           plan: parsePlanContext(body),
         },
         lessonComposer
@@ -461,6 +529,24 @@ export async function POST(request: NextRequest) {
       const payload = await learningSessions.completeLesson(
         requireSessionId(request),
         LEARNING_BANK
+      )
+      return NextResponse.json(payload)
+    }
+
+    if (action === "answer_lesson_remediation") {
+      if (
+        typeof body.questionId !== "string" ||
+        typeof body.choiceId !== "string"
+      ) {
+        throw new RangeError("A questionId and choiceId are required.")
+      }
+      const payload = await learningSessions.answerLessonRemediation(
+        requireSessionId(request),
+        LEARNING_BANK,
+        {
+          questionId: body.questionId,
+          choiceId: body.choiceId,
+        }
       )
       return NextResponse.json(payload)
     }

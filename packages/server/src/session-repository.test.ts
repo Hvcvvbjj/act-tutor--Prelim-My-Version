@@ -160,6 +160,53 @@ describe("FileDiagnosticSessionRepository", () => {
         (item) => item.correct === 2,
       ),
     ).toBe(true);
+    expect(firstResult.remediation?.status).toBe("complete");
+  });
+
+  it("persists required missed-question corrections across refreshes", async () => {
+    const { filePath, first } = await repository();
+    const created = await first.getOrCreate(null, FORM);
+    const completed = await first.finalize(
+      created.sessionId,
+      FORM,
+      ANSWERS.map((answer, index) =>
+        index === 0 ? { ...answer, choiceId: "a" } : answer,
+      ),
+    );
+
+    expect(completed.remediation).toMatchObject({
+      status: "required",
+      requiredQuestionIds: ["english-1"],
+    });
+
+    const stillRequired = await first.answerRemediation(
+      created.sessionId,
+      FORM,
+      { questionId: "english-1", choiceId: "c" },
+    );
+    expect(stillRequired.remediation?.responses["english-1"]).toMatchObject({
+      attempts: 1,
+      correctedAt: null,
+    });
+
+    const restarted = new FileDiagnosticSessionRepository(filePath);
+    expect(
+      (await restarted.get(created.sessionId, FORM)).remediation?.status,
+    ).toBe("required");
+
+    const corrected = await restarted.answerRemediation(
+      created.sessionId,
+      FORM,
+      { questionId: "english-1", choiceId: "b" },
+    );
+    expect(corrected.remediation).toMatchObject({
+      status: "complete",
+      responses: {
+        "english-1": {
+          attempts: 2,
+        },
+      },
+    });
   });
 
   it("rejects invalid saved choices without mutating progress", async () => {

@@ -1,4 +1,5 @@
 import { calculateEmrComposite } from "./scoring";
+import type { AssessmentRemediationProgress } from "./assessment-remediation";
 import {
   CORE_SECTIONS,
   type CoreSection,
@@ -133,10 +134,12 @@ export interface DiagnosticSessionProgress {
 
 export interface DiagnosticSessionPayload {
   attemptId: string;
+  purpose: "baseline" | "round";
   form: DiagnosticFormPublic;
   progress: DiagnosticSessionProgress;
   status: "in_progress" | "completed";
   result: DiagnosticResult | null;
+  remediation: AssessmentRemediationProgress | null;
 }
 
 export function toPublicDiagnosticForm(

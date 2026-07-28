@@ -85,4 +85,4 @@ TypeScript, Next.js, React, Tailwind CSS, Base UI, pnpm, Vitest, two-parameter l
 
 ## Try the judge path
 
-Run the app, then choose **See one answer change the plan** on the first screen. It loads a clearly labeled representative diagnostic profile and opens the complete product without requiring an account or API key.
+Run the app and sign in with the server-verified judge account. The regular learner path keeps the required 66-question Round 0 gate intact; the judge account opens a representative completed profile for review without changing learner behavior.

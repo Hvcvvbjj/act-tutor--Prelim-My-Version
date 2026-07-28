@@ -1,4 +1,34 @@
+import type { DiagnosticSessionPayload } from "@act-tutor/core"
 import { expect, type Page } from "@playwright/test"
+
+export async function completeServerDiagnostic(page: Page) {
+  const sessionResponse = await page.request.get("/api/diagnostic")
+  expect(sessionResponse.ok()).toBeTruthy()
+  const session = (await sessionResponse.json()) as DiagnosticSessionPayload
+  const answers = session.form.questions.map((question) => {
+    const firstChoice = question.choices[0]
+    expect(
+      firstChoice,
+      `Question ${question.id} needs an answer choice.`
+    ).toBeDefined()
+    return {
+      questionId: question.id,
+      choiceId: firstChoice!.id,
+    }
+  })
+  const resultResponse = await page.request.post("/api/diagnostic", {
+    data: {
+      formId: session.form.id,
+      formVersion: session.form.version,
+      answers,
+    },
+  })
+  expect(resultResponse.ok()).toBeTruthy()
+  const completed = (await resultResponse.json()) as DiagnosticSessionPayload
+  expect(completed.status).toBe("completed")
+  expect(completed.result).not.toBeNull()
+  return completed
+}
 
 export async function completeLearnerOrientation(page: Page) {
   await expect(
@@ -54,6 +84,25 @@ export async function openReportedScorePlan(page: Page, composite = 24) {
     .getByRole("spinbutton", { name: "Composite ACT score" })
     .fill(String(composite))
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Create my first plan" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
+  await expect(
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
+  await expect(
+    page.getByText("Your score is set. The skill map starts empty.", {
+      exact: true,
+    })
+  ).toBeVisible()
+
+  await completeServerDiagnostic(page)
+
+  await page.reload()
+  await page.getByRole("button", { name: "Start diagnostic" }).click()
+  await expect(
+    page.getByRole("heading", { name: /^Your starting estimate is \d+\.$/ })
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Continue" }).click()
   await completeLearnerOrientation(page)
 }

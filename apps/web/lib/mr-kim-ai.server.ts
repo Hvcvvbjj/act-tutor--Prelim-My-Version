@@ -9,11 +9,15 @@ import type {
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 export function isMrKimAIAvailable(env: NodeJS.ProcessEnv = process.env) {
-  return Boolean(env.OPENAI_API_KEY?.trim())
+  return Boolean(
+    env.OPENAI_API_KEY?.trim() ||
+      (env.AI_TUTOR_BASE_URL?.trim() && env.AI_TUTOR_MODEL?.trim())
+  )
 }
 const DEFAULT_MODEL = "gpt-5.6"
 const DEFAULT_TIMEOUT_MS = 18_000
 const GENERATED_CHECK = "openai-responses-api"
+const COMPATIBLE_GENERATED_CHECK = "openai-compatible-chat"
 const MODEL_RATE_LIMIT = 6
 const MODEL_RATE_WINDOW_MS = 60_000
 
@@ -32,6 +36,7 @@ export interface MrKimAIInput {
 
 export interface MrKimAIOptions {
   apiKey?: string | null
+  baseUrl?: string | null
   model?: string | null
   safetyIdentifier?: string | null
   timeoutMs?: number
@@ -150,7 +155,8 @@ function modelRateLimitReached(
         Number.isFinite(timestamp) &&
         now - timestamp >= 0 &&
         now - timestamp < MODEL_RATE_WINDOW_MS &&
-        message.answer.receipt.checks.includes(GENERATED_CHECK)
+        (message.answer.receipt.checks.includes(GENERATED_CHECK) ||
+          message.answer.receipt.checks.includes(COMPATIBLE_GENERATED_CHECK))
       )
     }).length >= MODEL_RATE_LIMIT
   )
@@ -184,8 +190,27 @@ function responseText(payload: unknown) {
   return parts.length > 0 ? parts.join("") : null
 }
 
-function parseModelAnswer(payload: unknown): MrKimModelAnswer | null {
-  const raw = responseText(payload)
+function compatibleResponseText(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null
+  }
+  const choices = (payload as Record<string, unknown>).choices
+  if (!Array.isArray(choices)) return null
+  const first = choices[0]
+  if (!first || typeof first !== "object" || Array.isArray(first)) return null
+  const message = (first as Record<string, unknown>).message
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    return null
+  }
+  const content = (message as Record<string, unknown>).content
+  return typeof content === "string" ? content : null
+}
+
+function parseModelAnswer(
+  payload: unknown,
+  parser: (value: unknown) => string | null = responseText
+): MrKimModelAnswer | null {
+  const raw = parser(payload)
   if (!raw) return null
   const json = raw
     .trim()
@@ -268,9 +293,25 @@ export async function answerWithMrKimAI(
   if (modelRateLimitReached(input.history ?? [], (options.now ?? Date.now)())) {
     return input.fallback
   }
-  const apiKey =
+  const openAiApiKey =
     options.apiKey === undefined ? process.env.OPENAI_API_KEY : options.apiKey
-  if (!apiKey?.trim()) return input.fallback
+  const compatibleBaseUrl =
+    options.baseUrl === undefined
+      ? process.env.AI_TUTOR_BASE_URL?.trim()
+      : options.baseUrl?.trim()
+  const compatibleModel =
+    options.model?.trim() ||
+    (compatibleBaseUrl ? process.env.AI_TUTOR_MODEL?.trim() : null)
+  const useCompatibleProvider = Boolean(
+    compatibleBaseUrl && compatibleModel
+  )
+  const compatibleApiKey =
+    options.apiKey === undefined
+      ? process.env.AI_TUTOR_API_KEY
+      : options.apiKey
+  if (!useCompatibleProvider && !openAiApiKey?.trim()) {
+    return input.fallback
+  }
 
   const controller = new AbortController()
   const timeoutMs = Math.min(
@@ -280,10 +321,58 @@ export async function answerWithMrKimAI(
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const fetchImpl = options.fetchImpl ?? fetch
+    if (useCompatibleProvider) {
+      const response = await fetchImpl(
+        `${compatibleBaseUrl?.replace(/\/$/, "")}/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            ...(compatibleApiKey?.trim()
+              ? { Authorization: `Bearer ${compatibleApiKey.trim()}` }
+              : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: compatibleModel,
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content: MR_KIM_INSTRUCTIONS,
+              },
+              {
+                role: "user",
+                content: modelInput(input),
+              },
+            ],
+          }),
+          signal: controller.signal,
+        }
+      )
+      if (!response.ok) return input.fallback
+      const modelAnswer = parseModelAnswer(
+        await response.json(),
+        compatibleResponseText
+      )
+      if (!modelAnswer) return input.fallback
+      return {
+        ...input.fallback,
+        ...modelAnswer,
+        source: `Mr. Kim free AI grounded in ${input.fallback.source}`,
+        receipt: {
+          ...input.fallback.receipt,
+          checks: [
+            ...input.fallback.receipt.checks,
+            "server-redacted-model-context",
+            COMPATIBLE_GENERATED_CHECK,
+          ],
+        },
+      }
+    }
     const response = await fetchImpl(OPENAI_RESPONSES_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey.trim()}`,
+        Authorization: `Bearer ${openAiApiKey?.trim()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

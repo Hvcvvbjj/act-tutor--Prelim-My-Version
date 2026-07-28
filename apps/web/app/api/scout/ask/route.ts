@@ -20,6 +20,8 @@ import { NextResponse } from "next/server"
 
 import { syncLinkedSession } from "@/lib/auth.server"
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
+import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
+import { diagnosticSessions } from "@/lib/diagnostic-sessions.server"
 import { getExamLabSession } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -37,6 +39,7 @@ export const dynamic = "force-dynamic"
 const SCOUT_COOKIE = "ai_act_scout_session"
 const LEARNING_COOKIE = "ai_act_learning_session"
 const EXAM_COOKIE = "scout_exam_lab_session"
+const DIAGNOSTIC_COOKIE = "ai_act_diag_session"
 const CALIBRATION_COOKIE = "ai_act_calibration_session"
 const STUDY_PLAN_COOKIE = "scout_study_plan_session"
 const SCREENS = new Set<ScoutScreen>(SCOUT_SCREENS)
@@ -103,6 +106,20 @@ async function getExam(request: NextRequest) {
   if (!sessionId) return null
   try {
     return (await getExamLabSession(sessionId)).session
+  } catch {
+    return null
+  }
+}
+
+async function getDiagnostic(request: NextRequest) {
+  const sessionId = request.cookies.get(DIAGNOSTIC_COOKIE)?.value
+  if (!sessionId) return null
+  try {
+    const session = await diagnosticSessions.get(
+      sessionId,
+      RAPID_DIAGNOSTIC_FORM
+    )
+    return session.status === "completed" ? session : null
   } catch {
     return null
   }
@@ -257,6 +274,7 @@ function mrKimGroundingFacts(input: {
   answer: ScoutAnswer
   learning: LearningSessionPayload | null
   exam: Awaited<ReturnType<typeof getExam>>
+  diagnostic?: Awaited<ReturnType<typeof getDiagnostic>>
   calibration: AdaptiveCalibrationPayload | null
   studyPlan: AdaptiveStudyPlan | null
   badgeProgress: ScoutBadgeProgress | null
@@ -268,7 +286,11 @@ function mrKimGroundingFacts(input: {
     `The reviewed explanation is: ${input.answer.explanation}`,
     `The allowed next step is: ${input.answer.nextAction}`,
   ]
-  if (input.learning && input.request.screen !== "badges") {
+  if (
+    input.learning &&
+    input.request.screen !== "badges" &&
+    input.request.screen !== "diagnostic-review"
+  ) {
     const question = input.request.questionId
       ? input.learning.questions.find(
           (item) => item.id === input.request.questionId
@@ -296,6 +318,39 @@ function mrKimGroundingFacts(input: {
   if (input.answer.receipt.assistanceMode === "review" && input.exam?.result) {
     facts.push(
       "The learner has submitted the timed work and answer review is unlocked."
+    )
+  }
+  if (
+    input.answer.receipt.assistanceMode === "review" &&
+    input.diagnostic?.result
+  ) {
+    const question = input.request.questionId
+      ? input.diagnostic.form.questions.find(
+          (candidate) => candidate.id === input.request.questionId
+        )
+      : null
+    const feedback = input.request.questionId
+      ? input.diagnostic.result.feedback.find(
+          (candidate) => candidate.questionId === input.request.questionId
+        )
+      : null
+    facts.push(
+      "The learner has submitted the diagnostic and missed-question review is unlocked.",
+      ...(question
+        ? [
+            `The reviewed diagnostic question is: ${question.prompt}`,
+            ...question.choices.map(
+              (choice) => `Choice ${choice.id}: ${choice.text}`
+            ),
+          ]
+        : []),
+      ...(feedback
+        ? [
+            `The learner's original choice was ${feedback.selectedChoiceId}.`,
+            `The correct choice is ${feedback.correctChoiceId}.`,
+            `The reviewed rationale is: ${feedback.rationale}`,
+          ]
+        : [])
     )
   }
   if (input.calibration) {
@@ -333,6 +388,7 @@ export function answerFor(input: {
   preferences: ScoutExplanationPreferences
   learning: LearningSessionPayload | null
   exam: Awaited<ReturnType<typeof getExam>>
+  diagnostic?: Awaited<ReturnType<typeof getDiagnostic>>
   calibration?: AdaptiveCalibrationPayload | null
   studyPlan?: AdaptiveStudyPlan | null
   badgeProgress?: ScoutBadgeProgress | null
@@ -343,11 +399,15 @@ export function answerFor(input: {
   const studyPlan = input.studyPlan ?? null
   const badgeProgress = input.badgeProgress ?? null
   const exam = request.screen === "lab" ? input.exam : null
-  const examMode = exam
-    ? exam.status === "in_progress" && exam.progress.phase === "questions"
-      ? "timed-test"
-      : "review"
-    : "study"
+  const diagnostic =
+    request.screen === "diagnostic-review" ? (input.diagnostic ?? null) : null
+  const examMode = diagnostic
+    ? "review"
+    : exam
+      ? exam.status === "in_progress" && exam.progress.phase === "questions"
+        ? "timed-test"
+        : "review"
+      : "study"
   const learningQuestion =
     request.screen === "today"
       ? request.questionId
@@ -359,15 +419,29 @@ export function answerFor(input: {
   const examQuestion = request.questionId
     ? exam?.questions.find((question) => question.id === request.questionId)
     : exam?.questions[exam.progress.currentIndex]
-  if (request.questionId && !learningQuestion && !examQuestion) {
+  const diagnosticQuestion = request.questionId
+    ? diagnostic?.form.questions.find(
+        (question) => question.id === request.questionId
+      )
+    : undefined
+  if (
+    request.questionId &&
+    !learningQuestion &&
+    !examQuestion &&
+    !diagnosticQuestion
+  ) {
     throw new RangeError("That question is not part of the current session.")
   }
-  const activeQuestion = examMode === "study" ? learningQuestion : examQuestion
+  const activeQuestion =
+    examMode === "study"
+      ? learningQuestion
+      : (diagnosticQuestion ?? examQuestion)
   const questionId = activeQuestion?.id ?? null
   const skillId =
     request.screen === "badges"
       ? null
-      : (examQuestion?.primarySkill ??
+      : (diagnosticQuestion?.primarySkill ??
+        examQuestion?.primarySkill ??
         learningQuestion?.skill ??
         learning?.todaySkill ??
         null)
@@ -376,7 +450,14 @@ export function answerFor(input: {
       ? Boolean(
           questionId && learning?.answeredQuestionIds.includes(questionId)
         )
-      : Boolean(questionId && exam?.progress.responses[questionId]?.choiceId)
+      : diagnostic
+        ? Boolean(
+            questionId &&
+            diagnostic.result?.feedback.some(
+              (feedback) => feedback.questionId === questionId
+            )
+          )
+        : Boolean(questionId && exam?.progress.responses[questionId]?.choiceId)
   const permissions =
     request.screen === "badges"
       ? ["CAN_EXPLAIN_BADGE_PROGRESS", "NO_SCORE_CLAIMS"]
@@ -470,7 +551,9 @@ export function answerFor(input: {
       ? lessonTitle
       : (learning?.learningTwin.recommendation.label ?? lessonTitle)
   const review = questionId
-    ? exam?.result?.review.find((item) => item.questionId === questionId)
+    ? (diagnostic?.result?.feedback.find(
+        (item) => item.questionId === questionId
+      ) ?? exam?.result?.review.find((item) => item.questionId === questionId))
     : null
   const corpus = [
     ...lessonCorpus(learning),
@@ -560,7 +643,9 @@ export function answerFor(input: {
       : "This item is ready to review."
     explanation = review.rationale
     nextAction = "Use the explanation on a different item."
-    source = `Scored Timed Practice review for ${review.questionId}`
+    source = diagnostic
+      ? `Scored diagnostic review for ${review.questionId}`
+      : `Scored Timed Practice review for ${review.questionId}`
   } else if (request.screen === "badges") {
     if (badgeProgress) {
       const nextBadge = badgeProgress.nextBadge
@@ -789,14 +874,20 @@ export async function POST(request: NextRequest) {
       questionId: text(body.questionId, 160) || null,
       selectedText: text(body.selectedText, 400) || null,
     }
-    const [learning, exam, calibration, studyPlan] = await Promise.all([
-      getLearning(request),
-      scoutRequest.screen === "lab" ? getExam(request) : Promise.resolve(null),
-      scoutRequest.screen === "calibrate"
-        ? getCalibration(request)
-        : Promise.resolve(null),
-      getStudyPlan(request),
-    ])
+    const [learning, exam, diagnostic, calibration, studyPlan] =
+      await Promise.all([
+        getLearning(request),
+        scoutRequest.screen === "lab"
+          ? getExam(request)
+          : Promise.resolve(null),
+        scoutRequest.screen === "diagnostic-review"
+          ? getDiagnostic(request)
+          : Promise.resolve(null),
+        scoutRequest.screen === "calibrate"
+          ? getCalibration(request)
+          : Promise.resolve(null),
+        getStudyPlan(request),
+      ])
     const badgeProgress =
       scoutRequest.screen === "badges" ? badgeProgressFor(learning) : null
     const screenHistory = scout.state.messages
@@ -807,6 +898,7 @@ export async function POST(request: NextRequest) {
       preferences: scout.state.preferences,
       learning,
       exam,
+      diagnostic,
       calibration,
       studyPlan,
       badgeProgress,
@@ -821,6 +913,7 @@ export async function POST(request: NextRequest) {
           answer: reviewedAnswer,
           learning,
           exam,
+          diagnostic,
           calibration,
           studyPlan,
           badgeProgress,

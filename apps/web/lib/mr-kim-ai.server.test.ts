@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import {
   answerWithMrKimAI,
+  isMrKimAIAvailable,
   mrKimSafetyIdentifier,
   redactSensitiveText,
 } from "./mr-kim-ai.server"
@@ -46,6 +47,25 @@ function response(payload: unknown, ok = true) {
 }
 
 describe("Mr. Kim AI adapter", () => {
+  it("recognizes hosted and free local model configurations", () => {
+    expect(
+      isMrKimAIAvailable({ NODE_ENV: "test", OPENAI_API_KEY: "hosted-key" })
+    ).toBe(true)
+    expect(
+      isMrKimAIAvailable({
+        NODE_ENV: "test",
+        AI_TUTOR_BASE_URL: "http://127.0.0.1:11434/v1",
+        AI_TUTOR_MODEL: "qwen3:4b",
+      })
+    ).toBe(true)
+    expect(
+      isMrKimAIAvailable({
+        NODE_ENV: "test",
+        AI_TUTOR_BASE_URL: "http://127.0.0.1:11434/v1",
+      })
+    ).toBe(false)
+  })
+
   it("uses the reviewed fallback without a server API key", async () => {
     const fetchImpl = vi.fn()
     const answer = await answerWithMrKimAI(input, {
@@ -186,6 +206,39 @@ describe("Mr. Kim AI adapter", () => {
     expect(init.headers).toMatchObject({
       Authorization: "Bearer test-key",
     })
+  })
+
+  it("uses a free OpenAI-compatible local model without an API key", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: "Check whether both sides are full sentences.",
+                explanation:
+                  "A comma cannot join two complete sentences by itself.",
+                example: "The bell rang; class began.",
+                nextAction: "Check each side before choosing punctuation.",
+              }),
+            },
+          },
+        ],
+      })
+    )
+
+    const answer = await answerWithMrKimAI(input, {
+      apiKey: null,
+      baseUrl: "http://127.0.0.1:11434/v1",
+      model: "qwen3:4b",
+      fetchImpl,
+    })
+
+    expect(answer.receipt.checks).toContain("openai-compatible-chat")
+    expect(answer.source).toContain("Mr. Kim free AI")
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe("http://127.0.0.1:11434/v1/chat/completions")
+    expect(init.headers).not.toMatchObject({ Authorization: expect.anything() })
   })
 
   it("redacts contact details before model delivery", async () => {

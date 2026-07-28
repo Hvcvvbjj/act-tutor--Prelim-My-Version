@@ -26,6 +26,7 @@ interface LessonsCommandCenterProps {
   testDate: string
   busy: boolean
   onOpenWorkspace: () => void
+  onReviewLesson: (skill: string) => void
   onStartNext: () => void
   onStartSkill: (skill: string) => void
   onStartRepair: (mistakeId: string) => void
@@ -45,6 +46,15 @@ function primaryAction(
     "onOpenWorkspace" | "onStartNext" | "onStartRepair" | "onStartProgressCheck"
   >
 ) {
+  if (learning.status === "remediation") {
+    return {
+      label: "Review missed questions",
+      detail: "Work through each missed item with Mr. Kim.",
+      action: actions.onOpenWorkspace,
+      icon: RefreshCwIcon,
+    }
+  }
+
   if (learning.status === "complete") {
     return {
       label: "Start next lesson",
@@ -116,6 +126,10 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
 
   function selectLesson(lesson: LessonPathItem) {
     if (props.busy) return
+    if (lesson.status === "completed") {
+      props.onReviewLesson(lesson.id)
+      return
+    }
     if (
       learning.status !== "complete" &&
       (lesson.id === learning.todaySkill || lesson.status === "current")
@@ -196,7 +210,7 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
         </div>
 
         <aside className="overflow-hidden rounded-2xl border bg-background xl:sticky xl:top-24">
-          <div data-tour-id="lesson-action" className="bg-secondary p-5">
+          <div className="bg-secondary p-5">
             <p className="ink-label text-primary">Up next</p>
             <h2 className="mt-2.5 font-heading text-2xl leading-tight font-black">
               {learning.status === "complete"
@@ -212,6 +226,7 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
               type="button"
               size="lg"
               className="mt-4 w-full"
+              data-tour-id="lesson-action"
               disabled={props.busy}
               onClick={action.action}
             >

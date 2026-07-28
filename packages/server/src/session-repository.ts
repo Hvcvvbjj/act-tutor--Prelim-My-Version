@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  createAssessmentRemediationProgress,
+  recordAssessmentRemediationResponse,
   scoreDiagnostic,
   toPublicDiagnosticForm,
+  type AssessmentRemediationProgress,
   type DiagnosticAnswer,
   type DiagnosticFormSecure,
   type DiagnosticResult,
@@ -22,6 +25,7 @@ export interface SaveDiagnosticProgress {
 
 interface StoredDiagnosticSession {
   id: string;
+  purpose?: "baseline" | "round";
   formId: string;
   formVersion: string;
   questionIds: string[];
@@ -30,6 +34,7 @@ interface StoredDiagnosticSession {
   phase: "questions" | "review";
   status: "in_progress" | "completed";
   result: DiagnosticResult | null;
+  remediation?: AssessmentRemediationProgress | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,6 +96,7 @@ function toPayload(
 ): DiagnosticSessionPayload {
   return {
     attemptId: session.id,
+    purpose: session.purpose ?? "baseline",
     form: toPublicDiagnosticForm(form),
     progress: {
       answers: { ...session.answers },
@@ -100,13 +106,33 @@ function toPayload(
     },
     status: session.status,
     result: session.result,
+    remediation: remediationFor(session),
   };
 }
 
-function createSession(form: DiagnosticFormSecure): StoredDiagnosticSession {
+function remediationFor(
+  session: StoredDiagnosticSession,
+): AssessmentRemediationProgress | null {
+  if (session.status !== "completed" || !session.result) return null;
+  return (
+    session.remediation ??
+    createAssessmentRemediationProgress(
+      session.result.feedback
+        .filter((feedback) => !feedback.correct)
+        .map((feedback) => feedback.questionId),
+      session.updatedAt,
+    )
+  );
+}
+
+function createSession(
+  form: DiagnosticFormSecure,
+  purpose: "baseline" | "round" = "baseline",
+): StoredDiagnosticSession {
   const now = new Date().toISOString();
   return {
     id: randomUUID(),
+    purpose,
     formId: form.id,
     formVersion: form.version,
     questionIds: form.questions.map((question) => question.id),
@@ -115,6 +141,7 @@ function createSession(form: DiagnosticFormSecure): StoredDiagnosticSession {
     phase: "questions",
     status: "in_progress",
     result: null,
+    remediation: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -164,6 +191,7 @@ export class FileDiagnosticSessionRepository {
   async getOrCreate(
     sessionId: string | null,
     form: DiagnosticFormSecure,
+    purpose: "baseline" | "round" = "baseline",
   ): Promise<{ sessionId: string; payload: DiagnosticSessionPayload }> {
     return this.transact(async (store) => {
       const existing = sessionId ? store.sessions[sessionId] : undefined;
@@ -176,7 +204,7 @@ export class FileDiagnosticSessionRepository {
         }
       }
 
-      const created = createSession(form);
+      const created = createSession(form, purpose);
       store.sessions[created.id] = created;
       await this.writeStore(store);
       return { sessionId: created.id, payload: toPayload(created, form) };
@@ -186,9 +214,10 @@ export class FileDiagnosticSessionRepository {
   async startNew(
     previousSessionId: string | null,
     form: DiagnosticFormSecure,
+    purpose: "baseline" | "round" = "baseline",
   ): Promise<{ sessionId: string; payload: DiagnosticSessionPayload }> {
     return this.transact(async (store) => {
-      const created = createSession(form);
+      const created = createSession(form, purpose);
       store.sessions[created.id] = created;
       if (previousSessionId) delete store.sessions[previousSessionId];
       await this.writeStore(store);
@@ -254,6 +283,50 @@ export class FileDiagnosticSessionRepository {
       session.status = "completed";
       session.result = result;
       session.updatedAt = new Date().toISOString();
+      session.remediation = createAssessmentRemediationProgress(
+        result.feedback
+          .filter((feedback) => !feedback.correct)
+          .map((feedback) => feedback.questionId),
+        session.updatedAt,
+      );
+      await this.writeStore(store);
+      return toPayload(session, form);
+    });
+  }
+
+  async answerRemediation(
+    sessionId: string,
+    form: DiagnosticFormSecure,
+    input: { questionId: string; choiceId: string },
+  ): Promise<DiagnosticSessionPayload> {
+    return this.transact(async (store) => {
+      const session = store.sessions[sessionId];
+      if (!session) throw new RangeError("Diagnostic session not found.");
+      assertSessionMatchesForm(session, form);
+      if (session.status !== "completed" || !session.result) {
+        throw new RangeError(
+          "Finish the diagnostic before reviewing missed questions.",
+        );
+      }
+      const question = form.questions.find(
+        (candidate) => candidate.id === input.questionId,
+      );
+      if (!question) {
+        throw new RangeError("That diagnostic question is not available.");
+      }
+      if (!question.choices.some((choice) => choice.id === input.choiceId)) {
+        throw new RangeError("That answer choice is not available.");
+      }
+      const progress = remediationFor(session);
+      if (!progress) {
+        throw new Error("The diagnostic review could not be prepared.");
+      }
+      session.remediation = recordAssessmentRemediationResponse(progress, {
+        questionId: input.questionId,
+        choiceId: input.choiceId,
+        correct: input.choiceId === question.correctChoiceId,
+      });
+      session.updatedAt = session.remediation.updatedAt;
       await this.writeStore(store);
       return toPayload(session, form);
     });

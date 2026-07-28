@@ -143,6 +143,52 @@ describe("Scout server policy", () => {
     expect(answer.receipt.assistanceMode).toBe("timed-test")
   })
 
+  it("grounds Mr. Kim in a submitted diagnostic review question", () => {
+    const answer = answerFor({
+      request: {
+        question: "Explain this missed question in a different way.",
+        screen: "diagnostic-review",
+        questionId: "diagnostic-1",
+      },
+      preferences,
+      learning: null,
+      exam: null,
+      diagnostic: {
+        status: "completed",
+        form: {
+          questions: [
+            {
+              id: "diagnostic-1",
+              primarySkill: "linear-equations",
+              prompt: "Solve 2x = 10.",
+              choices: [
+                { id: "A", text: "2" },
+                { id: "B", text: "5" },
+              ],
+            },
+          ],
+        },
+        result: {
+          feedback: [
+            {
+              questionId: "diagnostic-1",
+              selectedChoiceId: "A",
+              correctChoiceId: "B",
+              correct: false,
+              rationale: "Divide both sides by 2, so x = 5.",
+            },
+          ],
+        },
+      } as never,
+    })
+
+    expect(answer.receipt.assistanceMode).toBe("review")
+    expect(answer.receipt.questionId).toBe("diagnostic-1")
+    expect(answer.receipt.skillId).toBe("linear-equations")
+    expect(answer.explanation).toContain("x = 5")
+    expect(answer.source).toContain("Scored diagnostic review")
+  })
+
   it("gives a real pre-attempt hint without choosing an answer", () => {
     const answer = answerFor({
       request: {

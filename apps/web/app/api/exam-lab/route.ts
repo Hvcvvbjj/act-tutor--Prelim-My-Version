@@ -235,6 +235,24 @@ export async function POST(request: NextRequest) {
       )
       return NextResponse.json({ session })
     }
+    if (body.action === "answer_remediation") {
+      if (
+        typeof body.questionId !== "string" ||
+        typeof body.choiceId !== "string"
+      ) {
+        throw new RangeError("A review question and answer are required.")
+      }
+      const form = await formForRequest(request)
+      const session = await examLabSessions.answerRemediation(
+        requireSessionId(request),
+        form,
+        {
+          questionId: body.questionId,
+          choiceId: body.choiceId,
+        }
+      )
+      return NextResponse.json({ session })
+    }
     throw new RangeError("Unknown Timed Practice action.")
   } catch (error) {
     return errorResponse(error)

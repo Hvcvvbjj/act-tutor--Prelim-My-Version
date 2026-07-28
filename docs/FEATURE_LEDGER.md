@@ -7,8 +7,8 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Requirement | Implementation proof |
 | --- | --- |
 | What would change the plan? | My Skills shows the held/changed state, current evidence, change line, responses needed, and correct/incorrect counterfactual from `planCounterfactual`. |
-| Adaptive Quick Check | Quick Check uses 2PL IRT, section coverage, item information, an 8–12 item stop rule, a stop explanation, confidence input, an optional 66-question diagnostic, and a button that rebuilds a no-score learner's plan from the completed baseline. |
-| Complete learning loop | Mission → personalized lesson → worked example → guided practice → independent exit ticket → mastery update → scheduled retention. A failed exit ticket changes explanation style; repair uses a different question; teach-back uses a three-part rubric. |
+| Required Round 0 | Every learner completes the resumable 66-question diagnostic before Lessons unlocks; the result fills all 12 question-type estimates and builds Round 1. |
+| Complete learning loop | Twelve segmented lessons → five-question lesson check → goal-based pass threshold → required Mr. Kim correction of every miss → round diagnostic or full test → assessment remediation → next focused 12-lesson round. |
 | Decision history | Evidence Timeline records the answer, information value, skill estimate change, plan change/hold, protected current mission, misconception, and model version. |
 | Spaced review | Reviews use prior state and time since practice, explain the forgetting window, and launch an exact two-question retention session. Mission purposes distinguish new learning, repair, confidence building, and retention. |
 | Coach Brief | My Skills provides the strongest skill, main misconception, certainty, evidence count, current/next mission, offline intervention, and unknowns with copy/print support. |
@@ -22,7 +22,7 @@ This is the implementation contract for the hackathon build. A feature is not co
 | Feature | Product behavior |
 | --- | --- |
 | Misconception fingerprinting | Groups unresolved misses by the exact distractor misconception, skill, count, and evidence item. |
-| Answer confidence | Sure, Unsure, and Guessing are collected in practice and Quick Check; guesses receive less skill-model weight. |
+| Answer confidence | Confidence is recorded only on surfaces that explicitly ask for it; other work stays unreported instead of inventing certainty. |
 | Self-correction | Practice records the first choice and whether the learner changed it before scoring. |
 | Response-time interpretation | Median time feeds pacing advice and is explicitly excluded from mastery penalties, including accommodation use. |
 | Cross-skill/prerequisite confusion | Scout checks a defined prerequisite graph and recommends prerequisite repair before returning to the target skill. |

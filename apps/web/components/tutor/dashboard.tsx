@@ -1,6 +1,12 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import dynamic from "next/dynamic"
 import {
   examLabInterpretationReadiness,
@@ -12,6 +18,7 @@ import {
   type LearningActionRequest,
   type LearningAnswerRequest,
   type LearningSessionPayload,
+  type LessonCheckResult,
   type LessonPlanContext,
   type StudyPlanTask,
 } from "@act-tutor/core"
@@ -26,8 +33,13 @@ import { AccountAccess } from "@/components/tutor/account-access"
 import { BadgesSurface } from "@/components/tutor/badges-surface"
 import { DashboardTour } from "@/components/tutor/dashboard-tour"
 import { GoalSupportPrompt } from "@/components/tutor/goal-support-prompt"
+import { learningBaselineSkillResults } from "@/components/tutor/learning-baseline-evidence"
 import { LessonsCommandCenter } from "@/components/tutor/lessons-command-center"
 import { shouldShowRoundTransition } from "@/components/tutor/lesson-workspace-logic"
+import {
+  RapidAnswerCoachDialog,
+  useRapidAnswerCoach,
+} from "@/components/tutor/rapid-answer-coach"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import {
   ScoutProvider,
@@ -74,6 +86,10 @@ const loadLessonWorkspace = () =>
   import("@/components/tutor/lesson-workspace").then(
     (module) => module.LessonWorkspace
   )
+const loadLessonReviewWorkspace = () =>
+  import("@/components/tutor/lesson-workspace").then(
+    (module) => module.LessonReviewWorkspace
+  )
 const loadLearningTwinLab = () =>
   import("@/components/tutor/learning-twin-lab").then(
     (module) => module.LearningTwinLab
@@ -97,6 +113,9 @@ const AdaptiveCalibrationLab = dynamic(loadAdaptiveCalibrationLab, {
 })
 const LessonWorkspace = dynamic(loadLessonWorkspace, {
   loading: () => <DashboardSurfaceLoading message="Opening your lesson…" />,
+})
+const LessonReviewWorkspace = dynamic(loadLessonReviewWorkspace, {
+  loading: () => <DashboardSurfaceLoading message="Opening lesson review…" />,
 })
 const LearningTwinLab = dynamic(loadLearningTwinLab, {
   loading: () => <DashboardSurfaceLoading message="Opening your progress…" />,
@@ -379,6 +398,14 @@ export function Dashboard({
   onUseFullTestAssessment,
 }: DashboardProps) {
   const diagnostic = plan.diagnosticResult
+  const baselineSkillResults = useMemo(
+    () =>
+      learningBaselineSkillResults({
+        profileSkillResults: plan.profileSkillResults,
+        diagnosticResult: diagnostic,
+      }),
+    [diagnostic, plan.profileSkillResults]
+  )
   const representativeDemo = diagnostic?.formId === "scout-judge-demo"
   const startingSkill =
     diagnostic?.focusSkills[0]?.skill ??
@@ -387,6 +414,9 @@ export function Dashboard({
   const [learningError, setLearningError] = useState<string | null>(null)
   const visibleLearningError = externalError ?? learningError
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [lessonReview, setLessonReview] = useState<LessonCheckResult | null>(
+    null
+  )
   const [activeSection, setActiveSection] = useState(0)
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -411,6 +441,10 @@ export function Dashboard({
     assessmentLabel?: string
     lockToInitialMode?: boolean
   }>({ mode: "sprint", section: "english", key: 0 })
+  const rapidAnswerCoach = useRapidAnswerCoach(
+    learning?.sessionId ?? "learning-session-loading",
+    learning?.answeredQuestionIds ?? []
+  )
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -476,7 +510,7 @@ export function Dashboard({
     learningRequest({
       action: "start",
       skill: startingSkill,
-      diagnosticSkillResults: diagnostic?.skillResults ?? [],
+      diagnosticSkillResults: baselineSkillResults,
       goalScore: plan.draft.goal,
       currentScore: plan.currentComposite,
       scoreEvidenceKey: plan.journey.officialScoreHistory.at(-1)?.id,
@@ -507,7 +541,7 @@ export function Dashboard({
       active = false
     }
   }, [
-    diagnostic?.skillResults,
+    baselineSkillResults,
     plan.currentComposite,
     plan.journey.officialScoreHistory,
     plan.evidence.planningBaseline,
@@ -584,29 +618,51 @@ export function Dashboard({
     if (!question || !selectedChoice) return
     setSubmitting(true)
     try {
-      setLearning(
-        await learningRequest({
-          action: "answer",
-          questionId: question.id,
-          choiceId: selectedChoice,
-          ...metadata,
-          command: {
-            schemaVersion: 2,
-            idempotencyKey: window.crypto.randomUUID(),
-            learnerSessionId: learning.sessionId,
-            bankVersion: learning.bankVersion,
-            questionVersion: question.version,
-            sequence: learning.currentQuestionIndex,
-            answerRevision: 1,
-            issuedAt: new Date().toISOString(),
-          },
-        } satisfies LearningAnswerRequest)
-      )
+      const updatedLearning = await learningRequest({
+        action: "answer",
+        questionId: question.id,
+        choiceId: selectedChoice,
+        ...metadata,
+        command: {
+          schemaVersion: 2,
+          idempotencyKey: window.crypto.randomUUID(),
+          learnerSessionId: learning.sessionId,
+          bankVersion: learning.bankVersion,
+          questionVersion: question.version,
+          sequence: learning.currentQuestionIndex,
+          answerRevision: 1,
+          issuedAt: new Date().toISOString(),
+        },
+      } satisfies LearningAnswerRequest)
+      rapidAnswerCoach.recordAnswer(question.id)
+      setLearning(updatedLearning)
       setSelectedChoice("")
       setLearningError(null)
     } catch (error) {
       setLearningError(
         error instanceof Error ? error.message : "Could not check the answer."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function submitLessonRemediation(questionId: string, choiceId: string) {
+    setSubmitting(true)
+    try {
+      const updatedLearning = await learningRequest({
+        action: "answer_lesson_remediation",
+        questionId,
+        choiceId,
+      })
+      setLearning(updatedLearning)
+      setSelectedChoice("")
+      setLearningError(null)
+    } catch (error) {
+      setLearningError(
+        error instanceof Error
+          ? error.message
+          : "Could not check that review answer."
       )
     } finally {
       setSubmitting(false)
@@ -668,6 +724,7 @@ export function Dashboard({
       setLearning(payload)
       setSelectedChoice("")
       setActiveSection(0)
+      setLessonReview(null)
       setWorkspaceOpen(openWorkspace)
       setLearningError(null)
       return true
@@ -870,7 +927,7 @@ export function Dashboard({
     if (roundAssessmentView === "full-test") {
       return (
         <ScoutProvider
-          activeTab="today"
+          activeTab="lab"
           learning={learning}
           canViewTechnicalDetails={viewer.technicalDetails}
         >
@@ -915,6 +972,10 @@ export function Dashboard({
           busy={submitting}
           onDiagnostic={() => void startRoundDiagnostic()}
           onFullTest={() => void startRoundFullTest()}
+        />
+        <RapidAnswerCoachDialog
+          open={rapidAnswerCoach.open}
+          onDismiss={rapidAnswerCoach.dismiss}
         />
       </>
     )
@@ -1124,7 +1185,17 @@ export function Dashboard({
             tabIndex={activeTab === "today" ? -1 : undefined}
             className={workspaceOpen ? "w-full bg-background" : "w-full"}
           >
-            {workspaceOpen && learning ? (
+            {workspaceOpen && lessonReview ? (
+              <LessonReviewWorkspace
+                review={lessonReview}
+                activeSection={activeSection}
+                onSectionChange={setActiveSection}
+                onClose={() => {
+                  setLessonReview(null)
+                  setWorkspaceOpen(false)
+                }}
+              />
+            ) : workspaceOpen && learning ? (
               <LessonWorkspace
                 learning={learning}
                 activeSection={activeSection}
@@ -1134,7 +1205,11 @@ export function Dashboard({
                 onChoiceChange={setSelectedChoice}
                 onCompleteLesson={completeLesson}
                 onSubmitAnswer={submitAnswer}
-                onClose={() => setWorkspaceOpen(false)}
+                onSubmitRemediation={submitLessonRemediation}
+                onClose={() => {
+                  setLessonReview(null)
+                  setWorkspaceOpen(false)
+                }}
               />
             ) : learning ? (
               <LessonsCommandCenter
@@ -1144,7 +1219,29 @@ export function Dashboard({
                 busy={submitting}
                 onOpenWorkspace={() => {
                   void loadLessonWorkspace()
+                  setLessonReview(null)
                   setWorkspaceOpen(true)
+                }}
+                onReviewLesson={(skill) => {
+                  const review = [...(learning.lessonHistory ?? [])]
+                    .reverse()
+                    .find(
+                      (item) =>
+                        item.roundNumber === learning.cycle.roundNumber &&
+                        item.skill === skill
+                    )
+                  if (!review) {
+                    setLearningError(
+                      "That completed lesson review is not available yet."
+                    )
+                    return
+                  }
+                  void loadLessonReviewWorkspace()
+                  setLessonReview(review)
+                  setSelectedChoice("")
+                  setActiveSection(0)
+                  setWorkspaceOpen(true)
+                  setLearningError(null)
                 }}
                 onStartNext={() =>
                   startMissionAction({ action: "start_next" }, true)
@@ -1348,6 +1445,10 @@ export function Dashboard({
           />
         ) : null}
       </Tabs>
+      <RapidAnswerCoachDialog
+        open={rapidAnswerCoach.open}
+        onDismiss={rapidAnswerCoach.dismiss}
+      />
     </ScoutProvider>
   )
 }

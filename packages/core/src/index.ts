@@ -1,4 +1,5 @@
 export * from "./calibration";
+export * from "./assessment-remediation";
 export * from "./diagnostic";
 export * from "./exam-lab";
 export * from "./learning";

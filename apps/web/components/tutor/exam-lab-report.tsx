@@ -407,7 +407,7 @@ export function ExamLabReport({
             Review answers
           </span>
           <span className="text-sm font-semibold text-muted-foreground">
-            {readiness.answered} answered
+            {result.total} questions
           </span>
         </summary>
         <section
@@ -421,9 +421,7 @@ export function ExamLabReport({
                 id="review-title"
                 className="mt-2 font-heading text-4xl font-bold"
               >
-                {result.unanswered > 0
-                  ? "Review your answered questions"
-                  : "Review every question"}
+                Review every question
               </h2>
             </div>
             <RotateCcwIcon className="text-primary" />
