@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import Image from "next/image"
 import { calendarDaysUntil, type StudyWeekday } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
@@ -355,16 +354,11 @@ export function Onboarding({
 
             <figure
               id="meet-mr-kim"
-              className="relative mx-auto hidden h-[min(72svh,48rem)] w-full max-w-[38rem] overflow-hidden rounded-[2rem] border border-border bg-[#06152d] shadow-[0_24px_70px_rgb(16_33_63_/_0.18)] lg:block"
+              className="relative mx-auto hidden h-[min(72svh,48rem)] w-full max-w-[38rem] overflow-hidden rounded-[2rem] border border-border bg-[radial-gradient(circle_at_50%_35%,var(--info-surface),var(--canvas)_62%)] shadow-[0_24px_70px_rgb(16_33_63_/_0.18)] lg:block"
             >
-              <Image
-                src="/images/mr-kim.png"
-                alt="Mr. Kim, Scout's illustrated AI tutor"
-                fill
-                priority
-                sizes="(min-width: 1024px) 42vw, 0px"
-                className="object-cover"
-              />
+              <div className="absolute inset-x-0 top-[8%] flex justify-center">
+                <ScoutMark className="size-[min(28rem,70vh)]" />
+              </div>
               <figcaption className="absolute inset-x-5 bottom-5 rounded-2xl border border-border/80 bg-background/92 p-5 text-foreground backdrop-blur-lg">
                 <p className="font-mono text-xs font-black tracking-[0.12em] text-primary uppercase">
                   Mr. Kim · AI tutor
@@ -431,10 +425,7 @@ export function Onboarding({
               </details>
             ) : null}
 
-            <div
-              key={step}
-              className="mt-6"
-            >
+            <div key={step} className="mt-6">
               {step === 1 ? (
                 <FieldSet className="min-w-0">
                   <FieldLegend className="sr-only">Goal score</FieldLegend>

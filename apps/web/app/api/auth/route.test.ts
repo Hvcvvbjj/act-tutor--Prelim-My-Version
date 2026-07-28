@@ -137,6 +137,12 @@ describe.sequential("optional learner and judge accounts", () => {
     const stored = await readFile(authStorePath, "utf8")
     expect(stored).not.toContain("StudyStrong!2026")
     expect(stored).toContain("pbkdf2-sha256")
+    const parsedStore = JSON.parse(stored) as {
+      accounts: Record<string, { password: { iterations: number } }>
+    }
+    expect(Object.values(parsedStore.accounts)[0]?.password.iterations).toBe(
+      310_000
+    )
   })
 
   it("persists pending score follow-ups and the onboarding official baseline", async () => {

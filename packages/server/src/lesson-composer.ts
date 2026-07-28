@@ -8,6 +8,8 @@ import type {
   SkillDefinition,
 } from "@act-tutor/core";
 
+import { tutorModelConfigFromEnv } from "./ai-tutor-env";
+
 export interface LessonCompositionInput {
   baseLesson: LessonContent;
   skill: SkillDefinition;
@@ -332,7 +334,6 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
           signal: controller.signal,
           body: JSON.stringify({
             model: this.config.model,
-            temperature: 0.35,
             response_format: { type: "json_object" },
             messages: [
               {
@@ -404,12 +405,8 @@ export class AuthoredLessonComposer implements LessonComposer {
 export function createLessonComposerFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): LessonComposer {
-  const baseUrl = env.AI_TUTOR_BASE_URL?.trim();
-  const model = env.AI_TUTOR_MODEL?.trim();
-  if (!baseUrl || !model) return new AuthoredLessonComposer();
-  return new OpenAICompatibleLessonComposer({
-    baseUrl,
-    model,
-    apiKey: env.AI_TUTOR_API_KEY?.trim(),
-  });
+  const config = tutorModelConfigFromEnv(env);
+  return config
+    ? new OpenAICompatibleLessonComposer(config)
+    : new AuthoredLessonComposer();
 }

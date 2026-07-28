@@ -1,5 +1,6 @@
 import "server-only"
 
+import { pbkdf2 } from "node:crypto"
 import { join } from "node:path"
 
 import type { DiagnosticSkillResult } from "@act-tutor/core"
@@ -157,28 +158,15 @@ async function derivePassword(
   salt: Uint8Array,
   iterations: number
 ) {
-  const saltBuffer = salt.buffer.slice(
-    salt.byteOffset,
-    salt.byteOffset + salt.byteLength
-  ) as ArrayBuffer
-  const key = await globalThis.crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"]
-  )
-  const bits = await globalThis.crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: saltBuffer,
-      iterations,
-    },
-    key,
-    256
-  )
-  return new Uint8Array(bits)
+  return new Promise<Uint8Array>((resolve, reject) => {
+    pbkdf2(password, salt, iterations, 32, "sha256", (error, digest) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(new Uint8Array(digest))
+    })
+  })
 }
 
 async function hashPassword(password: string): Promise<PasswordRecord> {
@@ -879,9 +867,19 @@ export async function registerLearner(
   }
   const linkedSessions = linkedSessionsFromRequest(request)
   const judge = judgeCredentials()
+  const documentStore = getAuthStore()
+  const currentStore = await readStore(documentStore)
+  if (
+    currentStore.usernames[normalized] ||
+    (judge.username && normalized === judge.normalizedUsername)
+  ) {
+    throw new AuthRequestError(
+      "That username is already in use. Try another.",
+      409
+    )
+  }
   const passwordRecord = await hashPassword(password)
 
-  const documentStore = getAuthStore()
   return transact(documentStore, async (store) => {
     removeExpired(store, Date.now())
     if (

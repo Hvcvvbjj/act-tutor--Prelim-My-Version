@@ -25,10 +25,20 @@ function json(payload: unknown, status = 200) {
   return response
 }
 
-function errorResponse(error: unknown) {
+function errorResponse(error: unknown, request: NextRequest) {
   if (error instanceof AuthRequestError) {
     return json({ error: error.message }, error.status)
   }
+  console.error("Unexpected account request failure", {
+    requestId:
+      request.headers.get("cf-ray") ??
+      request.headers.get("x-request-id") ??
+      "unavailable",
+    error:
+      error instanceof Error
+        ? { name: error.name, message: error.message }
+        : { name: "UnknownError", message: "Non-error value thrown" },
+  })
   return json({ error: "The account request could not be completed." }, 500)
 }
 
@@ -36,7 +46,7 @@ export async function GET(request: NextRequest) {
   try {
     return json({ viewer: await viewerForRequest(request) })
   } catch (error) {
-    return errorResponse(error)
+    return errorResponse(error, request)
   }
 }
 
@@ -100,6 +110,6 @@ export async function POST(request: NextRequest) {
 
     throw new AuthRequestError("Unknown account action.", 400)
   } catch (error) {
-    return errorResponse(error)
+    return errorResponse(error, request)
   }
 }

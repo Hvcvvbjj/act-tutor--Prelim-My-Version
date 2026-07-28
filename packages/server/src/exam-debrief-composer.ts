@@ -5,6 +5,8 @@ import {
   type ExamLabScoredResult,
 } from "@act-tutor/core";
 
+import { tutorModelConfigFromEnv } from "./ai-tutor-env";
+
 export interface ExamDebriefComposer {
   compose(result: ExamLabScoredResult): Promise<ExamDebrief>;
 }
@@ -105,13 +107,12 @@ export class OpenAICompatibleExamDebriefComposer implements ExamDebriefComposer 
           signal: controller.signal,
           body: JSON.stringify({
             model: this.config.model,
-            temperature: 0.25,
             response_format: { type: "json_object" },
             messages: [
               {
                 role: "system",
                 content:
-                  "You are Scout, a friendly ACT tutor speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Do not use the words evidence, model, calibrate, optimize, route, score lever, mastery, or priority. Use only the supplied practice results. Never invent official scores, guarantees, answer keys, question text, or student facts. Return only JSON.",
+                  "You are Mr. Kim, Scout ACT’s friendly AI tutor, speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Do not use the words evidence, model, calibrate, optimize, route, score lever, mastery, or priority. Use only the supplied practice results. Never invent official scores, guarantees, answer keys, question text, or student facts. Return only JSON.",
               },
               {
                 role: "user",
@@ -158,12 +159,8 @@ export class AuthoredExamDebriefComposer implements ExamDebriefComposer {
 export function createExamDebriefComposerFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): ExamDebriefComposer {
-  const baseUrl = env.AI_TUTOR_BASE_URL?.trim();
-  const model = env.AI_TUTOR_MODEL?.trim();
-  if (!baseUrl || !model) return new AuthoredExamDebriefComposer();
-  return new OpenAICompatibleExamDebriefComposer({
-    baseUrl,
-    model,
-    apiKey: env.AI_TUTOR_API_KEY?.trim(),
-  });
+  const config = tutorModelConfigFromEnv(env);
+  return config
+    ? new OpenAICompatibleExamDebriefComposer(config)
+    : new AuthoredExamDebriefComposer();
 }

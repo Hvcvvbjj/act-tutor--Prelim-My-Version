@@ -199,6 +199,46 @@ describe("Scout server policy", () => {
     expect(answer.summary).not.toContain("timer")
   })
 
+  it("does not attach an unattempted lesson question to other screens", () => {
+    const answer = answerFor({
+      request: {
+        question: "Why is this skill next?",
+        screen: "progress",
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+
+    expect(answer.receipt.questionId).toBeNull()
+    expect(answer.receipt.skillId).toBe("sentence-boundaries")
+    expect(answer.mode).toBe("grounded")
+  })
+
+  it("explains the visible lesson instead of a later recommendation", () => {
+    const answer = answerFor({
+      request: {
+        question: "Why is this lesson next?",
+        screen: "today",
+      },
+      preferences,
+      learning: {
+        ...(learning as unknown as Record<string, unknown>),
+        learningTwin: {
+          recommendation: {
+            label: "Punctuation and commas",
+            reason: "This will come later.",
+          },
+          skills: [],
+        },
+      } as never,
+      exam: null,
+    })
+
+    expect(answer.summary).toContain("Sentence Boundaries")
+    expect(answer.summary).not.toContain("Punctuation and commas")
+  })
+
   it("uses bounded conversation history to keep a follow-up on topic", () => {
     const first = answerFor({
       request: { question: "What is margin of error?", screen: "calibrate" },

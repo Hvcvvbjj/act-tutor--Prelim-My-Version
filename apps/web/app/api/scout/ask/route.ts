@@ -23,7 +23,11 @@ import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { getExamLabSession } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
-import { answerWithMrKimAI, isMrKimAIAvailable } from "@/lib/mr-kim-ai.server"
+import {
+  answerWithMrKimAI,
+  isMrKimAIAvailable,
+  mrKimSafetyIdentifier,
+} from "@/lib/mr-kim-ai.server"
 import { scoutSessions } from "@/lib/scout-sessions.server"
 import { studyPlanSessions } from "@/lib/study-plan.server"
 
@@ -273,10 +277,20 @@ function mrKimGroundingFacts(input: {
     facts.push(
       `The current lesson is ${input.learning.lesson.title}.`,
       `The lesson objective is: ${input.learning.lesson.objective}`,
-      `The reviewed lesson rule is: ${input.learning.lesson.concept}`
+      `The reviewed lesson rule is: ${input.learning.lesson.concept}`,
+      ...input.learning.lesson.sections.map(
+        (section) =>
+          `${section.title}: ${section.explanation} Coach guidance: ${section.coachPrompt}`
+      )
     )
     if (question && input.learning.answeredQuestionIds.includes(question.id)) {
       facts.push(`The attempted question prompt is: ${question.prompt}`)
+      if (input.learning.lastFeedback?.questionId === question.id) {
+        facts.push(
+          `The submitted answer was ${input.learning.lastFeedback.correct ? "correct" : "incorrect"}.`,
+          `The reviewed rationale is: ${input.learning.lastFeedback.rationale}`
+        )
+      }
     }
   }
   if (input.answer.receipt.assistanceMode === "review" && input.exam?.result) {
@@ -292,6 +306,9 @@ function mrKimGroundingFacts(input: {
   }
   if (input.studyPlan) {
     facts.push(
+      `The learner's test date is ${input.studyPlan.testDate}.`,
+      `The current planning section scores are English ${input.studyPlan.current.english}, Math ${input.studyPlan.current.math}, and Reading ${input.studyPlan.current.reading}.`,
+      `The target section scores are English ${input.studyPlan.target.english}, Math ${input.studyPlan.target.math}, and Reading ${input.studyPlan.target.reading}.`,
       `The dated plan schedules ${input.studyPlan.forecast.scheduledMinutes} minutes before test day.`,
       `The learner currently has ${input.studyPlan.forecast.weeklyCapacity} available minutes per week.`
     )
@@ -332,13 +349,13 @@ export function answerFor(input: {
       : "review"
     : "study"
   const learningQuestion =
-    request.screen === "badges"
-      ? undefined
-      : request.questionId
+    request.screen === "today"
+      ? request.questionId
         ? learning?.questions.find(
             (question) => question.id === request.questionId
           )
         : learning?.questions[learning.currentQuestionIndex]
+      : undefined
   const examQuestion = request.questionId
     ? exam?.questions.find((question) => question.id === request.questionId)
     : exam?.questions[exam.progress.currentIndex]
@@ -448,7 +465,10 @@ export function answerFor(input: {
   const rule =
     learning?.lesson.concept ??
     "Name what the question is testing before you compare the choices."
-  const nextSkill = learning?.learningTwin.recommendation.label ?? lessonTitle
+  const nextSkill =
+    request.screen === "today"
+      ? lessonTitle
+      : (learning?.learningTwin.recommendation.label ?? lessonTitle)
   const review = questionId
     ? exam?.result?.review.find((item) => item.questionId === questionId)
     : null
@@ -775,12 +795,13 @@ export async function POST(request: NextRequest) {
       scoutRequest.screen === "calibrate"
         ? getCalibration(request)
         : Promise.resolve(null),
-      scoutRequest.screen === "plan"
-        ? getStudyPlan(request)
-        : Promise.resolve(null),
+      getStudyPlan(request),
     ])
     const badgeProgress =
       scoutRequest.screen === "badges" ? badgeProgressFor(learning) : null
+    const screenHistory = scout.state.messages
+      .filter((message) => (message.screen ?? "today") === scoutRequest.screen)
+      .slice(-12)
     const reviewedAnswer = answerFor({
       request: scoutRequest,
       preferences: scout.state.preferences,
@@ -789,22 +810,27 @@ export async function POST(request: NextRequest) {
       calibration,
       studyPlan,
       badgeProgress,
-      history: scout.state.messages.slice(-6),
+      history: screenHistory.slice(-6),
     })
-    const answer = await answerWithMrKimAI({
-      request: scoutRequest,
-      fallback: reviewedAnswer,
-      groundingFacts: mrKimGroundingFacts({
+    const answer = await answerWithMrKimAI(
+      {
         request: scoutRequest,
-        answer: reviewedAnswer,
-        learning,
-        exam,
-        calibration,
-        studyPlan,
-        badgeProgress,
-      }),
-      history: scout.state.messages.slice(-3),
-    })
+        fallback: reviewedAnswer,
+        groundingFacts: mrKimGroundingFacts({
+          request: scoutRequest,
+          answer: reviewedAnswer,
+          learning,
+          exam,
+          calibration,
+          studyPlan,
+          badgeProgress,
+        }),
+        history: screenHistory,
+      },
+      {
+        safetyIdentifier: await mrKimSafetyIdentifier(scout.sessionId),
+      }
+    )
     const message: ScoutMessage = {
       id: randomUUID(),
       askedAt: new Date().toISOString(),

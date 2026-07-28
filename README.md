@@ -268,7 +268,20 @@ pnpm.cmd dev
 
 ### How to tell whether live AI is working
 
-The copied `apps/web/.env.local` file points Scout at Ollama's OpenAI-compatible endpoint:
+For the hosted app, configure one server-side OpenAI key. The same settings
+power Mr. Kim chat, generated lessons, and result debriefs:
+
+```dotenv
+OPENAI_API_KEY=your-server-side-key
+OPENAI_MODEL=gpt-5.6
+```
+
+Never prefix the key with `NEXT_PUBLIC_` or commit it to the repository. Restart
+the local development server, or redeploy the hosted site, after changing these
+values.
+
+For local-only development, Scout can instead use Ollama's OpenAI-compatible
+endpoint for generated lessons and debriefs:
 
 ```dotenv
 AI_TUTOR_BASE_URL=http://127.0.0.1:11434/v1
@@ -276,7 +289,11 @@ AI_TUTOR_MODEL=qwen3:4b
 AI_TUTOR_API_KEY=
 ```
 
-Restart the development server after creating or changing this file. A successful generated lesson is labeled **AI-personalized lesson** in Scout. If Ollama is stopped, the model output is invalid, or the request fails, Scout safely uses content labeled **Reviewed personalized fallback**. The model never receives practice answer keys and cannot change scoring or Bayesian learner-model calculations.
+Mr. Kim's chat header says **AI tutor online** when the hosted key is present,
+and each generated answer carries a server-side AI receipt. A successful
+generated lesson is labeled **AI-personalized lesson**. If a provider is
+unavailable or returns invalid output, Scout safely uses reviewed guidance
+instead. The model cannot change scoring or the learner's saved results.
 
 ### Optional session-storage locations
 

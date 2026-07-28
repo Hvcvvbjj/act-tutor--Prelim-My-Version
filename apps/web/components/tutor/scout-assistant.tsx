@@ -435,6 +435,9 @@ export function ScoutProvider({
   )
   const latestMessage = screenMessages.at(-1)?.message
   const earlierMessages = screenMessages.slice(0, -1)
+  const latestWasGenerated = Boolean(
+    latestMessage?.answer.receipt.checks.includes("openai-responses-api")
+  )
 
   async function ask(nextQuestion = question, selection: string | null = null) {
     if (!nextQuestion.trim()) return
@@ -448,10 +451,9 @@ export function ScoutProvider({
           question: nextQuestion,
           screen: activeTab,
           questionId:
-            activeTab === "lab" || activeTab === "badges"
-              ? null
-              : (learning?.questions[learning.currentQuestionIndex]?.id ??
-                null),
+            activeTab === "today"
+              ? (learning?.questions[learning.currentQuestionIndex]?.id ?? null)
+              : null,
           selectedText: selection,
         }),
       })
@@ -549,9 +551,13 @@ export function ScoutProvider({
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-2xl font-black">Mr. Kim</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
-                  {aiAvailable
-                    ? "Grounded AI help for this screen"
-                    : "Reviewed study help for this screen"}
+                  {latestMessage
+                    ? latestWasGenerated
+                      ? "AI answer grounded in your Scout work"
+                      : "Reviewed Scout guidance"
+                    : aiAvailable
+                      ? "AI tutor online"
+                      : "Reviewed Scout guidance"}
                 </p>
               </div>
               <Button
