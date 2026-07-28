@@ -49,4 +49,17 @@ describe("desktop secondary-surface hierarchy", () => {
     expect(assistant).toContain("Simplify this answer")
     expect(assistant).not.toContain("Another example")
   })
+
+  it("separates the current lesson from the adaptive skill priority", async () => {
+    const progress = await source("components/tutor/learning-twin-lab.tsx")
+    const profile = await source("components/tutor/mastery-profile.tsx")
+
+    expect(progress).toContain("Continue lesson:")
+    expect(progress).toContain("adaptive priority may")
+    expect(profile).toContain("Adaptive priority")
+    expect(profile).toContain("Your current lesson may still come first.")
+    expect(profile).toContain("Why Scout prioritizes this")
+    expect(profile).not.toContain("Study next")
+    expect(profile).not.toContain("Why this is next")
+  })
 })

@@ -546,13 +546,14 @@ export function MasteryProfile({
               )}
               <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
                 <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                  Study next
+                  Adaptive priority
                 </p>
                 <p className="mt-2 font-heading text-2xl font-black">
                   {recommendation.label}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-white/70">
-                  This skill needs the most useful next practice.
+                  This skill has Scout&apos;s highest evidence-based practice
+                  priority. Your current lesson may still come first.
                 </p>
               </div>
             </aside>
@@ -649,7 +650,7 @@ export function MasteryProfile({
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
                 {selectedIsRecommendation
                   ? `Ranking score: ${priority}/100.`
-                  : `This skill’s current ranking score is ${priority}/100; Scout currently recommends ${recommendation.label}.`}{" "}
+                  : `This skill’s current ranking score is ${priority}/100; Scout currently gives ${recommendation.label} the highest adaptive priority.`}{" "}
                 This is not an ACT score or a probability.
               </p>
               <ol className="mt-3 divide-y border-y">
@@ -675,13 +676,13 @@ export function MasteryProfile({
             <div>
               <h3 className="font-heading text-xl font-black">
                 {selectedIsRecommendation
-                  ? "Why this is next"
-                  : "What Scout recommends now"}
+                  ? "Why Scout prioritizes this"
+                  : "Current adaptive priority"}
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {selectedIsRecommendation
-                  ? `${recommendation.label} needs the most useful next practice.`
-                  : `Scout currently recommends ${recommendation.label}.`}
+                  ? `${recommendation.label} has Scout’s highest evidence-based practice priority.`
+                  : `Scout currently gives ${recommendation.label} the highest adaptive priority.`}
               </p>
             </div>
           )}

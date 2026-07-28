@@ -149,7 +149,7 @@ function TechnicalMethod() {
 
         <section>
           <h3 className="font-heading text-xl font-black">
-            4. Which skill ranks next
+            4. Which skill gets highest priority
           </h3>
           <p className="mt-3 rounded-lg bg-muted p-4 font-mono text-sm leading-6">
             (1 − predicted correct) × 52 + entropy × 24 + 1 ÷ (answers + 1) × 14
@@ -158,7 +158,7 @@ function TechnicalMethod() {
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             Entropy is highest near a 50/50 estimate; it is not a confidence
             interval. The ACT goal is not an input to this skill ranking. Equal
-            totals keep the previously recommended skill first, then prefer
+            totals keep the previously prioritized skill first, then prefer
             fewer scored answers, then sort by skill name. A saved manual model
             correction can also change the stored BKT estimate before this rule
             runs.
@@ -218,12 +218,13 @@ export function LearningTwinLab({
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
             Choose a skill to see its estimate and the answers behind it. Study
-            estimates are not ACT scores.
+            estimates are not ACT scores. Scout&apos;s adaptive priority may
+            differ from the lesson currently in sequence.
           </p>
         </div>
         {learning.status !== "complete" ? (
           <Button type="button" variant="outline" onClick={onOpenLesson}>
-            Continue {current.label}
+            Continue lesson: {current.label}
             <ArrowRightIcon data-icon="inline-end" />
           </Button>
         ) : null}
