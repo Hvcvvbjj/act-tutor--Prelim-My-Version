@@ -8,6 +8,7 @@ import {
   setStudyPlanTaskStatus,
   shiftStudyWeek,
   studyWeekStart,
+  summarizeStudyWeek,
   tasksForStudyWeek,
   type StudySkillSignal,
 } from "./study-plan";
@@ -275,6 +276,26 @@ describe("adaptive study plans", () => {
       ),
     ).toBe(true);
     expect(caughtUp.revisionReason).toContain("moved it into future");
+  });
+
+  it("separates active weekly work from missed history", () => {
+    const caughtUp = catchUpStudyPlan(
+      plan(),
+      "2026-07-16",
+      "2026-07-16T08:00:00.000Z",
+    );
+    const weekTasks = tasksForStudyWeek(caughtUp.tasks, "2026-07-13");
+    const plannedTasks = weekTasks.filter((task) => task.status !== "skipped");
+    const missedTasks = weekTasks.filter((task) => task.status === "skipped");
+
+    expect(missedTasks.length).toBeGreaterThan(0);
+    expect(summarizeStudyWeek(caughtUp.tasks, "2026-07-13")).toEqual({
+      plannedDays: new Set(plannedTasks.map((task) => task.date)).size,
+      plannedMinutes: plannedTasks.reduce(
+        (total, task) => total + task.minutes,
+        0,
+      ),
+    });
   });
 
   it("groups and shifts Monday-based study weeks", () => {

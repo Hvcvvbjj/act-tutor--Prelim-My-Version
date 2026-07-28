@@ -854,6 +854,23 @@ export function tasksForStudyWeek(
   return tasks.filter((task) => task.date >= weekStart && task.date < weekEnd);
 }
 
+export function summarizeStudyWeek(
+  tasks: ReadonlyArray<StudyPlanTask>,
+  weekStart: string,
+) {
+  const weekTasks = tasksForStudyWeek(tasks, weekStart);
+  const plannedDates = new Set<string>();
+  let plannedMinutes = 0;
+
+  for (const task of weekTasks) {
+    if (task.status === "skipped") continue;
+    plannedDates.add(task.date);
+    plannedMinutes += task.minutes;
+  }
+
+  return { plannedDays: plannedDates.size, plannedMinutes };
+}
+
 export function studyWeekStart(value: string) {
   const timestamp = parseDate(value);
   const day = new Date(timestamp).getUTCDay();

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   shiftStudyWeek,
   studyWeekStart,
+  summarizeStudyWeek,
   tasksForStudyWeek,
   type AdaptiveStudyPlan,
   type LearningSessionPayload,
@@ -352,6 +353,12 @@ function TaskBlock({
 }) {
   const meta = TASK_META[task.kind]
   const Icon = meta.icon
+  const statusLabel =
+    task.status === "complete"
+      ? "Done"
+      : task.status === "skipped"
+        ? "Missed"
+        : null
   return (
     <article
       className={cn(
@@ -391,6 +398,7 @@ function TaskBlock({
           <span className="flex items-center gap-1.5 font-mono text-[0.62rem] font-bold tracking-[0.08em] uppercase">
             <Icon className="size-3.5" aria-hidden="true" />
             {meta.label} · {task.minutes}m
+            {statusLabel ? ` · ${statusLabel}` : null}
           </span>
           <span
             className={cn(
@@ -432,6 +440,15 @@ function WeekPlanner({
     >
       {dates.map((date) => {
         const tasks = weekTasks.filter((task) => task.date === date)
+        let plannedMinutes = 0
+        let missedMinutes = 0
+        for (const task of tasks) {
+          if (task.status === "skipped") {
+            missedMinutes += task.minutes
+          } else {
+            plannedMinutes += task.minutes
+          }
+        }
         const isToday = date === plan.today
         const afterTest = date >= plan.testDate
         return (
@@ -481,7 +498,9 @@ function WeekPlanner({
               </div>
               {tasks.length ? (
                 <p className="shrink-0 font-mono text-xs font-bold text-muted-foreground">
-                  {tasks.reduce((sum, task) => sum + task.minutes, 0)} min
+                  {plannedMinutes > 0
+                    ? `${plannedMinutes} min`
+                    : `${missedMinutes} min missed`}
                 </p>
               ) : null}
             </header>
@@ -848,6 +867,7 @@ export function AdaptivePlanStudio({
   const firstWeek = studyWeekStart(adaptivePlan.today)
   const finalWeek = studyWeekStart(adaptivePlan.testDate)
   const weekEnd = addCalendarDaysFrom(weekStart, 6)
+  const weekSummary = summarizeStudyWeek(adaptivePlan.tasks, weekStart)
   const canGoBack = weekStart > firstWeek
   const canGoForward = weekStart < finalWeek
   const busy = parentBusy || saving || changingTaskId !== null
@@ -872,9 +892,12 @@ export function AdaptivePlanStudio({
               {shortDate(weekStart)}–{shortDate(weekEnd)}
             </h1>
             <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              {adaptivePlan.availability.entries.length} study days ·{" "}
-              {adaptivePlan.forecast.weeklyCapacity} min · {daysToTest} days
-              until test
+              {weekSummary.plannedDays > 0
+                ? `${weekSummary.plannedDays} planned ${
+                    weekSummary.plannedDays === 1 ? "day" : "days"
+                  } · ${weekSummary.plannedMinutes} min this week`
+                : "No active study days this week"}{" "}
+              · {daysToTest} days until test
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
