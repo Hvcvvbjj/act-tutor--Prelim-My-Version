@@ -4,12 +4,14 @@ import {
   catchUpStudyPlan,
   generateStudyPlan,
   normalizeStudyAvailability,
+  preferredTaskForStudyWeek,
   rebalanceStudyPlan,
   setStudyPlanTaskStatus,
   shiftStudyWeek,
   studyWeekStart,
   summarizeStudyWeek,
   tasksForStudyWeek,
+  type StudyPlanTask,
   type StudySkillSignal,
 } from "./study-plan";
 
@@ -295,7 +297,59 @@ describe("adaptive study plans", () => {
         (total, task) => total + task.minutes,
         0,
       ),
+      missedDays: new Set(missedTasks.map((task) => task.date)).size,
+      missedMinutes: missedTasks.reduce(
+        (total, task) => total + task.minutes,
+        0,
+      ),
     });
+  });
+
+  it("keeps missed work visible without counting it as active study time", () => {
+    const weekTasks: StudyPlanTask[] = [
+      {
+        id: "missed",
+        date: "2026-07-13",
+        slot: 0,
+        minutes: 30,
+        kind: "focus",
+        status: "skipped",
+        title: "Missed focused set",
+        reason: "This work was moved.",
+        completedAt: null,
+        skill: "E-BOUND",
+        skillLabel: "Sentence boundaries",
+        section: "english",
+        locked: false,
+      },
+      {
+        id: "active",
+        date: "2026-07-14",
+        slot: 0,
+        minutes: 30,
+        kind: "focus",
+        status: "scheduled",
+        title: "Current focused set",
+        reason: "This is the active replacement.",
+        completedAt: null,
+        skill: "E-BOUND",
+        skillLabel: "Sentence boundaries",
+        section: "english",
+        locked: false,
+      },
+    ];
+    const summary = summarizeStudyWeek(weekTasks, "2026-07-13");
+
+    expect(summary).toEqual({
+      plannedDays: 1,
+      plannedMinutes: 30,
+      missedDays: 1,
+      missedMinutes: 30,
+    });
+    expect(preferredTaskForStudyWeek(weekTasks, "2026-07-13")?.id).toBe(
+      "active",
+    );
+    expect(preferredTaskForStudyWeek(weekTasks, "2026-07-20")).toBeNull();
   });
 
   it("groups and shifts Monday-based study weeks", () => {

@@ -854,21 +854,45 @@ export function tasksForStudyWeek(
   return tasks.filter((task) => task.date >= weekStart && task.date < weekEnd);
 }
 
+export function preferredTaskForStudyWeek(
+  tasks: ReadonlyArray<StudyPlanTask>,
+  weekStart: string,
+) {
+  const weekTasks = tasksForStudyWeek(tasks, weekStart);
+  return (
+    weekTasks.find((task) => task.status === "scheduled") ??
+    weekTasks.find((task) => task.status === "complete") ??
+    weekTasks[0] ??
+    null
+  );
+}
+
 export function summarizeStudyWeek(
   tasks: ReadonlyArray<StudyPlanTask>,
   weekStart: string,
 ) {
   const weekTasks = tasksForStudyWeek(tasks, weekStart);
   const plannedDates = new Set<string>();
+  const missedDates = new Set<string>();
   let plannedMinutes = 0;
+  let missedMinutes = 0;
 
   for (const task of weekTasks) {
-    if (task.status === "skipped") continue;
+    if (task.status === "skipped") {
+      missedDates.add(task.date);
+      missedMinutes += task.minutes;
+      continue;
+    }
     plannedDates.add(task.date);
     plannedMinutes += task.minutes;
   }
 
-  return { plannedDays: plannedDates.size, plannedMinutes };
+  return {
+    plannedDays: plannedDates.size,
+    plannedMinutes,
+    missedDays: missedDates.size,
+    missedMinutes,
+  };
 }
 
 export function studyWeekStart(value: string) {

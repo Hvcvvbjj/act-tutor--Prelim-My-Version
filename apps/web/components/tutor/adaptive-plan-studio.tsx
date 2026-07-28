@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  preferredTaskForStudyWeek,
   shiftStudyWeek,
   studyWeekStart,
   summarizeStudyWeek,
@@ -137,14 +138,6 @@ function longWeekday(value: string) {
   const [year, month, day] = value.split("-").map(Number)
   return new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
     new Date(year, month - 1, day, 12)
-  )
-}
-
-function daysBetween(start: string, end: string) {
-  return Math.round(
-    (new Date(`${end}T00:00:00.000Z`).getTime() -
-      new Date(`${start}T00:00:00.000Z`).getTime()) /
-      86_400_000
   )
 }
 
@@ -756,8 +749,16 @@ export function AdaptivePlanStudio({
   const selectedTask =
     adaptivePlan?.tasks.find((task) => task.id === selectedTaskId) ?? null
 
-  function showWeek(nextWeek: string) {
+  function showWeek(
+    nextWeek: string,
+    sourcePlan: AdaptiveStudyPlan | null = adaptivePlan
+  ) {
     setWeekStart(nextWeek)
+    setSelectedTaskId(
+      sourcePlan
+        ? (preferredTaskForStudyWeek(sourcePlan.tasks, nextWeek)?.id ?? null)
+        : null
+    )
   }
 
   async function updateAvailability(
@@ -811,7 +812,7 @@ export function AdaptivePlanStudio({
         today: plan.today,
       })
       setAdaptivePlan(nextPlan)
-      showWeek(studyWeekStart(nextPlan.today))
+      showWeek(studyWeekStart(nextPlan.today), nextPlan)
       setError(null)
     } catch (caught) {
       setError(
@@ -862,7 +863,6 @@ export function AdaptivePlanStudio({
     )
   }
 
-  const daysToTest = daysBetween(adaptivePlan.today, adaptivePlan.testDate)
   const health = HEALTH_COPY[adaptivePlan.forecast.health]
   const firstWeek = studyWeekStart(adaptivePlan.today)
   const finalWeek = studyWeekStart(adaptivePlan.testDate)
@@ -895,9 +895,12 @@ export function AdaptivePlanStudio({
               {weekSummary.plannedDays > 0
                 ? `${weekSummary.plannedDays} planned ${
                     weekSummary.plannedDays === 1 ? "day" : "days"
-                  } · ${weekSummary.plannedMinutes} min this week`
-                : "No active study days this week"}{" "}
-              · {daysToTest} days until test
+                  } · ${weekSummary.plannedMinutes} min scheduled`
+                : "No active study days this week"}
+              {weekSummary.missedMinutes > 0
+                ? ` · ${weekSummary.missedMinutes} min missed`
+                : null}{" "}
+              · Test {shortDate(adaptivePlan.testDate)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
