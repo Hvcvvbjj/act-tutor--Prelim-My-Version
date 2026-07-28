@@ -1,10 +1,11 @@
 import "server-only"
 
-import { pbkdf2 } from "node:crypto"
 import { join } from "node:path"
 
 import type { DiagnosticSkillResult } from "@act-tutor/core"
 import type { JsonDocumentStore } from "@act-tutor/server"
+import { pbkdf2 } from "@noble/hashes/pbkdf2"
+import { sha256 as sha256Hash } from "@noble/hashes/sha256"
 import { cookies } from "next/headers"
 import type { NextRequest, NextResponse } from "next/server"
 
@@ -158,14 +159,12 @@ async function derivePassword(
   salt: Uint8Array,
   iterations: number
 ) {
-  return new Promise<Uint8Array>((resolve, reject) => {
-    pbkdf2(password, salt, iterations, 32, "sha256", (error, digest) => {
-      if (error) {
-        reject(error)
-        return
-      }
-      resolve(new Uint8Array(digest))
-    })
+  // Cloudflare Workers cap their built-in PBKDF2 implementation at 100,000
+  // rounds. This implementation keeps our existing 310,000-round hashes
+  // portable across the local Node runtime and the deployed Worker.
+  return pbkdf2(sha256Hash, encoder.encode(password), salt, {
+    c: iterations,
+    dkLen: 32,
   })
 }
 
