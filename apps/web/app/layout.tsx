@@ -45,12 +45,31 @@ export default function RootLayout({
                 </span>{" "}
                 Scout ACT is not affiliated with or endorsed by ACT.
               </p>
-              <Link
-                href="/trust"
-                className="mt-2 inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              <nav
+                aria-label="About Scout"
+                className="mt-2 flex flex-wrap gap-x-5"
               >
-                Data, privacy, and product limits
-              </Link>
+                <Link
+                  href="/how-scout-works"
+                  className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  How Scout works
+                </Link>
+                <Link
+                  href="/trust"
+                  className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  Data, privacy, and product limits
+                </Link>
+                <a
+                  href="https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  Source code
+                </a>
+              </nav>
             </div>
             <p className="sm:max-w-xl sm:text-right">
               Practice content is original. Skill percentages and practice score

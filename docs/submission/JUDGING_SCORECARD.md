@@ -13,6 +13,7 @@ This scorecard maps the product to the four equally weighted official judging di
 - Adaptive Plan Studio preserves completed work and today while rebalancing future assignments.
 - Timed Practice adds timed section rehearsal, confidence capture, flags, pacing analysis, and an AI-capable debrief.
 - Accessibility basics include semantic controls, keyboard-focus treatments, 44-pixel core action targets, responsive layouts, reduced-motion handling, explicit errors, no-account entry, and a public trust center covering guest/account storage, export/delete controls, AI boundaries, and product limits.
+- A public plain-language explainer separates the answer → evidence → next-action loop and the distinct IRT, BKT, planning, and generative-AI roles without requiring judge access.
 
 ### Proof to show judges
 
@@ -47,6 +48,7 @@ The team should avoid claiming measured score improvement without a longitudinal
 - The recommendation changing or remaining stable for an inspectable reason.
 - The AI-personalized or reviewed-fallback generation stamp.
 - Architecture diagram separating trusted scoring, BKT, planner, and generative teaching.
+- Public “How Scout works” page for the same explanation outside the live demo.
 
 ### Remaining submission risk
 

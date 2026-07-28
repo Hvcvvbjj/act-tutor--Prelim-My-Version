@@ -139,6 +139,52 @@ test("the public trust center explains storage, control, and AI limits", async (
   ).toBeVisible()
 })
 
+test("the public explainer makes Scout's adaptive loop inspectable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page.goto("/how-scout-works")
+
+  await expect(
+    page.getByRole("heading", {
+      name: "One answer becomes evidence—not a guess.",
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "Answer → evidence → next action",
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "A Quick Check is not the full diagnostic.",
+    })
+  ).toBeVisible()
+  await expect(page.getByText("IRT · question picker")).toBeVisible()
+  await expect(page.getByText("BKT · learning estimate")).toBeVisible()
+  await expect(page.getByText("AI · explanation")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Source code" })).toHaveAttribute(
+    "href",
+    "https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version"
+  )
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
+
+  await page.getByRole("link", { name: "Read the trust center" }).click()
+  await expect(
+    page.getByRole("heading", {
+      name: "What Scout saves—and what it does not.",
+    })
+  ).toBeVisible()
+})
+
 test("the skip link is first and follows the active study surface", async ({
   page,
 }) => {
