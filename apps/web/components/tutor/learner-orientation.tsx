@@ -396,7 +396,7 @@ function SkillPolygon({
 
       <div className="mt-5 flex flex-1 items-center justify-center">
         <svg
-          viewBox="0 0 240 240"
+          viewBox="-24 -24 288 288"
           className="aspect-square w-full max-w-60 overflow-visible"
           aria-hidden="true"
           focusable="false"
@@ -766,7 +766,10 @@ export function LearnerOrientation({
     "font-heading text-4xl leading-[1.02] font-black tracking-[-0.035em] outline-none sm:text-5xl lg:text-6xl"
 
   return (
-    <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+    <div
+      data-hide-global-footer
+      className="min-h-svh bg-[var(--canvas)] text-foreground"
+    >
       <header className="border-b bg-background">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <span className="font-brand text-lg font-black tracking-[-0.02em]">
@@ -777,6 +780,8 @@ export function LearnerOrientation({
       </header>
 
       <main
+        id="main-content"
+        tabIndex={-1}
         className="mx-auto min-h-[calc(100svh-4rem)] max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8"
         aria-label="New learner orientation"
       >

@@ -216,7 +216,7 @@ describe("Scout server policy", () => {
     })
 
     expect(detailed.explanation).toBe(normal.explanation)
-    expect(advanced.summary).not.toBe(normal.summary)
+    expect(advanced.summary).toBe(normal.summary)
     expect(advanced.explanation).toBe(normal.explanation)
     expect(sports.example).toBe(normal.example)
     expect(technical.explanation).toBe(normal.explanation)

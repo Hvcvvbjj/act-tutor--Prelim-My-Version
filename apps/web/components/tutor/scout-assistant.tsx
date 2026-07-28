@@ -117,7 +117,9 @@ export function ScoutProvider({
   const [scoutOpen, setScoutOpen] = useState(false)
   const [toolsOpen, setToolsOpen] = useState(false)
   const [question, setQuestion] = useState("")
-  const [messages, setMessages] = useState<ScoutMessage[]>([])
+  const [visibleMessages, setVisibleMessages] = useState<
+    Array<{ screen: string; message: ScoutMessage }>
+  >([])
   const [selectedText, setSelectedText] = useState("")
   const [assistantError, setAssistantError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -137,7 +139,6 @@ export function ScoutProvider({
           )
         }
         if (cancelled) return
-        setMessages([...payload.messages])
         const currentLocal = readScoutSettings()
         const serverUsesDefaults =
           JSON.stringify(payload.preferences) ===
@@ -309,34 +310,25 @@ export function ScoutProvider({
 
   const prompts = useMemo(() => {
     if (activeTab === "progress")
-      return [
-        "Why is this skill next?",
-        "How do I improve this skill?",
-        "What will make me ready to move on?",
-      ]
+      return ["Why is this skill next?", "How do I improve this skill?"]
     if (activeTab === "calibrate")
-      return [
-        "Why did you pick this question?",
-        "How many questions are left?",
-        "What happens when I finish?",
-      ]
+      return ["How many questions are left?", "What happens when I finish?"]
     if (activeTab === "plan")
-      return [
-        "Why is this on my schedule?",
-        "How can I fit this into my week?",
-        "What happens if I miss a day?",
-      ]
+      return ["Why is this on my schedule?", "What if I miss a day?"]
     if (activeTab === "lab")
-      return [
-        "Which timed practice should I choose?",
-        "How should I pace this?",
-        "What will Scout do with my results?",
-      ]
-    return [
-      "Give me a hint",
-      "Explain this more simply",
-      "Why is this my mission?",
-    ]
+      return ["Which practice should I choose?", "How should I pace this?"]
+    return ["Give me a hint", "Explain this more simply"]
+  }, [activeTab])
+
+  const helperCopy = useMemo(() => {
+    if (activeTab === "progress")
+      return "Ask about a skill estimate or what to practice next."
+    if (activeTab === "calibrate")
+      return "Ask about Quick Check or how many questions remain."
+    if (activeTab === "plan") return "Ask about your schedule or missed work."
+    if (activeTab === "lab")
+      return "Ask about pacing or Timed Practice controls."
+    return "Ask for a hint or a simpler explanation."
   }, [activeTab])
 
   async function ask(nextQuestion = question, selection: string | null = null) {
@@ -364,7 +356,17 @@ export function ScoutProvider({
         throw new Error(
           "error" in payload ? payload.error : "Scout could not answer."
         )
-      setMessages([...payload.messages])
+      const nextMessages = [...payload.messages]
+      const latestMessage = nextMessages.at(-1)
+      if (latestMessage) {
+        setVisibleMessages((current) =>
+          [
+            ...current.filter((entry) => entry.screen !== activeTab),
+            ...current.filter((entry) => entry.screen === activeTab).slice(-2),
+            { screen: activeTab, message: latestMessage },
+          ].slice(-15)
+        )
+      }
       setQuestion("")
       if (accommodations.readAloud)
         speak(`${payload.answer.summary} ${payload.answer.explanation}`)
@@ -441,7 +443,7 @@ export function ScoutProvider({
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-2xl font-black">Ask Scout</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
-                  You&apos;re viewing: {activeTab}
+                  Help for this screen
                 </p>
               </div>
               <Button
@@ -456,10 +458,7 @@ export function ScoutProvider({
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <p className="text-sm leading-6 text-muted-foreground">
-                Scout can explain the current lesson, practice answer, skill
-                estimate, Quick Check state, or dated-plan rules when that
-                server context is available. It cannot see which calendar card
-                you selected or read arbitrary text elsewhere on the screen.
+                {helperCopy}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {prompts.map((prompt) => (
@@ -475,83 +474,78 @@ export function ScoutProvider({
                 ))}
               </div>
               <div role="log" aria-live="polite" aria-label="Scout answers">
-                {messages.map((message) => (
-                  <div key={message.id} className="mt-6">
-                    <p className="ml-8 border-r-4 border-foreground bg-muted px-4 py-3 text-sm font-semibold">
-                      {message.question}
-                    </p>
-                    <article className="mt-3 border-l-4 border-primary bg-[var(--info-surface)] p-5">
-                      <p className="font-heading text-2xl font-black">
-                        {message.answer.summary}
+                {visibleMessages
+                  .filter((entry) => entry.screen === activeTab)
+                  .map(({ message }) => (
+                    <div key={message.id} className="mt-5">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {message.question}
                       </p>
-                      <p className="mt-3 text-sm leading-6">
-                        {message.answer.explanation}
-                      </p>
-                      {message.answer.example ? (
-                        <div className="mt-4 border-t border-foreground/20 pt-4">
-                          <p className="ink-label text-muted-foreground">
-                            Example
-                          </p>
-                          <p className="mt-2 text-sm leading-6">
-                            {message.answer.example}
-                          </p>
-                        </div>
-                      ) : null}
-                      <div className="mt-4 border-t border-foreground/20 pt-4">
-                        <p className="ink-label text-primary">Do this next</p>
-                        <p className="mt-2 text-sm font-semibold">
-                          {message.answer.nextAction}
+                      <article className="mt-2 bg-[var(--info-surface)] p-4">
+                        <p className="font-heading text-xl font-black">
+                          {message.answer.summary}
                         </p>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-foreground/20 pt-4">
-                        {[
-                          "Explain more simply",
-                          "Give me another example",
-                          "Show the rule",
-                          "Why does this matter?",
-                        ].map((action) => (
+                        <p className="mt-3 text-sm leading-6">
+                          {message.answer.explanation}
+                        </p>
+                        {message.answer.example ? (
+                          <div className="mt-4 border-t border-foreground/20 pt-4">
+                            <p className="ink-label text-muted-foreground">
+                              Example
+                            </p>
+                            <p className="mt-2 text-sm leading-6">
+                              {message.answer.example}
+                            </p>
+                          </div>
+                        ) : null}
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-foreground/15 pt-3">
+                          {["Explain more simply", "Another example"].map(
+                            (action) => (
+                              <Button
+                                key={action}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void ask(action)}
+                              >
+                                {action}
+                              </Button>
+                            )
+                          )}
+                        </div>
+                        {canViewTechnicalDetails ? (
+                          <details className="mt-4 text-xs text-muted-foreground">
+                            <summary className="cursor-pointer font-bold text-foreground">
+                              How this answer was made
+                            </summary>
+                            <p className="mt-2">
+                              Source: {message.answer.source}
+                            </p>
+                            <p className="mt-1">{message.answer.technical}</p>
+                            <p className="mt-1">
+                              This answer used fixed response rules, not a model
+                              reading the whole visible screen.
+                            </p>
+                          </details>
+                        ) : null}
+                        {accommodations.readAloud ? (
                           <Button
-                            key={action}
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => void ask(action)}
+                            className="mt-3"
+                            onClick={() =>
+                              speak(
+                                `${message.answer.summary} ${message.answer.explanation}`
+                              )
+                            }
                           >
-                            {action}
+                            <Volume2Icon /> Read aloud
                           </Button>
-                        ))}
-                      </div>
-                      {canViewTechnicalDetails ? (
-                        <details className="mt-4 text-xs text-muted-foreground">
-                          <summary className="cursor-pointer font-bold text-foreground">
-                            How this answer was made
-                          </summary>
-                          <p className="mt-2">
-                            Source: {message.answer.source}
-                          </p>
-                          <p className="mt-1">{message.answer.technical}</p>
-                          <p className="mt-1">
-                            This answer used fixed response rules, not a model
-                            reading the whole visible screen.
-                          </p>
-                        </details>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="mt-3"
-                        onClick={() =>
-                          speak(
-                            `${message.answer.summary} ${message.answer.explanation}`
-                          )
-                        }
-                      >
-                        <Volume2Icon /> Read aloud
-                      </Button>
-                    </article>
-                  </div>
-                ))}
+                        ) : null}
+                      </article>
+                    </div>
+                  ))}
               </div>
               {assistantError ? (
                 <p
@@ -579,7 +573,7 @@ export function ScoutProvider({
                 id="scout-question"
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
-                rows={3}
+                rows={2}
                 maxLength={500}
                 className="mt-2 w-full border-2 border-foreground bg-background p-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 placeholder="Why is this my next lesson?"

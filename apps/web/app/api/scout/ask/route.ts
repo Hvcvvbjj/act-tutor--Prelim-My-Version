@@ -164,7 +164,7 @@ function applyPreferences(
   let explanation = answer.explanation
   let technical = answer.technical
   if (preferences.readingLevel === "plain") {
-    summary = `In plain words: ${plainWords(summary)}`
+    summary = plainWords(summary)
     explanation = plainWords(explanation)
   }
   if (preferences.fewerTechnicalTerms) {
@@ -334,9 +334,6 @@ export function answerFor(input: {
     learning?.lesson.concept ??
     "Name what the question is testing before you compare the choices."
   const nextSkill = learning?.learningTwin.recommendation.label ?? lessonTitle
-  const planReason =
-    learning?.learningTwin.recommendation.reason ??
-    "Scout needs more scored evidence before changing the mission."
   const review = questionId
     ? exam?.result?.review.find((item) => item.questionId === questionId)
     : null
@@ -467,17 +464,18 @@ export function answerFor(input: {
         ? "I can explain the calendar rules, but I cannot see which assignment you selected."
         : "I cannot read the dated calendar for this answer."
       explanation = studyPlan
-        ? `The current calendar contains ${studyPlan.forecast.scheduledMinutes} minutes before test day. Scout considers lower skill estimates, fewer scored answers, section goals, reviews that are due, and whether work is marked Today or Next. The time check compares those minutes with a rough ${studyPlan.forecast.recommendedMinutes}-minute target; it does not prove the goal is reachable.`
-        : "Open “Why this assignment is here” on My week. That panel stores the specific skill estimate, answer count, section target movement, review status, and fixed phase rule used for the selected task."
+        ? `Your calendar uses your available days, test date, and skills that need practice. ${studyPlan.forecast.scheduledMinutes} minutes are currently scheduled before test day.`
+        : "Open “Why this is scheduled” on My week."
       example = null
       nextAction =
-        "Open the selected assignment’s “Why this assignment is here” panel for its exact stored inputs."
+        "Open the selected assignment’s “Why this is scheduled” panel."
       source = studyPlan
         ? "Server dated-plan fields and fixed scheduling rules"
         : "Capability boundary: no dated-plan context available"
     } else {
       summary = `${nextSkill} is the current next skill.`
-      explanation = `${planReason} Scout combines four fixed signals: your estimated chance on a medium question, how settled the estimate is, how many answers support it, and whether you recently missed one. Your ACT goal is not part of this ranking.`
+      explanation =
+        "Scout chose it from your recent scored answers and where more practice will help most."
       example = null
       nextAction =
         "Open Progress and choose the skill to see the details behind this choice."
@@ -491,7 +489,7 @@ export function answerFor(input: {
       ? `${selectedState.label} is ${Math.round(selectedState.learnedProbability * 100)}% from ${selectedState.evidenceCount} scored ${selectedState.evidenceCount === 1 ? "answer" : "answers"}.`
       : "Scout does not have enough scored evidence for a skill estimate yet."
     explanation = selectedState
-      ? `This is Scout’s practice estimate, not percent correct or an ACT score. The technical method is Bayesian Knowledge Tracing (BKT), which updates one skill at a time from scored answers. Its starting source is ${selectedState.priorSource}; the estimate-status label comes from answer count and how settled the estimate is.`
+      ? "This study estimate comes from your scored answers for this skill. More answers make it steadier."
       : "No current skill state was available."
     nextAction =
       "Open Progress and choose the skill to see the answers behind the estimate."
@@ -515,7 +513,7 @@ export function answerFor(input: {
       ? `${studyPlan.availability.entries.length} weekdays and ${studyPlan.forecast.weeklyCapacity} minutes per week are available to the calendar generator.`
       : "Scout cannot read the dated calendar in this answer."
     explanation = studyPlan
-      ? `${studyPlan.forecast.scheduledMinutes} minutes are scheduled before test day. The rough internal target is ${studyPlan.forecast.recommendedMinutes} minutes, calculated as 120 + 25 per planned section-score point + 15 per skill estimate below 65%. This is not evidence that the goal is reachable.`
+      ? `${studyPlan.forecast.scheduledMinutes} minutes are scheduled before test day. You can change the available days or minutes from My week.`
       : "Open My week to inspect the calendar. The assistant currently has only the learning-session context."
     nextAction = "Edit your availability if the schedule no longer fits."
     source = "Server study-plan inputs and learning state"
@@ -524,7 +522,7 @@ export function answerFor(input: {
       ? `Quick Check has recorded ${calibration.responseCount} of at most ${calibration.maximumItems} answers.`
       : "Quick Check uses 8–12 questions."
     explanation =
-      "It stops at 12, or after at least 8 when English, Math, and Reading each have two answers and standard error is 0.56 or lower. The next item’s ranking is Fisher information plus section and skill coverage bonuses. Confidence does not affect IRT, selection, or stopping."
+      "Quick Check asks 8–12 questions and stops once it has enough coverage across English, Math, and Reading."
     nextAction =
       "Answer independently; use the full diagnostic if you want more evidence."
     source = "Reviewed Quick Check behavior"

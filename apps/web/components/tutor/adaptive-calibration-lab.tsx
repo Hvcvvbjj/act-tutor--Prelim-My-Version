@@ -62,6 +62,18 @@ const SECTION_LABELS: Record<CoreSection, string> = {
 const ANSWER_SHORTCUTS = ["a", "b", "c", "d"] as const
 const DEFAULT_ANSWER_CONFIDENCE = "unreported" as const
 
+function focusedSentence(stimulus: string, lineReference?: string | null) {
+  const sentenceNumber = lineReference?.match(/^Sentence (\d+)$/i)?.[1]
+  if (!sentenceNumber) return null
+  const nextNumber = String(Number(sentenceNumber) + 1)
+  const match = stimulus.match(
+    new RegExp(
+      `\\[${sentenceNumber}\\]\\s*([\\s\\S]*?)(?=\\s*\\[${nextNumber}\\]|$)`
+    )
+  )
+  return match ? `[${sentenceNumber}] ${match[1].trim()}` : null
+}
+
 async function calibrationRequest(
   method: "GET" | "POST",
   body?: Record<string, unknown>
@@ -729,6 +741,10 @@ export function AdaptiveCalibrationLab({
       : minimumRemainingMinutes === 0
         ? `Up to ${maximumRemainingMinutes} min`
         : `About ${minimumRemainingMinutes}–${maximumRemainingMinutes} min`
+  const focusedStimulus =
+    question?.stimulus && question.lineReference
+      ? focusedSentence(question.stimulus, question.lineReference)
+      : null
 
   return (
     <main
@@ -752,8 +768,9 @@ export function AdaptiveCalibrationLab({
             className="text-right text-xs text-muted-foreground sm:text-sm"
             role="status"
             aria-live="polite"
+            aria-label={`${timeRemainingLabel}. Question ${payload.responseCount + 1} of up to ${payload.maximumItems}.`}
           >
-            {timeRemainingLabel} · Question {payload.responseCount + 1} of up to{" "}
+            {timeRemainingLabel} · {payload.responseCount + 1}/
             {payload.maximumItems}
           </p>
         </section>
@@ -855,7 +872,9 @@ export function AdaptiveCalibrationLab({
         </div>
       ) : null}
 
-      {payload.status === "complete" && proof ? (
+      {payload.status === "complete" &&
+      proof &&
+      (canViewTechnicalDetails || payload.representativeDemo) ? (
         <>
           <AdaptiveProofReplay
             proof={proof}
@@ -898,8 +917,8 @@ export function AdaptiveCalibrationLab({
             Starting point saved.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-            Scout used {payload.responseCount} answers to choose what you should
-            study next. This is not an ACT score.
+            Scout used {payload.responseCount} answers to build your starting
+            skill profile. This is not an ACT score.
           </p>
           {canViewTechnicalDetails ? (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -941,31 +960,35 @@ export function AdaptiveCalibrationLab({
         </section>
       ) : (
         <div
-          className="paper-panel mx-auto mt-6 max-w-3xl overflow-hidden rounded-2xl border border-border/80 bg-card"
+          className="mx-auto mt-5 max-w-3xl"
           data-testid="quick-check-question-card"
         >
-          <section className="px-3 py-5 sm:p-7">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="ink-label text-primary">
-                Question {payload.responseCount + 1} of up to{" "}
-                {payload.maximumItems}
-              </p>
-              <p className="font-mono text-xs font-black text-muted-foreground uppercase">
-                {SECTION_LABELS[question.section]}
-                {canViewTechnicalDetails ? ` · ${question.difficulty}` : ""}
-              </p>
-            </div>
+          <section className="px-1 py-3 sm:py-5">
+            <p className="font-mono text-xs font-black text-primary uppercase">
+              {SECTION_LABELS[question.section]}
+              {canViewTechnicalDetails ? ` · ${question.difficulty}` : ""}
+            </p>
             {question.stimulus ? (
               <article
                 data-testid="quick-check-stimulus"
-                className="mt-5 rounded-xl border border-border/80 bg-muted/65 px-4 py-4 text-sm leading-7 sm:px-5 lg:max-h-72 lg:overflow-y-auto"
+                className="mt-4 border-l-4 border-primary bg-muted/55 px-4 py-4 text-sm leading-7 sm:px-5"
               >
                 {question.passageTitle ? (
-                  <p className="mb-3 font-heading text-2xl font-black">
+                  <p className="mb-3 font-heading text-xl font-black sm:text-2xl">
                     {question.passageTitle}
                   </p>
                 ) : null}
-                <p>{question.stimulus}</p>
+                <p>{focusedStimulus ?? question.stimulus}</p>
+                {focusedStimulus ? (
+                  <details className="mt-3 border-t border-foreground/15 pt-2">
+                    <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                      Full passage
+                    </summary>
+                    <p className="pb-2 text-muted-foreground">
+                      {question.stimulus}
+                    </p>
+                  </details>
+                ) : null}
               </article>
             ) : null}
             {question.lineReference ? (
@@ -1004,9 +1027,7 @@ export function AdaptiveCalibrationLab({
                 </label>
               ))}
             </RadioGroup>
-            <p className="mt-3 hidden text-xs font-semibold text-muted-foreground sm:block">
-              Keyboard: 1–4 or A–D chooses an answer.
-            </p>
+            <p className="sr-only">Keyboard: 1–4 or A–D chooses an answer.</p>
             {error ? (
               <Alert variant="destructive" className="mt-5">
                 <CircleAlertIcon />

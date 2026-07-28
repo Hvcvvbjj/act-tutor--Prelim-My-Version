@@ -209,8 +209,8 @@ test("required Quick Check completion leaves one clear plan-building action", as
   await answerQuickCheckThroughApi(page, 7)
   await page.reload()
 
-  const proofHeading = page.getByRole("heading", {
-    name: /Scout adjusted your next steps/,
+  const completionHeading = page.getByRole("heading", {
+    name: "Starting point saved.",
   })
   for (let index = 0; index < 5; index += 1) {
     const questionCard = page.getByTestId("quick-check-question-card")
@@ -227,7 +227,7 @@ test("required Quick Check completion leaves one clear plan-building action", as
     const response = await responsePromise
     const calibration = (await response.json()) as CalibrationPayload
     if (calibration.status === "complete") {
-      await expect(proofHeading).toBeVisible()
+      await expect(completionHeading).toBeVisible()
       break
     }
     await expect(
@@ -239,7 +239,7 @@ test("required Quick Check completion leaves one clear plan-building action", as
     ).toBeVisible()
   }
 
-  await expect(proofHeading).toBeVisible()
+  await expect(completionHeading).toBeVisible()
   await expect(page.getByRole("button", { name: "Back to today" })).toHaveCount(
     0
   )
@@ -247,7 +247,7 @@ test("required Quick Check completion leaves one clear plan-building action", as
     page.getByRole("button", { name: "View my skills" })
   ).toHaveCount(0)
   await expect(
-    page.getByRole("button", { name: "Build my study plan" })
+    page.getByRole("button", { name: "Build my plan from this check" })
   ).toBeVisible()
 })
 
@@ -264,9 +264,7 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
     timeout: 20_000,
   })
   await expect(
-    page
-      .getByTestId("quick-check-question-card")
-      .getByText("Question 8 of up to 12")
+    page.getByLabel("About 2–8 min. Question 8 of up to 12.")
   ).toBeVisible()
 
   const questionPrompt = await page
@@ -529,10 +527,9 @@ test("mobile Quick Check answer choices keep their full reading width", async ({
     overflowY: getComputedStyle(element).overflowY,
     scrollHeight: element.scrollHeight,
   }))
-  expect(desktopPassage.scrollHeight).toBeGreaterThan(
-    desktopPassage.clientHeight
-  )
-  expect(desktopPassage.overflowY).toBe("auto")
+  expect(desktopPassage.scrollHeight).toBe(desktopPassage.clientHeight)
+  expect(desktopPassage.overflowY).toBe("visible")
+  await expect(page.getByText("Full passage", { exact: true })).toBeVisible()
 })
 
 test("mobile study navigation fits and Scout behaves as a focus-trapped bottom sheet", async ({
@@ -629,7 +626,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await primaryNavigation.getByRole("tab", { name: "Progress" }).click()
   await expect(
     page.getByRole("heading", {
-      name: "See how your 12 skills are developing.",
+      name: "Your 12 skills",
     })
   ).toBeVisible()
   await expect
@@ -903,12 +900,12 @@ test("timed practice opens at the first question on a narrow phone", async ({
   await page.getByRole("button", { name: "More", exact: true }).click()
   await page.getByRole("menuitem", { name: "Timed Practice" }).click()
   await expect(
-    page.getByRole("heading", { name: "Practice the test before test day." })
+    page.getByRole("heading", { name: "Choose a practice run." })
   ).toBeVisible()
 
   const start = page.getByRole("button", { name: "Start timed practice" })
   await start.scrollIntoViewIfNeeded()
-  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(500)
+  await expect(start).toBeVisible()
   await start.click()
 
   const questionLabel = page.getByText("Question 1 of 12", { exact: true })
@@ -1100,7 +1097,7 @@ test("the weekly calendar keeps day cards readable at laptop and phone widths", 
   expect(Math.min(...laptopCards.map((card) => card.width))).toBeGreaterThan(
     280
   )
-  expect(new Set(laptopCards.map((card) => Math.round(card.top))).size).toBe(3)
+  expect(new Set(laptopCards.map((card) => Math.round(card.top))).size).toBe(7)
 
   await page.setViewportSize({ width: 320, height: 760 })
   const mobileCards = await dayCards.evaluateAll((cards) =>
@@ -1201,6 +1198,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   await expect(accuracy).toContainText(`${result.correct} of 1`)
   await expect(accuracy).toContainText(`${result.unanswered} unanswered`)
   await expect(accuracy).not.toContainText("%")
+  await expect(page.getByText("1 answered", { exact: true })).toBeVisible()
 
   const answeredSection = result.review.find(
     (answer) => answer.selectedChoiceId !== null

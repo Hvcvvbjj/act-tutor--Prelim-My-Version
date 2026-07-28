@@ -241,6 +241,10 @@ html[data-scout-distraction="reduced"] [data-practice-workspace] > aside {
   display: none;
 }
 
+body:has([data-hide-global-footer]) > footer {
+  display: none;
+}
+
 @media print {
   body * {
     visibility: hidden;

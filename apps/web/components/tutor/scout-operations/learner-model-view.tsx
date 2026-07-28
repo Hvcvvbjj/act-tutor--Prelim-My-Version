@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 
 import type { ScoutOperationsLabProps } from "@/components/tutor/scout-operations/types"
@@ -30,7 +30,6 @@ export function LearnerModelView({
     "too-high" | "too-low" | "wrong-misconception"
   >("wrong-misconception")
   const [note, setNote] = useState("")
-  const [reflection, setReflection] = useState("")
   const [deleteArmed, setDeleteArmed] = useState(false)
   const report = learning.learnerModel
   const canSwitchMission = learning.status === "complete"
@@ -48,17 +47,6 @@ export function LearnerModelView({
     learning.learningTwin.skills.find(
       (skill) => skill.skill === learning.todaySkill
     ) ?? learning.learningTwin.skills[0]
-
-  useEffect(() => {
-    const timeout = window.setTimeout(
-      () =>
-        setReflection(
-          window.localStorage.getItem("scout-weekly-reflection-v1") ?? ""
-        ),
-      0
-    )
-    return () => window.clearTimeout(timeout)
-  }, [])
 
   function exportData() {
     const blob = new Blob(
@@ -288,81 +276,36 @@ export function LearnerModelView({
         </div>
       </section>
 
-      <section className="grid gap-7 lg:grid-cols-2">
-        <div>
-          <p className="ink-label text-primary">Effort versus progress</p>
-          <h2 className="mt-2 font-heading text-3xl font-black">
-            {learning.mission.progress.totalAnswered}{" "}
-            {learning.mission.progress.totalAnswered === 1
-              ? "answer"
-              : "answers"}{" "}
-            · {Math.round(averageMastery * 100)}% average skill estimate
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            “Steadier” means Scout has at least seven answers and the estimate
-            is no longer changing sharply. It is not proof of mastery. Current
-            steadier count:{" "}
-            {
-              learning.learningTwin.skills.filter(
-                (skill) => skill.confidence === "stable"
-              ).length
-            }{" "}
-            of {learning.learningTwin.skills.length} skills.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || !canSwitchMission}
-              onClick={() => onStartChallenge()}
-            >
-              Try three hard questions
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || !canSwitchMission}
-              onClick={onStartRecovery}
-            >
-              Start a recovery session
-            </Button>
-          </div>
-          {!canSwitchMission ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Finish today’s open mission before replacing it. Scout protects
-              unfinished work.
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <label
-            htmlFor="weekly-reflection"
-            className="ink-label text-muted-foreground"
-          >
-            Weekly reflection
-          </label>
-          <textarea
-            id="weekly-reflection"
-            value={reflection}
-            onChange={(event) => setReflection(event.target.value)}
-            rows={4}
-            className="mt-3 w-full border-2 border-foreground bg-background p-3 text-sm"
-            placeholder="What felt easier? What still slows you down?"
-          />
+      <section>
+        <p className="ink-label text-primary">Practice options</p>
+        <h2 className="mt-2 font-heading text-3xl font-black">
+          {learning.mission.progress.totalAnswered}{" "}
+          {learning.mission.progress.totalAnswered === 1 ? "answer" : "answers"}{" "}
+          · {Math.round(averageMastery * 100)}% average skill estimate
+        </h2>
+        <div className="mt-5 flex flex-wrap gap-2">
           <Button
             type="button"
             variant="outline"
-            className="mt-3"
-            onClick={() =>
-              window.localStorage.setItem(
-                "scout-weekly-reflection-v1",
-                reflection
-              )
-            }
+            disabled={busy || !canSwitchMission}
+            onClick={() => onStartChallenge()}
           >
-            Save reflection on this device
+            Try three hard questions
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || !canSwitchMission}
+            onClick={onStartRecovery}
+          >
+            Start a recovery session
           </Button>
         </div>
+        {!canSwitchMission ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Finish today’s open mission before starting another.
+          </p>
+        ) : null}
       </section>
 
       <section className="border-y-2 border-foreground py-7">

@@ -7,7 +7,6 @@ import {
   ArrowRightIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
-  LockKeyholeIcon,
   MinusIcon,
   PlayCircleIcon,
   PlusIcon,
@@ -58,23 +57,20 @@ const STEP_LABELS = ["Goal", "Scores", "Schedule"] as const
 const STEP_COPY = [
   {
     title: "Choose your ACT goal",
-    description:
-      "Pick the Composite score you want to work toward. Scout uses it to set section targets and shape your schedule. This is a planning goal—not a score prediction.",
+    description: "Choose the Composite score you want to work toward.",
     technical:
       "Scout raises English, Math, and Reading targets by whole points. It chooses the combination whose rounded average reaches your goal with the smallest total squared increase; your focus preference breaks ties.",
     next: "Add my starting score",
   },
   {
     title: "Choose your starting point",
-    description:
-      "Tell Scout what score information you have today. Nothing is assumed: enter recent official or practice scores, use only your Composite, or start without a score.",
+    description: "Add what you know today, or start without a score.",
     technical: null,
     next: "Set my schedule",
   },
   {
     title: "Make a schedule you can keep",
-    description:
-      "Pick a test date, study days, and minutes. Scout fills only those study blocks. The date changes the mix of lessons, reviews, and timed practice; this schedule does not prove the goal is achievable.",
+    description: "Choose your test date, study days, and minutes.",
     technical: null,
     next: "Create my first plan",
   },
@@ -327,7 +323,7 @@ export function Onboarding({
         >
           <section
             aria-labelledby="scout-welcome-title"
-            className="paper-panel w-full rounded-2xl border border-border/80 bg-card p-5 sm:p-9 lg:p-10"
+            className="w-full border-y-2 border-foreground py-8 sm:py-12"
           >
             <div className="grid items-start gap-4 sm:gap-7 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-9">
               <ScoutMark className="size-14 sm:size-24" />
@@ -341,14 +337,10 @@ export function Onboarding({
                 >
                   A study plan that changes when your answers do.
                 </h1>
-                <p className="mt-4 max-w-3xl text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8">
+                <p className="mt-4 max-w-2xl text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8">
                   Tell me your goal, where you&apos;re starting, and when you
                   can study. I&apos;ll turn that into a first week you can
                   actually follow.
-                </p>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:mt-4 sm:text-base sm:leading-7">
-                  Then every scored answer helps me choose what to teach next.
-                  Skill percentages are study estimates—not ACT scores.
                 </p>
 
                 <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:items-center">
@@ -366,50 +358,7 @@ export function Onboarding({
                     See one answer change the plan
                   </Button>
                 </div>
-                <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground sm:mt-4">
-                  <LockKeyholeIcon className="size-4" aria-hidden="true" />
-                  No account needed.
-                </p>
-                <LearningDataNotice className="mt-4" />
-
-                <ol
-                  aria-label="How Scout personalizes your plan"
-                  className="mt-5 grid gap-3 sm:mt-7 sm:grid-cols-3"
-                >
-                  {[
-                    {
-                      number: "01",
-                      title: "Set your direction",
-                      detail: "Goal score, test date, and study time.",
-                    },
-                    {
-                      number: "02",
-                      title: "Show what you know",
-                      detail:
-                        "Use recent scores or take an 8–12 question check.",
-                    },
-                    {
-                      number: "03",
-                      title: "Get the next lesson",
-                      detail: "Scout updates what to study after scored work.",
-                    },
-                  ].map((item) => (
-                    <li
-                      key={item.number}
-                      className="grid grid-cols-[2.25rem_1fr] gap-x-3 rounded-xl bg-muted/70 p-4 sm:block"
-                    >
-                      <span className="font-mono text-xs font-black text-primary">
-                        {item.number}
-                      </span>
-                      <div>
-                        <p className="font-bold">{item.title}</p>
-                        <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                          {item.detail}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                <LearningDataNotice className="mt-5" />
               </div>
             </div>
           </section>
@@ -419,7 +368,10 @@ export function Onboarding({
   }
 
   return (
-    <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+    <div
+      data-hide-global-footer
+      className="min-h-svh bg-[var(--canvas)] text-foreground"
+    >
       <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
         <div className="flex items-center gap-2.5">
           <ScoutMark className="size-8" />
@@ -443,13 +395,10 @@ export function Onboarding({
 
         <div className="mt-9 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
           <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-8">
-            <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-              Step {step} of 3 · {STEP_LABELS[step - 1]}
-            </p>
             <h1
               ref={stepHeadingRef}
               tabIndex={-1}
-              className="mt-3 font-heading text-4xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+              className="font-heading text-4xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
             >
               {stepCopy.title}
             </h1>
@@ -474,7 +423,7 @@ export function Onboarding({
               {step === 1 ? (
                 <FieldSet className="min-w-0">
                   <FieldLegend className="sr-only">Goal score</FieldLegend>
-                  <FieldDescription id="goal-score-help">
+                  <FieldDescription id="goal-score-help" className="sr-only">
                     Choose a Composite score from 1 to 36. This plan uses
                     English, Math, and Reading to calculate the Composite.
                   </FieldDescription>
@@ -947,17 +896,9 @@ export function Onboarding({
               </Button>
             </div>
 
-            {step === 3 ? (
-              <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <LockKeyholeIcon className="size-4" aria-hidden="true" />
-                You can change your schedule and learning settings later.
-              </p>
-            ) : null}
-
             {step === 1 ? (
               <div className="mt-5 flex max-w-2xl flex-wrap items-center justify-between gap-3 border-t pt-4">
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <LockKeyholeIcon className="size-4" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">
                   No account needed.
                 </p>
                 {viewer.technicalDetails ? (

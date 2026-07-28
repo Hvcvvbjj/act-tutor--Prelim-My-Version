@@ -361,52 +361,44 @@ function taskCopy(
   kind: StudyPlanTaskKind,
   skill: StudySkillSignal | null,
   fallbackSection: CoreSection,
-  current: CoreSectionScores,
-  target: CoreSectionScores,
-  taskDate: string,
+  _current: CoreSectionScores,
+  _target: CoreSectionScores,
+  _taskDate: string,
 ) {
   if (kind === "checkpoint") {
     return {
       title: "3-skill progress check",
-      reason:
-        "This date reached Scout’s fixed checkpoint interval. The check samples three currently prioritized skills; each answer updates only its tested skill.",
+      reason: "A short progress check is due before the next lesson block.",
     };
   }
   if (kind === "rehearsal") {
     return {
       title: "Full-length 131-question rehearsal",
-      reason:
-        "This is the final allowed study date before test day, so the fixed schedule rule placed the 131-question English, Math, and Reading rehearsal here. Results currently stay in Timed Practice and do not update this calendar.",
+      reason: "Your final full-length practice fits here before test day.",
     };
   }
   if (!skill) throw new RangeError("A skill task requires a skill signal.");
-  const estimate = Math.round(skill.mastery * 100);
-  const evidence = Math.round(skill.evidence);
-  const movement = Math.max(0, target[skill.section] - current[skill.section]);
-  const reviewDue =
-    skill.nextReviewAt && skill.nextReviewAt.slice(0, 10) <= taskDate;
-  const inputs = `${estimate}% BKT estimate; ${evidence} scored ${evidence === 1 ? "answer" : "answers"}; ${sectionLabel(skill.section)} planning target +${movement}; stored review ${reviewDue ? "due" : "not due"}`;
   if (kind === "lesson") {
     return {
       title: `${skill.label} lesson`,
-      reason: `${inputs}. The fixed phase cycle calls for a lesson in this slot; Scout’s ranking selected ${skill.label}.`,
+      reason: `${skill.label} needs practice and fits here in your plan.`,
     };
   }
   if (kind === "review") {
     return {
       title: `${skill.label} review`,
-      reason: `${inputs}. The fixed phase cycle calls for review in this slot; a due stored-review date adds extra ranking weight.`,
+      reason: `${skill.label} is due for a short review.`,
     };
   }
   if (kind === "timed") {
     return {
       title: `${sectionLabel(skill.section ?? fallbackSection)} timed practice`,
-      reason: `${inputs}. The fixed phase cycle calls for timed practice in this slot. Timed-practice results currently stay on that screen and do not update this calendar.`,
+      reason: "This timed set fits here before test day.",
     };
   }
   return {
     title: `${skill.label} lesson + focused set`,
-    reason: `${inputs}. The fixed phase cycle calls for focused practice in this slot; Scout’s ranking selected ${skill.label}.`,
+    reason: `${skill.label} needs practice and fits here in your plan.`,
   };
 }
 

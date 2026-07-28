@@ -537,7 +537,10 @@ export function TestDayCheckIn({
   )
 
   return (
-    <div className="min-h-svh bg-[var(--canvas)] text-foreground">
+    <div
+      data-hide-global-footer
+      className="min-h-svh bg-[var(--canvas)] text-foreground"
+    >
       <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
         <div className="flex items-center gap-2.5">
           <div aria-hidden="true">
@@ -557,7 +560,11 @@ export function TestDayCheckIn({
         </Button>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl items-start gap-7 px-5 py-7 sm:px-8 sm:py-10 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10 lg:py-14">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto grid w-full max-w-6xl items-start gap-7 px-5 py-7 sm:px-8 sm:py-10 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10 lg:py-14"
+      >
         <aside className="lg:sticky lg:top-8">
           <div className="flex items-center gap-4 lg:block">
             <div aria-hidden="true">

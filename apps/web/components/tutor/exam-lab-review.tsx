@@ -1,15 +1,8 @@
 "use client"
 
 import type { ExamLabSessionPayload } from "@act-tutor/core"
-import {
-  ArrowLeftIcon,
-  BookmarkIcon,
-  CheckCircle2Icon,
-  CircleAlertIcon,
-  SendIcon,
-} from "lucide-react"
+import { ArrowLeftIcon, BookmarkIcon, SendIcon } from "lucide-react"
 
-import { ScoutCoach } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -35,42 +28,67 @@ export function ExamLabReview({
   const unanswered = session.questions.length - answered
   return (
     <main
+      data-hide-global-footer
       id="main-content"
       tabIndex={-1}
-      className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14"
+      className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 lg:py-14"
     >
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:gap-16">
-        <section>
-          <p className="ink-label text-primary">Final review</p>
-          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-            Check every answer.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            The correct answers are still hidden. Reopen anything blank,
-            flagged, or marked as a guess before you submit.
-          </p>
+      <section>
+        <p className="ink-label text-primary">Final review</p>
+        <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
+          Review and submit.
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
+          {unanswered
+            ? `${unanswered} question${unanswered === 1 ? " is" : "s are"} blank.`
+            : "Every question has an answer."}{" "}
+          Correct answers appear after submission.
+        </p>
 
-          <dl className="mt-8 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
-            <div>
-              <dt className="ink-label text-muted-foreground">Answered</dt>
-              <dd className="mt-2 font-heading text-4xl font-black">
-                {answered}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Flagged</dt>
-              <dd className="mt-2 font-heading text-4xl font-black text-[var(--scout-coral)]">
-                {flagged}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Blank</dt>
-              <dd className="mt-2 font-heading text-4xl font-black">
-                {unanswered}
-              </dd>
-            </div>
-          </dl>
+        <dl className="mt-8 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
+          <div>
+            <dt className="ink-label text-muted-foreground">Answered</dt>
+            <dd className="mt-2 font-heading text-4xl font-black">
+              {answered}
+            </dd>
+          </div>
+          <div>
+            <dt className="ink-label text-muted-foreground">Flagged</dt>
+            <dd className="mt-2 font-heading text-4xl font-black text-[var(--scout-coral)]">
+              {flagged}
+            </dd>
+          </div>
+          <div>
+            <dt className="ink-label text-muted-foreground">Blank</dt>
+            <dd className="mt-2 font-heading text-4xl font-black">
+              {unanswered}
+            </dd>
+          </div>
+        </dl>
 
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Button type="button" size="xl" onClick={onSubmit} disabled={busy}>
+            {busy ? "Building your report…" : "Score this practice test"}
+            <SendIcon data-icon="inline-end" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="xl"
+            onClick={() => onReturn(session.progress.currentIndex)}
+            disabled={busy}
+          >
+            <ArrowLeftIcon data-icon="inline-start" /> Return to questions
+          </Button>
+        </div>
+
+        <details className="group mt-8 border-y-2 border-foreground">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+            <span>Review individual questions</span>
+            <span className="text-sm text-muted-foreground">
+              {session.questions.length} questions
+            </span>
+          </summary>
           <ol className="mt-8 border-t-2 border-foreground">
             {session.questions.map((question, index) => {
               const response = session.progress.responses[question.id]
@@ -118,49 +136,8 @@ export function ExamLabReview({
               )
             })}
           </ol>
-        </section>
-
-        <aside className="lg:pt-8">
-          <ScoutCoach
-            mood={unanswered ? "repair" : "ready"}
-            message={
-              unanswered
-                ? `${unanswered} unanswered question${unanswered === 1 ? " remains" : "s remain"}. Blanks count as wrong, and Scout will keep their answer explanations hidden.`
-                : "Every question has an answer. Submit when you are ready."
-            }
-            detail="After you submit, Scout shows what you missed and where you ran out of time."
-          />
-          <div className="mt-8 border-y-2 border-foreground py-6">
-            <p className="flex items-center gap-2 font-semibold">
-              <CheckCircle2Icon className="text-primary" /> Answer keys stayed
-              hidden
-            </p>
-            <p className="mt-3 flex items-center gap-2 font-semibold">
-              <CircleAlertIcon className="text-[var(--scout-coral)]" />{" "}
-              Submission cannot be edited
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="xl"
-            className="mt-7 w-full"
-            onClick={onSubmit}
-            disabled={busy}
-          >
-            {busy ? "Building your report…" : "Score this practice test"}
-            <SendIcon data-icon="inline-end" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="mt-3 w-full"
-            onClick={() => onReturn(session.progress.currentIndex)}
-            disabled={busy}
-          >
-            <ArrowLeftIcon data-icon="inline-start" /> Return to questions
-          </Button>
-        </aside>
-      </div>
+        </details>
+      </section>
     </main>
   )
 }

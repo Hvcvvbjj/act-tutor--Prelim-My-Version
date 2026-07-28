@@ -16,14 +16,13 @@ interface RoundTransitionProps {
 
 export function RoundTransition({
   roundNumber,
-  completedSkills,
-  totalSkills,
   busy = false,
   onDiagnostic,
   onFullTest,
 }: RoundTransitionProps) {
   return (
     <main
+      data-hide-global-footer
       id="main-content"
       tabIndex={-1}
       className="min-h-svh bg-[var(--canvas)] px-5 py-10 text-foreground sm:px-8 lg:py-16"
@@ -31,17 +30,12 @@ export function RoundTransition({
       <div className="mx-auto max-w-4xl">
         <section className="mx-auto max-w-3xl text-center">
           <ScoutMark mood="correct" className="mx-auto size-16" />
-          <p className="ink-label mt-5 text-primary">
-            Mr. Kim · Round {roundNumber} complete
-          </p>
+          <p className="ink-label mt-5 text-primary">Mr. Kim</p>
           <h1 className="mt-4 font-heading text-5xl leading-[1.02] font-black tracking-[-0.04em] sm:text-6xl">
-            Round complete. Choose what to take next.
+            Round {roundNumber} complete.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-            Your result will shape the next lessons.
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {completedSkills} of {totalSkills} question types complete
+            Choose your next assessment.
           </p>
         </section>
 

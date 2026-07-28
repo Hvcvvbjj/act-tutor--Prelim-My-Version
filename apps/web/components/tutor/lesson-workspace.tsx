@@ -509,7 +509,10 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
       )
 
   return (
-    <div className="min-h-[calc(100svh-3.5rem)] bg-background">
+    <div
+      data-hide-global-footer
+      className="min-h-[calc(100svh-3.5rem)] bg-background"
+    >
       <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-border px-4 sm:px-7">
         <Button
           type="button"

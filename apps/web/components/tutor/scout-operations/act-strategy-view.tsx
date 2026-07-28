@@ -152,7 +152,7 @@ export function ActStrategyView({
           </p>
           <ol className="mt-4 divide-y border-y text-sm">
             <li className="py-3">
-              <strong>1. Learn:</strong> untimed, explain the rule.
+              <strong>1. Learn:</strong> untimed, use the steps.
             </li>
             <li className="py-3">
               <strong>2. Controlled:</strong> standard time + 25%.

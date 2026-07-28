@@ -7,13 +7,11 @@ import {
   CheckCircle2Icon,
   CircleHelpIcon,
   GaugeIcon,
-  ShieldCheckIcon,
 } from "lucide-react"
 
 import { MasteryProfile } from "@/components/tutor/mastery-profile"
 import { ScoutCoach } from "@/components/tutor/scout"
 import type { GeneratedPlan } from "@/components/tutor/types"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 interface LearningTwinLabProps {
@@ -30,27 +28,18 @@ function percent(value: number) {
 function AnswerHistory({ learning }: { learning: LearningSessionPayload }) {
   const events = learning.learningTwin.events
   return (
-    <section className="mt-12" aria-labelledby="answer-history-title">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
-        <div>
-          <p className="ink-label text-primary">
-            Answers that changed your estimates
-          </p>
-          <h2
-            id="answer-history-title"
-            className="mt-2 font-heading text-3xl font-black sm:text-4xl"
-          >
-            Recent scored answers
-          </h2>
-        </div>
-        <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          Each row changes only the skill named in that row. Response time is
-          stored for pacing notes but does not change this estimate.
-        </p>
-      </div>
-
+    <details className="mt-9 border-y-2 border-foreground py-2">
+      <summary
+        id="answer-history-title"
+        className="flex min-h-12 cursor-pointer items-center justify-between gap-4 font-heading text-xl font-black outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        Recent answers
+        <span className="font-mono text-xs text-muted-foreground">
+          {Math.min(events.length, 8)} shown
+        </span>
+      </summary>
       {events.length ? (
-        <ol className="divide-y border-b">
+        <ol className="divide-y border-t">
           {events.slice(0, 8).map((event) => (
             <li
               key={event.id}
@@ -90,15 +79,14 @@ function AnswerHistory({ learning }: { learning: LearningSessionPayload }) {
           ))}
         </ol>
       ) : (
-        <div className="mt-6 max-w-3xl">
+        <div className="border-t py-5">
           <ScoutCoach
             mood="thinking"
             message="No practice or Quick Check answer has changed a skill yet."
-            detail="The chart currently shows starting estimates from check answers, the section planning baseline, or a neutral 50% starting point."
           />
         </div>
       )}
-    </section>
+    </details>
   )
 }
 
@@ -184,7 +172,6 @@ function TechnicalMethod() {
 }
 
 export function LearningTwinLab({
-  plan,
   learning,
   onOpenLesson,
   canViewTechnicalDetails,
@@ -220,51 +207,28 @@ export function LearningTwinLab({
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto w-full max-w-[92rem] px-4 py-8 sm:px-7 lg:py-10"
+      className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-7 lg:py-9"
     >
-      <section className="grid grid-cols-1 gap-7 border-b-2 border-foreground pb-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end">
-        <div className="min-w-0">
+      <section className="flex flex-col gap-5 border-b-2 border-foreground pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-3xl min-w-0">
           <div className="flex items-center gap-3 text-primary">
             <GaugeIcon className="size-6" aria-hidden="true" />
             <p className="ink-label">Your progress</p>
           </div>
-          <h1 className="mt-4 max-w-5xl font-heading text-[2rem] leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-            See how your 12 skills are developing.
+          <h1 className="mt-3 font-heading text-4xl leading-none font-black tracking-[-0.03em] sm:text-5xl">
+            Your 12 skills
           </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            A skill estimate changes after a scored practice or Quick Check
-            answer for that skill, or after you save a correction in Learning
-            data. Choose any skill to see where it started, how many answers
-            support it, and its latest change.
+          <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
+            Choose a skill to see its estimate and the answers behind it. Study
+            estimates are not ACT scores.
           </p>
         </div>
-
-        <aside className="border-l-4 border-primary bg-[var(--info-surface)] p-5">
-          <p className="ink-label text-primary">
-            {learning.status === "complete"
-              ? "Last completed assignment"
-              : "Current assignment"}
-          </p>
-          <p className="mt-2 font-heading text-3xl font-black">
-            {current.label}
-          </p>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            {learning.status === "complete"
-              ? `${current.label} is the last assignment you completed. Scout recommends ${recommendation.label} next; open Today when you are ready.`
-              : "Continue the assignment already in progress. Scout will keep it in place until you finish it."}
-          </p>
-          {learning.status !== "complete" ? (
-            <Button
-              type="button"
-              size="lg"
-              className="mt-5 h-auto min-h-11 w-full min-w-0 py-2 whitespace-normal sm:w-auto"
-              onClick={onOpenLesson}
-            >
-              Continue {current.label}
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
-          ) : null}
-        </aside>
+        {learning.status !== "complete" ? (
+          <Button type="button" variant="outline" onClick={onOpenLesson}>
+            Continue {current.label}
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        ) : null}
       </section>
 
       <MasteryProfile
@@ -277,28 +241,6 @@ export function LearningTwinLab({
 
       <AnswerHistory learning={learning} />
       {canViewTechnicalDetails ? <TechnicalMethod /> : null}
-
-      <Alert className="mt-10 bg-[var(--info-surface)]">
-        <ShieldCheckIcon />
-        <AlertTitle>What these numbers do—and do not—mean</AlertTitle>
-        <AlertDescription>
-          Scout uses these percentages to choose practice. They are not official
-          ACT scores, percent correct, or promises that a target is reachable.
-          {plan.profileSource === "full-test" ||
-          plan.evidence.source === "full_test"
-            ? ` Your full-length practice test created a planning baseline for a goal of ${plan.draft.goal}.`
-            : plan.profileSource === "diagnostic"
-              ? ` Your full diagnostic created a fixed planning baseline for a goal of ${plan.draft.goal}.`
-              : plan.profileSource === "quick-check"
-                ? ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
-                : plan.evidence.source === "rapid_diagnostic"
-                  ? plan.diagnosticResult
-                    ? ` Your full diagnostic created a fixed planning baseline for a goal of ${plan.draft.goal}.`
-                    : ` Your Quick Check created a planning baseline for a goal of ${plan.draft.goal}.`
-                  : ` Your plan starts from Composite ${plan.currentComposite} and a goal of ${plan.draft.goal}.`}{" "}
-          Your ACT goal shapes the schedule, not the order of skills here.
-        </AlertDescription>
-      </Alert>
     </main>
   )
 }

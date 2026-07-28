@@ -6,7 +6,6 @@ import {
 } from "@act-tutor/core"
 import {
   ArrowRightIcon,
-  BrainCircuitIcon,
   CheckCircle2Icon,
   CircleAlertIcon,
   Clock3Icon,
@@ -15,7 +14,6 @@ import {
   TargetIcon,
 } from "lucide-react"
 
-import { ScoutCoach } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -83,11 +81,12 @@ export function ExamLabReport({
   const estimateMargin = result.mode === "sprint" ? 4 : 3
   return (
     <main
+      data-hide-global-footer
       id="main-content"
       tabIndex={-1}
       className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 lg:py-14"
     >
-      <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)] lg:gap-16">
+      <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)] lg:gap-14">
         <div>
           <p className="ink-label text-primary">
             {readiness.sufficient
@@ -96,12 +95,12 @@ export function ExamLabReport({
           </p>
           <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             {readiness.sufficient
-              ? "Here’s what happened under the clock."
+              ? "Timed Practice complete."
               : "Your completed answers are saved for review."}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
             {readiness.sufficient
-              ? "See raw accuracy, average time per answered question, and where to focus next."
+              ? "Your result and next focus are below."
               : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, or next lesson from this run.`}{" "}
             {onUseForNextRound
               ? "These results have not changed Today or My Week yet. Use the action at the end of this report if you want them to set your next lesson round."
@@ -196,20 +195,20 @@ export function ExamLabReport({
             </p>
           )}
         </div>
-        <aside className="lg:pt-8">
-          <ScoutCoach
-            mood={readiness.sufficient ? "correct" : "repair"}
-            message={
-              readiness.sufficient
-                ? result.debrief.headline
-                : "Finish more questions before changing your plan."
-            }
-            detail={
-              readiness.sufficient
-                ? result.debrief.summary
-                : `You answered ${readiness.answered} of ${result.total}. Complete at least ${readiness.minimumAnswered} before Scout suggests a skill or interprets your pacing.`
-            }
-          />
+        <aside className="border-t-2 border-foreground pt-6 lg:mt-8">
+          <p className="ink-label text-primary">
+            {readiness.sufficient ? "Next focus" : "Next step"}
+          </p>
+          <h2 className="mt-3 font-heading text-3xl leading-tight font-black">
+            {readiness.sufficient
+              ? result.debrief.headline
+              : "Finish more questions before using this result."}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {readiness.sufficient
+              ? result.debrief.nextAction
+              : `Complete at least ${readiness.minimumAnswered} answers before Scout suggests a focus.`}
+          </p>
           {readiness.sufficient && canViewTechnicalDetails ? (
             <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
               <summary className="cursor-pointer font-semibold">
@@ -235,346 +234,312 @@ export function ExamLabReport({
         </aside>
       </section>
 
-      <section
-        className="mt-14 border-t-2 border-foreground pt-7"
-        aria-labelledby="section-results-title"
-      >
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="ink-label text-primary">Raw results</p>
-            <h2
-              id="section-results-title"
-              className="mt-2 font-heading text-4xl font-bold"
-            >
-              Section breakdown
-            </h2>
-          </div>
-          <TargetIcon className="text-primary" aria-hidden="true" />
-        </div>
-        <div className="mt-6 grid border-t lg:grid-cols-3 lg:divide-x">
-          {result.sections.map((section) => {
-            const completed = result.review.filter(
-              (answer) =>
-                answer.section === section.section &&
-                answer.selectedChoiceId !== null
-            ).length
-            const unanswered = section.total - completed
-            const completedAccuracy = completed
-              ? section.correct / completed
-              : 0
-            return (
-              <div
-                key={section.section}
-                data-testid={`timed-practice-section-${section.section}`}
-                className="border-b px-0 py-5 first:pl-0 last:pr-0 lg:px-6"
-              >
-                <div className="flex items-baseline justify-between gap-4">
-                  <h3 className="font-heading text-3xl font-bold">
-                    {SECTION_LABEL[section.section]}
-                  </h3>
-                  {readiness.sufficient ? (
-                    <span className="font-heading text-4xl font-black text-primary">
-                      {section.practiceEstimate}
-                    </span>
-                  ) : null}
-                </div>
-                <MetricBar
-                  value={
-                    (readiness.sufficient
-                      ? section.accuracy
-                      : completedAccuracy) * 100
-                  }
-                />
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {readiness.sufficient
-                    ? `${canViewTechnicalDetails ? "Internal display" : "Practice estimate"} · ${section.correct}/${section.total} total correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
-                    : completed
-                      ? `${section.correct}/${completed} completed answer${completed === 1 ? "" : "s"} correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
-                      : `No completed answers · ${unanswered} unanswered`}
-                </p>
+      <details className="group mt-10 border-y-2 border-foreground">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span className="font-heading text-2xl font-black">More results</span>
+          <span className="text-sm font-semibold text-muted-foreground">
+            Sections · pacing · skills
+          </span>
+        </summary>
+        <div className="border-t-2 border-foreground pb-8">
+          <section className="pt-7" aria-labelledby="section-results-title">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="ink-label text-primary">Raw results</p>
+                <h2
+                  id="section-results-title"
+                  className="mt-2 font-heading text-4xl font-bold"
+                >
+                  Section breakdown
+                </h2>
               </div>
-            )
-          })}
-        </div>
-      </section>
+              <TargetIcon className="text-primary" aria-hidden="true" />
+            </div>
+            <div className="mt-6 grid border-t lg:grid-cols-3 lg:divide-x">
+              {result.sections.map((section) => {
+                const completed = result.review.filter(
+                  (answer) =>
+                    answer.section === section.section &&
+                    answer.selectedChoiceId !== null
+                ).length
+                const unanswered = section.total - completed
+                const completedAccuracy = completed
+                  ? section.correct / completed
+                  : 0
+                return (
+                  <div
+                    key={section.section}
+                    data-testid={`timed-practice-section-${section.section}`}
+                    className="border-b px-0 py-5 first:pl-0 last:pr-0 lg:px-6"
+                  >
+                    <div className="flex items-baseline justify-between gap-4">
+                      <h3 className="font-heading text-3xl font-bold">
+                        {SECTION_LABEL[section.section]}
+                      </h3>
+                      {readiness.sufficient ? (
+                        <span className="font-heading text-4xl font-black text-primary">
+                          {section.practiceEstimate}
+                        </span>
+                      ) : null}
+                    </div>
+                    <MetricBar
+                      value={
+                        (readiness.sufficient
+                          ? section.accuracy
+                          : completedAccuracy) * 100
+                      }
+                    />
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      {readiness.sufficient
+                        ? `${canViewTechnicalDetails ? "Internal display" : "Practice estimate"} · ${section.correct}/${section.total} total correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
+                        : completed
+                          ? `${section.correct}/${completed} completed answer${completed === 1 ? "" : "s"} correct · ${unanswered} unanswered · ${Math.round(section.averageSeconds)}s average`
+                          : `No completed answers · ${unanswered} unanswered`}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
 
-      <div
-        className={cn("mt-14 max-w-3xl", !readiness.sufficient && "hidden")}
-        aria-hidden={!readiness.sufficient}
-      >
+          <div
+            className={cn("mt-12 max-w-3xl", !readiness.sufficient && "hidden")}
+            aria-hidden={!readiness.sufficient}
+          >
+            <section
+              className="border-t-2 border-foreground pt-7"
+              aria-labelledby="pacing-title"
+            >
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="ink-label text-[var(--scout-coral-text)]">
+                    Time use
+                  </p>
+                  <h2
+                    id="pacing-title"
+                    className="mt-2 font-heading text-4xl font-bold"
+                  >
+                    How you handled the clock
+                  </h2>
+                </div>
+                <Clock3Icon className="text-[var(--scout-coral)]" />
+              </div>
+              <p className="mt-5 font-heading text-3xl font-bold capitalize">
+                {result.pacing.diagnosis.replace("-", " ")}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {Math.round(result.pacing.averageSeconds)}s actual average
+                compared with a{" "}
+                {Math.round(result.pacing.expectedAverageSeconds)}s average
+                question-bank target.
+              </p>
+              <dl className="mt-6 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
+                <div>
+                  <dt className="ink-label text-muted-foreground">Rushed</dt>
+                  <dd className="mt-2 font-heading text-3xl font-black">
+                    {result.pacing.rushed}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="ink-label text-muted-foreground">On pace</dt>
+                  <dd className="mt-2 font-heading text-3xl font-black text-primary">
+                    {result.pacing.onPace}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="ink-label text-muted-foreground">Overtime</dt>
+                  <dd className="mt-2 font-heading text-3xl font-black text-[var(--scout-coral)]">
+                    {result.pacing.overtime}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                “Rushed” means under 40% of a question&apos;s bank target time;
+                “Overtime” means above 150%. With at least three answered
+                questions, Scout labels the run “Rushing” when at least 35% are
+                rushed; otherwise it labels it “Overinvesting” when at least 35%
+                are overtime; otherwise it labels it “Balanced.”
+              </p>
+            </section>
+          </div>
+
+          <section
+            className={cn(
+              "mt-12 border-t-2 border-foreground pt-7",
+              !readiness.sufficient && "hidden"
+            )}
+            aria-hidden={!readiness.sufficient}
+            aria-labelledby="skills-title"
+          >
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="ink-label text-primary">Skills in this run</p>
+                <h2
+                  id="skills-title"
+                  className="mt-2 font-heading text-4xl font-bold"
+                >
+                  Lowest raw accuracy first
+                </h2>
+              </div>
+              <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+                Skills are ordered by lowest raw accuracy; ties use slower
+                average time.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-x-10 lg:grid-cols-2">
+              {result.skills.map((skill) => (
+                <div
+                  key={skill.skill}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b py-4"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <p className="font-semibold">{skill.label}</p>
+                      <span className="font-mono text-[0.65rem] font-bold text-muted-foreground uppercase">
+                        {skill.section}
+                      </span>
+                    </div>
+                    <MetricBar
+                      value={skill.accuracy * 100}
+                      color="var(--primary)"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {Math.round(skill.averageSeconds)}s average
+                    </p>
+                  </div>
+                  <span className="font-heading text-3xl font-black">
+                    {Math.round(skill.accuracy * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </details>
+
+      <details className="group mt-8 border-y-2 border-foreground">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span className="font-heading text-2xl font-black">
+            Review answers
+          </span>
+          <span className="text-sm font-semibold text-muted-foreground">
+            {readiness.answered} answered
+          </span>
+        </summary>
         <section
-          className="border-t-2 border-foreground pt-7"
-          aria-labelledby="pacing-title"
+          className="border-t-2 border-foreground py-7"
+          aria-labelledby="review-title"
         >
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="ink-label text-[var(--scout-coral-text)]">
-                Time use
-              </p>
+              <p className="ink-label text-primary">Your answers</p>
               <h2
-                id="pacing-title"
+                id="review-title"
                 className="mt-2 font-heading text-4xl font-bold"
               >
-                How you handled the clock
+                {result.unanswered > 0
+                  ? "Review your answered questions"
+                  : "Review every question"}
               </h2>
             </div>
-            <Clock3Icon className="text-[var(--scout-coral)]" />
+            <RotateCcwIcon className="text-primary" />
           </div>
-          <p className="mt-5 font-heading text-3xl font-bold capitalize">
-            {result.pacing.diagnosis.replace("-", " ")}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {Math.round(result.pacing.averageSeconds)}s actual average compared
-            with a {Math.round(result.pacing.expectedAverageSeconds)}s average
-            question-bank target.
-          </p>
-          <dl className="mt-6 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
-            <div>
-              <dt className="ink-label text-muted-foreground">Rushed</dt>
-              <dd className="mt-2 font-heading text-3xl font-black">
-                {result.pacing.rushed}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">On pace</dt>
-              <dd className="mt-2 font-heading text-3xl font-black text-primary">
-                {result.pacing.onPace}
-              </dd>
-            </div>
-            <div>
-              <dt className="ink-label text-muted-foreground">Overtime</dt>
-              <dd className="mt-2 font-heading text-3xl font-black text-[var(--scout-coral)]">
-                {result.pacing.overtime}
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-4 text-xs leading-5 text-muted-foreground">
-            “Rushed” means under 40% of a question&apos;s bank target time;
-            “Overtime” means above 150%. With at least three answered questions,
-            Scout labels the run “Rushing” when at least 35% are rushed;
-            otherwise it labels it “Overinvesting” when at least 35% are
-            overtime; otherwise it labels it “Balanced.”
-          </p>
-        </section>
-      </div>
-
-      <section
-        className={cn(
-          "mt-14 border-t-2 border-foreground pt-7",
-          !readiness.sufficient && "hidden"
-        )}
-        aria-hidden={!readiness.sufficient}
-        aria-labelledby="skills-title"
-      >
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="ink-label text-primary">Skills in this run</p>
-            <h2
-              id="skills-title"
-              className="mt-2 font-heading text-4xl font-bold"
-            >
-              Lowest raw accuracy first
-            </h2>
-          </div>
-          <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-            Skills are ordered by lowest raw accuracy; ties use slower average
-            time.
-          </p>
-        </div>
-        <div className="mt-6 grid gap-x-10 lg:grid-cols-2">
-          {result.skills.map((skill) => (
-            <div
-              key={skill.skill}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b py-4"
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <p className="font-semibold">{skill.label}</p>
-                  <span className="font-mono text-[0.65rem] font-bold text-muted-foreground uppercase">
-                    {skill.section}
-                  </span>
-                </div>
-                <MetricBar
-                  value={skill.accuracy * 100}
-                  color="var(--primary)"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {Math.round(skill.averageSeconds)}s average
-                </p>
-              </div>
-              <span className="font-heading text-3xl font-black">
-                {Math.round(skill.accuracy * 100)}%
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section
-        className={cn(
-          "mt-14 grid gap-8 border-y-2 border-foreground bg-[var(--coach-surface)] px-5 py-7 lg:grid-cols-2 lg:px-8",
-          !readiness.sufficient && "hidden"
-        )}
-        aria-hidden={!readiness.sufficient}
-        aria-labelledby="debrief-title"
-      >
-        <div>
-          <p className="ink-label text-primary">Scout’s debrief</p>
-          <h2
-            id="debrief-title"
-            className="mt-2 font-heading text-4xl font-bold"
-          >
-            {result.debrief.headline}
-          </h2>
-          <p className="mt-4 text-base leading-7">{result.debrief.summary}</p>
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <p className="ink-label text-muted-foreground">Wins</p>
-            <ul className="mt-3 space-y-3 text-sm leading-6">
-              {result.debrief.wins.map((win) => (
-                <li key={win} className="flex gap-2">
-                  <CheckCircle2Icon className="mt-1 size-4 shrink-0 text-primary" />
-                  {win}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="ink-label text-muted-foreground">Priorities</p>
-            <ul className="mt-3 space-y-3 text-sm leading-6">
-              {result.debrief.priorities.map((priority) => (
-                <li key={priority} className="flex gap-2">
-                  <CircleAlertIcon className="mt-1 size-4 shrink-0 text-[var(--scout-coral)]" />
-                  {priority}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <Alert className="bg-background lg:col-span-2">
-          <BrainCircuitIcon />
-          <AlertTitle>Next action</AlertTitle>
-          <AlertDescription>{result.debrief.nextAction}</AlertDescription>
-        </Alert>
-      </section>
-
-      <section
-        className="mt-14 border-t-2 border-foreground pt-7"
-        aria-labelledby="review-title"
-      >
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="ink-label text-primary">Your answers</p>
-            <h2
-              id="review-title"
-              className="mt-2 font-heading text-4xl font-bold"
-            >
-              {result.unanswered > 0
-                ? "Review your answered questions"
-                : "Review every question"}
-            </h2>
-          </div>
-          <RotateCcwIcon className="text-primary" />
-        </div>
-        <div className="mt-6 border-t">
-          {result.review.length === 0 ? (
-            <p className="border-b py-6 text-sm leading-6 text-muted-foreground">
-              No answer explanations are available because this run did not
-              include a completed answer. Start a new run when you are ready to
-              practice.
-            </p>
-          ) : null}
-          {result.review.map((review) => {
-            const question = questionMap.get(review.questionId)
-            const questionNumber =
-              session.questions.findIndex(
-                (candidate) => candidate.id === review.questionId
-              ) + 1
-            const selectedText =
-              question?.choices.find(
-                (choice) => choice.id === review.selectedChoiceId
-              )?.text ?? "No answer"
-            const correctText =
-              question?.choices.find(
-                (choice) => choice.id === review.correctChoiceId
-              )?.text ?? "Reviewed answer"
-            return (
-              <details key={review.questionId} className="group border-b py-4">
-                <summary className="grid cursor-pointer list-none grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                  <span
-                    className={cn(
-                      "flex size-9 items-center justify-center border-2 border-foreground font-mono text-xs font-bold",
-                      review.correct
-                        ? "bg-secondary"
-                        : "bg-[var(--coach-surface)]"
+          <div className="mt-6 border-t">
+            {result.review.length === 0 ? (
+              <p className="border-b py-6 text-sm leading-6 text-muted-foreground">
+                No answer explanations are available because this run did not
+                include a completed answer. Start a new run when you are ready
+                to practice.
+              </p>
+            ) : null}
+            {result.review.map((review) => {
+              const question = questionMap.get(review.questionId)
+              const questionNumber =
+                session.questions.findIndex(
+                  (candidate) => candidate.id === review.questionId
+                ) + 1
+              const selectedText =
+                question?.choices.find(
+                  (choice) => choice.id === review.selectedChoiceId
+                )?.text ?? "No answer"
+              const correctText =
+                question?.choices.find(
+                  (choice) => choice.id === review.correctChoiceId
+                )?.text ?? "Reviewed answer"
+              return (
+                <details
+                  key={review.questionId}
+                  className="group border-b py-4"
+                >
+                  <summary className="grid cursor-pointer list-none grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                    <span
+                      className={cn(
+                        "flex size-9 items-center justify-center border-2 border-foreground font-mono text-xs font-bold",
+                        review.correct
+                          ? "bg-secondary"
+                          : "bg-[var(--coach-surface)]"
+                      )}
+                    >
+                      {questionNumber}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">
+                        {review.skillLabel}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground capitalize">
+                        {review.section} · {review.elapsedSeconds}s
+                      </p>
+                    </div>
+                    {review.correct ? (
+                      <CheckCircle2Icon className="text-primary" />
+                    ) : (
+                      <CircleAlertIcon className="text-[var(--scout-coral)]" />
                     )}
-                  >
-                    {questionNumber}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">
-                      {review.skillLabel}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground capitalize">
-                      {review.section} · {review.elapsedSeconds}s
-                    </p>
+                  </summary>
+                  <div className="mt-5 grid gap-6 border-l-4 border-foreground pl-5 text-sm leading-6 lg:grid-cols-2">
+                    <div>
+                      <p className="ink-label text-muted-foreground">
+                        Question
+                      </p>
+                      <p className="mt-2 font-semibold">{question?.prompt}</p>
+                      <p className="mt-3">
+                        <strong>Your answer:</strong> {selectedText}
+                      </p>
+                      <p className="mt-1">
+                        <strong>Correct answer:</strong> {correctText}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="ink-label text-muted-foreground">
+                        Reviewed reasoning
+                      </p>
+                      <p className="mt-2">{review.rationale}</p>
+                    </div>
                   </div>
-                  {review.correct ? (
-                    <CheckCircle2Icon className="text-primary" />
-                  ) : (
-                    <CircleAlertIcon className="text-[var(--scout-coral)]" />
-                  )}
-                </summary>
-                <div className="mt-5 grid gap-6 border-l-4 border-foreground pl-5 text-sm leading-6 lg:grid-cols-2">
-                  <div>
-                    <p className="ink-label text-muted-foreground">Question</p>
-                    <p className="mt-2 font-semibold">{question?.prompt}</p>
-                    <p className="mt-3">
-                      <strong>Your answer:</strong> {selectedText}
-                    </p>
-                    <p className="mt-1">
-                      <strong>Correct answer:</strong> {correctText}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="ink-label text-muted-foreground">
-                      Reviewed reasoning
-                    </p>
-                    <p className="mt-2">{review.rationale}</p>
-                  </div>
-                </div>
-              </details>
-            )
-          })}
-        </div>
-      </section>
+                </details>
+              )
+            })}
+          </div>
+        </section>
+      </details>
 
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-y-2 border-foreground py-5">
-        <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          These are practice results, not an official ACT score.
-          {onUseForNextRound
-            ? " Use the completed skill results to set the order of your next lesson round."
-            : " They stay in Timed Practice unless you complete a full core run from a lesson-round handoff."}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Button type="button" variant="outline" size="lg" onClick={onNewRun}>
-            Take another practice test
+      <div className="mt-8 flex flex-wrap justify-end gap-3">
+        <Button type="button" variant="outline" size="lg" onClick={onNewRun}>
+          Take another practice test
+        </Button>
+        {onUseForNextRound ? (
+          <Button
+            type="button"
+            size="lg"
+            onClick={onUseForNextRound}
+            disabled={applyingToPlan}
+          >
+            {applyingToPlan
+              ? "Building your next round…"
+              : "Start my next lesson round"}
+            <ArrowRightIcon data-icon="inline-end" />
           </Button>
-          {onUseForNextRound ? (
-            <Button
-              type="button"
-              size="lg"
-              onClick={onUseForNextRound}
-              disabled={applyingToPlan}
-            >
-              {applyingToPlan
-                ? "Building your next round…"
-                : "Start my next lesson round"}
-              <ArrowRightIcon data-icon="inline-end" />
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </main>
   )

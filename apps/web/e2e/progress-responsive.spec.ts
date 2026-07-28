@@ -28,6 +28,9 @@ test("Progress keeps its skill comparison readable at mobile and desktop sizes",
 
   const overview = page.getByTestId("mobile-mastery-overview")
   const radar = page.getByTestId("mastery-radar")
+  await expect(overview).toBeHidden()
+  await expect(radar).toBeHidden()
+  await page.getByText("See skill map", { exact: true }).click()
   await expect(overview).toBeVisible()
   await expect(overview.getByRole("listitem")).toHaveCount(3)
   await expect(overview).toContainText(

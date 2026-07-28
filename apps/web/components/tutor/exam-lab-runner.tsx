@@ -132,6 +132,7 @@ export function ExamLabRunner({
 
   return (
     <main
+      data-hide-global-footer
       id="main-content"
       tabIndex={-1}
       className="min-h-[calc(100svh-5rem)] bg-[var(--rail)]"

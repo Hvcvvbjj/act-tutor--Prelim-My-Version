@@ -76,6 +76,7 @@ function SectionProgress({
           return (
             <li
               key={section}
+              aria-current={active ? "step" : undefined}
               className={cn(
                 "min-w-0 px-3 py-4 sm:px-5",
                 active && "bg-[var(--coach-surface)]"
@@ -660,7 +661,10 @@ export function DiagnosticRunner({
   const currentSection = phase === "questions" ? question.section : null
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div
+      data-hide-global-footer
+      className="min-h-svh bg-background text-foreground"
+    >
       <header className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b-2 border-foreground px-5 py-4 sm:px-8 lg:px-12">
         <div className="flex min-w-0 items-center gap-3">
           <ScoutMark className="size-11" />

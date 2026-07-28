@@ -122,7 +122,7 @@ describe("shared visual system contract", () => {
     expect(mission).not.toContain("lg:grid-cols-[minmax(0,1fr)_19rem]")
     expect(onboarding).toContain("grid grid-cols-3 gap-2")
     expect(onboarding).toContain(
-      "paper-panel w-full rounded-2xl border border-border/80 bg-card"
+      "w-full border-y-2 border-foreground py-8 sm:py-12"
     )
     expect(quickCheck).toContain('aria-labelledby="quick-check-heading"')
     expect(quickCheck).toContain('data-testid="quick-check-question-card"')
@@ -198,7 +198,7 @@ describe("learner-facing model language", () => {
     expect(mission).not.toContain("Later today")
     expect(mission).not.toContain("Planning baseline · not an ACT score")
     expect(mission).not.toContain("No streak yet")
-    expect(onboarding).toContain(
+    expect(onboarding).not.toContain(
       "This is a planning goal—not a score prediction"
     )
     expect(onboarding).toContain("See one answer change the plan")
@@ -235,7 +235,7 @@ describe("learner-facing model language", () => {
     expect(lesson).not.toContain("section.coachPrompt")
     expect(lesson).not.toContain("practice-priority total")
     expect(lesson).toContain("lessonSegmentMinutes(")
-    expect(progress).toContain("Your skill practice picture")
+    expect(progress).toContain("See skill map")
     expect(progress).toContain("How Scout chose this skill")
     expect(timedPractice).not.toContain("Sure, Unsure, or Guessing")
     expect(timedPractice).not.toContain("self-reported confidence")
@@ -301,7 +301,7 @@ describe("deadline learner UX contract", () => {
     expect(studyPlan).toContain("Copy week")
     expect(studyPlan).toContain("Week copied")
     expect(studyPlan.indexOf("<WeekPlanner")).toBeLessThan(
-      studyPlan.indexOf("Study-time check ·")
+      studyPlan.indexOf("Plan details")
     )
   })
 

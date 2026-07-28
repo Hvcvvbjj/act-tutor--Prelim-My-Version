@@ -47,12 +47,6 @@ const SHORT_LABELS: Record<string, string> = {
   "author-purpose-and-structure": "Purpose",
 }
 
-const PRIOR_COPY = {
-  diagnostic: "Started from skill-specific check answers",
-  "score-estimate": "Started from the section planning baseline",
-  "neutral-prior": "Started at 50% because no score or answers were available",
-} as const
-
 const CONFIDENCE_COPY = {
   exploring: "Early estimate · fewer than 3 answers",
   forming: "Developing estimate · more evidence will help",
@@ -403,7 +397,7 @@ function SkillRows({
                   aria-pressed={selectedSkill === skill.skill}
                   aria-controls="selected-skill-detail"
                   className={cn(
-                    "w-full py-4 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "w-full py-3 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
                     selectedSkill === skill.skill &&
                       "bg-[var(--info-surface)] px-3"
                   )}
@@ -422,7 +416,7 @@ function SkillRows({
                       }}
                     />
                   </span>
-                  <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+                  <span className="sr-only">
                     {skill.evidenceCount === 0
                       ? "Starting estimate · no skill-specific answers yet"
                       : `${skill.evidenceCount} scored ${skill.evidenceCount === 1 ? "answer" : "answers"} · ${CONFIDENCE_COPY[skill.confidence]}`}
@@ -459,7 +453,7 @@ export function MasteryProfile({
         right.learnedProbability - left.learnedProbability ||
         right.evidenceCount - left.evidenceCount
     )
-    .slice(0, 4)
+    .slice(0, 3)
   const contributions = contributionSet(selected, recommendation)
   const priority = Math.min(
     100,
@@ -479,108 +473,84 @@ export function MasteryProfile({
   }
 
   return (
-    <figure
-      className="mt-8"
-      aria-labelledby="mastery-profile-title"
-      aria-describedby="mastery-profile-description"
-    >
-      <div className="overflow-hidden rounded-2xl border-2 border-foreground bg-[#10243d] text-[#f7fbff] shadow-[8px_8px_0_var(--foreground)]">
-        <div className="border-b border-white/20 px-5 py-5 sm:px-7">
-          <p className="font-mono text-xs font-black tracking-[0.12em] text-[var(--scout-sun)] uppercase">
-            Scout skill profile · 12 tracked skills
+    <figure className="mt-8" aria-labelledby="exact-skill-values">
+      <details className="group overflow-hidden rounded-2xl bg-[#10243d] text-[#f7fbff]">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between px-5 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:px-7 [&::-webkit-details-marker]:hidden">
+          <span>See skill map</span>
+          <span className="text-xs font-semibold text-white/60 group-open:hidden">
+            Optional overview
+          </span>
+          <span className="hidden text-xs font-semibold text-white/60 group-open:inline">
+            Hide map
+          </span>
+        </summary>
+        <div className="border-t border-white/15">
+          <h2 id="mastery-profile-title" className="sr-only">
+            Skill map
+          </h2>
+          <p id="mastery-profile-description" className="sr-only">
+            Higher shapes mean stronger current estimates. Choose a skill below
+            for its exact value.
           </p>
+
+          <div className="grid items-center gap-2 px-3 py-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:px-7">
+            <MobileSectionOverview
+              skills={skills}
+              selectedSkill={selected.skill}
+            />
+            <MasteryRadar skills={skills} selectedSkill={selected.skill} />
+            <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
+              <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
+                Highest current estimates
+              </p>
+              {strongest.length >= 2 ? (
+                <ol className="mt-3 divide-y divide-white/15 border-y border-white/20">
+                  {strongest.map((skill, index) => (
+                    <li
+                      key={skill.skill}
+                      className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
+                    >
+                      <span className="font-mono text-xs text-white/50">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="text-sm font-bold">{skill.label}</span>
+                      <span className="font-heading text-2xl font-black tabular-nums">
+                        {percent(skill.learnedProbability)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-3 border-y border-white/20 py-4 text-sm leading-6 text-white/75">
+                  Your profile is still forming. Answer scored questions in at
+                  least two skills before Scout lists current strengths.
+                </p>
+              )}
+              <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
+                <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
+                  Study next
+                </p>
+                <p className="mt-2 font-heading text-2xl font-black">
+                  {recommendation.label}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/70">
+                  This skill needs the most useful next practice.
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </details>
+
+      <section className="mt-9" aria-labelledby="exact-skill-values">
+        <div className="border-b-2 border-foreground pb-4">
+          <p className="ink-label text-primary">All skills</p>
           <h2
-            id="mastery-profile-title"
+            id="exact-skill-values"
             className="mt-2 font-heading text-3xl font-black sm:text-4xl"
           >
-            Your skill practice picture
+            Choose a skill
           </h2>
-          <p
-            id="mastery-profile-description"
-            className="mt-3 max-w-3xl text-sm leading-6 text-white/75"
-          >
-            This overview compares Scout&apos;s 12 skill practice estimates.
-            Exact skill values and answer counts are listed below. These are
-            study estimates—not percent correct, ACT scores, or score
-            predictions.
-          </p>
-        </div>
-
-        <div className="grid items-center gap-2 px-3 py-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:px-7">
-          <MobileSectionOverview
-            skills={skills}
-            selectedSkill={selected.skill}
-          />
-          <MasteryRadar skills={skills} selectedSkill={selected.skill} />
-          <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
-            <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
-              Highest current estimates
-            </p>
-            {strongest.length >= 2 ? (
-              <ol className="mt-3 divide-y divide-white/15 border-y border-white/20">
-                {strongest.map((skill, index) => (
-                  <li
-                    key={skill.skill}
-                    className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
-                  >
-                    <span className="font-mono text-xs text-white/50">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="text-sm font-bold">{skill.label}</span>
-                    <span className="font-heading text-2xl font-black tabular-nums">
-                      {percent(skill.learnedProbability)}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-3 border-y border-white/20 py-4 text-sm leading-6 text-white/75">
-                Your profile is still forming. Answer scored questions in at
-                least two skills before Scout lists current strengths.
-              </p>
-            )}
-            <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
-              <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                Study next
-              </p>
-              <p className="mt-2 font-heading text-2xl font-black">
-                {recommendation.label}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-white/70">
-                Scout chose this skill from your recent answers, amount of
-                practice, and where another question would help most. Your ACT
-                goal does not affect this choice.
-              </p>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/65">
-              <span className="inline-flex items-center gap-2">
-                <span className="size-2.5 rounded-full bg-[var(--scout-mint)] ring-2 ring-white" />
-                Has scored evidence
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="size-2.5 rounded-full bg-[#10243d] ring-2 ring-white" />
-                Starting estimate only
-              </span>
-            </div>
-          </aside>
-        </div>
-      </div>
-
-      <section className="mt-10" aria-labelledby="exact-skill-values">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-foreground pb-4">
-          <div>
-            <p className="ink-label text-primary">Skill details</p>
-            <h2
-              id="exact-skill-values"
-              className="mt-2 font-heading text-3xl font-black sm:text-4xl"
-            >
-              Choose a skill for details.
-            </h2>
-          </div>
-          <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            The overview gives a quick comparison. Choose any row for its
-            starting point, answer count, and latest change.
-          </p>
         </div>
         <div className="mt-5">
           <SkillRows
@@ -593,7 +563,7 @@ export function MasteryProfile({
 
       <section
         id="selected-skill-detail"
-        className="mt-9 border-l-4 border-[var(--scout-coral)] bg-background p-5 shadow-[5px_5px_0_rgb(20_35_58_/_0.12)] sm:p-7"
+        className="mt-8 border-y-2 border-foreground py-6"
         aria-labelledby="selected-skill-title"
       >
         <p className="sr-only" aria-live="polite">
@@ -601,7 +571,7 @@ export function MasteryProfile({
           {selected.evidenceCount} scored{" "}
           {selected.evidenceCount === 1 ? "answer" : "answers"}.
         </p>
-        <div className="flex flex-wrap items-start justify-between gap-5 border-b-2 border-foreground pb-5">
+        <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <p className="ink-label text-[var(--scout-coral-text)]">
               Selected skill · {SECTION_LABELS[selected.section]}
@@ -625,31 +595,18 @@ export function MasteryProfile({
           </div>
         </div>
 
-        <dl className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-6 grid gap-5 border-t pt-5 sm:grid-cols-2">
           <div>
-            <dt className="ink-label text-muted-foreground">Starting source</dt>
+            <dt className="ink-label text-muted-foreground">Evidence</dt>
             <dd className="mt-2 text-sm leading-6 font-semibold">
-              {PRIOR_COPY[selected.priorSource]}
-            </dd>
-          </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">Scored answers</dt>
-            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
-              {selected.evidenceCount}
+              {selected.evidenceCount} scored{" "}
+              {selected.evidenceCount === 1 ? "answer" : "answers"}
             </dd>
           </div>
           <div>
             <dt className="ink-label text-muted-foreground">Estimate status</dt>
             <dd className="mt-2 text-sm leading-6 font-semibold">
               {CONFIDENCE_COPY[selected.confidence]}
-            </dd>
-          </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">
-              Medium-question estimate
-            </dt>
-            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
-              {percent(selected.predictedCorrectProbability)}
             </dd>
           </div>
         </dl>
@@ -716,8 +673,8 @@ export function MasteryProfile({
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {selectedIsRecommendation
-                  ? `Scout chose ${recommendation.label} from your recent answers, how much practice supports the estimate, and where one more question would be most useful.`
-                  : `Scout currently recommends ${recommendation.label}. ${selected.label} is shown here because you selected it; its estimate and answer history are above.`}
+                  ? `${recommendation.label} needs the most useful next practice.`
+                  : `Scout currently recommends ${recommendation.label}.`}
               </p>
             </div>
           )}

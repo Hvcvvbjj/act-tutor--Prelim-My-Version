@@ -69,12 +69,6 @@ const WEEKDAYS: ReadonlyArray<{
   { value: "sun", short: "Sun", label: "Sunday" },
 ]
 
-const SECTION_LABELS = {
-  english: "English",
-  math: "Math",
-  reading: "Reading",
-} as const
-
 const TASK_META: Record<
   StudyPlanTaskKind,
   { label: string; icon: typeof BookOpenCheckIcon; tone: string }
@@ -460,7 +454,7 @@ function WeekPlanner({
   )
   return (
     <div
-      className="grid gap-3 border-y-2 border-foreground py-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+      className="divide-y-2 divide-foreground/15 border-y-2 border-foreground"
       data-testid="week-planner"
     >
       {dates.map((date) => {
@@ -471,16 +465,16 @@ function WeekPlanner({
           <section
             key={date}
             className={cn(
-              "paper-panel min-w-0 rounded-xl border border-border/80 bg-card p-4 sm:min-h-48",
+              "grid min-w-0 gap-3 px-3 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start",
               isToday &&
-                "border-[color-mix(in_srgb,var(--scout-sun),var(--foreground)_18%)] bg-[color-mix(in_srgb,var(--scout-sun),transparent_88%)]",
+                "bg-[color-mix(in_srgb,var(--scout-sun),transparent_90%)]",
               afterTest && "bg-muted/35 text-muted-foreground"
             )}
             aria-labelledby={`day-${date}`}
             aria-current={isToday ? "date" : undefined}
             data-testid="week-day"
           >
-            <header className="flex items-end justify-between gap-3 border-b pb-3">
+            <header className="flex items-end justify-between gap-3 sm:block">
               <div>
                 <p
                   className={cn(
@@ -492,7 +486,7 @@ function WeekPlanner({
                 </p>
                 <h3
                   id={`day-${date}`}
-                  className="mt-1 font-heading text-2xl font-black"
+                  className="mt-1 font-heading text-xl font-black"
                 >
                   {shortDate(date)}
                 </h3>
@@ -503,7 +497,7 @@ function WeekPlanner({
               </p>
             </header>
             {tasks.length ? (
-              <div className="mt-4 grid gap-3">
+              <div className="grid gap-2">
                 {tasks.map((task) => (
                   <TaskBlock
                     key={task.id}
@@ -516,7 +510,7 @@ function WeekPlanner({
                 ))}
               </div>
             ) : (
-              <p className="py-5 text-sm leading-6 text-muted-foreground">
+              <p className="self-center py-2 text-sm leading-6 text-muted-foreground">
                 {afterTest ? "After test day" : "No study planned"}
               </p>
             )}
@@ -587,7 +581,7 @@ function TaskInspector({
       </div>
       <h2
         id="task-inspector-title"
-        className="mt-5 font-heading text-3xl leading-none font-black"
+        className="mt-4 font-heading text-2xl leading-tight font-black"
       >
         {task.title}
       </h2>
@@ -609,9 +603,9 @@ function TaskInspector({
         {launchLabel}
       </Button>
 
-      <details className="mt-5 border-y py-4">
+      <details className="mt-5 border-y py-3">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-          Why this assignment is here
+          Why this is scheduled
         </summary>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {task.reason}
@@ -625,53 +619,6 @@ function TaskInspector({
           </p>
         ) : null}
       </details>
-
-      <div className="mt-6 border-b-2 border-foreground pb-5">
-        <p className="ink-label text-primary">What you’ll do</p>
-        <ol className="mt-4 space-y-3 text-sm leading-6">
-          {(task.kind === "rehearsal"
-            ? [
-                "Open the 131-question full-length English, Math, and Reading rehearsal.",
-                "Answer under the section timers; explanations stay locked until submission.",
-                "Review raw accuracy and pacing. The result stays in Timed Practice and does not update Today or My Week.",
-              ]
-            : task.kind === "timed"
-              ? [
-                  `Open one-section Timed Practice for ${task.section ? SECTION_LABELS[task.section] : "the stored section"}.`,
-                  "Answer under that section’s timer; explanations stay locked until submission.",
-                  "Review raw accuracy and pacing. The result stays in Timed Practice and does not update Today or My Week.",
-                ]
-              : task.kind === "checkpoint"
-                ? [
-                    "Answer three questions from currently prioritized skills.",
-                    "Each submitted answer updates only the skill it tests.",
-                    "After question three, Scout reranks all 12 skills; it does not recalculate an ACT score.",
-                  ]
-                : task.kind === "review"
-                  ? [
-                      `Answer two review questions for ${task.skillLabel ?? "the stored skill"}.`,
-                      "Each submitted answer updates only that tested skill.",
-                      "After the second answer, Scout reranks all 12 skills; the dated calendar does not change.",
-                    ]
-                  : [
-                      `Read the ${task.skillLabel ?? "skill"} rule and one worked example.`,
-                      "Answer five scored questions for that skill.",
-                      "Each answer updates only that skill; after the set, Scout reranks all 12 skills.",
-                    ]
-          ).map((step, index) => (
-            <li key={step} className="flex gap-3">
-              <span className="font-mono font-bold">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span>{step}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        This is a rule-generated schedule. It does not predict an ACT score or
-        guarantee that the goal is reachable.
-      </p>
     </section>
   )
 }
@@ -937,50 +884,67 @@ export function AdaptivePlanStudio({
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto w-full max-w-[96rem] px-4 py-8 sm:px-7 lg:py-10"
+      className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-7 lg:py-9"
     >
-      <section className="grid gap-7 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <p className="ink-label text-primary">Your study plan</p>
-            <span
-              className={cn(
-                "font-mono text-xs font-bold uppercase",
-                health.className
-              )}
+      <section
+        className="border-b-2 border-foreground pb-5"
+        aria-labelledby="weekly-plan-title"
+      >
+        <p className="ink-label text-primary">My week</p>
+        <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1
+              id="weekly-plan-title"
+              className="font-heading text-4xl leading-none font-black tracking-[-0.025em] sm:text-5xl"
             >
-              {health.label}
-            </span>
+              {shortDate(weekStart)}–{shortDate(weekEnd)}
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+              {adaptivePlan.availability.entries.length} study days ·{" "}
+              {adaptivePlan.forecast.weeklyCapacity} min · {daysToTest} days
+              until test
+            </p>
           </div>
-          <h1 className="mt-3 max-w-4xl font-heading text-3xl leading-[1.08] font-black tracking-[-0.025em] sm:text-4xl">
-            Your study plan, week by week.
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Scout fills only the days and minutes you allow, then prioritizes
-            skills that need practice and reviews that are coming due. Choose
-            any assignment to see why it is on your calendar.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void copyWeek()}
+              aria-describedby="copy-week-status"
+            >
+              {copyStatus === "copied" ? <CheckIcon /> : <CopyIcon />}
+              {copyStatus === "copied" ? "Week copied" : "Copy week"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
+              disabled={!canGoBack}
+              aria-label="Previous study week"
+            >
+              <ChevronLeftIcon />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => showWeek(firstWeek)}
+              disabled={weekStart === firstWeek}
+            >
+              This week
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => showWeek(shiftStudyWeek(weekStart, 1))}
+              disabled={!canGoForward}
+              aria-label="Next study week"
+            >
+              <ChevronRightIcon />
+            </Button>
+          </div>
         </div>
-        <dl className="grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-4 text-center lg:min-w-[30rem]">
-          <div className="px-3">
-            <dt className="ink-label text-muted-foreground">Until test day</dt>
-            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
-              {daysToTest}d
-            </dd>
-          </div>
-          <div className="px-3">
-            <dt className="ink-label text-muted-foreground">Study days</dt>
-            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
-              {adaptivePlan.availability.entries.length}
-            </dd>
-          </div>
-          <div className="px-3">
-            <dt className="ink-label text-muted-foreground">Weekly time</dt>
-            <dd className="mt-2 font-heading text-3xl font-black tabular-nums">
-              {adaptivePlan.forecast.weeklyCapacity}m
-            </dd>
-          </div>
-        </dl>
       </section>
 
       {error ? (
@@ -991,65 +955,8 @@ export function AdaptivePlanStudio({
         </Alert>
       ) : null}
 
-      <div className="mt-6 grid gap-10 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="min-w-0" aria-labelledby="weekly-plan-title">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="ink-label text-muted-foreground">
-                Weekly assignments
-              </p>
-              <h2
-                id="weekly-plan-title"
-                className="mt-2 font-heading text-3xl font-bold sm:text-4xl"
-              >
-                {shortDate(weekStart)}–{shortDate(weekEnd)}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Choose an assignment to see details and start it.
-              </p>
-            </div>
-            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void copyWeek()}
-                aria-describedby="copy-week-status"
-              >
-                {copyStatus === "copied" ? <CheckIcon /> : <CopyIcon />}
-                {copyStatus === "copied" ? "Week copied" : "Copy week"}
-              </Button>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
-                  disabled={!canGoBack}
-                  aria-label="Previous study week"
-                >
-                  <ChevronLeftIcon />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => showWeek(firstWeek)}
-                  disabled={weekStart === firstWeek}
-                >
-                  This week
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => showWeek(shiftStudyWeek(weekStart, 1))}
-                  disabled={!canGoForward}
-                  aria-label="Next study week"
-                >
-                  <ChevronRightIcon />
-                </Button>
-              </div>
-            </div>
-          </div>
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <section className="min-w-0" aria-label="Weekly assignments">
           <p id="copy-week-status" className="sr-only" aria-live="polite">
             {copyStatus === "copied"
               ? "This study week was copied to your clipboard."
@@ -1074,7 +981,53 @@ export function AdaptivePlanStudio({
             onSelect={setSelectedTaskId}
             onToggle={toggleTask}
           />
-          <div className="mt-5 flex flex-wrap items-start justify-between gap-4 border-b pb-5">
+        </section>
+
+        <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          {selectedTask ? (
+            <TaskInspector
+              task={selectedTask}
+              learning={learning}
+              busy={busy}
+              onLaunch={onLaunchTask}
+              canViewTechnicalDetails={canViewTechnicalDetails}
+            />
+          ) : (
+            <TaskInspector
+              task={null}
+              learning={learning}
+              busy={busy}
+              onLaunch={onLaunchTask}
+              canViewTechnicalDetails={canViewTechnicalDetails}
+            />
+          )}
+          <div className="mt-6">
+            <AvailabilityEditor
+              key={adaptivePlan.updatedAt}
+              adaptivePlan={adaptivePlan}
+              saving={saving}
+              onSave={updateAvailability}
+            />
+          </div>
+        </aside>
+      </div>
+
+      <details className="mt-8 border-y-2 border-foreground py-2">
+        <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-4 font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          Plan details
+          <span className={cn("text-sm", health.className)}>
+            {health.label}
+          </span>
+        </summary>
+        <div className="border-t pt-5">
+          <h2 className="font-heading text-2xl font-black">{health.title}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            {adaptivePlan.forecast.scheduledMinutes} minutes are scheduled
+            before test day; Scout&apos;s planning target is{" "}
+            {adaptivePlan.forecast.recommendedMinutes} minutes.
+          </p>
+          <MilestoneRail plan={adaptivePlan} />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-4">
             <details className="max-w-2xl text-sm leading-6 text-muted-foreground">
               <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 Latest schedule update
@@ -1091,69 +1044,8 @@ export function AdaptivePlanStudio({
               Move missed work
             </Button>
           </div>
-        </section>
-
-        <aside className="min-w-0 xl:sticky xl:top-28 xl:self-start">
-          {selectedTask ? (
-            <>
-              <TaskInspector
-                task={selectedTask}
-                learning={learning}
-                busy={busy}
-                onLaunch={onLaunchTask}
-                canViewTechnicalDetails={canViewTechnicalDetails}
-              />
-              <div className="mt-7">
-                <AvailabilityEditor
-                  key={adaptivePlan.updatedAt}
-                  adaptivePlan={adaptivePlan}
-                  saving={saving}
-                  onSave={updateAvailability}
-                />
-              </div>
-            </>
-          ) : (
-            <TaskInspector
-              task={null}
-              learning={learning}
-              busy={busy}
-              onLaunch={onLaunchTask}
-              canViewTechnicalDetails={canViewTechnicalDetails}
-            />
-          )}
-        </aside>
-      </div>
-
-      <section className="mt-8 rounded-xl border border-primary/20 bg-[var(--info-surface)] p-5">
-        <p className="ink-label text-primary">
-          Study-time check ·{" "}
-          {Math.round(adaptivePlan.forecast.capacityRatio * 100)}% of target
-        </p>
-        <h2 className="mt-2 font-heading text-2xl font-bold">{health.title}</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-          Scout’s rough rule recommends{" "}
-          {adaptivePlan.forecast.recommendedMinutes} minutes before test day.
-          You have scheduled {adaptivePlan.forecast.scheduledMinutes}. This is a
-          planning check—not proof that your ACT goal is reachable.
-        </p>
-        {canViewTechnicalDetails ? (
-          <details className="mt-4 max-w-4xl border-t border-foreground/25 pt-4">
-            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              See how Scout calculated this target
-            </summary>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              120 base minutes + 25 minutes for every planned section-score
-              point across English, Math, and Reading + 15 minutes for every
-              skill estimate below 65%. Current result:{" "}
-              {adaptivePlan.forecast.recommendedMinutes} minutes. These weights
-              are fixed in code and are not a research-based time-to-score
-              conversion.
-            </p>
-          </details>
-        ) : null}
-      </section>
-
-      <MilestoneRail plan={adaptivePlan} />
+        </div>
+      </details>
 
       {canViewTechnicalDetails ? (
         <footer className="mt-10 border-t-2 border-foreground pt-6">

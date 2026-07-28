@@ -1,16 +1,10 @@
 "use client"
 
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  Clock3Icon,
-  ShieldCheckIcon,
-} from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
 
-import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import { ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { formatCalendarDate } from "@/lib/dates"
 
 interface DiagnosticIntroProps {
@@ -49,7 +43,10 @@ export function DiagnosticIntro({
   onStart,
 }: DiagnosticIntroProps) {
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div
+      data-hide-global-footer
+      className="min-h-svh bg-background text-foreground"
+    >
       <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
         <ScoutMark className="size-11" />
         <p className="font-brand text-2xl font-black tracking-tight">
@@ -67,97 +64,54 @@ export function DiagnosticIntro({
             ? "Return to assessment choice"
             : "Return to Quick Check"}
         </Button>
-        <div className="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
-          <section>
-            <p className="ink-label text-primary">
-              {purpose === "round" ? "Next lesson round" : "No ACT score yet"}
-            </p>
-            <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-              {purpose === "round"
-                ? "Measure what should come next."
-                : "Find your starting point."}
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-7 text-muted-foreground">
-              This original 66-question practice form estimates English, Math,
-              and Reading{" "}
-              {purpose === "round"
-                ? "priorities for your next lesson round"
-                : "starting points for your study plan"}{" "}
-              leading to your goal of {goal} on {formatCalendarDate(testDate)}.
-              It does not produce an official ACT score or score prediction.
-            </p>
+        <section className="mx-auto mt-10 max-w-3xl">
+          <p className="ink-label text-primary">
+            {purpose === "round" ? "Next lesson round" : "Starting diagnostic"}
+          </p>
+          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-6xl">
+            {purpose === "round"
+              ? "Find what to study next."
+              : "Find your starting point."}
+          </h1>
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
+            66 original questions across English, Math, and Reading · about 63
+            minutes · autosaves as you go.
+          </p>
 
-            <div className="mt-10 border-y-2 border-foreground py-7">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-heading text-3xl font-bold">
-                    Half-length ACT-style diagnostic
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    66 original questions · about 63 minutes
-                  </p>
-                </div>
-                <span className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary sm:mt-0">
-                  <Clock3Icon aria-hidden="true" />
-                  Autosaves as you go
-                </span>
-              </div>
-            </div>
-
-            <Button type="button" size="xl" className="mt-8" onClick={onStart}>
+          <div className="mt-9 flex items-center gap-4 border-y-2 border-foreground py-7">
+            <Button type="button" size="xl" onClick={onStart}>
               Start diagnostic
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
-
-            {error ? (
-              <Alert role="alert" className="mt-6 max-w-2xl">
-                <AlertTitle>Scout could not use that result yet</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <ScoutCoach
-              className="mt-8 max-w-2xl"
-              mood="ready"
-              message="This form gives Scout more observations than Quick Check, but guessing and question mix can still affect the result. You can save and return."
-              detail="Questions are original and use ACT-style passage and four-choice formats. The result is a planning baseline, not an official ACT score."
-            />
-
-            <Alert className="mt-8 max-w-2xl bg-[var(--info-surface)]">
-              <ShieldCheckIcon />
-              <AlertTitle>The result stays fixed</AlertTitle>
-              <AlertDescription>
-                The 25/23/18 split is half the current English, Math, and
-                Reading test. Later practice updates separate skill estimates;
-                it does not make this diagnostic result more accurate.
-              </AlertDescription>
-            </Alert>
-          </section>
-
-          <aside className="border-t-2 border-foreground pt-8 lg:border-t-0 lg:border-l-2 lg:pt-0 lg:pl-10">
-            <p className="ink-label text-muted-foreground">
-              What you&apos;ll answer
+            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+              Builds a study starting point for your {goal} goal on{" "}
+              {formatCalendarDate(testDate)}.
             </p>
-            <dl className="mt-6 flex flex-col">
-              {SECTION_BLUEPRINT.map(([section, questions, skills], index) => (
-                <div key={section}>
-                  {index > 0 ? <Separator /> : null}
-                  <div className="py-5">
-                    <dt className="font-heading text-2xl font-bold">
-                      {section}
-                    </dt>
-                    <dd className="mt-1 text-sm text-muted-foreground">
-                      {questions}
-                    </dd>
-                    <dd className="mt-1 text-sm text-muted-foreground">
-                      {skills}
-                    </dd>
-                  </div>
+          </div>
+
+          {error ? (
+            <Alert role="alert" className="mt-6">
+              <AlertTitle>Scout could not use that result yet</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <details className="group mt-7">
+            <summary className="cursor-pointer text-sm font-bold text-primary">
+              What&apos;s included
+            </summary>
+            <dl className="mt-4 grid border-y sm:grid-cols-3 sm:divide-x">
+              {SECTION_BLUEPRINT.map(([section, questions]) => (
+                <div key={section} className="p-4">
+                  <dt className="font-heading text-xl font-bold">{section}</dt>
+                  <dd className="mt-1 text-sm text-muted-foreground">
+                    {questions}
+                  </dd>
                 </div>
               ))}
             </dl>
-          </aside>
-        </div>
+          </details>
+        </section>
       </main>
     </div>
   )
