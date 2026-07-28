@@ -1,8 +1,12 @@
 "use client"
 
-import type { ExamLabSessionPayload } from "@act-tutor/core"
-import { ArrowLeftIcon, BookmarkIcon, SendIcon } from "lucide-react"
+import {
+  examLabInterpretationReadiness,
+  type ExamLabSessionPayload,
+} from "@act-tutor/core"
+import { ArrowLeftIcon, BookmarkIcon, SaveIcon, SendIcon } from "lucide-react"
 
+import { examLabReviewCopy } from "@/components/tutor/exam-lab-review-copy"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -28,6 +32,17 @@ export function ExamLabReview({
     (question) => session.progress.responses[question.id]?.flagged
   ).length
   const unanswered = session.questions.length - answered
+  const readiness = examLabInterpretationReadiness({
+    mode: session.mode,
+    total: session.questions.length,
+    unanswered,
+  })
+  const copy = examLabReviewCopy({
+    assessmentLabel,
+    busy,
+    sufficient: readiness.sufficient,
+    unanswered,
+  })
   return (
     <main
       data-hide-global-footer
@@ -40,13 +55,10 @@ export function ExamLabReview({
           {assessmentLabel} · Final review
         </p>
         <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-          Review and submit.
+          {copy.heading}
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-          {unanswered
-            ? `${unanswered} question${unanswered === 1 ? " is" : "s are"} blank.`
-            : "Every question has an answer."}{" "}
-          Correct answers appear after submission.
+          {copy.description}
         </p>
 
         <dl className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-y-2 border-foreground py-4 text-sm">
@@ -68,12 +80,12 @@ export function ExamLabReview({
 
         <div className="mt-7 flex flex-wrap gap-3">
           <Button type="button" size="xl" onClick={onSubmit} disabled={busy}>
-            {busy
-              ? "Building your report…"
-              : assessmentLabel === "Progress check"
-                ? "Score this progress check"
-                : "Score this practice test"}
-            <SendIcon data-icon="inline-end" />
+            {copy.submitLabel}
+            {readiness.sufficient ? (
+              <SendIcon data-icon="inline-end" />
+            ) : (
+              <SaveIcon data-icon="inline-end" />
+            )}
           </Button>
           <Button
             type="button"
