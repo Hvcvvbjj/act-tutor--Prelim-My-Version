@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import nextConfig, { SECURITY_HEADERS } from "./next.config"
+import nextConfig, { BUILD_COMMIT, SECURITY_HEADERS } from "./next.config"
 
 describe("public response security", () => {
   it("applies a compatible browser security policy to every route", async () => {
@@ -28,9 +28,16 @@ describe("public response security", () => {
     expect(headers["Strict-Transport-Security"]).toContain("max-age=31536000")
     expect(headers["X-Content-Type-Options"]).toBe("nosniff")
     expect(headers["X-Frame-Options"]).toBe("DENY")
+    expect(headers["X-Scout-Release"]).toBe(BUILD_COMMIT)
   })
 
   it("does not advertise the framework", () => {
     expect(nextConfig.poweredByHeader).toBe(false)
+  })
+
+  it("freezes the source commit into the build and build identifier", async () => {
+    expect(BUILD_COMMIT).toMatch(/^(?:[0-9a-f]{40}|development)$/)
+    expect(nextConfig.env?.SCOUT_BUILD_COMMIT).toBe(BUILD_COMMIT)
+    await expect(nextConfig.generateBuildId?.()).resolves.toBe(BUILD_COMMIT)
   })
 })

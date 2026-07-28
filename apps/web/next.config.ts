@@ -1,6 +1,45 @@
+import { execFileSync } from "node:child_process"
+
 import type { NextConfig } from "next"
 
 const isDevelopment = process.env.NODE_ENV === "development"
+
+const COMMIT_PATTERN = /^[0-9a-f]{40}$/i
+const COMMIT_ENVIRONMENT_KEYS = [
+  "SCOUT_SOURCE_COMMIT",
+  "GITHUB_SHA",
+  "CF_PAGES_COMMIT_SHA",
+  "SOURCE_COMMIT_SHA",
+  "COMMIT_SHA",
+] as const
+
+function normalizeCommit(value: string | undefined) {
+  const commit = value?.trim()
+  return commit && COMMIT_PATTERN.test(commit)
+    ? commit.toLowerCase()
+    : undefined
+}
+
+function resolveBuildCommit() {
+  for (const key of COMMIT_ENVIRONMENT_KEYS) {
+    const commit = normalizeCommit(process.env[key])
+    if (commit) return commit
+  }
+
+  try {
+    return normalizeCommit(
+      execFileSync("git", ["rev-parse", "--verify", "HEAD"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      })
+    )
+  } catch {
+    return undefined
+  }
+}
+
+export const BUILD_COMMIT =
+  (isDevelopment ? undefined : resolveBuildCommit()) ?? "development"
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -45,9 +84,17 @@ export const SECURITY_HEADERS = [
     key: "X-Frame-Options",
     value: "DENY",
   },
+  {
+    key: "X-Scout-Release",
+    value: BUILD_COMMIT,
+  },
 ] as const
 
 const nextConfig: NextConfig = {
+  env: {
+    SCOUT_BUILD_COMMIT: BUILD_COMMIT,
+  },
+  generateBuildId: async () => BUILD_COMMIT,
   poweredByHeader: false,
   transpilePackages: [
     "@act-tutor/content",
