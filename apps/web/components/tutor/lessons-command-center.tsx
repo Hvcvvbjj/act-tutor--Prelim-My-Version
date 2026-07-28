@@ -6,7 +6,6 @@ import {
   BookOpenCheckIcon,
   CalendarClockIcon,
   FlameIcon,
-  GaugeIcon,
   RefreshCwIcon,
   SparklesIcon,
   TimerResetIcon,
@@ -19,6 +18,7 @@ import {
 } from "@/components/tutor/lesson-path"
 import { LessonTimeline } from "@/components/tutor/lesson-timeline"
 import { Button } from "@/components/ui/button"
+import { formatCalendarDate } from "@/lib/dates"
 
 interface LessonsCommandCenterProps {
   learning: LearningSessionPayload
@@ -132,26 +132,28 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
 
   return (
     <div
-      className="mx-auto w-full max-w-[86rem] px-4 py-7 sm:px-7 lg:py-9"
+      className="mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-7"
       data-testid="lessons-command-center"
     >
-      <header className="grid gap-6 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <header className="flex flex-col gap-5 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="ink-label text-primary">
-            Round {learning.cycle.roundNumber} · Foundation path
+            Round {learning.cycle.roundNumber} ·{" "}
+            {learning.cycle.roundNumber === 1 ? "Foundation" : "Adaptive"}
           </p>
-          <h1 className="mt-3 max-w-4xl font-heading text-5xl leading-[0.96] font-black tracking-[-0.05em] sm:text-6xl">
-            Learn the types. Then sharpen the weak spots.
+          <h1 className="mt-1.5 font-heading text-3xl leading-tight font-black tracking-[-0.035em] sm:text-4xl">
+            Lessons
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-            Round one covers all 12 ACT question types. Later rounds use your
-            diagnostic and full-test evidence to change the order.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            {learning.cycle.roundNumber === 1
+              ? "Learn each ACT question type in order."
+              : "Work through the skills your latest assessment prioritized."}
           </p>
         </div>
-        <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border bg-border text-center">
-          <div className="min-w-24 bg-background px-4 py-3">
-            <dt className="text-xs font-bold text-muted-foreground">Streak</dt>
-            <dd className="mt-1 flex items-center justify-center gap-1.5 font-heading text-xl font-black">
+        <dl className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm lg:justify-end">
+          <div className="flex items-center gap-2">
+            <dt className="font-semibold text-muted-foreground">Streak</dt>
+            <dd className="flex items-center gap-1 font-heading font-black">
               <FlameIcon
                 className="size-4 text-[var(--scout-coral)]"
                 aria-hidden="true"
@@ -159,22 +161,20 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
               {progress.currentStreak}
             </dd>
           </div>
-          <div className="min-w-24 bg-background px-4 py-3">
-            <dt className="text-xs font-bold text-muted-foreground">Points</dt>
-            <dd className="mt-1 font-heading text-xl font-black tabular-nums">
+          <div className="flex items-baseline gap-2 border-l pl-5">
+            <dt className="font-semibold text-muted-foreground">Points</dt>
+            <dd className="font-heading font-black tabular-nums">
               {progress.xp.toLocaleString("en-US")}
             </dd>
           </div>
-          <div className="min-w-24 bg-background px-4 py-3">
-            <dt className="text-xs font-bold text-muted-foreground">Goal</dt>
-            <dd className="mt-1 font-heading text-xl font-black">
-              {props.goalScore}
-            </dd>
+          <div className="flex items-baseline gap-2 border-l pl-5">
+            <dt className="font-semibold text-muted-foreground">Goal</dt>
+            <dd className="font-heading font-black">{props.goalScore}</dd>
           </div>
         </dl>
       </header>
 
-      <div className="mt-7 grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div
           data-tour-id="lesson-path"
           className="overflow-hidden rounded-2xl border bg-background"
@@ -188,142 +188,116 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
                 : `Adaptive round ${learning.cycle.roundNumber}`
             }
             title="Your lesson path"
-            description="Move down the path in order. Finished lessons stay marked while the next available node opens."
+            description="The highlighted lesson is ready now."
             busy={props.busy}
             className="max-w-none"
             onSelectLesson={selectLesson}
           />
         </div>
 
-        <aside className="grid gap-5 xl:sticky xl:top-24">
-          <section
-            data-tour-id="lesson-action"
-            className="rounded-2xl border-2 border-primary bg-secondary p-5"
-          >
+        <aside className="overflow-hidden rounded-2xl border bg-background xl:sticky xl:top-24">
+          <div data-tour-id="lesson-action" className="bg-secondary p-5">
             <p className="ink-label text-primary">Up next</p>
-            <h2 className="mt-3 font-heading text-2xl leading-tight font-black">
+            <h2 className="mt-2.5 font-heading text-2xl leading-tight font-black">
               {learning.status === "complete"
                 ? (learning.mission.skillMap.find(
                     (skill) => skill.skill === learning.nextSkill
                   )?.label ?? "Next lesson")
                 : learning.lesson.title}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {action.detail}
             </p>
             <Button
               type="button"
               size="lg"
-              className="mt-5 w-full"
+              className="mt-4 w-full"
               disabled={props.busy}
               onClick={action.action}
             >
               <ActionIcon data-icon="inline-start" />
               {action.label}
             </Button>
-          </section>
+          </div>
 
-          <section className="rounded-2xl border bg-background p-5">
-            <div className="flex items-center gap-2">
-              <CalendarClockIcon className="size-5 text-primary" />
-              <h2 className="font-heading text-xl font-black">This week</h2>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Study blocks are spaced toward your {props.testDate} test date.
-              Change the exact weekdays and minutes whenever your week changes.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4 w-full"
-              onClick={props.onOpenWeek}
-            >
-              Adjust my week
-            </Button>
-          </section>
-
-          <section className="rounded-2xl border bg-background p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <GaugeIcon className="size-5 text-primary" />
-                <h2 className="font-heading text-xl font-black">
-                  Session review
-                </h2>
+          <div className="border-t px-5 py-4">
+            <div className="flex items-center gap-3">
+              <CalendarClockIcon
+                className="size-4 shrink-0 text-primary"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold">Study week</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  Test date {formatCalendarDate(props.testDate)}
+                </p>
               </div>
-              <span className="font-mono text-xs font-bold text-muted-foreground">
-                {learning.mission.unresolvedMistakes} open
-              </span>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto min-h-11 px-0"
+                onClick={props.onOpenWeek}
+              >
+                Adjust
+              </Button>
             </div>
-            {learning.status !== "complete" ? (
-              <>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Finish the current lesson first. Your review queue will stay
-                  here.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 w-full"
-                  onClick={props.onOpenWorkspace}
-                >
-                  Continue current lesson
-                </Button>
-              </>
-            ) : nextMistake ? (
-              <>
-                <p className="mt-3 text-sm leading-6">
-                  <strong>{nextMistake.skillLabel}:</strong>{" "}
-                  {nextMistake.prompt}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 w-full"
-                  disabled={props.busy}
-                  onClick={() => props.onStartRepair(nextMistake.id)}
-                >
-                  <RefreshCwIcon /> Try it again
-                </Button>
-              </>
-            ) : nextReview ? (
-              <>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  {nextReview.label} is ready for a short retention check.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 w-full"
-                  disabled={props.busy}
-                  onClick={() => props.onStartRetention(nextReview.skill)}
-                >
-                  Review {nextReview.label}
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Nothing is overdue. Use a full-section check when you want a
-                  stronger read on your pacing.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4 w-full"
-                  onClick={props.onStartProgressCheck}
-                >
-                  <TimerResetIcon /> Start progress check
-                </Button>
-              </>
-            )}
-          </section>
+          </div>
 
-          <section className="rounded-2xl border bg-background p-5">
-            <h2 className="font-heading text-xl font-black">
-              More study options
-            </h2>
-            {canSwitch ? (
-              <div className="mt-4 grid gap-2">
+          {learning.status === "complete" && nextMistake ? (
+            <div className="border-t px-5 py-4">
+              <div className="flex items-start gap-3">
+                <RefreshCwIcon
+                  className="mt-0.5 size-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">Review one mistake</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    {nextMistake.skillLabel}: {nextMistake.prompt}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full"
+                disabled={props.busy}
+                onClick={() => props.onStartRepair(nextMistake.id)}
+              >
+                Try it again
+              </Button>
+            </div>
+          ) : learning.status === "complete" && nextReview ? (
+            <div className="border-t px-5 py-4">
+              <p className="text-sm font-bold">Ready to review</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Refresh {nextReview.label} before it fades.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full"
+                disabled={props.busy}
+                onClick={() => props.onStartRetention(nextReview.skill)}
+              >
+                Review {nextReview.label}
+              </Button>
+            </div>
+          ) : null}
+
+          {canSwitch ? (
+            <details className="group border-t">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-5 py-3 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
+                More ways to study
+                <span className="font-mono text-xs text-primary group-open:hidden">
+                  Show
+                </span>
+                <span className="hidden font-mono text-xs text-primary group-open:inline">
+                  Hide
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t px-5 py-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -348,32 +322,29 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
                 >
                   <RefreshCwIcon /> Easy restart
                 </Button>
-              </div>
-            ) : (
-              <>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Finish the current task before switching formats.
-                </p>
                 <Button
                   type="button"
                   variant="outline"
-                  className="mt-4 w-full"
-                  onClick={props.onOpenWorkspace}
+                  className="justify-start"
+                  onClick={props.onStartProgressCheck}
                 >
-                  Finish current task
+                  <TimerResetIcon /> Full-section check
                 </Button>
-              </>
-            )}
+              </div>
+            </details>
+          ) : null}
+
+          <div className="border-t px-5 py-3">
             <Button
               type="button"
               variant="link"
-              className="mt-3 h-auto px-0"
+              className="h-auto min-h-11 px-0"
               onClick={props.onOpenBadges}
             >
-              See points and badges
+              Points and badges
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
-          </section>
+          </div>
         </aside>
       </div>
     </div>

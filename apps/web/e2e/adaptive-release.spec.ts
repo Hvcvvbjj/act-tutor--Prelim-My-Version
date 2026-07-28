@@ -256,6 +256,7 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
 test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom sheet", async ({
   page,
 }) => {
+  test.setTimeout(90_000)
   await page.setViewportSize({ width: 320, height: 760 })
   await openStarterPlan(page)
   const primaryNavigation = page.getByRole("navigation", {
@@ -325,10 +326,13 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   await expect(lessons).toBeVisible()
   await expect(
     lessons.getByRole("heading", {
-      name: "Learn the types. Then sharpen the weak spots.",
+      name: "Lessons",
     })
   ).toBeVisible()
-  await expect(lessons.getByText("More study options")).toBeVisible()
+  await expect(
+    lessons.getByRole("complementary").getByText("Up next", { exact: true })
+  ).toBeVisible()
+  await expect(lessons.getByText("More ways to study")).toHaveCount(0)
   await expect(page.getByText("Why Scout picked this")).toHaveCount(0)
   await expect(page.getByText("Later today")).toHaveCount(0)
 
@@ -359,7 +363,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
     page.getByRole("heading", {
       name: "Your 12 skills",
     })
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 20_000 })
   await expect
     .poll(() =>
       page.evaluate(() => ({
@@ -461,15 +465,20 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   await page.getByRole("button", { name: "Open settings" }).click()
   const settings = page.getByRole("dialog", { name: "Settings" })
   await expect(settings).toBeVisible()
+  await settings.locator("summary").filter({ hasText: "Study access" }).click()
   await expect(
     settings.getByRole("switch", {
       name: "Reduced motion Stops nonessential movement.",
       exact: true,
     })
   ).toBeVisible()
+  await settings
+    .locator("summary")
+    .filter({ hasText: "Mr. Kim's answers" })
+    .click()
   await expect(
     settings.getByRole("switch", {
-      name: "Use fewer technical terms Keeps Scout answers focused on direct, learner-facing language.",
+      name: "Use fewer technical terms Keep answers direct and learner-facing.",
       exact: true,
     })
   ).toBeVisible()

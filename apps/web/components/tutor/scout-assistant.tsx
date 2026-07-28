@@ -69,8 +69,8 @@ const ACCOMMODATION_OPTIONS: ReadonlyArray<
   ],
   [
     "keyboardOnly",
-    "Keyboard navigation",
-    "Makes keyboard focus extra visible.",
+    "Extra-visible keyboard focus",
+    "Makes the focus outline easier to follow.",
   ],
   ["readAloud", "Read aloud", "Adds speech controls to Scout answers."],
   [
@@ -227,6 +227,12 @@ export function ScoutProvider({
         }
         if (cancelled) return
         setAiAvailable(Boolean(payload.aiAvailable))
+        setVisibleMessages(
+          payload.messages.slice(-15).map((message) => ({
+            screen: message.screen ?? "today",
+            message,
+          }))
+        )
         const currentLocal = readScoutSettings()
         const serverUsesDefaults =
           JSON.stringify(payload.preferences) ===
@@ -672,13 +678,13 @@ export function ScoutProvider({
         >
           <aside
             ref={toolsDialogRef}
-            className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-5"
+            className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-5"
             role="dialog"
             aria-modal="true"
             aria-label="Settings"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b-2 border-foreground pb-4">
+            <div className="sticky top-0 z-10 -mx-5 flex items-center justify-between gap-4 border-b border-border bg-background px-5 py-4">
               <h2 className="font-heading text-3xl font-black">Settings</h2>
               <Button
                 type="button"
@@ -690,12 +696,12 @@ export function ScoutProvider({
                 <XIcon />
               </Button>
             </div>
-            <section className="grid gap-2 border-b-2 border-foreground py-5">
+            <section className="divide-y border-b py-2">
               {onEditPlan ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  className="justify-start"
+                  variant="ghost"
+                  className="w-full justify-start rounded-none px-0"
                   onClick={() => {
                     setToolsOpen(false)
                     onEditPlan()
@@ -707,8 +713,8 @@ export function ScoutProvider({
               {onOpenDataPrivacy ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  className="justify-start"
+                  variant="ghost"
+                  className="w-full justify-start rounded-none px-0"
                   onClick={() => {
                     setToolsOpen(false)
                     onOpenDataPrivacy()
@@ -719,8 +725,8 @@ export function ScoutProvider({
               ) : null}
               <Button
                 type="button"
-                variant="outline"
-                className="justify-start"
+                variant="ghost"
+                className="w-full justify-start rounded-none px-0"
                 onClick={() => {
                   setToolsOpen(false)
                   replayDashboardTour()
@@ -729,30 +735,43 @@ export function ScoutProvider({
                 Replay website tour
               </Button>
             </section>
-            <div className="divide-y">
-              {ACCOMMODATION_OPTIONS.map(([key, label, detail]) => (
-                <label
-                  key={key}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-4"
-                >
-                  <span>
-                    <span className="block font-bold">{label}</span>
-                    <span className="mt-1 block text-sm leading-5 text-muted-foreground">
-                      {detail}
+            <details className="group border-b">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-heading text-lg font-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                Study access
+                <span className="font-mono text-xs font-bold text-muted-foreground">
+                  8 options
+                </span>
+              </summary>
+              <div className="divide-y border-t">
+                {ACCOMMODATION_OPTIONS.map(([key, label, detail]) => (
+                  <label
+                    key={key}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3.5"
+                  >
+                    <span>
+                      <span className="block font-bold">{label}</span>
+                      <span className="mt-0.5 block text-sm leading-5 text-muted-foreground">
+                        {detail}
+                      </span>
                     </span>
-                  </span>
-                  <Switch
-                    checked={accommodations[key]}
-                    onCheckedChange={(enabled) =>
-                      saveAccommodation(key, enabled)
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-            <section className="border-t-2 border-foreground pt-6">
-              <p className="ink-label text-primary">Answer style</p>
-              <div className="mt-4 grid gap-4">
+                    <Switch
+                      checked={accommodations[key]}
+                      onCheckedChange={(enabled) =>
+                        saveAccommodation(key, enabled)
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
+            <details className="group border-b">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-heading text-lg font-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                Mr. Kim&apos;s answers
+                <span className="font-mono text-xs font-bold text-muted-foreground">
+                  Style
+                </span>
+              </summary>
+              <div className="grid gap-4 border-t py-4">
                 <label className="grid gap-2 text-sm font-bold">
                   Answer length
                   <select
@@ -763,7 +782,7 @@ export function ScoutProvider({
                         event.target.value as ExplanationPreferences["depth"]
                       )
                     }
-                    className="h-11 border-2 border-foreground bg-background px-3"
+                    className="h-11 rounded-lg border bg-background px-3"
                   >
                     <option value="quick">Quick answers</option>
                     <option value="normal">Normal explanations</option>
@@ -781,7 +800,7 @@ export function ScoutProvider({
                           .value as ExplanationPreferences["readingLevel"]
                       )
                     }
-                    className="h-11 border-2 border-foreground bg-background px-3"
+                    className="h-11 rounded-lg border bg-background px-3"
                   >
                     <option value="plain">Plain and direct</option>
                     <option value="standard">Standard high school</option>
@@ -799,7 +818,7 @@ export function ScoutProvider({
                           .value as ExplanationPreferences["exampleStyle"]
                       )
                     }
-                    className="h-11 border-2 border-foreground bg-background px-3"
+                    className="h-11 rounded-lg border bg-background px-3"
                   >
                     <option value="everyday">Everyday situations</option>
                     <option value="school">School</option>
@@ -813,8 +832,7 @@ export function ScoutProvider({
                       Use fewer technical terms
                     </span>
                     <span className="mt-1 block text-sm text-muted-foreground">
-                      Keeps Scout answers focused on direct, learner-facing
-                      language.
+                      Keep answers direct and learner-facing.
                     </span>
                   </span>
                   <Switch
@@ -825,7 +843,7 @@ export function ScoutProvider({
                   />
                 </label>
               </div>
-            </section>
+            </details>
           </aside>
         </div>
       ) : null}

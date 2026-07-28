@@ -17,7 +17,6 @@ import {
   MedalIcon,
   ShieldCheckIcon,
   SparklesIcon,
-  TargetIcon,
   TrophyIcon,
 } from "lucide-react"
 
@@ -59,17 +58,17 @@ function BadgeItem({ badge }: { badge: MotivationBadge }) {
   return (
     <li
       className={cn(
-        "relative overflow-hidden rounded-2xl border p-5",
+        "relative overflow-hidden rounded-xl border p-4",
         badge.earned
           ? "border-primary/35 bg-secondary/70"
           : "border-border bg-background"
       )}
       data-earned={badge.earned ? "true" : "false"}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-3">
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-full border",
+            "flex size-10 shrink-0 items-center justify-center rounded-full border",
             badge.earned
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-muted text-muted-foreground"
@@ -77,9 +76,18 @@ function BadgeItem({ badge }: { badge: MotivationBadge }) {
         >
           <Icon className="size-5" aria-hidden="true" />
         </span>
+        <div className="min-w-0 flex-1">
+          <p className="sr-only">{category.label}</p>
+          <h3 className="font-heading text-base leading-tight font-black">
+            {badge.title}
+          </h3>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            {badge.description}
+          </p>
+        </div>
         <span
           className={cn(
-            "flex items-center gap-1.5 text-xs font-bold",
+            "mt-0.5 shrink-0",
             badge.earned ? "text-primary" : "text-muted-foreground"
           )}
         >
@@ -88,20 +96,13 @@ function BadgeItem({ badge }: { badge: MotivationBadge }) {
           ) : (
             <LockKeyholeIcon className="size-3.5" aria-hidden="true" />
           )}
-          {badge.earned ? "Earned" : "In progress"}
+          <span className="sr-only">
+            {badge.earned ? "Earned" : "In progress"}
+          </span>
         </span>
       </div>
-      <p className="mt-5 text-xs font-bold tracking-[0.1em] text-muted-foreground uppercase">
-        {category.label}
-      </p>
-      <h3 className="mt-1 font-heading text-lg leading-tight font-black">
-        {badge.title}
-      </h3>
-      <p className="mt-2 min-h-10 text-sm leading-5 text-muted-foreground">
-        {badge.description}
-      </p>
       <div
-        className="mt-5 h-1.5 overflow-hidden rounded-full bg-muted"
+        className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted"
         role="progressbar"
         aria-label={`${badge.title} badge progress`}
         aria-valuemin={0}
@@ -133,8 +134,6 @@ export interface BadgesSurfaceProps {
   totalAnswered: number
   secureSkills: number
   totalSkills: number
-  currentScore: number
-  goalScore: number
   className?: string
   onContinueStudying?: () => void
 }
@@ -149,8 +148,6 @@ export function BadgesSurface({
   totalAnswered,
   secureSkills,
   totalSkills,
-  currentScore,
-  goalScore,
   className,
   onContinueStudying,
 }: BadgesSurfaceProps) {
@@ -173,7 +170,6 @@ export function BadgesSurface({
       (left, right) =>
         right.progress / right.target - left.progress / left.target
     )[0]
-  const scoreGap = Math.max(0, goalScore - currentScore)
   const nextMomentumLevel = pointProgress.completedLevels + 1
 
   return (
@@ -181,23 +177,22 @@ export function BadgesSurface({
       id="main-content"
       tabIndex={-1}
       className={cn(
-        "mx-auto w-full max-w-6xl px-4 py-8 sm:px-7 lg:py-10",
+        "mx-auto w-full max-w-6xl px-4 py-7 sm:px-7 lg:py-8",
         className
       )}
       data-testid="badges-surface"
     >
-      <header className="flex flex-col gap-5 border-b-2 border-foreground pb-7 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3 text-primary">
-            <MedalIcon className="size-6" aria-hidden="true" />
+          <div className="flex items-center gap-2 text-primary">
+            <MedalIcon className="size-5" aria-hidden="true" />
             <p className="ink-label">Your momentum</p>
           </div>
-          <h1 className="mt-3 font-heading text-4xl leading-none font-black tracking-[-0.04em] sm:text-5xl">
+          <h1 className="mt-2 font-heading text-3xl leading-tight font-black tracking-[-0.035em] sm:text-4xl">
             Badges
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-            Earn badges by returning, practicing, improving, and securing ACT
-            question types.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Earn them through streaks, practice, mastery, and milestones.
           </p>
         </div>
         <p className="font-mono text-sm font-bold text-muted-foreground">
@@ -206,26 +201,26 @@ export function BadgesSurface({
       </header>
 
       <section
-        className="grid gap-8 border-b py-9 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:gap-12"
+        className="mt-6 grid overflow-hidden rounded-2xl border bg-background lg:grid-cols-[minmax(0,1.4fr)_minmax(17rem,0.6fr)]"
         aria-labelledby="points-title"
       >
-        <div>
+        <div className="p-5 sm:p-6">
           <div className="flex items-center gap-2 text-primary">
             <SparklesIcon className="size-5" aria-hidden="true" />
             <h2 id="points-title" className="text-sm font-black">
-              Points toward momentum level {nextMomentumLevel}
+              Momentum level {nextMomentumLevel}
             </h2>
           </div>
-          <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <p className="font-heading text-5xl font-black tracking-[-0.05em] tabular-nums sm:text-6xl">
+          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="font-heading text-4xl font-black tracking-[-0.045em] tabular-nums sm:text-5xl">
               {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")}
             </p>
-            <p className="text-lg font-bold text-muted-foreground">
+            <p className="font-bold text-muted-foreground">
               / {POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} pts
             </p>
           </div>
           <div
-            className="mt-5 h-3 overflow-hidden rounded-full bg-muted"
+            className="mt-4 h-2 overflow-hidden rounded-full bg-muted"
             role="progressbar"
             aria-label={`Points toward momentum level ${nextMomentumLevel}`}
             aria-valuemin={0}
@@ -237,26 +232,24 @@ export function BadgesSurface({
               style={{ width: `${pointProgress.progress * 100}%` }}
             />
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="font-semibold">
               {pointProgress.pointsUntilNextLevel.toLocaleString("en-US")}{" "}
-              points until momentum level {nextMomentumLevel}
+              points to the next level
             </p>
-            <p className="text-muted-foreground">
-              {POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} points = one
-              momentum level
-            </p>
+            <p className="text-muted-foreground">1,000 points per level</p>
           </div>
-          <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            Momentum levels reward completed study. They never change or predict
-            an ACT score; only scored evidence can update Scout’s ACT estimates.
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            Points track completed study. Scored answers update ACT estimates.
           </p>
         </div>
 
-        <aside className="border-l-0 lg:border-l lg:pl-9" aria-label="Momentum">
-          <h2 className="font-heading text-xl font-black">Momentum</h2>
-          <dl className="mt-4 divide-y border-y">
-            <div className="flex items-center justify-between gap-4 py-4">
+        <aside
+          className="border-t px-5 py-4 lg:border-t-0 lg:border-l"
+          aria-label="Momentum"
+        >
+          <dl className="divide-y">
+            <div className="flex items-center justify-between gap-4 py-3">
               <dt className="flex items-center gap-2 text-sm font-semibold">
                 <FlameIcon
                   className="size-4 text-[var(--scout-coral-text)]"
@@ -264,11 +257,11 @@ export function BadgesSurface({
                 />
                 Current streak
               </dt>
-              <dd className="font-mono text-lg font-black tabular-nums">
+              <dd className="font-mono font-black tabular-nums">
                 {formatCount(currentStreak, "day")}
               </dd>
             </div>
-            <div className="flex items-center justify-between gap-4 py-4">
+            <div className="flex items-center justify-between gap-4 py-3">
               <dt className="flex items-center gap-2 text-sm font-semibold">
                 <ShieldCheckIcon
                   className="size-4 text-primary"
@@ -276,20 +269,8 @@ export function BadgesSurface({
                 />
                 Secure skills
               </dt>
-              <dd className="font-mono text-lg font-black tabular-nums">
+              <dd className="font-mono font-black tabular-nums">
                 {secureSkills}/{totalSkills}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between gap-4 py-4">
-              <dt className="flex items-center gap-2 text-sm font-semibold">
-                <TargetIcon
-                  className="size-4 text-primary"
-                  aria-hidden="true"
-                />
-                Current-to-goal gap
-              </dt>
-              <dd className="font-mono text-lg font-black tabular-nums">
-                {scoreGap > 0 ? `${formatScore(scoreGap)} pts` : "Reached"}
               </dd>
             </div>
           </dl>
@@ -297,7 +278,7 @@ export function BadgesSurface({
             <Button
               type="button"
               variant="outline"
-              className="mt-5 w-full"
+              className="mt-3 w-full"
               onClick={onContinueStudying}
             >
               Continue studying
@@ -309,7 +290,7 @@ export function BadgesSurface({
 
       {nextBadge ? (
         <section
-          className="grid gap-4 border-b py-7 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+          className="mt-6 grid gap-4 border-y py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
           aria-labelledby="next-milestone-title"
         >
           <span className="flex size-12 items-center justify-center rounded-full bg-[var(--coach-surface)] text-[var(--scout-coral-text)]">
@@ -342,23 +323,16 @@ export function BadgesSurface({
         </section>
       )}
 
-      <section className="py-9" aria-labelledby="collection-title">
+      <section className="py-6" aria-labelledby="collection-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="ink-label text-muted-foreground">Collection</p>
-            <h2
-              id="collection-title"
-              className="mt-1 font-heading text-2xl font-black"
-            >
-              Badge progress
-            </h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Best streak: {formatCount(longestStreak, "day")} ·{" "}
-            {formatCount(completedSets, "session")}
-          </p>
+          <h2
+            id="collection-title"
+            className="font-heading text-2xl font-black"
+          >
+            All badges
+          </h2>
         </div>
-        <ol className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {badges.map((badge) => (
             <BadgeItem key={badge.id} badge={badge} />
           ))}

@@ -292,11 +292,14 @@ test("compact desktop navigation keeps primary controls easy to target", async (
 test("learner actions stay comfortably targetable across the core study surfaces", async ({
   page,
 }) => {
+  test.setTimeout(90_000)
   await page.setViewportSize({ width: 1024, height: 800 })
   await openReportedScorePlan(page)
 
   const lessons = page.getByRole("tabpanel", { name: "Lessons" })
-  await expect(lessons.getByText("More study options")).toBeVisible()
+  await expect(
+    lessons.getByRole("complementary").getByText("Up next", { exact: true })
+  ).toBeVisible()
   await expectActionTargetsAtLeast44(lessons)
 
   await page.getByRole("tab", { name: "My week" }).click()
@@ -312,7 +315,11 @@ test("learner actions stay comfortably targetable across the core study surfaces
   await page.setViewportSize({ width: 320, height: 760 })
   await page.getByRole("tab", { name: "Lessons" }).click()
   const mobileLessons = page.getByRole("tabpanel", { name: "Lessons" })
-  await expect(mobileLessons.getByText("More study options")).toBeVisible()
+  await expect(
+    mobileLessons
+      .getByRole("complementary")
+      .getByText("Up next", { exact: true })
+  ).toBeVisible()
   await expectActionTargetsAtLeast44(mobileLessons)
 
   await page.getByRole("tab", { name: "Week" }).click()

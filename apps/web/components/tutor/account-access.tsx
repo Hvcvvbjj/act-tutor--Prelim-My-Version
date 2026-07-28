@@ -278,7 +278,7 @@ export function AccountAccess({
                   <p id={descriptionId} className="mt-4 text-sm leading-6">
                     {viewer.role === "judge"
                       ? "Technical evidence and judge-only demo controls are visible in this session."
-                      : "Your current plan and Scout session are linked to this account. Signing in on another device restores the latest saved plan."}
+                      : "Your latest Scout plan is saved to this account."}
                   </p>
                 </div>
                 {error ? (
@@ -306,9 +306,8 @@ export function AccountAccess({
                   id={descriptionId}
                   className="mt-5 text-sm leading-6 text-muted-foreground"
                 >
-                  You can use Scout without an account. Create one only if you
-                  want to reopen this plan on another device. Signing in does
-                  not change how Scout chooses questions or lessons.
+                  Accounts are optional. Create one to save this plan across
+                  devices.
                 </p>
 
                 <div

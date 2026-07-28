@@ -1602,7 +1602,7 @@ export function TutorApp({
                   : undefined
         }
         onStartDashboardTour={() => {
-          if (!window.matchMedia("(min-width: 1024px)").matches) return false
+          if (!window.matchMedia("(min-width: 900px)").matches) return false
           try {
             window.localStorage.removeItem(DASHBOARD_TOUR_STORAGE_KEY)
           } catch {

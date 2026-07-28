@@ -1267,8 +1267,6 @@ export function Dashboard({
               totalAnswered={learning.mission.progress.totalAnswered}
               secureSkills={secureSkillCount}
               totalSkills={learning.learningTwin.skills.length}
-              currentScore={plan.currentComposite}
-              goalScore={plan.draft.goal}
               onContinueStudying={() => setActiveTab("today")}
             />
           ) : null}

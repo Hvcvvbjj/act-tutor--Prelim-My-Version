@@ -805,9 +805,10 @@ export async function POST(request: NextRequest) {
       }),
       history: scout.state.messages.slice(-3),
     })
-    const message = {
+    const message: ScoutMessage = {
       id: randomUUID(),
       askedAt: new Date().toISOString(),
+      screen: scoutRequest.screen,
       question,
       answer,
     }

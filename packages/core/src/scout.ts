@@ -52,6 +52,7 @@ export interface ScoutAnswer {
 export interface ScoutMessage {
   id: string;
   askedAt: string;
+  screen?: ScoutScreen;
   question: string;
   answer: ScoutAnswer;
 }

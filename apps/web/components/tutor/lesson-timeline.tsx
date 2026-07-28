@@ -54,10 +54,12 @@ function LessonContent({
   lesson,
   index,
   interactive,
+  expanded,
 }: {
   lesson: LessonPathItem
   index: number
   interactive: boolean
+  expanded: boolean
 }) {
   return (
     <>
@@ -81,13 +83,18 @@ function LessonContent({
           </>
         ) : null}
       </div>
-      <div className="mt-2 flex items-start justify-between gap-4">
+      <div className="mt-1.5 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="font-heading text-lg leading-tight font-black tracking-[-0.02em] sm:text-xl">
+          <h3
+            className={cn(
+              "font-heading leading-tight font-black tracking-[-0.02em]",
+              expanded ? "text-lg sm:text-xl" : "text-base"
+            )}
+          >
             {lesson.title}
           </h3>
-          {lesson.description ? (
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {expanded && lesson.description ? (
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
               {lesson.description}
             </p>
           ) : null}
@@ -99,7 +106,12 @@ function LessonContent({
           />
         ) : null}
       </div>
-      <p className="mt-3 text-xs font-bold text-muted-foreground">
+      <p
+        className={cn(
+          "text-xs font-bold text-muted-foreground",
+          expanded ? "mt-3" : "mt-1.5"
+        )}
+      >
         {STATUS_COPY[lesson.status]}
       </p>
     </>
@@ -134,23 +146,26 @@ export function LessonTimeline({
 
   return (
     <section
-      className={cn("mx-auto w-full max-w-5xl px-4 py-8 sm:px-7", className)}
+      className={cn(
+        "mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-6",
+        className
+      )}
       aria-labelledby="lesson-path-title"
       data-testid="lesson-timeline"
     >
-      <header className="grid gap-6 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+      <header className="grid gap-5 border-b pb-5 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-end">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-3 text-primary">
-            <MapIcon className="size-5" aria-hidden="true" />
+          <div className="flex items-center gap-2 text-primary">
+            <MapIcon className="size-4" aria-hidden="true" />
             <p className="ink-label">{roundLabel ?? `Round ${roundNumber}`}</p>
           </div>
           <h2
             id="lesson-path-title"
-            className="mt-3 font-heading text-4xl leading-none font-black tracking-[-0.04em] sm:text-5xl"
+            className="mt-2 font-heading text-2xl leading-tight font-black tracking-[-0.03em] sm:text-3xl"
           >
             {title}
           </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
             {description}
           </p>
         </div>
@@ -163,7 +178,7 @@ export function LessonTimeline({
             </p>
           </div>
           <div
-            className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
             role="progressbar"
             aria-label={`Round ${roundNumber} lesson progress`}
             aria-valuemin={0}
@@ -179,34 +194,32 @@ export function LessonTimeline({
       </header>
 
       {lessons.length ? (
-        <ol className="mx-auto mt-10 max-w-4xl">
+        <ol className="mx-auto mt-6 max-w-4xl">
           {lessons.map((lesson, index) => {
             const interactive =
               lesson.status !== "locked" &&
               lesson.status !== "completed" &&
               Boolean(onSelectLesson)
-            const contentClass =
-              index % 2 === 0
-                ? "col-start-2 sm:col-start-1 sm:text-right"
-                : "col-start-2 sm:col-start-3"
+            const expanded = lesson.status === "current"
             const content = (
               <LessonContent
                 lesson={lesson}
                 index={index}
                 interactive={interactive}
+                expanded={expanded}
               />
             )
 
             return (
               <li
                 key={lesson.id}
-                className="grid min-h-36 grid-cols-[2.75rem_minmax(0,1fr)] gap-x-3 pb-7 sm:grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] sm:gap-x-5"
+                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-x-3 pb-3 last:pb-0"
                 data-status={lesson.status}
               >
-                <div className="relative col-start-1 row-start-1 flex justify-center sm:col-start-2">
+                <div className="relative col-start-1 row-start-1 flex justify-center">
                   {index < lessons.length - 1 ? (
                     <span
-                      className="absolute top-11 bottom-[-2.25rem] left-1/2 w-px -translate-x-1/2 bg-border"
+                      className="absolute top-10 bottom-[-0.75rem] left-1/2 w-px -translate-x-1/2 bg-border"
                       aria-hidden="true"
                     />
                   ) : null}
@@ -225,11 +238,10 @@ export function LessonTimeline({
                   <button
                     type="button"
                     className={cn(
-                      "group row-start-1 w-full self-start rounded-2xl px-5 py-4 text-left transition duration-200 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none",
-                      contentClass,
+                      "group col-start-2 row-start-1 w-full self-start rounded-xl text-left transition duration-200 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none",
                       lesson.status === "current"
-                        ? "border-2 border-primary bg-secondary shadow-[0_12px_28px_rgb(16_33_63_/_0.08)] hover:-translate-y-0.5"
-                        : "border border-border bg-background hover:border-primary/50 hover:bg-secondary/40"
+                        ? "border-2 border-primary bg-secondary px-5 py-4 shadow-[0_10px_24px_rgb(16_33_63_/_0.07)] hover:-translate-y-0.5"
+                        : "border border-border bg-background px-4 py-3 hover:border-primary/50 hover:bg-secondary/40"
                     )}
                     onClick={() => onSelectLesson?.(lesson)}
                     disabled={busy}
@@ -240,10 +252,10 @@ export function LessonTimeline({
                 ) : (
                   <div
                     className={cn(
-                      "row-start-1 w-full self-start rounded-2xl border px-5 py-4",
-                      contentClass,
+                      "col-start-2 row-start-1 w-full self-start rounded-xl border",
+                      expanded ? "px-5 py-4" : "px-4 py-3",
                       lesson.status === "locked"
-                        ? "border-transparent bg-muted/55 text-muted-foreground"
+                        ? "border-transparent bg-muted/45 text-muted-foreground"
                         : "border-border bg-background"
                     )}
                   >

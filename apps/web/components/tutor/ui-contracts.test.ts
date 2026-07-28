@@ -120,7 +120,7 @@ describe("shared visual system contract", () => {
     expect(mission).not.toContain("lg:grid-cols-[minmax(0,1fr)_19rem]")
     expect(onboarding).toContain("grid grid-cols-3 gap-2")
     expect(onboarding).toContain(
-      "lg:grid-cols-[minmax(0,1.04fr)_minmax(26rem,0.96fr)]"
+      "lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.88fr)]"
     )
     expect(onboarding).toContain("Your ACT plan starts with a")
     expect(quickCheck).toContain('aria-labelledby="quick-check-heading"')
@@ -207,11 +207,13 @@ describe("learner-facing model language", () => {
       "This is a planning goal—not a score prediction"
     )
     expect(onboarding).not.toContain("See one answer change the plan")
-    expect(onboarding).toContain("Type or use the buttons")
-    expect(onboarding).toContain("Your starting week")
-    expect(onboarding).toContain("You can pick exact weekdays")
+    expect(onboarding).not.toContain("Type or use the buttons")
+    expect(onboarding).toContain("Your week")
+    expect(onboarding).toContain("Change the days later in My Week")
     expect(onboarding).toContain("full 66-question")
-    expect(onboarding).toContain("No invented score. No shortened baseline.")
+    expect(onboarding).not.toContain(
+      "No invented score. No shortened baseline."
+    )
     expect(onboarding).not.toContain("More → Data &amp; privacy")
     expect(onboarding).toContain("Open the judge demo")
     expect(onboarding).toContain("viewer.technicalDetails")
@@ -224,7 +226,9 @@ describe("learner-facing model language", () => {
       "Add the scores Scout should use as your starting point."
     )
     expect(onboarding).not.toContain("choose your first lessons")
-    expect(onboarding).toContain("After Round 1, what should Scout emphasize?")
+    expect(onboarding).not.toContain(
+      "After Round 1, what should Scout emphasize?"
+    )
     expect(onboarding).not.toContain("What should Scout prioritize?")
     expect(onboarding).not.toContain("Preview Scout with sample answers")
     expect(quickCheck).toContain("Scout may")
@@ -310,7 +314,7 @@ describe("motivation and score evidence contract", () => {
 
     expect(learnerCopy).toContain("momentum level")
     expect(normalizedBadges).toContain(
-      "They never change or predict an ACT score; only scored evidence"
+      "Points track completed study. Scored answers update ACT estimates."
     )
     expect(normalizedProgress).toContain(
       "Points reward study momentum; only scored answers shape"
@@ -351,7 +355,7 @@ describe("account access contract", () => {
       "Judges can sign in with the credentials provided with the submission."
     )
     expect(normalizedAccount).toContain(
-      "Signing in does not change how Scout chooses questions or lessons."
+      "Accounts are optional. Create one to save this plan across devices."
     )
   })
 })

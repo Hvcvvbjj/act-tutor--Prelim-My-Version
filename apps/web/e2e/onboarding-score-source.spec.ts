@@ -20,15 +20,14 @@ test("goal and schedule setup are keyboard-editable and preview the real commitm
 
   const dateHelp = page.locator("#test-date-help")
   await expect(dateHelp).toContainText("days away")
-  await expect(dateHelp).toContainText("suggested date")
 
   const preview = page.getByTestId("schedule-preview")
-  await expect(preview).toContainText("3 study blocks · 90 minutes total")
-  await expect(preview).toContainText("You can pick exact weekdays")
+  await expect(preview).toContainText("3 × 30-minute sessions")
+  await expect(preview).toContainText("Change the days later in My Week")
 
   await page.getByRole("button", { name: "5 days" }).click()
   await page.getByRole("button", { name: "45 min" }).click()
-  await expect(preview).toContainText("5 study blocks · 225 minutes total")
+  await expect(preview).toContainText("5 × 45-minute sessions")
 
   await expect
     .poll(() =>
@@ -55,10 +54,10 @@ test("entered ACT values become the starting score without a Quick Check gate", 
   await page.getByRole("button", { name: "Create my first plan" }).click()
 
   await expect(
-    page.getByRole("heading", { name: "Your starting point is ready." })
+    page.getByRole("heading", { name: "Your starting score is ready." })
   ).toBeVisible()
   await expect(
-    page.getByText("Your current planning score is 29.")
+    page.getByText("Your current starting score is 29.")
   ).toBeAttached()
   await expect(page.getByText("Quick Check complete")).toHaveCount(0)
   await expect(

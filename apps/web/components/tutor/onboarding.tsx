@@ -196,8 +196,6 @@ function SchedulePreview({
       ? `Today (${WEEKDAY_LABELS[entry.weekday]})`
       : WEEKDAY_LABELS[entry.weekday]
   )
-  const weeklyMinutes = draft.studyDaysPerWeek * draft.minutesPerSession
-
   return (
     <aside
       role="status"
@@ -206,11 +204,11 @@ function SchedulePreview({
       className="border-t border-border/80 pt-4"
     >
       <p className="text-sm leading-6">
-        <strong>Your starting week:</strong> {draft.studyDaysPerWeek} study
-        blocks · {weeklyMinutes} minutes total · {dayLabels.join(", ")}.
+        <strong>Your week:</strong> {draft.studyDaysPerWeek} ×{" "}
+        {draft.minutesPerSession}-minute sessions — {dayLabels.join(", ")}.
         <span className="text-muted-foreground">
           {" "}
-          You can pick exact weekdays later in My Week.
+          Change the days later in My Week.
         </span>
       </p>
     </aside>
@@ -228,7 +226,7 @@ function testDateDescription(testDate: string, today: string) {
       daysToTest > 0
         ? `${daysToTest} ${daysToTest === 1 ? "day" : "days"} away`
         : "choose a future date"
-    return `${formatCalendarDate(testDate)} · ${distance}. This is Scout’s suggested date; change it if your ACT is on another day.`
+    return `${formatCalendarDate(testDate)} · ${distance}`
   } catch {
     return "Choose a valid future test date."
   }
@@ -315,7 +313,7 @@ export function Onboarding({
                 Meet Mr. Kim
               </a>
             </nav>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <AccountAccess
                 viewer={viewer}
                 savedPlan={savedPlan}
@@ -323,26 +321,16 @@ export function Onboarding({
                 onViewerChange={onViewerChange}
                 guestLabel="Sign in"
               />
-              <Button
-                type="button"
-                className="hidden sm:inline-flex"
-                onClick={onDismissWelcome}
-              >
-                Start my plan
-              </Button>
             </div>
           </div>
         </header>
 
         <main id="main-content" tabIndex={-1}>
-          <section className="relative mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[90rem] items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.04fr)_minmax(26rem,0.96fr)] lg:px-12 lg:py-16">
+          <section className="relative mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[90rem] items-center gap-12 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.88fr)] lg:px-12 lg:py-14">
             <div className="relative z-10 max-w-3xl">
-              <p className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-secondary px-3.5 py-2 text-xs font-black tracking-[0.12em] text-primary uppercase">
-                Real baseline. Personal weekly path.
-              </p>
               <h1
                 id="scout-welcome-title"
-                className="mt-7 max-w-3xl font-heading text-[clamp(3.5rem,6.6vw,6.9rem)] leading-[0.88] font-black tracking-[-0.07em]"
+                className="max-w-3xl font-heading text-[clamp(3.4rem,6vw,6.2rem)] leading-[0.9] font-black tracking-[-0.065em]"
               >
                 Your ACT plan starts with a{" "}
                 <span className="text-primary">real baseline.</span>
@@ -352,7 +340,7 @@ export function Onboarding({
                 diagnostic. Mr. Kim turns the result into lessons you can fit
                 into an actual week.
               </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-9">
                 <Button
                   type="button"
                   size="xl"
@@ -362,30 +350,7 @@ export function Onboarding({
                   Build my starting plan
                   <ArrowRightIcon data-icon="inline-end" />
                 </Button>
-                <p className="text-sm text-muted-foreground">
-                  No invented score. No shortened baseline.
-                </p>
               </div>
-
-              <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-3">
-                {[
-                  ["01", "Full diagnostic", "66 timed questions"],
-                  ["02", "Weekly lessons", "A clear path, not a pile"],
-                  ["03", "Test day", "Review, adjust, repeat"],
-                ].map(([number, title, detail]) => (
-                  <li key={number} className="min-w-0 bg-background px-5 py-5">
-                    <p className="font-mono text-xs font-black text-primary">
-                      {number}
-                    </p>
-                    <p className="mt-3 font-heading text-lg font-black">
-                      {title}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {detail}
-                    </p>
-                  </li>
-                ))}
-              </ol>
             </div>
 
             <figure
@@ -468,7 +433,7 @@ export function Onboarding({
 
             <div
               key={step}
-              className="mt-6 animate-in duration-200 fade-in slide-in-from-right-2 motion-reduce:animate-none"
+              className="mt-6"
             >
               {step === 1 ? (
                 <FieldSet className="min-w-0">
@@ -501,7 +466,7 @@ export function Onboarding({
                         max={36}
                         step={1}
                         value={draft.goal}
-                        aria-describedby="goal-score-help goal-score-entry-help"
+                        aria-describedby="goal-score-help"
                         onChange={(event) => {
                           const goal = Number(event.target.value)
                           if (
@@ -514,12 +479,6 @@ export function Onboarding({
                         }}
                         className="h-auto max-w-28 rounded-lg border-0 bg-transparent px-1 py-0 text-center font-heading text-6xl font-black tracking-[-0.05em] text-primary tabular-nums shadow-none hover:border-transparent focus-visible:border-ring focus-visible:ring-3 md:text-6xl"
                       />
-                      <FieldDescription
-                        id="goal-score-entry-help"
-                        className="text-center text-xs"
-                      >
-                        Type or use the buttons
-                      </FieldDescription>
                     </Field>
                     <Button
                       type="button"
@@ -693,8 +652,7 @@ export function Onboarding({
                               Save a Science score
                             </FieldLabel>
                             <FieldDescription>
-                              Optional. Stored for reference; this plan
-                              currently uses English, Math, and Reading only.
+                              Optional reference score.
                             </FieldDescription>
                           </FieldContent>
                           <Switch
@@ -834,46 +792,6 @@ export function Onboarding({
                         </div>
                       </Field>
                     </div>
-
-                    <Field>
-                      <FieldLabel id="main-focus-label">
-                        After Round 1, what should Scout emphasize?
-                      </FieldLabel>
-                      <RadioGroup
-                        value={draft.preferredSection}
-                        aria-labelledby="main-focus-label"
-                        onValueChange={(preferredSection) =>
-                          onUpdate({
-                            preferredSection:
-                              preferredSection as PlacementDraft["preferredSection"],
-                          })
-                        }
-                        className="grid gap-2 sm:grid-cols-4"
-                      >
-                        {[
-                          ["balanced", "Whichever helps most"],
-                          ["english", "English"],
-                          ["math", "Math"],
-                          ["reading", "Reading"],
-                        ].map(([value, label]) => (
-                          <FieldLabel
-                            key={value}
-                            className={cn(
-                              "cursor-pointer rounded-lg border p-3",
-                              draft.preferredSection === value &&
-                                "border-primary bg-secondary"
-                            )}
-                          >
-                            <Field orientation="horizontal">
-                              <RadioGroupItem value={value} />
-                              <FieldContent>
-                                <span className="font-semibold">{label}</span>
-                              </FieldContent>
-                            </Field>
-                          </FieldLabel>
-                        ))}
-                      </RadioGroup>
-                    </Field>
 
                     <SchedulePreview draft={draft} today={today} />
                   </div>

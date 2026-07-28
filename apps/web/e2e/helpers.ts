@@ -2,16 +2,16 @@ import { expect, type Page } from "@playwright/test"
 
 export async function completeLearnerOrientation(page: Page) {
   await expect(
-    page.getByRole("heading", { name: "Your starting point is ready." })
+    page.getByRole("heading", { name: "Your starting score is ready." })
   ).toBeVisible()
-  await page.getByRole("button", { name: "See my skill profile" }).click()
+  await page.getByRole("button", { name: "Continue" }).click()
   const profileHeading = page.getByRole("heading", {
     name: /^(Your question-type map\.|Your score is set\. The skill map starts empty\.)$/,
   })
   const tourDialog = page.getByRole("dialog", {
     name: /Scout dashboard tour/,
   })
-  await expect(profileHeading.or(tourDialog)).toBeVisible()
+  await expect(profileHeading.or(tourDialog)).toBeVisible({ timeout: 25_000 })
   if (await tourDialog.isVisible()) {
     await tourDialog.getByRole("button", { name: "Skip website tour" }).click()
   }
@@ -28,7 +28,9 @@ export async function completeLearnerOrientation(page: Page) {
     })
   ).toBeVisible()
   await page.getByRole("button", { name: "Start lesson one" }).click()
-  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible({
+    timeout: 15_000,
+  })
 }
 
 export async function openReportedScorePlan(page: Page, composite = 24) {

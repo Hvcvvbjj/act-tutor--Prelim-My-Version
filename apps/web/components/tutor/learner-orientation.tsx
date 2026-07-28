@@ -348,7 +348,7 @@ function ScoreCountUp({
   return (
     <>
       <span aria-hidden="true">{displayScore}</span>
-      <span className="sr-only">Your current planning score is {score}.</span>
+      <span className="sr-only">Your current starting score is {score}.</span>
     </>
   )
 }
@@ -653,7 +653,6 @@ export function LearnerOrientation({
           <span className="font-brand text-lg font-black tracking-[-0.02em]">
             Scout ACT
           </span>
-          <span className="text-sm text-muted-foreground">Orientation</span>
         </div>
       </header>
 
@@ -665,23 +664,22 @@ export function LearnerOrientation({
       >
         {stage === "score" ? (
           <section className="mx-auto flex min-h-[calc(100svh-9rem)] max-w-3xl items-center justify-center py-6 text-center">
-            <div className="w-full animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+            <div className="w-full">
               <p className="ink-label text-primary">{completionLabel}</p>
               <h1
                 ref={headingRef}
                 tabIndex={-1}
                 className={cn(sharedHeadingClass, "mx-auto mt-4 max-w-3xl")}
               >
-                Your starting point is ready.
+                Your starting score is ready.
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-muted-foreground">
-                A planning starting point, not a limit. Scout updates it as you
-                work.
+                Scout updates it as you complete scored work.
               </p>
 
               <div className="mx-auto mt-9 max-w-xl border-y py-7">
                 <p className="ink-label text-muted-foreground">
-                  Planning score
+                  Starting score
                 </p>
                 <div className="mt-2 font-heading text-[8rem] leading-none font-black text-primary tabular-nums sm:text-[10rem]">
                   <ScoreCountUp
@@ -697,8 +695,8 @@ export function LearnerOrientation({
 
               <p className="sr-only" aria-live="polite">
                 {scoreReady
-                  ? `Score reveal complete. Your planning score is ${currentScore}.`
-                  : "Preparing your planning score."}
+                  ? `Score reveal complete. Your starting score is ${currentScore}.`
+                  : "Preparing your starting score."}
               </p>
               <Button
                 type="button"
@@ -709,7 +707,7 @@ export function LearnerOrientation({
                   if (!onStartDashboardTour?.()) setStage("profile")
                 }}
               >
-                See my skill profile
+                Continue
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             </div>
@@ -717,7 +715,7 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "profile" ? (
-          <section className="mx-auto max-w-5xl animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none">
+          <section className="mx-auto max-w-5xl">
             <div className="text-center">
               <p className="ink-label text-primary">Your starting profile</p>
               <h1
@@ -731,13 +729,8 @@ export function LearnerOrientation({
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {hasSkillEvidence
-                  ? `These four shapes use only what your ${sourceLabel} measured. Blank points were not tested.`
+                  ? `Based only on your ${sourceLabel} answers. Untested skills stay blank.`
                   : "Your reported score sets the starting point. Diagnostic and practice answers fill in each question type without inventing detail."}
-              </p>
-              <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
-                Study points never inflate this map. Badges uses points for
-                momentum levels; only scored answers change these polygons or
-                Scout’s ACT estimates.
               </p>
             </div>
 
@@ -748,7 +741,7 @@ export function LearnerOrientation({
                   title={SECTION_LABELS[section]}
                   subtitle={
                     sectionScores
-                      ? `Planning score ${normalizeActScore(sectionScores[section])}`
+                      ? `Starting score ${normalizeActScore(sectionScores[section])}`
                       : "Question types"
                   }
                   data={sectionData[section]}
@@ -776,7 +769,7 @@ export function LearnerOrientation({
 
         {stage === "choice" ? (
           <section className="mx-auto flex min-h-[calc(100svh-9rem)] max-w-4xl items-center justify-center py-6 text-center">
-            <div className="w-full animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
+            <div className="w-full">
               <ScoutMark
                 mood="ready"
                 className="mx-auto size-28 motion-reduce:animate-none sm:size-36"
@@ -792,8 +785,7 @@ export function LearnerOrientation({
                 Want me to teach the 12 question types first?
               </h1>
               <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-                I can walk through one reviewed example for every English, Math,
-                and Reading type—or you can go straight to lesson one.
+                See one reviewed example for each type, or start lesson one.
               </p>
 
               <div className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
@@ -833,11 +825,9 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "explain" ? (
-          <section className="mx-auto max-w-6xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
+          <section className="mx-auto max-w-6xl">
             {(() => {
               const slide = QUESTION_TYPE_SLIDES[explainerIndex]
-              const nextSlide = QUESTION_TYPE_SLIDES[explainerIndex + 1]
-
               return (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-4">
@@ -983,7 +973,7 @@ export function LearnerOrientation({
                     >
                       {explainerIndex === QUESTION_TYPE_SLIDES.length - 1
                         ? "Start lessons"
-                        : `Next: ${nextSlide.skill.label}`}
+                        : "Next example"}
                       <ArrowRightIcon data-icon="inline-end" />
                     </Button>
                   </div>

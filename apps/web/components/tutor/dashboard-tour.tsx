@@ -12,32 +12,26 @@ const TOUR_STEPS = [
   {
     target: "lesson-path",
     eyebrow: "Your lesson path",
-    title: "This is the visual center.",
-    copy: "Round one teaches every question type. The bright node is next, and finished lessons stay marked behind it.",
+    title: "Your path through this round.",
+    copy: "The highlighted lesson is next. Finished lessons stay marked as you move down the path.",
   },
   {
     target: "lesson-action",
     eyebrow: "Next action",
-    title: "One obvious thing to do.",
-    copy: "This button opens the exact lesson or practice step that is ready now. Scout keeps the secondary options below it.",
-  },
-  {
-    target: "nav-lessons",
-    eyebrow: "Lessons",
-    title: "Come back here to keep moving.",
-    copy: "Lessons replaces Today. It holds your current round, review queue, mistakes, and shorter study options.",
+    title: "Continue from here.",
+    copy: "This button opens the lesson, practice, or review step that is ready now.",
   },
   {
     target: "nav-week",
     eyebrow: "My Week",
     title: "See when the work fits.",
-    copy: "Your plan is spaced across the week. Open My Week to change the exact days and minutes at any time.",
+    copy: "See your spaced study plan and change its days or minutes.",
   },
   {
     target: "nav-diagnostic",
     eyebrow: "Full Diagnostic",
-    title: "A real baseline and a real reset.",
-    copy: "This launches the timed 66-question diagnostic. It is separate from lesson checks and can build a later adaptive round.",
+    title: "Build a new baseline.",
+    copy: "Take the timed 66-question diagnostic now or use it to shape a later round.",
   },
   {
     target: "nav-practice",
@@ -49,13 +43,13 @@ const TOUR_STEPS = [
     target: "nav-progress",
     eyebrow: "Progress",
     title: "See what your answers changed.",
-    copy: "Your skill estimates, evidence, and next priorities live here. Scout never turns practice points into a claimed ACT result.",
+    copy: "Review skill estimates, scored evidence, and the priorities Scout sees next.",
   },
   {
     target: "nav-badges",
     eyebrow: "Badges",
-    title: "Momentum has its own home.",
-    copy: "Streaks, mastery, consistency, milestones, and study-point momentum levels are all visible here. Points never predict an ACT score.",
+    title: "Track your study momentum.",
+    copy: "See streak, mastery, consistency, and milestone badges in one place.",
   },
   {
     target: "mr-kim",
@@ -68,12 +62,6 @@ const TOUR_STEPS = [
     eyebrow: "Settings",
     title: "Make Scout fit how you learn.",
     copy: "Change explanation style, accessibility, goal and schedule, or open Data & privacy. You can replay this tour here too.",
-  },
-  {
-    target: "account",
-    eyebrow: "Account",
-    title: "Save this plan across devices.",
-    copy: "Scout works as a guest. Create an account only when you want this exact plan and diagnostic resume point somewhere else.",
   },
 ] as const
 
@@ -122,7 +110,7 @@ export function DashboardTour() {
 
   useEffect(() => {
     const openTour = () => {
-      if (!window.matchMedia("(min-width: 1024px)").matches) return
+      if (!window.matchMedia("(min-width: 900px)").matches) return
       setIndex(0)
       setOpen(true)
     }
