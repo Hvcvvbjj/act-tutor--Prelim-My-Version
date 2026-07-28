@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+import { normalizeAnswerConfidence } from "@act-tutor/core"
 import {
   AuthRequestError,
   requireJudge,
@@ -123,12 +124,7 @@ export async function POST(request: NextRequest) {
       {
         questionId: body.questionId,
         choiceId: body.choiceId,
-        confidence:
-          body.confidence === "unsure" ||
-          body.confidence === "guessing" ||
-          body.confidence === "unreported"
-            ? body.confidence
-            : "sure",
+        confidence: normalizeAnswerConfidence(body.confidence),
       }
     )
     const evidence = await calibrationSessions.getEvidence(

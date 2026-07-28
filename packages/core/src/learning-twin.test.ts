@@ -90,6 +90,13 @@ describe("Bayesian learning twin", () => {
       confidence: "guessing",
       observedAt: "2026-07-13T12:00:00.000Z",
     });
+    const unsure = applyKnowledgeObservation(initial, {
+      questionId: "unsure",
+      correct: true,
+      difficulty: "medium",
+      confidence: "unsure",
+      observedAt: "2026-07-13T12:00:00.000Z",
+    });
     const unreported = applyKnowledgeObservation(initial, {
       questionId: "unreported",
       correct: true,
@@ -102,7 +109,14 @@ describe("Bayesian learning twin", () => {
       guess.state.learnedProbability,
     );
     expect(guess.event.informationWeight).toBe(0.48);
-    expect(unreported.event.informationWeight).toBe(1);
+    expect(unsure.event.informationWeight).toBe(0.78);
+    expect(unreported.event.informationWeight).toBe(0.78);
+    expect(unreported.state.learnedProbability).toBe(
+      unsure.state.learnedProbability,
+    );
+    expect(unreported.state.learnedProbability).toBeLessThan(
+      sure.state.learnedProbability,
+    );
     expect(unreported.event.confidence).toBe("unreported");
   });
 

@@ -17,7 +17,12 @@ export const dynamic = "force-dynamic"
 const SESSION_COOKIE = "scout_exam_lab_session"
 const MODES = new Set<ExamLabMode>(["sprint", "section", "core"])
 const SECTIONS = new Set<CoreSection>(["english", "math", "reading"])
-const CONFIDENCE = new Set<ExamConfidence>(["guess", "unsure", "sure"])
+const CONFIDENCE = new Set<ExamConfidence>([
+  "guess",
+  "unsure",
+  "sure",
+  "unreported",
+])
 
 function errorResponse(error: unknown, status = 400) {
   return NextResponse.json(

@@ -1593,6 +1593,7 @@ export function TutorApp({
       <DiagnosticRunner
         onBack={() => setSurface("diagnostic")}
         canViewTechnicalDetails={viewer.technicalDetails}
+        purpose={diagnosticPurpose}
         onComplete={(result) => {
           void completeDiagnostic(result)
         }}

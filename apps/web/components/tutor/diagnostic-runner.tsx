@@ -32,6 +32,7 @@ interface DiagnosticRunnerProps {
   onBack: () => void
   onComplete: (result: DiagnosticResult, attemptId: string) => void
   canViewTechnicalDetails: boolean
+  purpose: "baseline" | "round"
 }
 
 type RunnerPhase = "questions" | "review" | "results"
@@ -44,84 +45,12 @@ const SECTION_LABELS: Record<CoreSection, string> = {
   reading: "Reading",
 }
 
-function SectionProgress({
-  form,
-  answers,
-  currentSection,
-}: {
-  form: DiagnosticFormPublic
-  answers: Record<string, string>
-  currentSection: CoreSection | null
-}) {
-  return (
-    <aside className="border-b-2 border-foreground pb-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="ink-label text-muted-foreground">Section progress</p>
-        <p className="text-xs text-muted-foreground">
-          Correctness hidden until final submission
-        </p>
-      </div>
-      <ol className="mt-4 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground">
-        {Object.entries(SECTION_LABELS).map(([section, label]) => {
-          const sectionQuestions = form.questions.filter(
-            (question) => question.section === section
-          )
-          const answered = sectionQuestions.filter(
-            (question) => answers[question.id]
-          ).length
-          const active = currentSection === section
-          const blueprint = form.blueprint.find(
-            (item) => item.section === section
-          )
-          return (
-            <li
-              key={section}
-              aria-current={active ? "step" : undefined}
-              className={cn(
-                "min-w-0 px-3 py-4 sm:px-5",
-                active && "bg-[var(--coach-surface)]"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "size-3 border-2",
-                    answered === sectionQuestions.length
-                      ? "border-primary bg-primary"
-                      : active
-                        ? "border-primary bg-background"
-                        : "border-border bg-background"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "truncate font-heading text-xl font-bold sm:text-2xl",
-                    active && "text-primary"
-                  )}
-                >
-                  {label}
-                </span>
-              </div>
-              <p className="mt-1 pl-5 font-mono text-xs text-muted-foreground tabular-nums">
-                {answered}/{sectionQuestions.length}
-                {blueprint
-                  ? ` · ${blueprint.diagnosticMinutes} min target`
-                  : ""}
-              </p>
-            </li>
-          )
-        })}
-      </ol>
-    </aside>
-  )
-}
-
 function QuestionView({
   form,
   question,
   currentIndex,
   answers,
+  returnToReview,
   onAnswer,
   onPrevious,
   onNext,
@@ -130,6 +59,7 @@ function QuestionView({
   question: DiagnosticQuestionPublic
   currentIndex: number
   answers: Record<string, string>
+  returnToReview: boolean
   onAnswer: (choiceId: string) => void
   onPrevious: () => void
   onNext: () => void
@@ -223,7 +153,11 @@ function QuestionView({
           onClick={onNext}
           disabled={!answers[question.id]}
         >
-          {isLast ? "Review answers" : "Next question"}
+          {returnToReview
+            ? "Back to review"
+            : isLast
+              ? "Review answers"
+              : "Next question"}
           <ArrowRightIcon data-icon="inline-end" />
         </Button>
       </div>
@@ -278,11 +212,21 @@ function ReviewView({
   onEdit: (index: number) => void
   onSubmit: () => void
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const unanswered = form.questions.filter((question) => !answers[question.id])
+  const answered = form.questions.length - unanswered.length
+
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true })
+  }, [])
 
   return (
     <section>
-      <h1 className="text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-4xl font-bold tracking-[-0.035em] outline-none sm:text-5xl"
+      >
         Review your answers.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
@@ -290,29 +234,16 @@ function ReviewView({
         build your study starting point.
       </p>
 
-      <ol className="mt-9 border-y">
-        {form.questions.map((question, index) => (
-          <li
-            key={question.id}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-4 border-b py-4 last:border-0"
-          >
-            <span className="flex size-8 items-center justify-center rounded-full border text-sm font-semibold">
-              {index + 1}
-            </span>
-            <div>
-              <p className="font-semibold">
-                {SECTION_LABELS[question.section]}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {answers[question.id] ? "Answered" : "Needs an answer"}
-              </p>
-            </div>
-            <Button type="button" variant="ghost" onClick={() => onEdit(index)}>
-              Edit
-            </Button>
-          </li>
-        ))}
-      </ol>
+      <div className="mt-8 flex flex-wrap items-baseline justify-between gap-4 border-y-2 border-foreground py-6">
+        <p className="font-heading text-3xl font-black">
+          {answered} of {form.questions.length} answered
+        </p>
+        <p className="text-sm font-semibold text-muted-foreground">
+          {unanswered.length === 0
+            ? "Ready to submit"
+            : `${unanswered.length} still blank`}
+        </p>
+      </div>
 
       {error ? (
         <Alert variant="destructive" className="mt-6">
@@ -323,147 +254,255 @@ function ReviewView({
       ) : null}
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button
-          type="button"
-          size="xl"
-          onClick={onSubmit}
-          disabled={unanswered.length > 0 || status === "submitting"}
-        >
-          {status === "submitting" ? (
-            <LoaderCircleIcon
-              data-icon="inline-start"
-              className="animate-spin"
-            />
-          ) : (
-            <ShieldCheckIcon data-icon="inline-start" />
-          )}
-          {status === "submitting" ? "Scoring…" : "Submit diagnostic"}
-        </Button>
+        {unanswered.length > 0 ? (
+          <Button
+            type="button"
+            size="xl"
+            onClick={() =>
+              onEdit(
+                form.questions.findIndex(
+                  (question) => question.id === unanswered[0]?.id
+                )
+              )
+            }
+          >
+            Answer first blank
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="xl"
+            onClick={onSubmit}
+            disabled={status === "submitting"}
+          >
+            {status === "submitting" ? (
+              <LoaderCircleIcon
+                data-icon="inline-start"
+                className="animate-spin"
+              />
+            ) : (
+              <ShieldCheckIcon data-icon="inline-start" />
+            )}
+            {status === "submitting" ? "Scoring…" : "Submit diagnostic"}
+          </Button>
+        )}
         <p className="text-sm text-muted-foreground">
           {unanswered.length === 0
             ? `All ${form.questions.length} questions answered.`
             : `${unanswered.length} question${unanswered.length === 1 ? "" : "s"} still unanswered.`}
         </p>
       </div>
+
+      <details
+        className="group mt-8 border-y-2 border-foreground"
+        open={unanswered.length > 0}
+      >
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span>
+            {unanswered.length > 0
+              ? "Finish unanswered questions"
+              : "Review individual answers"}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {form.questions.length} questions
+          </span>
+        </summary>
+        <ol className="border-t-2 border-foreground">
+          {form.questions.map((question, index) => (
+            <li
+              key={question.id}
+              className="grid grid-cols-[auto_1fr_auto] items-center gap-4 border-b py-4 last:border-0"
+            >
+              <span className="flex size-8 items-center justify-center rounded-full border text-sm font-semibold">
+                {index + 1}
+              </span>
+              <div>
+                <p className="font-semibold">
+                  {SECTION_LABELS[question.section]}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {answers[question.id] ? "Answered" : "Needs an answer"}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onEdit(index)}
+              >
+                Edit
+              </Button>
+            </li>
+          ))}
+        </ol>
+      </details>
     </section>
   )
 }
 
 function ResultsView({
   result,
+  purpose,
   onComplete,
   canViewTechnicalDetails,
 }: {
   result: DiagnosticResult
+  purpose: "baseline" | "round"
   onComplete: () => void
   canViewTechnicalDetails: boolean
 }) {
   const hasStrengths = result.strengths.length > 0
   const hasFocusSkills = result.focusSkills.length > 0
+  const primaryFocus = result.focusSkills[0]
   const rangeMargin = result.calibrationVersion === "rapid-v1" ? 2 : 6
+  const isBaseline = purpose === "baseline"
 
   return (
     <section>
       <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
       <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-        Your practice starting range is {result.compositeRange.low}–
+        Your practice range is {result.compositeRange.low}–
         {result.compositeRange.high}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        Scout will use {result.compositeRange.estimate} as a study-planning
-        estimate. It comes from this original practice diagnostic—not an
-        official ACT score or score prediction. Later practice answers update
-        separate skill estimates.
+        Scout will use {result.compositeRange.estimate} as study evidence for
+        the next plan. This practice estimate is not an official ACT score or
+        score prediction.
       </p>
 
-      <p className="ink-label mt-10 text-muted-foreground">
-        Practice-based section ranges
-      </p>
-      <dl className="mt-3 grid grid-cols-3 divide-x border-y py-6 text-center">
-        {result.sectionResults.map((section) => (
-          <div key={section.section} className="px-2">
-            <dt className="text-sm text-muted-foreground">
-              {SECTION_LABELS[section.section]}
-            </dt>
-            <dd className="mt-2 text-2xl font-bold text-primary tabular-nums sm:text-3xl">
-              {section.range.low}–{section.range.high}
-            </dd>
-            <dd className="mt-1 text-xs text-muted-foreground">
-              {section.correct}/{section.total} correct
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      <div className="mt-10 grid gap-8 sm:grid-cols-2">
-        <div>
-          <h2 className="text-xl font-bold">
-            {hasStrengths ? "Strongest skills so far" : "What looks strongest"}
-          </h2>
-          <ul className="mt-4 flex flex-col gap-3">
-            {(hasStrengths
-              ? result.strengths
-              : result.skillResults.slice(-2)
-            ).map((skill) => (
-              <li
-                key={skill.skill}
-                className="flex items-center gap-3 border-b pb-3"
-              >
-                <CheckCircle2Icon className="text-primary" aria-hidden="true" />
-                <span>{skill.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h2 className="text-xl font-bold">
-            {hasFocusSkills ? "First focus skills" : "Skills to confirm next"}
-          </h2>
-          <ul className="mt-4 flex flex-col gap-3">
-            {(hasFocusSkills
-              ? result.focusSkills
-              : result.skillResults.slice(0, 2)
-            ).map((skill) => (
-              <li
-                key={skill.skill}
-                className="flex items-center gap-3 border-b pb-3"
-              >
-                <CircleAlertIcon className="text-primary" aria-hidden="true" />
-                <span>{skill.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="mt-9 border-y-2 border-foreground py-6">
+        <p className="ink-label text-primary">
+          {isBaseline
+            ? "Round 1"
+            : primaryFocus
+              ? "Next-round priority"
+              : "Next round"}
+        </p>
+        <h2 className="mt-2 font-heading text-3xl font-black">
+          {isBaseline
+            ? "Start with every ACT question type"
+            : (primaryFocus?.label ?? "Keep a balanced mix")}
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {isBaseline
+            ? "Your first round explains all 12 question types before later rounds specialize."
+            : primaryFocus
+              ? "Your next round will start here, based on this diagnostic."
+              : "No single question type needs to lead, so your next round will stay balanced."}
+        </p>
       </div>
 
-      {canViewTechnicalDetails ? (
-        <Alert className="mt-10 bg-[var(--info-surface)]">
-          <ShieldCheckIcon />
-          <AlertTitle>How this planning number is calculated</AlertTitle>
-          <AlertDescription>
-            <p>
-              For each section, Scout calculates{" "}
-              <code className="font-mono text-xs text-foreground">
-                round(1 + ((correct + 1) / (total + 2)) × 35)
-              </code>
-              , then shows a range of ±{rangeMargin} points, clipped to 1–36.
-              The Composite midpoint is the rounded average of the English,
-              Math, and Reading midpoints; its low and high values use the three
-              section lows and highs.
-            </p>
-            <p className="mt-2">
-              This is an internal conversion from raw correctness on original
-              practice questions. It is not ACT-equated, not a statistical
-              confidence interval, and not an official ACT score.
-            </p>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       <Button type="button" size="xl" className="mt-8" onClick={onComplete}>
-        Build my study plan
+        Continue
         <ArrowRightIcon data-icon="inline-end" />
       </Button>
+
+      <details className="group mt-9 border-y-2 border-foreground">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span>See full diagnostic results</span>
+          <span className="text-sm text-muted-foreground">
+            Sections and skills
+          </span>
+        </summary>
+        <div className="border-t-2 border-foreground py-7">
+          <p className="ink-label text-muted-foreground">
+            Practice-based section ranges
+          </p>
+          <dl className="mt-3 grid grid-cols-3 divide-x border-y py-6 text-center">
+            {result.sectionResults.map((section) => (
+              <div key={section.section} className="px-2">
+                <dt className="text-sm text-muted-foreground">
+                  {SECTION_LABELS[section.section]}
+                </dt>
+                <dd className="mt-2 text-2xl font-bold text-primary tabular-nums sm:text-3xl">
+                  {section.range.low}–{section.range.high}
+                </dd>
+                <dd className="mt-1 text-xs text-muted-foreground">
+                  {section.correct}/{section.total} correct
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-9 grid gap-8 sm:grid-cols-2">
+            <div>
+              <h2 className="text-xl font-bold">
+                {hasStrengths
+                  ? "Strongest skills so far"
+                  : "What looks strongest"}
+              </h2>
+              <ul className="mt-4 flex flex-col gap-3">
+                {(hasStrengths
+                  ? result.strengths
+                  : result.skillResults.slice(-2)
+                ).map((skill) => (
+                  <li
+                    key={skill.skill}
+                    className="flex items-center gap-3 border-b pb-3"
+                  >
+                    <CheckCircle2Icon
+                      className="text-primary"
+                      aria-hidden="true"
+                    />
+                    <span>{skill.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">
+                {hasFocusSkills
+                  ? isBaseline
+                    ? "Skills to revisit after Round 1"
+                    : "Next-round priority skills"
+                  : "Skills to confirm later"}
+              </h2>
+              <ul className="mt-4 flex flex-col gap-3">
+                {(hasFocusSkills
+                  ? result.focusSkills
+                  : result.skillResults.slice(0, 2)
+                ).map((skill) => (
+                  <li
+                    key={skill.skill}
+                    className="flex items-center gap-3 border-b pb-3"
+                  >
+                    <CircleAlertIcon
+                      className="text-primary"
+                      aria-hidden="true"
+                    />
+                    <span>{skill.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {canViewTechnicalDetails ? (
+            <Alert className="mt-9 bg-[var(--info-surface)]">
+              <ShieldCheckIcon />
+              <AlertTitle>How this planning number is calculated</AlertTitle>
+              <AlertDescription>
+                <p>
+                  For each section, Scout calculates{" "}
+                  <code className="font-mono text-xs text-foreground">
+                    round(1 + ((correct + 1) / (total + 2)) × 35)
+                  </code>
+                  , then shows a range of ±{rangeMargin} points, clipped to
+                  1–36. The Composite midpoint is the rounded average of the
+                  English, Math, and Reading midpoints; its low and high values
+                  use the three section lows and highs.
+                </p>
+                <p className="mt-2">
+                  This is an internal conversion from raw correctness on
+                  original practice questions. It is not ACT-equated, not a
+                  statistical confidence interval, and not an official ACT
+                  score.
+                </p>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+      </details>
     </section>
   )
 }
@@ -472,6 +511,7 @@ export function DiagnosticRunner({
   onBack,
   onComplete,
   canViewTechnicalDetails,
+  purpose,
 }: DiagnosticRunnerProps) {
   const [form, setForm] = useState<DiagnosticFormPublic | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
@@ -482,6 +522,9 @@ export function DiagnosticRunner({
   const [attemptId, setAttemptId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
+  const [reviewReturnIndex, setReviewReturnIndex] = useState<number | null>(
+    null
+  )
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
 
@@ -567,6 +610,17 @@ export function DiagnosticRunner({
     setCurrentIndex(index)
     setPhase("questions")
     persistProgress(answers, index, "questions")
+  }
+
+  function editFromReview(index: number) {
+    setReviewReturnIndex(index)
+    moveToQuestion(index)
+  }
+
+  function returnToReview(nextAnswers = answers) {
+    setReviewReturnIndex(null)
+    setPhase("review")
+    persistProgress(nextAnswers, currentIndex, "review")
   }
 
   async function submitDiagnostic() {
@@ -658,8 +712,6 @@ export function DiagnosticRunner({
   }
 
   const question = form.questions[currentIndex]
-  const currentSection = phase === "questions" ? question.section : null
-
   return (
     <div
       data-hide-global-footer
@@ -724,27 +776,33 @@ export function DiagnosticRunner({
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto flex max-w-[96rem] flex-col gap-7 px-4 py-7 sm:px-8 lg:py-10"
+        className="mx-auto flex max-w-[96rem] flex-col px-4 py-7 sm:px-8 lg:py-10"
       >
-        <SectionProgress
-          form={form}
-          answers={answers}
-          currentSection={currentSection}
-        />
-
         {phase === "questions" ? (
           <QuestionView
             form={form}
             question={question}
             currentIndex={currentIndex}
             answers={answers}
+            returnToReview={reviewReturnIndex === currentIndex}
             onAnswer={(choiceId) => {
               const nextAnswers = { ...answers, [question.id]: choiceId }
               setAnswers(nextAnswers)
+              if (reviewReturnIndex === currentIndex) {
+                returnToReview(nextAnswers)
+                return
+              }
               persistProgress(nextAnswers, currentIndex, "questions")
             }}
-            onPrevious={() => moveToQuestion(Math.max(0, currentIndex - 1))}
+            onPrevious={() => {
+              setReviewReturnIndex(null)
+              moveToQuestion(Math.max(0, currentIndex - 1))
+            }}
             onNext={() => {
+              if (reviewReturnIndex === currentIndex) {
+                returnToReview()
+                return
+              }
               if (currentIndex === form.questions.length - 1) {
                 setPhase("review")
                 persistProgress(answers, currentIndex, "review")
@@ -759,12 +817,13 @@ export function DiagnosticRunner({
             answers={answers}
             status={status}
             error={error}
-            onEdit={moveToQuestion}
+            onEdit={editFromReview}
             onSubmit={submitDiagnostic}
           />
         ) : result ? (
           <ResultsView
             result={result}
+            purpose={purpose}
             onComplete={() => {
               if (!attemptId) {
                 setError(

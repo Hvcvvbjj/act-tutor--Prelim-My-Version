@@ -377,19 +377,6 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
   const roundLesson = Math.min(roundComplete + 1, roundTotal)
   const roundProgress =
     roundTotal === 0 ? 0 : Math.round((roundComplete / roundTotal) * 100)
-  const currentRecommendation = learning.learningTwin.recommendation
-  const currentStep = learning.mission.steps.find(
-    (step) => step.state === "current"
-  )
-  const nextLabel =
-    currentStep?.id === "learn"
-      ? "Focused practice"
-      : currentStep?.id === "practice"
-        ? "Finish today’s questions"
-        : currentStep?.id === "repair"
-          ? "Your next priority"
-          : currentRecommendation.label
-
   return (
     <div className="pb-10">
       <section
@@ -437,11 +424,6 @@ export function DailyMissionHub(props: DailyMissionHubProps) {
           <div className="mt-10">
             <MissionAction {...props} />
           </div>
-          {learning.status === "complete" ? null : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Next: {nextLabel}
-            </p>
-          )}
         </div>
       </section>
       <ExpandedStudyDetails {...props} />

@@ -60,7 +60,7 @@ test("score setup waits for the learner instead of inventing evidence", async ({
   await expect(page.locator('input[type="number"]')).toHaveCount(0)
   await expect(
     page.getByText(
-      "Scout will not invent scores or treat sample numbers as your information."
+      "Choose one to continue. Scout will not invent a score for you."
     )
   ).toBeVisible()
 
@@ -105,7 +105,7 @@ test("score setup waits for the learner instead of inventing evidence", async ({
     .toEqual({ pageWidth: 320, viewportWidth: 320 })
 })
 
-test("Composite-only setup does not present an empty or invalid score as zero", async ({
+test("Composite-only setup stays focused on the score entry", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
@@ -114,23 +114,26 @@ test("Composite-only setup does not present an empty or invalid score as zero", 
   await page.getByRole("button", { name: "Add my starting score" }).click()
   await page.getByRole("radio", { name: "I have section scores" }).check()
 
-  const setupSummary = page.locator("aside").filter({
-    hasText: "Your setup so far",
-  })
-  const startingPoint = setupSummary.locator("div").filter({
-    hasText: "Starting point",
-  })
   const composite = page.getByRole("spinbutton", {
     name: "Composite ACT score",
   })
 
-  await expect(startingPoint.getByText("Not entered yet")).toBeVisible()
+  await expect(page.getByText("Your setup so far")).toHaveCount(0)
+  await expect(composite).toHaveValue("")
   await page.getByRole("radio", { name: "I only know my Composite" }).check()
-  await expect(startingPoint.getByText("Not entered yet")).toBeVisible()
+  await expect(composite).toHaveValue("")
   await composite.fill("37")
-  await expect(startingPoint.getByText("Not entered yet")).toBeVisible()
+  await expect(composite).toHaveValue("37")
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({
+        hasText: "Composite score must be a whole number from 1 to 36.",
+      })
+  ).toBeVisible()
   await composite.fill("24")
-  await expect(startingPoint.getByText("24", { exact: true })).toBeVisible()
+  await expect(composite).toHaveValue("24")
 })
 
 test("learner labels a reported score as official or practice", async ({
@@ -194,7 +197,7 @@ test("legacy prefilled defaults do not return as learner evidence", async ({
   await expect(page.locator('input[type="number"]')).toHaveCount(0)
   await expect(
     page.getByText(
-      "Scout will not invent scores or treat sample numbers as your information."
+      "Choose one to continue. Scout will not invent a score for you."
     )
   ).toBeVisible()
 })

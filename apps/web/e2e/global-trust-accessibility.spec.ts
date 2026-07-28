@@ -58,6 +58,24 @@ async function expectActionTargetsAtLeast44(
   expect(undersizedTargets).toEqual([])
 }
 
+async function expectNoHorizontalOverflow(
+  page: import("@playwright/test").Page
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        overflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+        scrollX: window.scrollX,
+      }))
+    )
+    .toEqual({
+      overflow: 0,
+      scrollX: 0,
+    })
+}
+
 test("the welcome screen states product identity and independence clearly", async ({
   page,
 }) => {
@@ -78,7 +96,7 @@ test("the welcome screen states product identity and independence clearly", asyn
     "this browser keeps your setup, plan, and resume point"
   )
   await expect(learningDataNotice).toContainText(
-    "More → Learning data to export or delete saved study data"
+    "More → Data & privacy to export or delete saved study data"
   )
   const productNotes = page.getByRole("contentinfo")
   await expect(productNotes).toContainText("Independent hackathon project.")
@@ -116,7 +134,7 @@ test("the public trust center explains storage, control, and AI limits", async (
   await expect(
     page.getByRole("heading", { name: "Account progress" })
   ).toBeVisible()
-  await expect(page.getByText(/More → Learning data/)).toBeVisible()
+  await expect(page.getByText(/More → Data & privacy/)).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "AI may explain. Evidence makes the decision.",
@@ -147,19 +165,20 @@ test("the public explainer makes Scout's adaptive loop inspectable", async ({
 
   await expect(
     page.getByRole("heading", {
-      name: "One answer becomes evidence—not a guess.",
+      name: "Scout uses scored answers to guide what comes after Round 1.",
     })
   ).toBeVisible()
   await expect(
     page.getByRole("heading", {
-      name: "Answer → evidence → next action",
+      name: "One answer, three steps.",
     })
   ).toBeVisible()
   await expect(
     page.getByRole("heading", {
-      name: "A Quick Check is not the full diagnostic.",
+      name: "Quick Check and the full diagnostic do different jobs.",
     })
   ).toBeVisible()
+  await page.getByText("Technical details", { exact: true }).click()
   await expect(page.getByText("IRT · question picker")).toBeVisible()
   await expect(page.getByText("BKT · learning estimate")).toBeVisible()
   await expect(page.getByText("AI · explanation")).toBeVisible()
@@ -177,12 +196,25 @@ test("the public explainer makes Scout's adaptive loop inspectable", async ({
     )
     .toEqual({ pageWidth: 320, viewportWidth: 320 })
 
-  await page.getByRole("link", { name: "Read the trust center" }).click()
+  await page
+    .getByRole("link", { name: "Data, privacy, and product limits" })
+    .click()
   await expect(
     page.getByRole("heading", {
       name: "What Scout saves—and what it does not.",
     })
   ).toBeVisible()
+})
+
+test("desktop public pages stay inside a laptop-width viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1117, height: 891 })
+
+  for (const route of ["/how-scout-works", "/trust"]) {
+    await page.goto(route)
+    await expectNoHorizontalOverflow(page)
+  }
 })
 
 test("the skip link is first and follows the active study surface", async ({
@@ -208,7 +240,9 @@ test("the skip link is first and follows the active study surface", async ({
   await expect(page.locator("#main-content")).toHaveCount(1)
   await expectSkipLinkToFocusMain(page)
   for (const destination of ["Week", "Check", "Progress"]) {
-    await navigation.getByRole("tab", { name: destination }).click()
+    const destinationTab = navigation.getByRole("tab", { name: destination })
+    await destinationTab.click()
+    await expect(destinationTab).toHaveAttribute("aria-selected", "true")
     await expect(page.locator("#main-content")).toHaveCount(1)
     await expectSkipLinkToFocusMain(page)
   }
@@ -247,6 +281,15 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   expect(goalBounds).not.toBeNull()
   expect(goalBounds!.height).toBeGreaterThanOrEqual(44)
   await header.getByRole("button", { name: "More" }).click()
+
+  for (const destination of ["Today", "My week", "Progress"]) {
+    await page.getByRole("tab", { name: destination }).click()
+    await expectNoHorizontalOverflow(page)
+  }
+
+  await header.getByRole("button", { name: "More" }).click()
+  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
+  await expectNoHorizontalOverflow(page)
 
   await header.getByRole("button", { name: "Sign in / save progress" }).click()
   const account = page.getByRole("dialog", { name: "Welcome back." })

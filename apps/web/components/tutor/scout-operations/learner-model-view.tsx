@@ -11,8 +11,6 @@ export function LearnerModelView({
   learning,
   busy,
   onCorrectModel,
-  onStartChallenge,
-  onStartRecovery,
   onDeleteData,
   canViewTechnicalDetails,
 }: Pick<
@@ -21,8 +19,6 @@ export function LearnerModelView({
   | "learning"
   | "busy"
   | "onCorrectModel"
-  | "onStartChallenge"
-  | "onStartRecovery"
   | "onDeleteData"
   | "canViewTechnicalDetails"
 >) {
@@ -32,12 +28,6 @@ export function LearnerModelView({
   const [note, setNote] = useState("")
   const [deleteArmed, setDeleteArmed] = useState(false)
   const report = learning.learnerModel
-  const canSwitchMission = learning.status === "complete"
-  const averageMastery =
-    learning.learningTwin.skills.reduce(
-      (sum, skill) => sum + skill.learnedProbability,
-      0
-    ) / learning.learningTwin.skills.length
   const alreadyCorrected = report.corrections.some(
     (correction) =>
       correction.skill === learning.todaySkill &&
@@ -68,255 +58,16 @@ export function LearnerModelView({
   }
 
   return (
-    <div className="space-y-12">
-      <section className="grid border-y-2 border-foreground lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:divide-x-2 lg:divide-foreground">
-        <div className="py-7 lg:pr-8">
-          <p className="ink-label text-primary">
-            Current skill · {currentSkill?.label ?? learning.mastery.label}
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-5">
-            <div>
-              <p className="font-heading text-5xl font-black">
-                {currentSkill
-                  ? Math.round(currentSkill.learnedProbability * 100)
-                  : 0}
-                %
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                skill estimate
-              </p>
-            </div>
-            <div>
-              <p className="font-heading text-5xl font-black text-primary">
-                {currentSkill?.evidenceCount ?? 0}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                scored answers
-              </p>
-            </div>
-          </div>
-          <p className="mt-5 text-sm leading-6 font-semibold">
-            The percentage is Scout’s practice estimate for this skill. The
-            answer count shows how much scored work supports it. Neither number
-            is an ACT score or percent correct.
-          </p>
-        </div>
-        <div className="py-7 lg:pl-8">
-          <p className="ink-label text-muted-foreground">What Scout notices</p>
-          <dl className="mt-4 divide-y border-y text-sm leading-6">
-            <div className="py-3">
-              <dt className="font-bold">Pacing note</dt>
-              <dd className="text-muted-foreground">
-                {report.responseTime.interpretation}
-              </dd>
-            </div>
-            <div className="py-3">
-              <dt className="font-bold">Recent answer pattern</dt>
-              <dd className="text-muted-foreground">{report.transferSignal}</dd>
-            </div>
-            <div className="py-3">
-              <dt className="font-bold">Next review</dt>
-              <dd className="text-muted-foreground">
-                {report.decaySignal} This comes from Scout’s saved review date.
-              </dd>
-            </div>
-            <div className="py-3">
-              <dt className="font-bold">Worth checking next</dt>
-              <dd className="text-muted-foreground">
-                {report.explorationQuestion}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </section>
-
-      <section>
-        <p className="ink-label text-primary">Missed-answer notes</p>
-        <h2 className="mt-2 font-heading text-4xl font-black">
-          Review labels from missed choices.
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Scout stores the label written for each wrong choice and the question
-          it came from. It does not assume why you chose that answer.
-        </p>
-        {report.misconceptions.length ? (
-          <div className="mt-6 overflow-x-auto border-y-2 border-foreground">
-            <table className="w-full min-w-[42rem] text-left text-sm">
-              <thead className="bg-foreground text-background">
-                <tr>
-                  <th className="px-4 py-3">Reason label</th>
-                  <th className="px-4 py-3">Skill</th>
-                  <th className="px-4 py-3">Seen</th>
-                  {canViewTechnicalDetails ? (
-                    <th className="px-4 py-3">Question ID</th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {report.misconceptions.map((item) => (
-                  <tr key={`${item.skill}:${item.label}`}>
-                    <td className="px-4 py-3 font-semibold">{item.label}</td>
-                    <td className="px-4 py-3">{item.skillLabel}</td>
-                    <td className="px-4 py-3">{item.count}×</td>
-                    {canViewTechnicalDetails ? (
-                      <td className="px-4 py-3 font-mono text-xs">
-                        {item.latestQuestionId}
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mt-5 border-y py-5 text-sm text-muted-foreground">
-            No unresolved missed-answer label is stored yet.
-          </p>
-        )}
-        {report.prerequisiteConfusion ? (
-          <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-5">
-            <p className="font-bold">Prerequisite repair</p>
-            <p className="mt-2 text-sm leading-6">
-              {report.prerequisiteConfusion}
-            </p>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="grid gap-7 border-y-2 border-foreground py-7 lg:grid-cols-2">
-        <div>
-          <p className="ink-label text-primary">
-            Scout got this wrong about me
-          </p>
-          <h2 className="mt-2 font-heading text-3xl font-black">
-            Tell Scout what it got wrong.
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Your note is saved separately from scored answers. You can make one
-            manual adjustment for each skill in the current skill profile; new
-            practice answers still update the estimate normally.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(
-              [
-                ["wrong-misconception", "Wrong mistake label"],
-                ["too-high", "Estimate is too high"],
-                ["too-low", "Estimate is too low"],
-              ] as const
-            ).map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={correctionKind === value ? "secondary" : "outline"}
-                aria-pressed={correctionKind === value}
-                onClick={() => setCorrectionKind(value)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-          <label
-            htmlFor="learner-model-correction"
-            className="mt-4 block text-sm font-semibold"
-          >
-            What should Scout correct?
-          </label>
-          <textarea
-            id="learner-model-correction"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            rows={3}
-            maxLength={300}
-            className="mt-2 w-full border-2 border-foreground bg-background p-3 text-sm"
-            placeholder="What did Scout misunderstand?"
-          />
-          <Button
-            type="button"
-            className="mt-3"
-            disabled={busy || alreadyCorrected}
-            onClick={() =>
-              onCorrectModel({
-                skill: learning.todaySkill,
-                kind: correctionKind,
-                note,
-              })
-            }
-          >
-            {busy
-              ? "Saving correction…"
-              : alreadyCorrected
-                ? "Correction already saved for this skill"
-                : "Save correction"}
-          </Button>
-        </div>
-        <div>
-          <p className="ink-label text-muted-foreground">Correction history</p>
-          {report.corrections.length ? (
-            <ol className="mt-4 divide-y border-y text-sm">
-              {report.corrections.slice(0, 5).map((item) => (
-                <li key={item.id} className="py-3">
-                  <p className="font-bold">
-                    {item.skillLabel} · {item.kind.replaceAll("-", " ")}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">{item.note}</p>
-                  <p className="mt-1 font-mono text-xs">
-                    {Math.round(item.before * 100)}% →{" "}
-                    {Math.round(item.after * 100)}%
-                    {canViewTechnicalDetails ? ` · ${item.modelVersion}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="mt-4 border-y py-5 text-sm text-muted-foreground">
-              No learner corrections yet.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section>
-        <p className="ink-label text-primary">Practice options</p>
-        <h2 className="mt-2 font-heading text-3xl font-black">
-          {learning.mission.progress.totalAnswered}{" "}
-          {learning.mission.progress.totalAnswered === 1 ? "answer" : "answers"}{" "}
-          · {Math.round(averageMastery * 100)}% average skill estimate
-        </h2>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !canSwitchMission}
-            onClick={() => onStartChallenge()}
-          >
-            Try three hard questions
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !canSwitchMission}
-            onClick={onStartRecovery}
-          >
-            Start a recovery session
-          </Button>
-        </div>
-        {!canSwitchMission ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Finish today’s open mission before starting another.
-          </p>
-        ) : null}
-      </section>
-
+    <div className="space-y-7">
       <section className="border-y-2 border-foreground py-7">
-        <p className="ink-label text-primary">Your data controls</p>
-        <h2 className="mt-2 font-heading text-3xl font-black">
-          Export or delete your Scout study data.
+        <p className="ink-label text-primary">What Scout saves</p>
+        <h2 className="mt-2 max-w-3xl font-heading text-3xl font-black">
+          Your study plan, scored answers, and learning progress.
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Export a readable copy of your saved plan and learning progress, or
-          remove Scout&apos;s study sessions and saved plan. If you created an
-          account, deleting study data does not delete the account itself.
+          Export a readable copy whenever you want, or remove Scout&apos;s study
+          sessions and saved plan. Deleting study data does not delete an
+          account&apos;s sign-in.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={exportData}>
@@ -344,6 +95,210 @@ export function LearnerModelView({
           )}
         </div>
       </section>
+
+      <details className="group border-y-2 border-foreground">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 py-3 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="ink-label text-primary">
+              Current skill estimate
+            </span>
+            <span className="mt-1 block font-heading text-2xl font-black">
+              {currentSkill?.label ?? learning.mastery.label}
+            </span>
+          </span>
+          <span className="text-right">
+            <span className="block font-heading text-3xl font-black text-primary">
+              {currentSkill
+                ? Math.round(currentSkill.learnedProbability * 100)
+                : 0}
+              %
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {currentSkill?.evidenceCount ?? 0} scored answers
+            </span>
+          </span>
+        </summary>
+        <div className="grid gap-7 border-t-2 border-foreground py-7 lg:grid-cols-2">
+          <p className="text-sm leading-6 font-semibold">
+            This percentage is Scout&apos;s practice estimate for one skill. It
+            is not an ACT score or percent correct.
+          </p>
+          <dl className="divide-y border-y text-sm leading-6">
+            <div className="py-3">
+              <dt className="font-bold">Pacing</dt>
+              <dd className="text-muted-foreground">
+                {report.responseTime.interpretation}
+              </dd>
+            </div>
+            <div className="py-3">
+              <dt className="font-bold">Recent answers</dt>
+              <dd className="text-muted-foreground">{report.transferSignal}</dd>
+            </div>
+            <div className="py-3">
+              <dt className="font-bold">Next review</dt>
+              <dd className="text-muted-foreground">{report.decaySignal}</dd>
+            </div>
+          </dl>
+        </div>
+      </details>
+
+      <details className="group border-y-2 border-foreground">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span>Missed-answer notes</span>
+          <span className="text-sm text-muted-foreground">
+            {report.misconceptions.length} saved
+          </span>
+        </summary>
+        <div className="border-t-2 border-foreground py-7">
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+            Scout saves the label attached to a missed choice. It does not guess
+            why you chose that answer.
+          </p>
+          {report.misconceptions.length ? (
+            <div className="mt-5 overflow-x-auto border-y-2 border-foreground">
+              <table className="w-full min-w-[42rem] text-left text-sm">
+                <thead className="bg-foreground text-background">
+                  <tr>
+                    <th className="px-4 py-3">Missed-choice label</th>
+                    <th className="px-4 py-3">Skill</th>
+                    <th className="px-4 py-3">Seen</th>
+                    {canViewTechnicalDetails ? (
+                      <th className="px-4 py-3">Question ID</th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {report.misconceptions.map((item) => (
+                    <tr key={`${item.skill}:${item.label}`}>
+                      <td className="px-4 py-3 font-semibold">{item.label}</td>
+                      <td className="px-4 py-3">{item.skillLabel}</td>
+                      <td className="px-4 py-3">{item.count}×</td>
+                      {canViewTechnicalDetails ? (
+                        <td className="px-4 py-3 font-mono text-xs">
+                          {item.latestQuestionId}
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-5 border-y py-5 text-sm text-muted-foreground">
+              No unresolved missed-answer note is saved yet.
+            </p>
+          )}
+          {report.prerequisiteConfusion ? (
+            <div className="mt-5 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-5">
+              <p className="font-bold">Review first</p>
+              <p className="mt-2 text-sm leading-6">
+                {report.prerequisiteConfusion}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </details>
+
+      <details className="group border-y-2 border-foreground">
+        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-5 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span>Correct a skill estimate</span>
+          <span className="text-sm text-muted-foreground">
+            {report.corrections.length
+              ? `${report.corrections.length} saved`
+              : "Optional"}
+          </span>
+        </summary>
+        <div className="grid gap-7 border-t-2 border-foreground py-7 lg:grid-cols-2">
+          <div>
+            <h2 className="font-heading text-2xl font-black">
+              Tell Scout what it got wrong.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Your note is saved separately from scored answers. New practice
+              answers still update the estimate normally.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(
+                [
+                  ["wrong-misconception", "Wrong mistake label"],
+                  ["too-high", "Estimate is too high"],
+                  ["too-low", "Estimate is too low"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={correctionKind === value ? "secondary" : "outline"}
+                  aria-pressed={correctionKind === value}
+                  onClick={() => setCorrectionKind(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+            <label
+              htmlFor="learner-model-correction"
+              className="mt-4 block text-sm font-semibold"
+            >
+              What should Scout correct?
+            </label>
+            <textarea
+              id="learner-model-correction"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={3}
+              maxLength={300}
+              className="mt-2 w-full border-2 border-foreground bg-background p-3 text-sm"
+              placeholder="What did Scout misunderstand?"
+            />
+            <Button
+              type="button"
+              className="mt-3"
+              disabled={busy || alreadyCorrected}
+              onClick={() =>
+                onCorrectModel({
+                  skill: learning.todaySkill,
+                  kind: correctionKind,
+                  note,
+                })
+              }
+            >
+              {busy
+                ? "Saving correction…"
+                : alreadyCorrected
+                  ? "Correction already saved for this skill"
+                  : "Save correction"}
+            </Button>
+          </div>
+          <div>
+            <p className="ink-label text-muted-foreground">
+              Previous corrections
+            </p>
+            {report.corrections.length ? (
+              <ol className="mt-4 divide-y border-y text-sm">
+                {report.corrections.slice(0, 5).map((item) => (
+                  <li key={item.id} className="py-3">
+                    <p className="font-bold">
+                      {item.skillLabel} · {item.kind.replaceAll("-", " ")}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">{item.note}</p>
+                    <p className="mt-1 font-mono text-xs">
+                      {Math.round(item.before * 100)}% →{" "}
+                      {Math.round(item.after * 100)}%
+                      {canViewTechnicalDetails ? ` · ${item.modelVersion}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-4 border-y py-5 text-sm text-muted-foreground">
+                No corrections saved yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </details>
     </div>
   )
 }

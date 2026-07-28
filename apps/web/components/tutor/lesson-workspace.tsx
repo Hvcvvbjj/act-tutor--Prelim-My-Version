@@ -242,6 +242,7 @@ function PracticeStage({
       )
     : learning.currentQuestionIndex
   const currentRecommendation = learning.learningTwin.recommendation
+  const roundComplete = learning.cycle.status === "assessment-choice"
   const progress = Math.round((answered / learning.questions.length) * 100)
   const isExitTicket =
     (learning.mode === "foundation" || learning.mode === "focus") &&
@@ -281,20 +282,21 @@ function PracticeStage({
   if (learning.status === "complete" && !showingFeedback) {
     const completedIncorrectly = feedback?.correct === false
     const needsAnotherTry = completedIncorrectly && learning.mode === "repair"
-    const roundComplete = learning.cycle.status === "assessment-choice"
     return (
       <section className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col justify-center px-5 py-12 text-center sm:px-8">
         <p className="ink-label text-primary">
-          {needsAnotherTry ? "Saved for later" : "Answers saved"}
+          {needsAnotherTry ? "Review saved" : "Lesson complete"}
         </p>
         <h2 className="mt-3 font-heading text-5xl leading-tight font-black tracking-[-0.03em]">
-          {needsAnotherTry ? "Try this one again later." : "Done."}
+          {needsAnotherTry
+            ? "Added to your review list."
+            : "Ready for what’s next."}
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
           {needsAnotherTry
-            ? "It will stay in your review list."
+            ? "You can retry it from Today."
             : roundComplete
-              ? "Mr. Kim is ready with your next two choices."
+              ? "Choose the assessment that will shape your next lesson round."
               : `Next: ${currentRecommendation.label}.`}
         </p>
         <Button
@@ -451,6 +453,10 @@ function PracticeStage({
           size="lg"
           onClick={() => {
             if (showingFeedback && visibleFeedback) {
+              if (learning.status === "complete") {
+                onClose()
+                return
+              }
               setDismissedFeedbackIdentity(feedbackIdentity ?? null)
               setHintLevel(0)
               onChoiceChange("")
@@ -473,7 +479,9 @@ function PracticeStage({
         >
           {showingFeedback
             ? learning.status === "complete"
-              ? "Finish practice"
+              ? roundComplete
+                ? "Choose next assessment"
+                : "Back to Today"
               : "Next question"
             : submitting
               ? "Checking…"

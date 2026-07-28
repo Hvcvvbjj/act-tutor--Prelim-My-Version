@@ -45,24 +45,20 @@ export function ExamLabReview({
           Correct answers appear after submission.
         </p>
 
-        <dl className="mt-8 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-5 text-center">
-          <div>
-            <dt className="ink-label text-muted-foreground">Answered</dt>
-            <dd className="mt-2 font-heading text-4xl font-black">
-              {answered}
-            </dd>
+        <dl className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-y-2 border-foreground py-4 text-sm">
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Answered</dt>
+            <dd className="font-bold tabular-nums">{answered}</dd>
           </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">Flagged</dt>
-            <dd className="mt-2 font-heading text-4xl font-black text-[var(--scout-coral)]">
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Flagged</dt>
+            <dd className="font-bold text-[var(--scout-coral-text)] tabular-nums">
               {flagged}
             </dd>
           </div>
-          <div>
-            <dt className="ink-label text-muted-foreground">Blank</dt>
-            <dd className="mt-2 font-heading text-4xl font-black">
-              {unanswered}
-            </dd>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">Blank</dt>
+            <dd className="font-bold tabular-nums">{unanswered}</dd>
           </div>
         </dl>
 

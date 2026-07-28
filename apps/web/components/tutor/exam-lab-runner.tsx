@@ -202,31 +202,24 @@ export function ExamLabRunner({
         </Progress>
       </header>
 
-      <div className="mx-auto grid max-w-[100rem] lg:grid-cols-[minmax(20rem,0.9fr)_minmax(26rem,1.1fr)_16rem]">
-        <section className="hidden min-w-0 border-b bg-background px-5 py-7 sm:px-8 lg:block lg:min-h-[calc(100svh-10rem)] lg:border-r lg:border-b-0">
-          {question.stimulus ? (
-            <>
-              <p className="ink-label text-muted-foreground">
-                {question.passageTitle ?? `${sectionName} stimulus`}
-              </p>
-              <article className="mt-5 text-base leading-8 whitespace-pre-line">
-                {question.stimulus}
-              </article>
-            </>
-          ) : (
-            <div className="flex min-h-[30rem] items-center justify-center">
-              <div className="max-w-xs text-center">
-                <p className="font-heading text-4xl font-bold">
-                  No passage for this item.
-                </p>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Use this space to sketch, calculate, or slow down your first
-                  step.
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
+      <div
+        className={cn(
+          "mx-auto grid max-w-[100rem]",
+          question.stimulus
+            ? "lg:grid-cols-[minmax(20rem,0.9fr)_minmax(26rem,1.1fr)_16rem]"
+            : "lg:grid-cols-[minmax(26rem,1fr)_16rem]"
+        )}
+      >
+        {question.stimulus ? (
+          <section className="hidden min-w-0 border-b bg-background px-5 py-7 sm:px-8 lg:block lg:min-h-[calc(100svh-10rem)] lg:border-r lg:border-b-0">
+            <p className="ink-label text-muted-foreground">
+              {question.passageTitle ?? `${sectionName} stimulus`}
+            </p>
+            <article className="mt-5 text-base leading-8 whitespace-pre-line">
+              {question.stimulus}
+            </article>
+          </section>
+        ) : null}
 
         <section className="min-w-0 bg-background px-5 py-7 sm:px-8 sm:py-9">
           <div className="flex flex-wrap items-center justify-between gap-3">

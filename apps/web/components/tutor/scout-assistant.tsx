@@ -74,8 +74,8 @@ const ACCOMMODATION_OPTIONS: ReadonlyArray<
   ["readAloud", "Read aloud", "Adds speech controls to Scout answers."],
   [
     "simplified",
-    "Simpler explanations",
-    "Starts with shorter, plainer wording.",
+    "Shorter lesson text",
+    "Shows the shortest useful explanation in each lesson step.",
   ],
   ["extendedTime", "Extended Timed Practice", "Uses a 1.5× time allowance."],
   [
@@ -89,6 +89,87 @@ function speak(value: string) {
   if (!("speechSynthesis" in window)) return
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(value))
+}
+
+function ScoutAnswerCard({
+  message,
+  canViewTechnicalDetails,
+  readAloud,
+  compact = false,
+  onSimplify,
+}: {
+  message: ScoutMessage
+  canViewTechnicalDetails: boolean
+  readAloud: boolean
+  compact?: boolean
+  onSimplify?: () => void
+}) {
+  return (
+    <div className={compact ? "border-t py-4" : "mt-5"}>
+      <p className="text-xs font-semibold text-muted-foreground">
+        {message.question}
+      </p>
+      <article
+        className={
+          compact ? "mt-2" : "mt-2 bg-[var(--info-surface)] p-4 sm:p-5"
+        }
+      >
+        <p
+          className={
+            compact
+              ? "font-heading text-lg font-black"
+              : "font-heading text-2xl font-black"
+          }
+        >
+          {message.answer.summary}
+        </p>
+        <p className="mt-3 text-sm leading-6">{message.answer.explanation}</p>
+        {!compact && message.answer.example ? (
+          <div className="mt-4 border-t border-foreground/20 pt-4">
+            <p className="ink-label text-muted-foreground">Example</p>
+            <p className="mt-2 text-sm leading-6">{message.answer.example}</p>
+          </div>
+        ) : null}
+        {onSimplify ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-3 px-0"
+            onClick={onSimplify}
+          >
+            Simplify this answer
+          </Button>
+        ) : null}
+        {canViewTechnicalDetails ? (
+          <details className="mt-4 text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-bold text-foreground">
+              How this answer was made
+            </summary>
+            <p className="mt-2">Source: {message.answer.source}</p>
+            <p className="mt-1">{message.answer.technical}</p>
+            <p className="mt-1">
+              This answer used fixed response rules, not a model reading the
+              whole visible screen.
+            </p>
+          </details>
+        ) : null}
+        {readAloud ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-3"
+            onClick={() =>
+              speak(`${message.answer.summary} ${message.answer.explanation}`)
+            }
+          >
+            <Volume2Icon /> Read aloud
+          </Button>
+        ) : null}
+      </article>
+    </div>
+  )
 }
 
 export function ScoutProvider({
@@ -331,6 +412,13 @@ export function ScoutProvider({
     return "Ask for a hint or a simpler explanation."
   }, [activeTab])
 
+  const screenMessages = useMemo(
+    () => visibleMessages.filter((entry) => entry.screen === activeTab),
+    [activeTab, visibleMessages]
+  )
+  const latestMessage = screenMessages.at(-1)?.message
+  const earlierMessages = screenMessages.slice(0, -1)
+
   async function ask(nextQuestion = question, selection: string | null = null) {
     if (!nextQuestion.trim()) return
     setBusy(true)
@@ -457,96 +545,68 @@ export function ScoutProvider({
               </Button>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
-              <p className="text-sm leading-6 text-muted-foreground">
-                {helperCopy}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {prompts.map((prompt) => (
-                  <Button
-                    key={prompt}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void ask(prompt)}
-                  >
-                    {prompt}
-                  </Button>
-                ))}
+              {screenMessages.length === 0 ? (
+                <>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {helperCopy}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {prompts.map((prompt) => (
+                      <Button
+                        key={prompt}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void ask(prompt)}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              <div
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+                aria-label="Scout answers"
+              >
+                {latestMessage ? (
+                  <ScoutAnswerCard
+                    message={latestMessage}
+                    canViewTechnicalDetails={canViewTechnicalDetails}
+                    readAloud={accommodations.readAloud}
+                    onSimplify={
+                      latestMessage.question
+                        .toLowerCase()
+                        .includes("more simply")
+                        ? undefined
+                        : () => void ask("Explain more simply")
+                    }
+                  />
+                ) : null}
               </div>
-              <div role="log" aria-live="polite" aria-label="Scout answers">
-                {visibleMessages
-                  .filter((entry) => entry.screen === activeTab)
-                  .map(({ message }) => (
-                    <div key={message.id} className="mt-5">
-                      <p className="text-xs font-semibold text-muted-foreground">
-                        {message.question}
-                      </p>
-                      <article className="mt-2 bg-[var(--info-surface)] p-4">
-                        <p className="font-heading text-xl font-black">
-                          {message.answer.summary}
-                        </p>
-                        <p className="mt-3 text-sm leading-6">
-                          {message.answer.explanation}
-                        </p>
-                        {message.answer.example ? (
-                          <div className="mt-4 border-t border-foreground/20 pt-4">
-                            <p className="ink-label text-muted-foreground">
-                              Example
-                            </p>
-                            <p className="mt-2 text-sm leading-6">
-                              {message.answer.example}
-                            </p>
-                          </div>
-                        ) : null}
-                        <div className="mt-4 flex flex-wrap gap-2 border-t border-foreground/15 pt-3">
-                          {["Explain more simply", "Another example"].map(
-                            (action) => (
-                              <Button
-                                key={action}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void ask(action)}
-                              >
-                                {action}
-                              </Button>
-                            )
-                          )}
-                        </div>
-                        {canViewTechnicalDetails ? (
-                          <details className="mt-4 text-xs text-muted-foreground">
-                            <summary className="cursor-pointer font-bold text-foreground">
-                              How this answer was made
-                            </summary>
-                            <p className="mt-2">
-                              Source: {message.answer.source}
-                            </p>
-                            <p className="mt-1">{message.answer.technical}</p>
-                            <p className="mt-1">
-                              This answer used fixed response rules, not a model
-                              reading the whole visible screen.
-                            </p>
-                          </details>
-                        ) : null}
-                        {accommodations.readAloud ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="mt-3"
-                            onClick={() =>
-                              speak(
-                                `${message.answer.summary} ${message.answer.explanation}`
-                              )
-                            }
-                          >
-                            <Volume2Icon /> Read aloud
-                          </Button>
-                        ) : null}
-                      </article>
-                    </div>
-                  ))}
-              </div>
+              {earlierMessages.length ? (
+                <details className="mt-5 border-y border-foreground/25">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-2 text-sm font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+                    <span>Earlier answers</span>
+                    <span className="text-xs text-muted-foreground">
+                      {earlierMessages.length}
+                    </span>
+                  </summary>
+                  <div>
+                    {earlierMessages.map(({ message }) => (
+                      <ScoutAnswerCard
+                        key={message.id}
+                        message={message}
+                        canViewTechnicalDetails={false}
+                        readAloud={false}
+                        compact
+                      />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
               {assistantError ? (
                 <p
                   className="mt-4 text-sm font-semibold text-destructive"
@@ -605,12 +665,9 @@ export function ScoutProvider({
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b-2 border-foreground pb-4">
-              <div>
-                <p className="ink-label text-primary">Learner controlled</p>
-                <h2 className="mt-2 font-heading text-4xl font-black">
-                  Learning settings
-                </h2>
-              </div>
+              <h2 className="font-heading text-3xl font-black">
+                Learning settings
+              </h2>
               <Button
                 type="button"
                 variant="ghost"
@@ -643,7 +700,7 @@ export function ScoutProvider({
               ))}
             </div>
             <section className="border-t-2 border-foreground pt-6">
-              <p className="ink-label text-primary">How Scout explains</p>
+              <p className="ink-label text-primary">Answer style</p>
               <div className="mt-4 grid gap-4">
                 <label className="grid gap-2 text-sm font-bold">
                   Answer length
@@ -705,9 +762,8 @@ export function ScoutProvider({
                       Use fewer technical terms
                     </span>
                     <span className="mt-1 block text-sm text-muted-foreground">
-                      {canViewTechnicalDetails
-                        ? "Technical model details stay available in judge-only drawers."
-                        : "Keeps explanations focused on direct, learner-facing language."}
+                      Keeps Scout answers focused on direct, learner-facing
+                      language.
                     </span>
                   </span>
                   <Switch

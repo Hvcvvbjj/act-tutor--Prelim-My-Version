@@ -1,6 +1,7 @@
 import {
   buildCalibrationLearningBaseline,
   examLabInterpretationReadiness,
+  normalizeAnswerConfidence,
   type DiagnosticSkillResult,
   type LearningAnswerCommand,
   type LessonPlanContext,
@@ -604,12 +605,7 @@ export async function POST(request: NextRequest) {
         {
           questionId: body.questionId,
           choiceId: body.choiceId,
-          confidence:
-            body.confidence === "unsure" ||
-            body.confidence === "guessing" ||
-            body.confidence === "unreported"
-              ? body.confidence
-              : "sure",
+          confidence: normalizeAnswerConfidence(body.confidence),
           selfCorrected: body.selfCorrected === true,
           responseSeconds:
             typeof body.responseSeconds === "number"

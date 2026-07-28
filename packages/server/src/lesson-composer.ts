@@ -107,10 +107,7 @@ export function buildAuthoredPersonalizedLesson(
         coachPrompt: "Watch for this mistake in practice.",
       },
     ],
-    strategyChecklist: [
-      ...input.baseLesson.steps,
-      `Use the last 10 seconds to cross out choices that make this mistake: ${input.baseLesson.trap}`,
-    ],
+    strategyChecklist: input.baseLesson.steps,
     transferPrompt: `Use the ${input.skill.label.toLowerCase()} steps from the lesson on each question.`,
     generation: {
       mode: "authored-fallback",
@@ -128,13 +125,40 @@ function asString(value: unknown, field: string, min = 8) {
   return value.trim();
 }
 
-function asStringArray(value: unknown, field: string, minItems: number) {
-  if (!Array.isArray(value) || value.length < minItems) {
+function asBoundedString(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+) {
+  const normalized = asString(value, field, min);
+  if (normalized.length > max) {
     throw new TypeError(
-      `AI lesson field ${field} needs at least ${minItems} items.`,
+      `AI lesson field ${field} must be ${max} characters or fewer.`,
     );
   }
-  return value.map((item, index) => asString(item, `${field}[${index}]`, 4));
+  return normalized;
+}
+
+function asStringArray(
+  value: unknown,
+  field: string,
+  minItems: number,
+  maxItems: number,
+  maxItemLength: number,
+) {
+  if (
+    !Array.isArray(value) ||
+    value.length < minItems ||
+    value.length > maxItems
+  ) {
+    throw new TypeError(
+      `AI lesson field ${field} needs ${minItems} to ${maxItems} items.`,
+    );
+  }
+  return value.map((item, index) =>
+    asBoundedString(item, `${field}[${index}]`, 4, maxItemLength),
+  );
 }
 
 const SECTION_IDS = [
@@ -176,16 +200,18 @@ function validateGeneratedLesson(
     }
     return {
       id: expectedId,
-      title: asString(record.title, `sections[${index}].title`, 4),
-      explanation: asString(
+      title: asBoundedString(record.title, `sections[${index}].title`, 4, 72),
+      explanation: asBoundedString(
         record.explanation,
         `sections[${index}].explanation`,
-        40,
+        24,
+        260,
       ),
-      coachPrompt: asString(
+      coachPrompt: asBoundedString(
         record.coachPrompt,
         `sections[${index}].coachPrompt`,
         12,
+        140,
       ),
     } satisfies PersonalizedLessonSection;
   });
@@ -238,16 +264,28 @@ function validateGeneratedLesson(
       Math.min(20, Number(candidate.minutes) || input.baseLesson.minutes),
     ),
     depth: depthFor(input),
-    whyAssigned: asString(candidate.whyAssigned, "whyAssigned", 30),
+    whyAssigned: asBoundedString(candidate.whyAssigned, "whyAssigned", 20, 220),
     evidenceSummary: evidenceSummary(input),
-    tutorOpening: asString(candidate.tutorOpening, "tutorOpening", 20),
+    tutorOpening: asBoundedString(
+      candidate.tutorOpening,
+      "tutorOpening",
+      16,
+      180,
+    ),
     sections,
     strategyChecklist: asStringArray(
       candidate.strategyChecklist,
       "strategyChecklist",
+      3,
       4,
+      120,
     ),
-    transferPrompt: asString(candidate.transferPrompt, "transferPrompt", 20),
+    transferPrompt: asBoundedString(
+      candidate.transferPrompt,
+      "transferPrompt",
+      16,
+      180,
+    ),
     generation: {
       mode: "ai",
       provider,
@@ -320,13 +358,15 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
                       id,
                       title: "a short student-friendly title",
                       explanation:
-                        "at least three useful sentences written for a teenager",
+                        "one or two concrete sentences, no more than 260 characters",
                       coachPrompt:
-                        "one short coaching sentence that helps the student use the lesson",
+                        "one short coaching sentence, no more than 140 characters",
                     })),
-                    strategyChecklist: ["at least four concise steps"],
+                    strategyChecklist: [
+                      "three or four short action steps; do not repeat the common trap from the final section",
+                    ],
                     transferPrompt:
-                      "how to spot this skill when the wording looks different",
+                      "one short sentence about spotting the skill when the wording looks different",
                   },
                 }),
               },

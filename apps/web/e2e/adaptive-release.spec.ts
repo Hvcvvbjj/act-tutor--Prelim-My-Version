@@ -66,9 +66,26 @@ async function openFullDiagnostic(page: Page) {
   await answerQuickCheckThroughApi(page)
   await page.getByRole("tab", { name: /^(Quick Check|Check)$/ }).click()
   await expect(page.getByText("Quick Check complete")).toBeVisible()
-  await page
-    .getByRole("button", { name: "Take the full 66-question diagnostic" })
-    .click()
+  const diagnosticResponse = await page.request.post("/api/diagnostic", {
+    data: { action: "start_new_if_completed" },
+  })
+  expect(diagnosticResponse.ok()).toBeTruthy()
+  await page.evaluate(() => {
+    const key = "ai-act-tutor-placement-v3"
+    const stored = window.localStorage.getItem(key)
+    if (!stored) throw new Error("Guest plan was not saved locally.")
+    const parsed = JSON.parse(stored) as Record<string, unknown>
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        ...parsed,
+        version: 6,
+        resumeSurface: "diagnostic",
+        diagnosticPurpose: "baseline",
+      })
+    )
+  })
+  await page.reload()
   await page.getByRole("button", { name: "Start diagnostic" }).click()
 }
 
@@ -291,16 +308,19 @@ test("a guest can open the one-answer demo and see the adaptive proof", async ({
 
   await expect(
     page.getByRole("heading", {
-      name: "Correct—Scout adjusted your next steps.",
+      name: "Scout updated your skill estimates.",
     })
   ).toBeVisible()
   const proofHeading = page.getByRole("heading", {
-    name: "Correct—Scout adjusted your next steps.",
+    name: "Scout updated your skill estimates.",
   })
+  await expect(page.getByRole("status")).toHaveText("Correct.")
   const proofStep = page.getByText("1 · Question match")
   await expect(proofHeading).toBeFocused()
   await expect(proofStep).toBeVisible()
   await expect(page.getByText("2 · Ratios and percent estimate")).toBeVisible()
+  await expect(page.getByText(/After Round 1/)).toBeVisible()
+  await expect(page.getByText(/later-round priority/).first()).toBeVisible()
   await expect(
     page.getByText("Seven sample answers are loaded")
   ).not.toBeVisible()
@@ -748,7 +768,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   ).toBeVisible()
   await expect(
     settings.getByRole("switch", {
-      name: "Use fewer technical terms Keeps explanations focused on direct, learner-facing language.",
+      name: "Use fewer technical terms Keeps Scout answers focused on direct, learner-facing language.",
       exact: true,
     })
   ).toBeVisible()
@@ -968,6 +988,75 @@ test("an in-progress full diagnostic resumes without discarding the guest plan",
   ).toBeVisible()
 })
 
+test("diagnostic review makes the first unanswered question the primary action", async ({
+  page,
+}) => {
+  await openFullDiagnostic(page)
+
+  const sessionResponse = await page.request.get("/api/diagnostic")
+  expect(sessionResponse.ok()).toBeTruthy()
+  const session = (await sessionResponse.json()) as {
+    form: {
+      id: string
+      version: string
+      questions: ReadonlyArray<{
+        id: string
+        choices: ReadonlyArray<{ id: string }>
+      }>
+    }
+  }
+  const answers = Object.fromEntries(
+    session.form.questions
+      .slice(1)
+      .map((question) => [question.id, question.choices[0]?.id])
+  )
+  const saveResponse = await page.request.patch("/api/diagnostic", {
+    data: {
+      formId: session.form.id,
+      formVersion: session.form.version,
+      progress: {
+        answers,
+        currentIndex: session.form.questions.length - 1,
+        phase: "review",
+      },
+    },
+  })
+  expect(saveResponse.ok()).toBeTruthy()
+
+  await page.reload()
+  await expect(
+    page.getByRole("heading", { name: "Review your answers." })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Answer first blank" })
+  ).toBeVisible()
+  await expect(
+    page.locator("details").filter({ hasText: "Finish unanswered questions" })
+  ).toHaveAttribute("open", "")
+
+  await page.getByRole("button", { name: "Answer first blank" }).click()
+  await expect(
+    page.getByRole("progressbar", { name: "Diagnostic question 1 of 66" })
+  ).toBeVisible()
+  const saveResponseAfterBlank = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/diagnostic") &&
+      response.request().method() === "PATCH"
+  )
+  await page
+    .getByRole("radiogroup", { name: "Answer choices for question 1" })
+    .locator("label")
+    .first()
+    .click()
+  await saveResponseAfterBlank
+  await expect(
+    page.getByRole("heading", { name: "Review your answers." })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Submit diagnostic" })
+  ).toBeVisible()
+})
+
 test("full diagnostic moves focus and announces mobile save failures", async ({
   page,
 }) => {
@@ -1143,7 +1232,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
       responses: {
         [firstQuestion.id]: {
           choiceId: firstQuestion.choices[0].id,
-          confidence: "sure",
+          confidence: "unreported",
           flagged: false,
           elapsedSeconds: 20,
         },
@@ -1173,6 +1262,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
         review: ReadonlyArray<{
           section: "english" | "math" | "reading"
           selectedChoiceId: string | null
+          confidence: "guess" | "unsure" | "sure" | null
         }>
       }
     }
@@ -1180,6 +1270,9 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   const result = finalized.session.result
   expect(result.total).toBeGreaterThan(1)
   expect(result.unanswered).toBe(result.total - 1)
+  expect(
+    result.review.find((answer) => answer.selectedChoiceId !== null)?.confidence
+  ).toBeNull()
 
   await page.getByRole("button", { name: "More" }).click()
   await page.getByRole("menuitem", { name: "Timed Practice" }).click()
@@ -1187,16 +1280,23 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
   ).toHaveCount(0)
-  const scoreRange = page.getByText("Practice score range", { exact: true })
-  await expect(scoreRange).toBeVisible()
-  const scoreRangeBounds = await scoreRange.boundingBox()
-  expect(scoreRangeBounds).not.toBeNull()
-  expect(scoreRangeBounds!.y + scoreRangeBounds!.height).toBeLessThan(740)
+  const savedSummary = page.getByRole("heading", {
+    name: "Your completed answers are saved for review.",
+  })
+  await expect(savedSummary).toBeVisible()
+  const savedSummaryBounds = await savedSummary.boundingBox()
+  expect(savedSummaryBounds).not.toBeNull()
+  expect(savedSummaryBounds!.y + savedSummaryBounds!.height).toBeLessThan(740)
+  await expect(
+    page.getByText("Practice score range", { exact: true })
+  ).toHaveCount(0)
 
   const accuracy = page.getByTestId("timed-practice-answer-accuracy")
   await expect(accuracy).toContainText("Completed answers correct")
   await expect(accuracy).toContainText(`${result.correct} of 1`)
-  await expect(accuracy).toContainText(`${result.unanswered} unanswered`)
+  await expect(
+    page.getByText(`${result.unanswered} unanswered`, { exact: true })
+  ).toBeVisible()
   await expect(accuracy).not.toContainText("%")
   await expect(page.getByText("1 answered", { exact: true })).toBeVisible()
 
@@ -1244,7 +1344,7 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
   ).toBeVisible()
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Learning data" }).click()
+  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toHaveCount(0)
@@ -1301,7 +1401,7 @@ test("the server-verified judge account reveals the technical review layer", asy
   ).toBeVisible()
 
   await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Learning data" }).click()
+  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toBeVisible()

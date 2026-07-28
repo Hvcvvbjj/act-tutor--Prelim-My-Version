@@ -18,10 +18,10 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
     () => [
       {
         id: "learner" as const,
-        label: "Skill progress",
+        label: "Your data",
         icon: BrainCircuitIcon,
       },
-      { id: "act" as const, label: "ACT strategy", icon: GaugeIcon },
+      { id: "act" as const, label: "ACT timing", icon: GaugeIcon },
       ...(props.canViewTechnicalDetails
         ? [
             {
@@ -42,18 +42,19 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
       className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-7 lg:py-10"
     >
       <header className="border-b-2 border-foreground pb-7">
-        <p className="ink-label text-primary">Learning data</p>
+        <p className="ink-label text-primary">Data &amp; privacy</p>
         <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-          See what Scout knows about your learning.
+          See and control what Scout saves.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-          Review skill estimates, saved corrections, and ACT strategy.
+          Export or delete your study data, then inspect optional details if you
+          want them.
         </p>
       </header>
 
       <nav
         className="flex gap-2 border-b-2 border-foreground py-4"
-        aria-label="Learning data sections"
+        aria-label="Data and privacy sections"
       >
         {tabs.map(({ id, label, icon: Icon }) => (
           <Button

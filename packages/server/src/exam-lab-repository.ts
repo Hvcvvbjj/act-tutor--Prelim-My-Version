@@ -68,7 +68,12 @@ interface ExamLabStoreFile {
 
 const EMPTY_STORE: ExamLabStoreFile = { version: 1, sessions: {} };
 const queues = new Map<string, Promise<void>>();
-const CONFIDENCE = new Set<ExamConfidence>(["guess", "unsure", "sure"]);
+const CONFIDENCE = new Set<ExamConfidence>([
+  "guess",
+  "unsure",
+  "sure",
+  "unreported",
+]);
 
 function addMinutes(iso: string, minutes: number) {
   const date = new Date(iso);
@@ -151,7 +156,8 @@ function responseAnswerStateChanged(
     const after = next[questionId];
     if (
       (before?.choiceId ?? null) !== (after?.choiceId ?? null) ||
-      (before?.confidence ?? "unsure") !== (after?.confidence ?? "unsure") ||
+      (before?.confidence ?? "unreported") !==
+        (after?.confidence ?? "unreported") ||
       (before?.flagged ?? false) !== (after?.flagged ?? false)
     ) {
       return true;

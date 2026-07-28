@@ -196,7 +196,7 @@ export function TestDayLab({
     openedAt.current = Date.now()
     const response: ExamLabResponse = {
       choiceId: previous?.choiceId ?? null,
-      confidence: previous?.confidence ?? "sure",
+      confidence: previous?.confidence ?? "unreported",
       flagged: previous?.flagged ?? false,
       elapsedSeconds: Math.min(
         7200,

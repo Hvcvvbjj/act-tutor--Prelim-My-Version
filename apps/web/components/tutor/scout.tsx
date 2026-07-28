@@ -166,7 +166,7 @@ export function ScoutCoach({
               aria-expanded={expanded}
             >
               <MessageCircleMoreIcon data-icon="inline-start" />
-              {expanded ? "Hide coaching note" : "Why this matters"}
+              {expanded ? "Hide detail" : "More detail"}
             </Button>
             {expanded ? (
               <p className="mt-3 border-t pt-3 text-sm leading-6 text-muted-foreground">

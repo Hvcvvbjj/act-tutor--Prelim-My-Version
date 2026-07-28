@@ -14,7 +14,6 @@ import {
   TargetIcon,
 } from "lucide-react"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -71,13 +70,6 @@ export function ExamLabReport({
     readiness.answered > 0
       ? `${result.correct} of ${readiness.answered}`
       : "None yet"
-  const estimateLabel = result.practiceEstimate.composite
-    ? canViewTechnicalDetails
-      ? "Internal Composite display"
-      : "Practice score range"
-    : canViewTechnicalDetails
-      ? "Internal section display"
-      : "Practice score range"
   const estimateMargin = result.mode === "sprint" ? 4 : 3
   return (
     <main
@@ -95,103 +87,75 @@ export function ExamLabReport({
           </p>
           <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             {readiness.sufficient
-              ? "Timed Practice complete."
+              ? `A ${result.practiceEstimate.low}–${result.practiceEstimate.high} practice range.`
               : "Your completed answers are saved for review."}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
             {readiness.sufficient
-              ? "Your result and next focus are below."
-              : `You answered ${readiness.answered} of ${result.total} questions. Scout will show the completed work, but it will not infer a score, strength, pacing pattern, or next lesson from this run.`}{" "}
-            {onUseForNextRound
-              ? "These results have not changed Today or My Week yet. Use the action at the end of this report if you want them to set your next lesson round."
-              : "These results stay in Timed Practice and do not update Today or My Week."}
+              ? "Your answer accuracy supports this result. Your next focus is beside it."
+              : `You answered ${readiness.answered} of ${result.total} questions. Scout needs more completed work before suggesting a score range or next lesson.`}
           </p>
 
-          <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-[1.2fr_0.8fr] sm:divide-x-2 sm:divide-foreground">
-            <div className="py-6 sm:pr-8">
-              <p className="ink-label text-muted-foreground">
-                {readiness.sufficient ? estimateLabel : "Practice score range"}
-              </p>
-              {readiness.sufficient ? (
-                <>
-                  <p className="mt-2 font-heading text-7xl font-black text-primary tabular-nums">
-                    {result.practiceEstimate.low}–{result.practiceEstimate.high}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Midpoint {result.practiceEstimate.estimate} · calculated
-                    from raw correctness
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="mt-2 font-heading text-4xl font-black">
-                    Not shown
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {readiness.answered} answered · at least{" "}
-                    {readiness.minimumAnswered} needed
-                  </p>
-                </>
-              )}
-            </div>
+          <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-2 sm:divide-x-2 sm:divide-foreground">
             <div
               data-testid="timed-practice-answer-accuracy"
-              className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8"
+              className="py-6 sm:pr-8"
             >
               <p className="ink-label text-muted-foreground">
                 {readiness.sufficient
                   ? "Answers correct"
                   : "Completed answers correct"}
               </p>
-              <p className="mt-2 font-heading text-5xl font-black tabular-nums sm:text-6xl">
+              <p className="mt-2 font-heading text-5xl font-black text-primary tabular-nums sm:text-6xl">
                 {readiness.sufficient
                   ? `${Math.round(result.accuracy * 100)}%`
                   : completedAnswerSummary}
               </p>
+            </div>
+            <div className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8">
+              <p className="ink-label text-muted-foreground">
+                Questions answered
+              </p>
+              <p className="mt-2 font-heading text-5xl font-black tabular-nums sm:text-6xl">
+                {readiness.answered}/{result.total}
+              </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {readiness.sufficient
-                  ? `${result.correct}/${result.total} total · ${result.unanswered} unanswered`
-                  : `${result.unanswered} unanswered · not included above`}
+                {result.unanswered} unanswered
               </p>
             </div>
           </div>
-          {!readiness.sufficient ? (
-            <Alert className="mt-5 bg-[var(--coach-surface)]">
-              <CircleAlertIcon />
-              <AlertTitle>Finish more before using this result</AlertTitle>
-              <AlertDescription>
-                Your answers and timing are still available below. Scout is
-                withholding the score range and study recommendation because
-                this run has only {readiness.answered} completed answer
-                {readiness.answered === 1 ? "" : "s"}. That is not enough to
-                interpret responsibly.
-              </AlertDescription>
-            </Alert>
-          ) : canViewTechnicalDetails ? (
-            <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
-              <summary className="cursor-pointer font-semibold">
-                How the 1–36 display is calculated
-              </summary>
-              <p className="mt-3 text-muted-foreground">
-                Each section uses{" "}
-                <code className="font-mono text-xs text-foreground">
-                  round(1 + ((correct + 1) / (total + 2)) × 35)
-                </code>
-                .{" "}
-                {result.practiceEstimate.composite
-                  ? "Because this run includes English, Math, and Reading, the midpoint is the rounded average of the three section displays."
-                  : "Because this run includes one section, the midpoint is that section display."}
+          {readiness.sufficient ? (
+            canViewTechnicalDetails ? (
+              <details className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6">
+                <summary className="cursor-pointer font-semibold">
+                  How the 1–36 display is calculated
+                </summary>
+                <p className="mt-3 text-muted-foreground">
+                  Each section uses{" "}
+                  <code className="font-mono text-xs text-foreground">
+                    round(1 + ((correct + 1) / (total + 2)) × 35)
+                  </code>
+                  .{" "}
+                  {result.practiceEstimate.composite
+                    ? "Because this run includes English, Math, and Reading, the midpoint is the rounded average of the three section displays."
+                    : "Because this run includes one section, the midpoint is that section display."}
+                </p>
+                <p className="mt-2 text-muted-foreground">
+                  The shown range is the midpoint ±{estimateMargin}, clipped to
+                  1–36. This is an internal conversion from raw correctness—not
+                  an ACT-equated score or a statistical confidence interval.
+                </p>
+              </details>
+            ) : (
+              <p className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6 text-muted-foreground">
+                This practice range is a rough summary of this run, not an
+                official ACT-equated score or score prediction.
               </p>
-              <p className="mt-2 text-muted-foreground">
-                The shown range is the midpoint ±{estimateMargin}, clipped to
-                1–36. This is an internal conversion from raw correctness—not an
-                ACT-equated score or a statistical confidence interval.
-              </p>
-            </details>
+            )
           ) : (
             <p className="mt-5 border-b-2 border-foreground pb-5 text-sm leading-6 text-muted-foreground">
-              This practice range is a rough summary of this run, not an
-              official ACT-equated score or score prediction.
+              Completed answers remain available below. No score range or lesson
+              recommendation was created from this incomplete run.
             </p>
           )}
         </div>
@@ -209,6 +173,20 @@ export function ExamLabReport({
               ? result.debrief.nextAction
               : `Complete at least ${readiness.minimumAnswered} answers before Scout suggests a focus.`}
           </p>
+          {readiness.sufficient && onUseForNextRound ? (
+            <Button
+              type="button"
+              size="lg"
+              className="mt-6"
+              onClick={onUseForNextRound}
+              disabled={applyingToPlan}
+            >
+              {applyingToPlan
+                ? "Building your next round…"
+                : "Start my next lesson round"}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+          ) : null}
           {readiness.sufficient && canViewTechnicalDetails ? (
             <details className="mt-7 border-y-2 border-foreground py-5 text-sm leading-6">
               <summary className="cursor-pointer font-semibold">
@@ -527,19 +505,6 @@ export function ExamLabReport({
         <Button type="button" variant="outline" size="lg" onClick={onNewRun}>
           Take another practice test
         </Button>
-        {onUseForNextRound ? (
-          <Button
-            type="button"
-            size="lg"
-            onClick={onUseForNextRound}
-            disabled={applyingToPlan}
-          >
-            {applyingToPlan
-              ? "Building your next round…"
-              : "Start my next lesson round"}
-            <ArrowRightIcon data-icon="inline-end" />
-          </Button>
-        ) : null}
       </div>
     </main>
   )

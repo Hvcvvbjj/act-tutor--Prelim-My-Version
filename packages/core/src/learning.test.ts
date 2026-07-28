@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  answerEvidenceWeight,
   applyPracticeAttempt,
   chooseNextSkill,
   createInitialMastery,
   decideFutureTask,
+  normalizeAnswerConfidence,
   type SkillDefinition,
 } from "./learning";
 
@@ -74,6 +76,13 @@ describe("learning mastery", () => {
       confidence: "sure",
       answeredAt: "2026-07-12T12:00:00.000Z",
     });
+    const unsure = applyPracticeAttempt(seed, {
+      skill: sentenceSkill.slug,
+      correct: true,
+      difficulty: "medium",
+      confidence: "unsure",
+      answeredAt: "2026-07-12T12:00:00.000Z",
+    });
     const guessed = applyPracticeAttempt(seed, {
       skill: sentenceSkill.slug,
       correct: true,
@@ -90,7 +99,20 @@ describe("learning mastery", () => {
     });
 
     expect(sure.mastery.mastery).toBeGreaterThan(guessed.mastery.mastery);
-    expect(unreported.mastery.mastery).toBe(sure.mastery.mastery);
+    expect(unreported.mastery.mastery).toBe(unsure.mastery.mastery);
+    expect(unreported.mastery.mastery).toBeLessThan(sure.mastery.mastery);
+    expect(answerEvidenceWeight("unreported")).toBe(0.78);
+  });
+
+  it("normalizes omitted or invalid confidence without fabricating certainty", () => {
+    expect(
+      ["sure", "unsure", "guessing", "unreported"].map(
+        normalizeAnswerConfidence,
+      ),
+    ).toEqual(["sure", "unsure", "guessing", "unreported"]);
+    expect(normalizeAnswerConfidence(undefined)).toBe("unreported");
+    expect(normalizeAnswerConfidence(null)).toBe("unreported");
+    expect(normalizeAnswerConfidence("confident")).toBe("unreported");
   });
 
   it("keeps today's skill stable while letting the future task change", () => {

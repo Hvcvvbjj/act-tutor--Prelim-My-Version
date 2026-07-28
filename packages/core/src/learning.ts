@@ -381,12 +381,21 @@ export function answerEvidenceWeight(
   selfCorrected = false,
 ) {
   const confidenceWeight =
-    confidence === "sure" || confidence === "unreported"
+    confidence === "sure"
       ? 1
-      : confidence === "unsure"
+      : confidence === "unsure" || confidence === "unreported"
         ? 0.78
         : 0.48;
   return Math.round(confidenceWeight * (selfCorrected ? 0.82 : 1) * 100) / 100;
+}
+
+export function normalizeAnswerConfidence(value: unknown): AnswerConfidence {
+  return value === "sure" ||
+    value === "unsure" ||
+    value === "guessing" ||
+    value === "unreported"
+    ? value
+    : "unreported";
 }
 
 function addDays(isoDate: string, days: number) {

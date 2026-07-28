@@ -63,12 +63,12 @@ export function RoundTransition({
               disabled={busy}
               onClick={onDiagnostic}
             >
-              Choose diagnostic
+              Take diagnostic
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
           </article>
 
-          <article className="flex flex-col border border-primary bg-[var(--info-surface)] p-6 sm:p-8">
+          <article className="flex flex-col border border-border bg-background p-6 sm:p-8">
             <h3 className="font-heading text-3xl font-bold">
               Take a full-length practice test
             </h3>
@@ -85,7 +85,7 @@ export function RoundTransition({
               disabled={busy}
               onClick={onFullTest}
             >
-              Choose full-length test
+              Take full-length test
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
           </article>

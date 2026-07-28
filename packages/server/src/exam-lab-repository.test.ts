@@ -130,6 +130,36 @@ describe("FileExamLabRepository", () => {
     });
   });
 
+  it("autosaves neutral confidence and advances without inventing a report", async () => {
+    await withRepo(async (repo) => {
+      const started = await repo.start(form, {
+        mode: "section",
+        section: "english",
+      });
+      const saved = await repo.save(started.sessionId, form, {
+        currentIndex: 0,
+        phase: "questions",
+        responses: {
+          e1: {
+            choiceId: "a",
+            confidence: "unreported",
+            flagged: false,
+            elapsedSeconds: 31,
+          },
+        },
+      });
+
+      expect(saved.progress.responses.e1?.confidence).toBe("unreported");
+      const review = await repo.advanceSection(started.sessionId, form);
+      expect(review.progress.phase).toBe("review");
+      const completed = await repo.finalize(started.sessionId, form);
+      expect(completed.result?.review[0]?.confidence).toBeNull();
+      expect(
+        completed.result?.confidence.every((summary) => summary.total === 0),
+      ).toBe(true);
+    });
+  });
+
   it("rejects answer mutations at the section deadline", async () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-26T12:00:00.000Z");

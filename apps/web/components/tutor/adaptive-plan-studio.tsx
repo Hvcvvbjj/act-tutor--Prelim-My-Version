@@ -211,7 +211,7 @@ function AvailabilityEditor({
       >
         <span>
           <span className="ink-label text-muted-foreground">
-            Calendar capacity
+            Study schedule
           </span>
           <span
             id="availability-title"
@@ -219,12 +219,9 @@ function AvailabilityEditor({
           >
             {adaptivePlan.availability.entries.length}{" "}
             {adaptivePlan.availability.entries.length === 1
-              ? "allowed weekday"
-              : "allowed weekdays"}{" "}
+              ? "study day"
+              : "study days"}{" "}
             · {adaptivePlan.forecast.weeklyCapacity} min/week
-          </span>
-          <span className="mt-1 block text-xs font-semibold text-muted-foreground">
-            Edit calendar capacity
           </span>
         </span>
         <PencilRulerIcon className="text-primary" aria-hidden="true" />
@@ -233,9 +230,8 @@ function AvailabilityEditor({
       {open ? (
         <div className="mt-5">
           <p className="text-sm leading-6 text-muted-foreground">
-            These are the only weekdays and minutes the generator may use.
-            Saving rebuilds future dates; tasks dated today and tasks already
-            marked complete are kept.
+            Choose the days and minutes Scout may schedule. Saving updates
+            future work but keeps today and completed tasks.
           </p>
           <div
             className="mt-4 divide-y border-y"
@@ -382,9 +378,9 @@ function TaskBlock({
   return (
     <article
       className={cn(
-        "relative border-l-4 p-3 transition-colors",
-        meta.tone,
-        selected && "outline-2 outline-offset-2 outline-foreground",
+        "relative border-l-4 border-border bg-transparent p-3 transition-colors",
+        selected &&
+          "border-primary bg-[var(--info-surface)] outline-2 outline-offset-2 outline-foreground",
         task.status === "complete" && "border-primary bg-secondary",
         task.status === "skipped" && "opacity-55"
       )}
@@ -465,7 +461,8 @@ function WeekPlanner({
           <section
             key={date}
             className={cn(
-              "grid min-w-0 gap-3 px-3 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start",
+              "grid min-w-0 gap-3 px-3 sm:grid-cols-[8rem_minmax(0,1fr)]",
+              tasks.length ? "py-4 sm:items-start" : "py-2 sm:items-center",
               isToday &&
                 "bg-[color-mix(in_srgb,var(--scout-sun),transparent_90%)]",
               afterTest && "bg-muted/35 text-muted-foreground"
@@ -474,8 +471,17 @@ function WeekPlanner({
             aria-current={isToday ? "date" : undefined}
             data-testid="week-day"
           >
-            <header className="flex items-end justify-between gap-3 sm:block">
-              <div>
+            <header
+              className={cn(
+                "flex items-end justify-between gap-3",
+                tasks.length && "sm:block"
+              )}
+            >
+              <div
+                className={cn(
+                  !tasks.length && "flex items-baseline gap-3 sm:block"
+                )}
+              >
                 <p
                   className={cn(
                     "ink-label",
@@ -486,15 +492,21 @@ function WeekPlanner({
                 </p>
                 <h3
                   id={`day-${date}`}
-                  className="mt-1 font-heading text-xl font-black"
+                  className={cn(
+                    "font-heading font-black",
+                    tasks.length
+                      ? "mt-1 text-xl"
+                      : "font-mono text-xs text-muted-foreground sm:mt-1"
+                  )}
                 >
                   {shortDate(date)}
                 </h3>
               </div>
-              <p className="shrink-0 font-mono text-xs font-bold text-muted-foreground">
-                {tasks.reduce((sum, task) => sum + task.minutes, 0) || "—"}{" "}
-                {tasks.length ? "min" : ""}
-              </p>
+              {tasks.length ? (
+                <p className="shrink-0 font-mono text-xs font-bold text-muted-foreground">
+                  {tasks.reduce((sum, task) => sum + task.minutes, 0)} min
+                </p>
+              ) : null}
             </header>
             {tasks.length ? (
               <div className="grid gap-2">
@@ -510,7 +522,7 @@ function WeekPlanner({
                 ))}
               </div>
             ) : (
-              <p className="self-center py-2 text-sm leading-6 text-muted-foreground">
+              <p className="self-center text-sm leading-6 text-muted-foreground">
                 {afterTest ? "After test day" : "No study planned"}
               </p>
             )}

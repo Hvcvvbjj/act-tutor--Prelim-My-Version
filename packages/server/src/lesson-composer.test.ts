@@ -75,7 +75,7 @@ describe("lesson composition", () => {
     expect(JSON.stringify(lesson)).not.toMatch(
       /in your own words|say the rule|name the rule|rewrite the rule/i,
     );
-    expect(lesson.strategyChecklist.length).toBeGreaterThanOrEqual(4);
+    expect(lesson.strategyChecklist).toEqual(input.baseLesson.steps);
     expect(lesson.generation.mode).toBe("authored-fallback");
   });
 
@@ -169,5 +169,74 @@ describe("lesson composition", () => {
     const lesson = await composer.compose(input);
     expect(lesson.generation.mode).toBe("authored-fallback");
     expect(lesson.sections).toHaveLength(5);
+  });
+
+  it("falls back when generated lesson copy exceeds the learner-facing limits", async () => {
+    const generated = {
+      minutes: 15,
+      whyAssigned:
+        "Your recent answers show that supported inference should be your next lesson.",
+      tutorOpening:
+        "Let’s make each inference stay close to what the passage actually supports.",
+      sections: [
+        {
+          id: "question-type",
+          title: "Spot the question type",
+          explanation: "A".repeat(261),
+          coachPrompt: "Look for wording that asks for an inference.",
+        },
+        {
+          id: "mental-model",
+          title: "Shrink the claim",
+          explanation:
+            "Use the smallest conclusion made likely by the cited lines.",
+          coachPrompt: "Keep the prediction cautious.",
+        },
+        {
+          id: "guided-example",
+          title: "Trace the evidence",
+          explanation:
+            "The repeated check suggests concern without proving a specific disaster.",
+          coachPrompt: "Start with the repeated behavior.",
+        },
+        {
+          id: "decision-rule",
+          title: "Run the test",
+          explanation:
+            "Point to the evidence, then check each added claim for support.",
+          coachPrompt: "Reject unsupported additions.",
+        },
+        {
+          id: "need-to-know",
+          title: "Keep the burden of proof",
+          explanation:
+            "Every important part of an inference needs support from the passage.",
+          coachPrompt: "Tie each claim to the passage.",
+        },
+      ],
+      strategyChecklist: [
+        "Locate the relevant lines",
+        "Predict a cautious conclusion",
+        "Reject unsupported additions",
+      ],
+      transferPrompt:
+        "When wording changes, test each claim against a specific line.",
+    };
+    const composer = new OpenAICompatibleLessonComposer({
+      baseUrl: "http://model.test/v1",
+      model: "verbose-model",
+      fetchImplementation: (async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(generated) } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )) as typeof fetch,
+    });
+
+    const lesson = await composer.compose(input);
+
+    expect(lesson.generation.mode).toBe("authored-fallback");
+    expect(lesson.strategyChecklist).toEqual(input.baseLesson.steps);
   });
 });

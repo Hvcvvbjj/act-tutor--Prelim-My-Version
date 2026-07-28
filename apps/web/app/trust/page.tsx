@@ -106,9 +106,10 @@ export default function TrustPage() {
               Your controls
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              After setup, open <strong>More → Learning data</strong> to export
-              a readable copy or delete Scout study sessions and the saved plan.
-              Study-data deletion does not delete an account’s sign-in.
+              After setup, open <strong>More → Data &amp; privacy</strong> to
+              export a readable copy or delete Scout study sessions and the
+              saved plan. Study-data deletion does not delete an account’s
+              sign-in.
             </p>
           </article>
         </section>

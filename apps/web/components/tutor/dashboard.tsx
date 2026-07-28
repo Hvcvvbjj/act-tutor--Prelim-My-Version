@@ -19,7 +19,6 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ChevronDownIcon,
-  CircleGaugeIcon,
   FlaskConicalIcon,
   InfoIcon,
   MessageCircleIcon,
@@ -107,7 +106,7 @@ const TestDayLab = dynamic(loadTestDayLab, {
   loading: () => <DashboardSurfaceLoading message="Opening timed practice…" />,
 })
 const ScoutOperationsLab = dynamic(loadScoutOperationsLab, {
-  loading: () => <DashboardSurfaceLoading message="Opening Learning data…" />,
+  loading: () => <DashboardSurfaceLoading message="Opening Data & privacy…" />,
 })
 const RoundTransition = dynamic(loadRoundTransition, {
   loading: () => (
@@ -335,20 +334,8 @@ function MobileOverflow({
       data-more-surface="true"
       className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
       role="menu"
-      aria-labelledby="mobile-more-title"
-      aria-describedby="mobile-more-description"
+      aria-label="More from Scout"
     >
-      <div className="px-3 pt-1 pb-2">
-        <p id="mobile-more-title" className="text-sm font-bold">
-          More from Scout
-        </p>
-        <p
-          id="mobile-more-description"
-          className="mt-1 text-xs leading-5 text-muted-foreground"
-        >
-          Practice, settings, and your learning data.
-        </p>
-      </div>
       <Button
         type="button"
         variant="ghost"
@@ -377,7 +364,7 @@ function MobileOverflow({
           onClose()
         }}
       >
-        <ShieldCheckIcon /> Learning data
+        <ShieldCheckIcon /> Data &amp; privacy
       </Button>
       <Button
         type="button"
@@ -426,20 +413,8 @@ function DesktopOverflow({
       data-more-surface="true"
       className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-64 rounded-xl border bg-background p-2 shadow-xl md:block"
       role="menu"
-      aria-labelledby="desktop-more-title"
-      aria-describedby="desktop-more-description"
+      aria-label="More from Scout"
     >
-      <div className="px-3 pt-1 pb-2">
-        <p id="desktop-more-title" className="text-sm font-bold">
-          More from Scout
-        </p>
-        <p
-          id="desktop-more-description"
-          className="mt-1 text-xs leading-5 text-muted-foreground"
-        >
-          Practice, settings, and your learning data.
-        </p>
-      </div>
       <Button
         type="button"
         variant="ghost"
@@ -468,7 +443,7 @@ function DesktopOverflow({
           onClose()
         }}
       >
-        <ShieldCheckIcon /> Learning data
+        <ShieldCheckIcon /> Data &amp; privacy
       </Button>
       <Button
         type="button"
@@ -548,7 +523,7 @@ export function Dashboard({
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "auto" })
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
     })
     return () => window.cancelAnimationFrame(frame)
   }, [activeTab, workspaceOpen])
@@ -615,7 +590,7 @@ export function Dashboard({
       const result = await flushOfflineAnswerQueue()
       if (result.lastQuarantineReason) {
         setLearningError(
-          `A saved answer was not applied: ${result.lastQuarantineReason} It is available in Learning data for review.`
+          `A saved answer was not applied: ${result.lastQuarantineReason} It is available in Data & privacy for review.`
         )
       } else if (result.lastTransientReason) {
         setLearningError(
@@ -1179,7 +1154,7 @@ export function Dashboard({
                     Today
                   </DashboardTab>
                   <DashboardTab value="plan" className="min-h-11">
-                    My week
+                    My Week
                   </DashboardTab>
                   <DashboardTab value="calibrate" className="min-h-11">
                     Quick Check
@@ -1241,35 +1216,33 @@ export function Dashboard({
           </div>
         ) : null}
 
-        {plan.baselineSkipped &&
-        activeTab !== "lab" &&
-        activeTab !== "calibrate" &&
-        !(workspaceOpen && activeTab === "today") ? (
-          <div className="mx-auto w-full max-w-[86rem] px-4 pt-4 sm:px-7">
-            <Alert className="border-primary bg-[var(--info-surface)]">
-              <CircleGaugeIcon />
-              <AlertTitle>Your starter plan uses a temporary 18.</AlertTitle>
-              <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  That number is not your ACT score. Take the 8–12 question
-                  Quick Check whenever you want Scout to replace it with
-                  answer-based starting points.
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0 bg-background"
-                  onClick={() => {
-                    void loadAdaptiveCalibrationLab()
-                    setActiveTab("calibrate")
-                  }}
-                >
-                  Take Quick Check
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Button>
-              </AlertDescription>
-            </Alert>
-          </div>
+        {plan.baselineSkipped && activeTab === "today" && !workspaceOpen ? (
+          <aside
+            className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-7"
+            aria-label="Starter plan notice"
+          >
+            <div className="flex flex-col items-start gap-2 border-b border-border pb-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                <strong className="font-semibold text-foreground">
+                  Your starter plan uses a temporary 18.
+                </strong>{" "}
+                It is not an ACT score.
+              </p>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto shrink-0 p-0"
+                onClick={() => {
+                  void loadAdaptiveCalibrationLab()
+                  setActiveTab("calibrate")
+                }}
+              >
+                Take Quick Check
+                <ArrowRightIcon data-icon="inline-end" />
+              </Button>
+            </div>
+          </aside>
         ) : null}
 
         <TabsContent value="today">

@@ -397,9 +397,8 @@ function SkillRows({
                   aria-pressed={selectedSkill === skill.skill}
                   aria-controls="selected-skill-detail"
                   className={cn(
-                    "w-full py-3 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
-                    selectedSkill === skill.skill &&
-                      "bg-[var(--info-surface)] px-3"
+                    "w-full px-3 py-3 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
+                    selectedSkill === skill.skill && "bg-[var(--info-surface)]"
                   )}
                 >
                   <span className="flex items-baseline justify-between gap-3">
@@ -463,6 +462,7 @@ export function MasteryProfile({
 
   function selectSkill(skill: string) {
     onSelect(skill)
+    if (!window.matchMedia("(max-width: 1023px)").matches) return
     window.requestAnimationFrame(() => {
       selectedSkillHeadingRef.current?.focus({ preventScroll: true })
       selectedSkillHeadingRef.current?.scrollIntoView({
@@ -473,18 +473,18 @@ export function MasteryProfile({
   }
 
   return (
-    <figure className="mt-8" aria-labelledby="exact-skill-values">
-      <details className="group overflow-hidden rounded-2xl bg-[#10243d] text-[#f7fbff]">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between px-5 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:px-7 [&::-webkit-details-marker]:hidden">
+    <div className="mt-8">
+      <details className="group border-y border-border/80">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-1 text-sm font-semibold text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
           <span>See skill map</span>
-          <span className="text-xs font-semibold text-white/60 group-open:hidden">
-            Optional overview
+          <span className="text-xs font-semibold group-open:hidden">
+            Optional
           </span>
-          <span className="hidden text-xs font-semibold text-white/60 group-open:inline">
+          <span className="hidden text-xs font-semibold group-open:inline">
             Hide map
           </span>
         </summary>
-        <div className="border-t border-white/15">
+        <div className="border-t border-white/15 bg-[#10243d] text-[#f7fbff]">
           <h2 id="mastery-profile-title" className="sr-only">
             Skill map
           </h2>
@@ -542,23 +542,12 @@ export function MasteryProfile({
         </div>
       </details>
 
-      <section className="mt-9" aria-labelledby="exact-skill-values">
-        <div className="border-b-2 border-foreground pb-4">
-          <p className="ink-label text-primary">All skills</p>
-          <h2
-            id="exact-skill-values"
-            className="mt-2 font-heading text-3xl font-black sm:text-4xl"
-          >
-            Choose a skill
-          </h2>
-        </div>
-        <div className="mt-5">
-          <SkillRows
-            skills={skills}
-            selectedSkill={selected.skill}
-            onSelect={selectSkill}
-          />
-        </div>
+      <section className="mt-8" aria-label="All skills">
+        <SkillRows
+          skills={skills}
+          selectedSkill={selected.skill}
+          onSelect={selectSkill}
+        />
       </section>
 
       <section
@@ -680,6 +669,6 @@ export function MasteryProfile({
           )}
         </div>
       </section>
-    </figure>
+    </div>
   )
 }

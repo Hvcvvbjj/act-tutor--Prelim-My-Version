@@ -25,7 +25,7 @@ import {
   VisuallyHiddenRadioGroupItem,
 } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
-import { ScoutMark, type ScoutMood } from "@/components/tutor/scout"
+import { ScoutMark } from "@/components/tutor/scout"
 import type { ReportedOfficialScore } from "@/components/tutor/types"
 import { cn } from "@/lib/utils"
 import type { CoreSectionScores } from "@act-tutor/core"
@@ -280,24 +280,6 @@ function ScoreInput({
   )
 }
 
-function progressNumber(stage: Stage) {
-  if (stage === "outcome") return 1
-  if (stage === "score") return 2
-  return 3
-}
-
-function outcomeMood(
-  outcome: TestDayOutcome,
-  composite: number | null,
-  priorComposite: number | undefined
-): ScoutMood {
-  if (outcome !== "score_reported" || composite === null) return "ready"
-  if (priorComposite === undefined) return "ready"
-  if (composite > priorComposite) return "correct"
-  if (composite < priorComposite) return "repair"
-  return "thinking"
-}
-
 function officialScoreFeedback(
   composite: number,
   prior: Pick<ReportedOfficialScore, "composite"> | undefined
@@ -334,7 +316,6 @@ function officialScoreFeedback(
 
 export function TestDayCheckIn({
   testDate,
-  currentComposite,
   officialScoreHistory,
   baselineOfficialComposite,
   initialDraftScores,
@@ -373,7 +354,6 @@ export function TestDayCheckIn({
       : undefined
   }, [baselineOfficialComposite, officialScoreHistory, testDate])
   const parsedComposite = parseActScore(scores.composite)
-  const currentStep = progressNumber(stage)
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -530,12 +510,6 @@ export function TestDayCheckIn({
               "Missing a test date does not mean you failed. Pick another date if you have one, or pause the testing cycle for now.",
           }
 
-  const mood = outcomeMood(
-    outcome || "did_not_test",
-    parsedComposite,
-    priorOfficialScore?.composite
-  )
-
   return (
     <div
       data-hide-global-footer
@@ -550,93 +524,41 @@ export function TestDayCheckIn({
             SCOUT <span className="text-primary">ACT</span>
           </p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={saving}
-          onClick={onSnooze}
-        >
-          Ask me later
-        </Button>
+        <div className="flex items-center gap-2">
+          <details className="group relative">
+            <summary className="cursor-pointer list-none rounded-md px-3 py-2 text-sm font-semibold text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+              About Mr. Kim
+            </summary>
+            <p className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-72 rounded-lg border bg-background p-4 text-sm leading-6 text-muted-foreground shadow-lg">
+              Mr. Kim is Scout ACT&apos;s fictional AI coach. He can organize
+              practice, but he cannot verify or submit scores.
+            </p>
+          </details>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={saving}
+            onClick={onSnooze}
+          >
+            Ask me later
+          </Button>
+        </div>
       </header>
 
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto grid w-full max-w-6xl items-start gap-7 px-5 py-7 sm:px-8 sm:py-10 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10 lg:py-14"
+        className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-12 lg:py-16"
       >
-        <aside className="lg:sticky lg:top-8">
-          <div className="flex items-center gap-4 lg:block">
-            <div aria-hidden="true">
-              <ScoutMark
-                mood={stage === "next" ? mood : "ready"}
-                className="size-16 lg:size-24"
-              />
-            </div>
-            <div className="min-w-0 lg:mt-4">
-              <p className="text-xs font-black tracking-[0.12em] text-primary uppercase">
-                Mr. Kim
-              </p>
-              <p className="mt-1 font-heading text-2xl font-black tracking-tight">
-                Test-day check-in
-              </p>
-            </div>
-          </div>
-
-          <Alert className="mt-5 border-primary/30 bg-[var(--info-surface)] p-4">
-            <AlertTitle>Fictional AI coach</AlertTitle>
-            <AlertDescription className="mt-1 leading-6">
-              Mr. Kim is Scout ACT’s fictional AI coach—not a real teacher,
-              counselor, or ACT representative. He can organize practice, but he
-              cannot verify or submit scores.
-            </AlertDescription>
-          </Alert>
-        </aside>
-
         <section className="min-w-0">
-          <ol
-            aria-label="Check-in progress"
-            className="mb-5 grid grid-cols-3 gap-2"
-          >
-            {["How it went", "Official score", "Next step"].map(
-              (label, index) => {
-                const stepNumber = index + 1
-                const active = stepNumber === currentStep
-                const complete = stepNumber < currentStep
-                return (
-                  <li
-                    key={label}
-                    aria-current={active ? "step" : undefined}
-                    className="min-w-0"
-                  >
-                    <span
-                      className={cn(
-                        "block h-1.5 rounded-full bg-border",
-                        (active || complete) && "bg-primary"
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "mt-2 block truncate text-xs font-bold text-muted-foreground",
-                        active && "text-foreground"
-                      )}
-                    >
-                      {stepNumber}. {label}
-                    </span>
-                  </li>
-                )
-              }
-            )}
-          </ol>
-
           <div
             key={stage}
-            className="paper-panel animate-in rounded-2xl border border-border/80 bg-card p-5 duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none sm:p-8 lg:p-10"
+            className="animate-in duration-300 fade-in slide-in-from-bottom-2 motion-reduce:animate-none"
           >
             {stage === "outcome" ? (
               <>
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                  Step 1 of 3 · How it went
+                  Mr. Kim · Test-day check-in
                 </p>
                 <h1
                   ref={headingRef}
@@ -650,34 +572,9 @@ export function TestDayCheckIn({
                   go?
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Tell me what actually happened. This changes the next study
-                  cycle; it does not grade your effort.
+                  Tell me what actually happened. This changes what Scout does
+                  next; it does not grade your effort.
                 </p>
-
-                <div className="mt-7 grid gap-3 border-y border-border py-5 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                      Planning estimate
-                    </p>
-                    <p className="mt-1 text-2xl font-black tabular-nums">
-                      {isValidActScore(currentComposite)
-                        ? currentComposite
-                        : "Not available"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                      Last official Composite
-                    </p>
-                    <p className="mt-1 text-2xl font-black tabular-nums">
-                      {priorOfficialScore?.composite ?? "None yet"}
-                    </p>
-                  </div>
-                  <p className="text-sm leading-6 text-muted-foreground sm:col-span-2">
-                    The planning estimate is not an official score. Any
-                    up-or-down comparison uses only your prior official score.
-                  </p>
-                </div>
 
                 <RadioGroup
                   value={outcome}
@@ -718,7 +615,7 @@ export function TestDayCheckIn({
             {stage === "score" ? (
               <form ref={scoreFormRef} noValidate onSubmit={continueFromScore}>
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                  Step 2 of 3 · Official score
+                  Official score
                 </p>
                 <h1
                   ref={headingRef}
@@ -728,21 +625,9 @@ export function TestDayCheckIn({
                   Add the score ACT reported.
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Composite is required. The English, Math, and Reading
-                  breakdown is optional; if you add it, enter all three.
+                  Enter the official Composite ACT reported. Section scores are
+                  optional.
                 </p>
-
-                <Alert className="mt-6 bg-[var(--info-surface)] p-4">
-                  <AlertTitle>Official numbers only</AlertTitle>
-                  <AlertDescription className="mt-1 leading-6">
-                    Don’t enter a practice score or the{" "}
-                    {isValidActScore(currentComposite)
-                      ? `${currentComposite}-point `
-                      : ""}
-                    planning estimate. You can go back and choose “scores aren’t
-                    back” instead.
-                  </AlertDescription>
-                </Alert>
 
                 <div className="mt-7 max-w-sm">
                   <ScoreInput
@@ -816,7 +701,7 @@ export function TestDayCheckIn({
             {stage === "next" ? (
               <form noValidate onSubmit={completeCheckIn}>
                 <p className="text-xs font-bold tracking-[0.12em] text-primary uppercase">
-                  Step 3 of 3 · Next step
+                  Mr. Kim · Next step
                 </p>
                 <h1
                   ref={headingRef}
@@ -826,30 +711,13 @@ export function TestDayCheckIn({
                   {feedback.title}
                 </h1>
 
-                <div
-                  className={cn(
-                    "mt-6 grid grid-cols-[auto_minmax(0,1fr)] gap-4 border-l-4 bg-[var(--info-surface)] p-5",
-                    mood === "correct"
-                      ? "border-[var(--scout-mint)]"
-                      : mood === "repair"
-                        ? "border-[var(--scout-coral)]"
-                        : "border-primary"
-                  )}
+                <p
+                  className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg"
                   role="status"
                   aria-live="polite"
                 >
-                  <div aria-hidden="true">
-                    <ScoutMark mood={mood} className="size-12" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black tracking-[0.1em] text-primary uppercase">
-                      Mr. Kim
-                    </p>
-                    <p className="mt-1.5 text-sm leading-6 sm:text-base">
-                      {feedback.message}
-                    </p>
-                  </div>
-                </div>
+                  {feedback.message}
+                </p>
 
                 {preserveCurrentCycle ? (
                   <div className="mt-8 border-y-2 border-foreground py-6">

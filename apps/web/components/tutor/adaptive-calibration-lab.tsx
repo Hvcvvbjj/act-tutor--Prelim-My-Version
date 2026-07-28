@@ -211,8 +211,8 @@ function AdaptiveProofReplay({
   representativeDemo: boolean
   adaptiveBaselineRequired: boolean
 }) {
-  const nextLesson = proof.learning.recommendationAfter
-  const previousLesson = proof.learning.recommendationBefore
+  const laterPriority = proof.learning.recommendationAfter
+  const previousPriority = proof.learning.recommendationBefore
   const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
@@ -230,18 +230,24 @@ function AdaptiveProofReplay({
           className="mx-auto size-10 text-primary"
           aria-hidden="true"
         />
+        <p
+          className="ink-label mt-4 text-primary"
+          role="status"
+          aria-live="polite"
+        >
+          {proof.correct ? "Correct." : "Not quite."}
+        </p>
         <h2
           ref={headingRef}
           id="adaptive-proof-heading"
           tabIndex={-1}
-          className="mt-4 scroll-mt-20 font-heading text-4xl leading-tight font-black tracking-[-0.03em] outline-none sm:text-5xl"
+          className="mt-3 scroll-mt-20 font-heading text-4xl leading-tight font-black tracking-[-0.03em] outline-none sm:text-5xl"
         >
-          {proof.correct
-            ? "Correct—Scout adjusted your next steps."
-            : "Not quite—Scout adjusted your next steps."}
+          Scout updated your skill estimates.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-          {proof.learning.skillLabel} was updated. Next up: {nextLesson.label}.
+          {proof.learning.skillLabel} was updated. Later-round priority:{" "}
+          {laterPriority.label}.
         </p>
         {!adaptiveBaselineRequired ? (
           <Button
@@ -267,7 +273,9 @@ function AdaptiveProofReplay({
         <div>
           <div className="flex items-center gap-3 text-primary">
             <CheckCircle2Icon className="size-5" aria-hidden="true" />
-            <p className="ink-label">Answer recorded</p>
+            <p className="ink-label" role="status" aria-live="polite">
+              {proof.correct ? "Correct." : "Not quite."}
+            </p>
           </div>
           <h2
             ref={headingRef}
@@ -275,15 +283,13 @@ function AdaptiveProofReplay({
             tabIndex={-1}
             className="mt-3 max-w-4xl scroll-mt-20 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
           >
-            {proof.correct
-              ? "Correct—Scout adjusted your next steps."
-              : "Not quite—Scout adjusted your next steps."}
+            Scout updated your skill estimates.
           </h2>
         </div>
         <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
           {proof.correct
-            ? `Your answer strengthened Scout’s estimate for ${proof.learning.skillLabel}. Scout then checked whether your next lesson should change.`
-            : `Your answer gave Scout more information about ${proof.learning.skillLabel}. Scout then checked whether your next lesson should change.`}
+            ? `Your answer strengthened Scout’s estimate for ${proof.learning.skillLabel}. Scout then updated your later-round priorities.`
+            : `Your answer gave Scout more information about ${proof.learning.skillLabel}. Scout then updated your later-round priorities.`}
         </p>
       </div>
 
@@ -331,21 +337,21 @@ function AdaptiveProofReplay({
         <article className="border-t-2 border-foreground py-7 lg:border-t-0 lg:pl-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="ink-label text-muted-foreground">
-              {canViewTechnicalDetails ? "3" : "2"} · Study next
+              {canViewTechnicalDetails ? "3" : "2"} · After Round 1
             </p>
             <span className="bg-foreground px-2 py-1 font-mono text-[0.62rem] font-black text-background uppercase">
               {proof.learning.recommendationChanged
-                ? "New next lesson"
-                : "Still next"}
+                ? "New priority"
+                : "Priority unchanged"}
             </span>
           </div>
           <p className="mt-4 font-heading text-4xl leading-none font-black text-primary sm:text-5xl">
-            {nextLesson.label}
+            {laterPriority.label}
           </p>
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
             {proof.learning.recommendationChanged
-              ? `${nextLesson.label} moved ahead of ${previousLesson.label} after this answer.`
-              : `${nextLesson.label} is still your next lesson. This answer updated ${proof.learning.skillLabel}, but did not change what should come first.`}
+              ? `${laterPriority.label} moved ahead of ${previousPriority.label} as a later-round priority.`
+              : `${laterPriority.label} remains the leading later-round priority. This answer updated ${proof.learning.skillLabel} without changing that priority.`}
           </p>
         </article>
       </div>
@@ -359,10 +365,10 @@ function AdaptiveProofReplay({
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {representativeDemo
-              ? "The sample My week calendar stays fixed so you can compare what changed: the skill estimate and next recommendation."
+              ? "The sample My week calendar stays fixed so you can compare what changed: the skill estimate and later-round priority."
               : adaptiveBaselineRequired
                 ? "This was your starting check. Use “Build my study plan” below to turn these answers into a dated calendar."
-                : "Your dated My week calendar stays as it is. Scout will use this update when choosing what you should practice next."}
+                : "Your dated My week calendar stays as it is. Scout will use this update when setting later-round priorities."}
           </p>
         </div>
         {!adaptiveBaselineRequired ? (
@@ -493,7 +499,6 @@ export function AdaptiveCalibrationLab({
   onLearningTwinUpdated,
   onInspectLearningTwin,
   onReturnToToday,
-  onStartFullDiagnostic,
   adaptiveBaselineRequired,
   preserveReportedScore = false,
   onUseAdaptiveBaseline,
@@ -565,6 +570,9 @@ export function AdaptiveCalibrationLab({
 
     const previousQuestionId = previousQuestionIdRef.current
     previousQuestionIdRef.current = currentQuestionId
+    if (previousQuestionId && previousQuestionId !== currentQuestionId) {
+      setShowLatestAnswer(false)
+    }
     if (
       previousQuestionId === currentQuestionId ||
       (!previousQuestionId && !payload?.representativeDemo)
@@ -793,8 +801,8 @@ export function AdaptiveCalibrationLab({
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
                 Answer 8–12 questions. Scout may stop after eight once English,
-                Math, and Reading are covered. The result chooses lessons—not an
-                ACT score.
+                Math, and Reading are covered. The answers refine your starting
+                skill estimates. Round 1 still teaches all 12 question types.
               </p>
             </div>
 
@@ -892,8 +900,8 @@ export function AdaptiveCalibrationLab({
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {preserveReportedScore
-                    ? "Your reported ACT score stays as the planning baseline. These answers add the question-type evidence needed for your skill profile and first lesson round."
-                    : "Scout will turn these answers into a temporary planning baseline for your schedule. It is not an official ACT score or score prediction."}
+                    ? "Your reported ACT score stays as the planning baseline. These answers refine your question-type estimates for later rounds; Round 1 still covers all 12 types."
+                    : "Scout will turn these answers into a temporary planning baseline for your schedule."}
                 </p>
               </div>
               <Button
@@ -918,7 +926,7 @@ export function AdaptiveCalibrationLab({
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
             Scout used {payload.responseCount} answers to build your starting
-            skill profile. This is not an ACT score.
+            skill profile.
           </p>
           {canViewTechnicalDetails ? (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -941,13 +949,6 @@ export function AdaptiveCalibrationLab({
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onStartFullDiagnostic}
-            >
-              Take the full 66-question diagnostic
-            </Button>
           </div>
           {error ? (
             <p

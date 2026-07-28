@@ -26,10 +26,10 @@ interface ExamLabSetupProps {
 const MODES = [
   {
     id: "sprint",
-    title: "Quick 12-question quiz",
+    title: "12-question timed sprint",
     meta: "12 questions · 15 minutes",
     description:
-      "One question from every tracked skill. Best for a quick check.",
+      "One question from every tracked skill. Best for short timed practice.",
     icon: GaugeIcon,
   },
   {

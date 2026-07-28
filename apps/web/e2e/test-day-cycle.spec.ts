@@ -76,12 +76,7 @@ test("Mr. Kim compares a reported score with the official onboarding baseline", 
   await expect(
     page.getByRole("heading", { name: /How did your July 20, 2026 test go/ })
   ).toBeVisible()
-  await expect(
-    page
-      .getByText("Last official Composite")
-      .locator("..")
-      .getByText("22", { exact: true })
-  ).toBeVisible()
+  await expect(page.getByText("Last official Composite")).toHaveCount(0)
 
   await page.getByText("I tested and have my scores", { exact: true }).click()
   await page.getByRole("button", { name: "Continue" }).click()

@@ -8,7 +8,8 @@ import type { CoreSection } from "./types";
 
 export type ExamLabMode = "sprint" | "section" | "core";
 export type ExamLabSection = CoreSection | "mixed";
-export type ExamConfidence = "guess" | "unsure" | "sure";
+export type ExamReportedConfidence = "guess" | "unsure" | "sure";
+export type ExamConfidence = ExamReportedConfidence | "unreported";
 export type ExamLabPhase = "questions" | "review" | "results";
 
 export const EXAM_SECTION_MINUTES: Record<CoreSection, number> = {
@@ -54,7 +55,7 @@ export interface ExamLabSkillResult {
 }
 
 export interface ExamConfidenceResult {
-  confidence: ExamConfidence;
+  confidence: ExamReportedConfidence;
   correct: number;
   total: number;
   accuracy: number | null;
@@ -78,7 +79,7 @@ export interface ExamQuestionReview {
   correctChoiceId: string;
   correct: boolean;
   rationale: string;
-  confidence: ExamConfidence | null;
+  confidence: ExamReportedConfidence | null;
   flagged: boolean;
   elapsedSeconds: number;
   expectedSeconds: number;
@@ -149,7 +150,7 @@ const SECTION_ORDER: ReadonlyArray<CoreSection> = [
   "math",
   "reading",
 ];
-const CONFIDENCE_ORDER: ReadonlyArray<ExamConfidence> = [
+const CONFIDENCE_ORDER: ReadonlyArray<ExamReportedConfidence> = [
   "guess",
   "unsure",
   "sure",
@@ -263,7 +264,10 @@ export function scoreExamLab(
       correctChoiceId: question.correctChoiceId,
       correct: response?.choiceId === question.correctChoiceId,
       rationale: question.rationale,
-      confidence: response?.choiceId ? response.confidence : null,
+      confidence:
+        response?.choiceId && response.confidence !== "unreported"
+          ? response.confidence
+          : null,
       flagged: response?.flagged ?? false,
       elapsedSeconds: response?.elapsedSeconds ?? 0,
       expectedSeconds: question.expectedSeconds,

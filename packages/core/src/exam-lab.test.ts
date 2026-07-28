@@ -91,6 +91,37 @@ describe("Exam Lab scoring", () => {
     expect(result.review).toHaveLength(3);
   });
 
+  it("scores answers without presenting unreported confidence as learner input", () => {
+    const responses: Record<string, ExamLabResponse> = {
+      e1: {
+        choiceId: "a",
+        confidence: "unreported",
+        flagged: false,
+        elapsedSeconds: 40,
+      },
+      m1: {
+        choiceId: "a",
+        confidence: "unreported",
+        flagged: false,
+        elapsedSeconds: 60,
+      },
+    };
+
+    const result = scoreExamLab("sprint", form.questions, responses);
+
+    expect(result.correct).toBe(1);
+    expect(
+      result.review.slice(0, 2).map((review) => review.confidence),
+    ).toEqual([null, null]);
+    expect(result.confidence).toEqual([
+      { confidence: "guess", correct: 0, total: 0, accuracy: null },
+      { confidence: "unsure", correct: 0, total: 0, accuracy: null },
+      { confidence: "sure", correct: 0, total: 0, accuracy: null },
+    ]);
+    expect(result.overconfidentMisses).toBe(0);
+    expect(result.luckyGuesses).toBe(0);
+  });
+
   it("withholds interpretation and recommendations from incomplete work", () => {
     const result = scoreExamLab("sprint", form.questions, {});
     const debrief = buildAuthoredExamDebrief(

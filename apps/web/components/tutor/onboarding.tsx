@@ -5,19 +5,16 @@ import { calendarDaysUntil, type StudyWeekday } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CalendarDaysIcon,
   ChevronDownIcon,
   MinusIcon,
   PlayCircleIcon,
   PlusIcon,
   SkipForwardIcon,
-  TargetIcon,
-  TrendingUpIcon,
 } from "lucide-react"
 
 import { AccountAccess } from "@/components/tutor/account-access"
 import { defaultStudyAvailability } from "@/components/tutor/adaptive-plan-studio-client"
-import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
+import { ScoutMark } from "@/components/tutor/scout"
 import type { PlacementDraft } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -129,7 +126,7 @@ function LearningDataNotice({ className }: { className?: string }) {
         </p>
         <p className="mt-2">
           Scored answers also update Scout&apos;s learning record. After setup,
-          open More → Learning data to export or delete saved study data.
+          open More → Data &amp; privacy to export or delete saved study data.
         </p>
       </div>
     </details>
@@ -167,7 +164,7 @@ function errorForScore(error: string | null, label: string) {
 
 function StepTracker({ step }: { step: number }) {
   return (
-    <nav aria-label="Setup progress" className="mx-auto max-w-3xl">
+    <nav aria-label="Setup progress" className="mx-auto max-w-4xl">
       <ol className="grid grid-cols-3 gap-2">
         {STEP_LABELS.map((label, index) => {
           const number = index + 1
@@ -206,79 +203,6 @@ function StepTracker({ step }: { step: number }) {
   )
 }
 
-function PlanSummary({
-  draft,
-  today,
-}: {
-  draft: PlacementDraft
-  today: string
-}) {
-  const hasValidComposite =
-    Number.isInteger(draft.composite) &&
-    draft.composite >= 1 &&
-    draft.composite <= 36
-  let daysToTest = 0
-  try {
-    daysToTest = Math.max(0, calendarDaysUntil(today, draft.testDate))
-  } catch {
-    daysToTest = 0
-  }
-
-  return (
-    <aside className="hidden rounded-xl border bg-background p-5 lg:sticky lg:top-24 lg:block">
-      <p className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-        Your setup so far
-      </p>
-      <dl className="mt-5 divide-y">
-        <div className="flex items-center gap-4 py-4 first:pt-0">
-          <TargetIcon className="size-6 text-primary" aria-hidden="true" />
-          <div>
-            <dt className="text-sm text-muted-foreground">Goal score</dt>
-            <dd className="text-2xl font-bold tabular-nums">{draft.goal}</dd>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 py-4">
-          <TrendingUpIcon
-            className="size-6 text-[var(--scout-coral)]"
-            aria-hidden="true"
-          />
-          <div>
-            <dt className="text-sm text-muted-foreground">Starting point</dt>
-            <dd className="text-lg font-bold">
-              {draft.priorScoreChoice === "undecided"
-                ? "Not chosen yet"
-                : draft.priorScoreChoice === "never"
-                  ? draft.startingCheckChoice === "skip"
-                    ? "Starter plan"
-                    : "Short check next"
-                  : !hasValidComposite
-                    ? "Not entered yet"
-                    : draft.composite}
-            </dd>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 py-4 last:pb-0">
-          <CalendarDaysIcon
-            className="size-6 text-primary"
-            aria-hidden="true"
-          />
-          <div>
-            <dt className="text-sm text-muted-foreground">Time until test</dt>
-            <dd className="font-bold">
-              {daysToTest ? `${daysToTest} days` : "Choose a date"}
-            </dd>
-            {draft.testDate ? (
-              <dd className="mt-0.5 text-xs text-muted-foreground">
-                {formatCalendarDate(draft.testDate)}
-              </dd>
-            ) : null}
-          </div>
-        </div>
-      </dl>
-    </aside>
-  )
-}
-
 function SchedulePreview({
   draft,
   today,
@@ -305,15 +229,15 @@ function SchedulePreview({
       role="status"
       aria-atomic="true"
       data-testid="schedule-preview"
-      className="rounded-xl border-2 border-foreground bg-[var(--info-surface)] p-5"
+      className="border-t border-border/80 pt-4"
     >
-      <p className="ink-label text-primary">Your starting week</p>
-      <h2 className="mt-2 font-heading text-2xl font-black">
-        {draft.studyDaysPerWeek} study blocks · {weeklyMinutes} minutes total
-      </h2>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        Scout starts with {dayLabels.join(", ")}. You can pick exact weekdays or
-        give each day different minutes later in My Week.
+      <p className="text-sm leading-6">
+        <strong>Your starting week:</strong> {draft.studyDaysPerWeek} study
+        blocks · {weeklyMinutes} minutes total · {dayLabels.join(", ")}.
+        <span className="text-muted-foreground">
+          {" "}
+          You can pick exact weekdays later in My Week.
+        </span>
       </p>
     </aside>
   )
@@ -330,7 +254,7 @@ function testDateDescription(testDate: string, today: string) {
       daysToTest > 0
         ? `${daysToTest} ${daysToTest === 1 ? "day" : "days"} away`
         : "choose a future date"
-    return `${formatCalendarDate(testDate)} · ${distance}. Scout started with a suggested date; replace it with the test date you plan to take.`
+    return `${formatCalendarDate(testDate)} · ${distance}. This is Scout’s suggested date; change it if your ACT is on another day.`
   } catch {
     return "Choose a valid future test date."
   }
@@ -467,16 +391,16 @@ export function Onboarding({
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-6xl px-5 py-7 sm:px-8 sm:py-10"
+        className="mx-auto w-full max-w-6xl px-5 py-7 sm:px-8 sm:py-8"
       >
         <StepTracker step={step} />
 
-        <div className="mt-9 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-14">
-          <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-8">
+        <div className="mx-auto mt-7 max-w-4xl">
+          <section className="paper-panel min-w-0 rounded-2xl border border-border/80 bg-card p-5 sm:p-7">
             <h1
               ref={stepHeadingRef}
               tabIndex={-1}
-              className="font-heading text-4xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
+              className="font-heading text-4xl leading-tight font-black tracking-[-0.025em] outline-none"
             >
               {stepCopy.title}
             </h1>
@@ -496,7 +420,7 @@ export function Onboarding({
 
             <div
               key={step}
-              className="mt-8 animate-in duration-200 fade-in slide-in-from-right-2 motion-reduce:animate-none"
+              className="mt-6 animate-in duration-200 fade-in slide-in-from-right-2 motion-reduce:animate-none"
             >
               {step === 1 ? (
                 <FieldSet className="min-w-0">
@@ -569,7 +493,10 @@ export function Onboarding({
                   <FieldLegend className="sr-only">
                     Current ACT score information
                   </FieldLegend>
-                  <FieldDescription id="starting-score-help">
+                  <FieldDescription
+                    id="starting-score-help"
+                    className="sr-only"
+                  >
                     Choose the option that matches what you know today.
                   </FieldDescription>
                   <RadioGroup
@@ -621,22 +548,19 @@ export function Onboarding({
 
                   {draft.priorScoreChoice === "scores" ? (
                     <FieldDescription className="mt-4 max-w-2xl">
-                      English, Math, and Reading drive the plan. Scout
-                      recalculates your planning Composite as their rounded
-                      average; the Composite you enter is kept for comparison.
+                      Add the scores Scout should use as your starting point.
                     </FieldDescription>
                   ) : draft.priorScoreChoice === "composite_only" ? (
                     <FieldDescription className="mt-4 max-w-2xl">
-                      Scout temporarily uses this Composite as the starting
-                      number for English, Math, and Reading until a scored check
-                      provides section-level information.
+                      Scout will use this number until your answers create
+                      section-level estimates.
                     </FieldDescription>
                   ) : null}
 
                   {draft.priorScoreChoice === "scores" ||
                   draft.priorScoreChoice === "composite_only" ? (
-                    <div className="mt-6 space-y-4">
-                      <div className="rounded-xl border bg-muted/35 p-5">
+                    <div className="mt-5">
+                      <div>
                         <p
                           id="score-source-label"
                           className="text-sm font-semibold"
@@ -652,24 +576,16 @@ export function Onboarding({
                                 value as PlacementDraft["scoreSource"],
                             })
                           }
-                          className="mt-3 grid gap-3 sm:grid-cols-2"
+                          className="mt-2 flex flex-wrap gap-2"
                         >
                           {[
-                            [
-                              "official",
-                              "Official ACT result",
-                              "Use this later when comparing test-day scores.",
-                            ],
-                            [
-                              "practice",
-                              "Practice test or estimate",
-                              "Use it for planning, but never label it official.",
-                            ],
-                          ].map(([value, label, detail]) => (
+                            ["official", "Official ACT result"],
+                            ["practice", "Practice test or estimate"],
+                          ].map(([value, label]) => (
                             <FieldLabel
                               key={value}
                               className={cn(
-                                "cursor-pointer rounded-lg border bg-background p-4 transition-colors",
+                                "cursor-pointer rounded-full border bg-background px-3 py-2 transition-colors",
                                 draft.scoreSource === value &&
                                   "border-primary bg-secondary"
                               )}
@@ -678,16 +594,13 @@ export function Onboarding({
                                 <RadioGroupItem value={value} />
                                 <FieldContent>
                                   <span className="font-semibold">{label}</span>
-                                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                                    {detail}
-                                  </span>
                                 </FieldContent>
                               </Field>
                             </FieldLabel>
                           ))}
                         </RadioGroup>
                       </div>
-                      <div className="grid gap-4 rounded-xl border p-5 sm:grid-cols-2">
+                      <div className="mt-5 grid gap-4 sm:grid-cols-2">
                         <ScoreField
                           id="composite"
                           label="Composite"
@@ -754,11 +667,6 @@ export function Onboarding({
                     </div>
                   ) : draft.priorScoreChoice === "never" ? (
                     <div className="mt-6 max-w-2xl">
-                      <ScoutCoach
-                        mood="ready"
-                        message="Choose whether to take the starting check now."
-                        detail="The 8–12 question check gives Scout a better starting point. You can also skip it, open a temporary starter plan, and take Quick Check later."
-                      />
                       <RadioGroup
                         value={draft.startingCheckChoice}
                         onValueChange={(value) =>
@@ -767,7 +675,7 @@ export function Onboarding({
                               value as PlacementDraft["startingCheckChoice"],
                           })
                         }
-                        className="mt-4 grid gap-3"
+                        className="grid gap-3"
                         aria-label="Starting check choice"
                       >
                         <FieldLabel
@@ -784,8 +692,8 @@ export function Onboarding({
                                 Take the 8–12 question starting check
                               </span>
                               <FieldDescription>
-                                Recommended. Your answers replace every
-                                temporary starting number before the plan opens.
+                                Recommended. Use your answers to build starting
+                                skill estimates.
                               </FieldDescription>
                             </FieldContent>
                           </Field>
@@ -808,9 +716,8 @@ export function Onboarding({
                                 Skip for now
                               </span>
                               <FieldDescription>
-                                Opens a starter plan using 18 as a temporary
-                                planning number—not your score. Quick Check
-                                stays available whenever you are ready.
+                                Open a starter plan now and take Quick Check
+                                later.
                               </FieldDescription>
                             </FieldContent>
                           </Field>
@@ -818,9 +725,9 @@ export function Onboarding({
                       </RadioGroup>
                     </div>
                   ) : (
-                    <p className="mt-6 max-w-2xl border-l-4 border-primary bg-[var(--info-surface)] p-4 text-sm leading-6">
-                      Choose an option above. Scout will not invent scores or
-                      treat sample numbers as your information.
+                    <p className="mt-5 max-w-2xl text-sm text-muted-foreground">
+                      Choose one to continue. Scout will not invent a score for
+                      you.
                     </p>
                   )}
                 </FieldSet>
@@ -829,12 +736,12 @@ export function Onboarding({
               {step === 3 ? (
                 <FieldSet>
                   <FieldLegend className="sr-only">Study schedule</FieldLegend>
-                  <FieldDescription>
+                  <FieldDescription className="sr-only">
                     Scout fills only the study blocks you choose. You can change
                     them later.
                   </FieldDescription>
 
-                  <div className="mt-6 grid gap-6">
+                  <div className="mt-5 grid gap-4">
                     <Field data-invalid={Boolean(error)}>
                       <FieldLabel htmlFor="test-date">Next ACT date</FieldLabel>
                       <Input
@@ -863,69 +770,71 @@ export function Onboarding({
                       <FieldError id="test-date-error">{error}</FieldError>
                     </Field>
 
-                    <Field>
-                      <FieldLabel id="study-days-label">
-                        Study days each week
-                      </FieldLabel>
-                      <div
-                        className="grid grid-cols-3 gap-2 sm:grid-cols-5"
-                        role="group"
-                        aria-labelledby="study-days-label"
-                      >
-                        {[2, 3, 4, 5, 6].map((days) => (
-                          <Button
-                            key={days}
-                            type="button"
-                            variant={
-                              draft.studyDaysPerWeek === days
-                                ? "secondary"
-                                : "outline"
-                            }
-                            className="h-12"
-                            aria-pressed={draft.studyDaysPerWeek === days}
-                            onClick={() => onUpdate({ studyDaysPerWeek: days })}
-                          >
-                            {days} days
-                          </Button>
-                        ))}
-                      </div>
-                    </Field>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel id="study-days-label">
+                          Study days each week
+                        </FieldLabel>
+                        <div
+                          className="grid grid-cols-3 gap-2"
+                          role="group"
+                          aria-labelledby="study-days-label"
+                        >
+                          {[2, 3, 4, 5, 6].map((days) => (
+                            <Button
+                              key={days}
+                              type="button"
+                              variant={
+                                draft.studyDaysPerWeek === days
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="h-11"
+                              aria-pressed={draft.studyDaysPerWeek === days}
+                              onClick={() =>
+                                onUpdate({ studyDaysPerWeek: days })
+                              }
+                            >
+                              {days} days
+                            </Button>
+                          ))}
+                        </div>
+                      </Field>
 
-                    <Field>
-                      <FieldLabel id="session-minutes-label">
-                        Minutes each study day
-                      </FieldLabel>
-                      <div
-                        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-                        role="group"
-                        aria-labelledby="session-minutes-label"
-                      >
-                        {[15, 30, 45, 60].map((minutes) => (
-                          <Button
-                            key={minutes}
-                            type="button"
-                            variant={
-                              draft.minutesPerSession === minutes
-                                ? "secondary"
-                                : "outline"
-                            }
-                            className="h-12"
-                            aria-pressed={draft.minutesPerSession === minutes}
-                            onClick={() =>
-                              onUpdate({ minutesPerSession: minutes })
-                            }
-                          >
-                            {minutes} min
-                          </Button>
-                        ))}
-                      </div>
-                    </Field>
-
-                    <SchedulePreview draft={draft} today={today} />
+                      <Field>
+                        <FieldLabel id="session-minutes-label">
+                          Minutes each study day
+                        </FieldLabel>
+                        <div
+                          className="grid grid-cols-2 gap-2"
+                          role="group"
+                          aria-labelledby="session-minutes-label"
+                        >
+                          {[15, 30, 45, 60].map((minutes) => (
+                            <Button
+                              key={minutes}
+                              type="button"
+                              variant={
+                                draft.minutesPerSession === minutes
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="h-11"
+                              aria-pressed={draft.minutesPerSession === minutes}
+                              onClick={() =>
+                                onUpdate({ minutesPerSession: minutes })
+                              }
+                            >
+                              {minutes} min
+                            </Button>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
 
                     <Field>
                       <FieldLabel id="main-focus-label">
-                        What should Scout prioritize?
+                        After Round 1, what should Scout emphasize?
                       </FieldLabel>
                       <RadioGroup
                         value={draft.preferredSection}
@@ -962,12 +871,14 @@ export function Onboarding({
                         ))}
                       </RadioGroup>
                     </Field>
+
+                    <SchedulePreview draft={draft} today={today} />
                   </div>
                 </FieldSet>
               ) : null}
             </div>
 
-            <div className="mt-8 flex max-w-2xl flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex max-w-2xl flex-col gap-3 sm:flex-row">
               {onCancel ? (
                 <Button
                   type="button"
@@ -1008,27 +919,20 @@ export function Onboarding({
               </Button>
             </div>
 
-            {step === 1 ? (
-              <div className="mt-5 flex max-w-2xl flex-wrap items-center justify-between gap-3 border-t pt-4">
-                <p className="text-sm text-muted-foreground">
-                  No account needed.
-                </p>
-                {viewer.technicalDetails ? (
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={onJudgeDemo}
-                    className="h-auto px-0 font-bold"
-                  >
-                    <PlayCircleIcon data-icon="inline-start" />
-                    Open the judge demo
-                  </Button>
-                ) : null}
+            {step === 1 && viewer.technicalDetails ? (
+              <div className="mt-5 flex max-w-2xl justify-end border-t pt-4">
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={onJudgeDemo}
+                  className="h-auto px-0 font-bold"
+                >
+                  <PlayCircleIcon data-icon="inline-start" />
+                  Open the judge demo
+                </Button>
               </div>
             ) : null}
           </section>
-
-          <PlanSummary draft={draft} today={today} />
         </div>
       </main>
     </div>
