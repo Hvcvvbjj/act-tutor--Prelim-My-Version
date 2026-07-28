@@ -73,7 +73,7 @@ describe("lesson composition", () => {
       "need-to-know",
     ]);
     expect(JSON.stringify(lesson)).not.toMatch(
-      /in your own words|say the rule|name the rule|rewrite the rule/i,
+      /in your own words|say the rule|name the rule|rewrite the rule|restate the method|summarize the rule|teach it back/i,
     );
     expect(lesson.strategyChecklist).toEqual(input.baseLesson.steps);
     expect(lesson.generation.mode).toBe("authored-fallback");
@@ -149,7 +149,7 @@ describe("lesson composition", () => {
     expect(lesson.sections).toHaveLength(5);
     expect(lesson.sections[0].id).toBe("question-type");
     expect(JSON.stringify(lesson)).not.toMatch(
-      /in your own words|say the rule|name the rule|rewrite the rule/i,
+      /in your own words|say the rule|name the rule|rewrite the rule|restate the method|summarize the rule|teach it back/i,
     );
   });
 

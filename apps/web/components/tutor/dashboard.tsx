@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   examLabInterpretationReadiness,
@@ -17,18 +17,17 @@ import {
 } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
-  ArrowRightIcon,
-  ChevronDownIcon,
-  FlaskConicalIcon,
   InfoIcon,
-  MessageCircleIcon,
   PencilLineIcon,
   Settings2Icon,
-  ShieldCheckIcon,
 } from "lucide-react"
 
 import { AccountAccess } from "@/components/tutor/account-access"
-import { DailyMissionHub } from "@/components/tutor/daily-mission-hub"
+import { BadgesSurface } from "@/components/tutor/badges-surface"
+import { DashboardTour } from "@/components/tutor/dashboard-tour"
+import { GoalSupportPrompt } from "@/components/tutor/goal-support-prompt"
+import { LessonsCommandCenter } from "@/components/tutor/lessons-command-center"
+import { shouldShowRoundTransition } from "@/components/tutor/lesson-workspace-logic"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import {
   ScoutProvider,
@@ -137,10 +136,12 @@ function preloadDashboardSurface(value: string) {
 function DashboardTab({
   value,
   className,
+  tourId,
   children,
 }: {
   value: string
   className?: string
+  tourId?: string
   children: ReactNode
 }) {
   const preload = () => preloadDashboardSurface(value)
@@ -148,6 +149,7 @@ function DashboardTab({
     <TabsTrigger
       value={value}
       className={className}
+      data-tour-id={tourId}
       onPointerEnter={preload}
       onPointerDown={preload}
       onFocus={preload}
@@ -178,6 +180,7 @@ const DASHBOARD_DESTINATIONS = [
   "plan",
   "calibrate",
   "progress",
+  "badges",
   "lab",
   "control",
 ] as const
@@ -245,20 +248,20 @@ function Brand({ onHome }: { onHome?: () => void }) {
   const content = (
     <>
       <ScoutMark className="size-8 shrink-0" />
-      <span className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg @max-[6.5rem]/brand:hidden">
+      <span className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg">
         SCOUT <span className="text-primary">ACT</span>
       </span>
     </>
   )
   const className =
-    "@container/brand flex min-w-0 items-center gap-2 overflow-hidden rounded-lg sm:gap-2.5"
+    "flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg sm:gap-2.5"
 
   return onHome ? (
     <button
       type="button"
       data-testid="app-brand"
       className={`${className} min-h-11 px-1 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none`}
-      aria-label="Scout ACT, go to Today"
+      aria-label="Scout ACT, go to Lessons"
       onClick={onHome}
     >
       {content}
@@ -276,12 +279,14 @@ function AccessibleTestDayLab({
   canViewTechnicalDetails,
   onUseForNextRound,
   lockToInitialMode = false,
+  assessmentLabel,
 }: {
   initialMode: ExamLabMode
   initialSection: CoreSection
   canViewTechnicalDetails: boolean
   onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
   lockToInitialMode?: boolean
+  assessmentLabel?: string
 }) {
   const { accommodations } = useScoutContext()
   return (
@@ -292,184 +297,71 @@ function AccessibleTestDayLab({
       canViewTechnicalDetails={canViewTechnicalDetails}
       onUseForNextRound={onUseForNextRound}
       lockToInitialMode={lockToInitialMode}
+      assessmentLabel={assessmentLabel}
     />
   )
 }
 
-function ScoutHeaderButton({ onOpen }: { onOpen: () => void }) {
+function MrKimHeaderButton() {
   const { openScout } = useScoutContext()
   return (
     <Button
       type="button"
       variant="ghost"
       className="min-h-11 min-w-11 px-2"
-      aria-label="Ask Scout"
-      onClick={() => {
-        onOpen()
-        openScout()
-      }}
+      data-tour-id="mr-kim"
+      aria-label="Ask Mr. Kim"
+      onClick={() => openScout()}
     >
-      <MessageCircleIcon />
-      <span className="hidden xl:inline">Ask Scout</span>
+      <ScoutMark className="size-7 border" />
+      <span className="hidden 2xl:inline">Mr. Kim</span>
     </Button>
   )
 }
 
-function MobileOverflow({
-  open,
-  onNavigate,
-  onEditPlan,
-  onClose,
-}: {
-  open: boolean
-  onNavigate: (tab: DashboardDestination) => void
-  onEditPlan: () => void
-  onClose: () => void
-}) {
+function SettingsHeaderButton() {
   const { openSettings } = useScoutContext()
-  if (!open) return null
   return (
-    <div
-      id="mobile-more-destinations"
-      data-more-surface="true"
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[45] rounded-xl border bg-background p-3 shadow-xl md:hidden"
-      role="menu"
-      aria-label="More from Scout"
+    <Button
+      type="button"
+      variant="ghost"
+      className="min-h-11 min-w-11 px-2"
+      data-tour-id="settings"
+      aria-label="Open settings"
+      onClick={openSettings}
     >
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onPointerEnter={() => preloadDashboardSurface("lab")}
-        onPointerDown={() => preloadDashboardSurface("lab")}
-        onFocus={() => preloadDashboardSurface("lab")}
-        onClick={() => {
-          onNavigate("lab")
-          onClose()
-        }}
-      >
-        <FlaskConicalIcon /> Timed Practice
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onPointerEnter={() => preloadDashboardSurface("control")}
-        onPointerDown={() => preloadDashboardSurface("control")}
-        onFocus={() => preloadDashboardSurface("control")}
-        onClick={() => {
-          onNavigate("control")
-          onClose()
-        }}
-      >
-        <ShieldCheckIcon /> Data &amp; privacy
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onClick={() => {
-          onEditPlan()
-          onClose()
-        }}
-      >
-        <PencilLineIcon /> Goal and schedule
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onClick={() => {
-          openSettings()
-          onClose()
-        }}
-      >
-        <Settings2Icon /> Learning settings
-      </Button>
-    </div>
+      <Settings2Icon />
+      <span className="hidden 2xl:inline">Settings</span>
+    </Button>
   )
 }
 
-function DesktopOverflow({
-  open,
-  onNavigate,
-  onEditPlan,
-  onClose,
+function DashboardOverlays({
+  plan,
+  focusSkill,
+  assessmentRound,
 }: {
-  open: boolean
-  onNavigate: (tab: DashboardDestination) => void
-  onEditPlan: () => void
-  onClose: () => void
+  plan: GeneratedPlan
+  focusSkill?: string
+  assessmentRound: number
 }) {
-  const { openSettings } = useScoutContext()
-  if (!open) return null
+  const { openScout } = useScoutContext()
   return (
-    <div
-      id="desktop-more-destinations"
-      data-more-surface="true"
-      className="absolute top-[calc(100%+0.75rem)] right-0 z-40 hidden w-64 rounded-xl border bg-background p-2 shadow-xl md:block"
-      role="menu"
-      aria-label="More from Scout"
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onPointerEnter={() => preloadDashboardSurface("lab")}
-        onPointerDown={() => preloadDashboardSurface("lab")}
-        onFocus={() => preloadDashboardSurface("lab")}
-        onClick={() => {
-          onNavigate("lab")
-          onClose()
-        }}
-      >
-        <FlaskConicalIcon /> Timed Practice
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onPointerEnter={() => preloadDashboardSurface("control")}
-        onPointerDown={() => preloadDashboardSurface("control")}
-        onFocus={() => preloadDashboardSurface("control")}
-        onClick={() => {
-          onNavigate("control")
-          onClose()
-        }}
-      >
-        <ShieldCheckIcon /> Data &amp; privacy
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onClick={() => {
-          onEditPlan()
-          onClose()
-        }}
-      >
-        <PencilLineIcon /> Goal and schedule
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-11 w-full justify-start"
-        role="menuitem"
-        onClick={() => {
-          openSettings()
-          onClose()
-        }}
-      >
-        <Settings2Icon /> Learning settings
-      </Button>
-    </div>
+    <>
+      <DashboardTour />
+      <GoalSupportPrompt
+        currentScore={plan.currentComposite}
+        goalScore={plan.draft.goal}
+        weakestSection={plan.weakestSection}
+        focusSkill={focusSkill}
+        assessmentRound={assessmentRound}
+        onAskMrKim={() =>
+          openScout(
+            `What should I study first to move from ${plan.currentComposite} toward ${plan.draft.goal}?`
+          )
+        }
+      />
+    </>
   )
 }
 
@@ -498,9 +390,6 @@ export function Dashboard({
   const [activeSection, setActiveSection] = useState(0)
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const desktopMoreTriggerRef = useRef<HTMLButtonElement>(null)
-  const mobileMoreTriggerRef = useRef<HTMLButtonElement>(null)
   const [roundAssessmentView, setRoundAssessmentView] = useState<
     "choice" | "full-test"
   >(() =>
@@ -519,6 +408,8 @@ export function Dashboard({
     mode: ExamLabMode
     section: CoreSection
     key: number
+    assessmentLabel?: string
+    lockToInitialMode?: boolean
   }>({ mode: "sprint", section: "english", key: 0 })
 
   useEffect(() => {
@@ -534,36 +425,6 @@ export function Dashboard({
       window.sessionStorage.removeItem("scout-round-assessment-view")
     }
   }, [learning])
-
-  useEffect(() => {
-    if (!moreOpen) return
-    const closeMoreOnPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (
-        target instanceof Element &&
-        target.closest('[data-more-surface="true"]')
-      ) {
-        return
-      }
-      setMoreOpen(false)
-    }
-    const closeMoreOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      setMoreOpen(false)
-      window.requestAnimationFrame(() => {
-        const trigger = window.matchMedia("(min-width: 768px)").matches
-          ? desktopMoreTriggerRef.current
-          : mobileMoreTriggerRef.current
-        trigger?.focus()
-      })
-    }
-    window.addEventListener("pointerdown", closeMoreOnPointerDown)
-    window.addEventListener("keydown", closeMoreOnEscape)
-    return () => {
-      window.removeEventListener("pointerdown", closeMoreOnPointerDown)
-      window.removeEventListener("keydown", closeMoreOnEscape)
-    }
-  }, [moreOpen])
 
   const refreshLearningSession = useCallback(async () => {
     try {
@@ -822,6 +683,30 @@ export function Dashboard({
     }
   }
 
+  function startProgressCheck(section: CoreSection = plan.weakestSection) {
+    void loadTestDayLab()
+    setLabLaunch((current) => ({
+      mode: "section",
+      section,
+      key: current.key + 1,
+      assessmentLabel: "Progress check",
+      lockToInitialMode: true,
+    }))
+    setActiveTab("lab")
+  }
+
+  function openTimedPractice() {
+    void loadTestDayLab()
+    setLabLaunch((current) => ({
+      mode: "sprint",
+      section: plan.weakestSection,
+      key: current.key + 1,
+      assessmentLabel: undefined,
+      lockToInitialMode: false,
+    }))
+    setActiveTab("lab")
+  }
+
   async function launchPlanTask(task: StudyPlanTask) {
     if (!learning) return
     const decision = studyTaskLaunchDecision(task, learning)
@@ -849,9 +734,7 @@ export function Dashboard({
       return
     }
     if (decision.type === "start-checkpoint") {
-      if (await startMissionAction({ action: "start_checkpoint" }, true)) {
-        setActiveTab("today")
-      }
+      startProgressCheck(plan.weakestSection)
       return
     }
     if (decision.type === "start-retention") {
@@ -955,14 +838,17 @@ export function Dashboard({
 
   async function applyFullTestToNextRound(session: ExamLabSessionPayload) {
     assertFullTestReady(session)
-    await onUseFullTestAssessment(session)
-    const payload = await consumeCompletedExamForLearningRound(() =>
-      learningRequest({
-        action: "start_adaptive_round",
-        assessmentSource: "full-test",
-        ...planRequestFields(),
-      })
-    )
+    const payload = await consumeCompletedExamForLearningRound({
+      startRound: () =>
+        learningRequest({
+          action: "start_adaptive_round",
+          assessmentSource: "full-test",
+          ...planRequestFields(),
+        }),
+      persistPlan: async () => {
+        await onUseFullTestAssessment(session)
+      },
+    })
     setLearning(payload)
     setSelectedChoice("")
     setActiveSection(0)
@@ -974,8 +860,12 @@ export function Dashboard({
   }
 
   if (
-    learning?.cycle.status === "assessment-choice" &&
-    !(workspaceOpen && activeTab === "today")
+    learning &&
+    shouldShowRoundTransition({
+      cycleStatus: learning.cycle.status,
+      workspaceOpen,
+      activeTab,
+    })
   ) {
     if (roundAssessmentView === "full-test") {
       return (
@@ -1114,20 +1004,24 @@ export function Dashboard({
     )
   }
 
-  const moreActive = activeTab === "lab" || activeTab === "control"
+  const secureSkillCount =
+    learning?.learningTwin.skills.filter(
+      (skill) => skill.learnedProbability >= 0.82 && skill.evidenceCount >= 6
+    ).length ?? 0
 
   return (
     <ScoutProvider
       activeTab={activeTab}
       learning={learning}
       canViewTechnicalDetails={viewer.technicalDetails}
+      onEditPlan={onEditPlan}
+      onOpenDataPrivacy={() => setActiveTab("control")}
     >
       <Tabs
         value={activeTab}
         onValueChange={(value) => {
           preloadDashboardSurface(value)
           if (isDashboardDestination(value)) setActiveTab(value)
-          setMoreOpen(false)
         }}
         className={`min-h-svh gap-0 bg-[var(--canvas)] ${
           workspaceOpen && activeTab === "today"
@@ -1137,70 +1031,78 @@ export function Dashboard({
       >
         {workspaceOpen && activeTab === "today" ? null : (
           <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 shadow-[0_1px_0_rgb(16_33_63_/_0.03)] backdrop-blur-xl">
-            <div className="mx-auto grid min-h-14 max-w-[86rem] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-1.5 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
-              <Brand
-                onHome={() => {
-                  setMoreOpen(false)
-                  setActiveTab("today")
-                }}
-              />
-              <div className="order-3 col-span-2 hidden items-center justify-self-center md:flex lg:order-none lg:col-span-1">
+            <div className="mx-auto flex min-h-16 max-w-[94rem] items-center gap-3 px-4 py-2 sm:px-7">
+              <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                <Brand onHome={() => setActiveTab("today")} />
+              </div>
+              <div className="hidden min-w-0 flex-1 items-center justify-center lg:flex">
                 <TabsList
                   variant="line"
                   className="min-h-11 bg-transparent"
                   aria-label="Study navigation"
                 >
-                  <DashboardTab value="today" className="min-h-11">
-                    Today
+                  <DashboardTab
+                    value="today"
+                    className="min-h-11 px-3"
+                    tourId="nav-lessons"
+                  >
+                    Lessons
                   </DashboardTab>
-                  <DashboardTab value="plan" className="min-h-11">
+                  <DashboardTab
+                    value="plan"
+                    className="min-h-11 px-3"
+                    tourId="nav-week"
+                  >
                     My Week
                   </DashboardTab>
-                  <DashboardTab value="calibrate" className="min-h-11">
-                    Quick Check
-                  </DashboardTab>
-                  <DashboardTab value="progress" className="min-h-11">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="min-h-11 px-3"
+                    data-tour-id="nav-diagnostic"
+                    onClick={onStartFullDiagnostic}
+                  >
+                    Full Diagnostic
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === "lab" ? "secondary" : "ghost"}
+                    className="min-h-11 px-3"
+                    data-tour-id="nav-practice"
+                    aria-current={activeTab === "lab" ? "page" : undefined}
+                    onPointerEnter={() => preloadDashboardSurface("lab")}
+                    onFocus={() => preloadDashboardSurface("lab")}
+                    onClick={openTimedPractice}
+                  >
+                    Timed Practice
+                  </Button>
+                  <DashboardTab
+                    value="progress"
+                    className="min-h-11 px-3"
+                    tourId="nav-progress"
+                  >
                     Progress
                   </DashboardTab>
-                </TabsList>
-                <div className="relative" data-more-surface="true">
-                  <Button
-                    ref={desktopMoreTriggerRef}
-                    type="button"
-                    variant={moreOpen || moreActive ? "secondary" : "ghost"}
-                    className="min-h-11"
-                    aria-expanded={moreOpen}
-                    aria-haspopup="menu"
-                    aria-controls="desktop-more-destinations"
-                    aria-current={moreActive ? "page" : undefined}
-                    onClick={() => setMoreOpen((current) => !current)}
+                  <DashboardTab
+                    value="badges"
+                    className="min-h-11 px-3"
+                    tourId="nav-badges"
                   >
-                    More{" "}
-                    <ChevronDownIcon
-                      className={
-                        moreOpen
-                          ? "rotate-180 transition-transform"
-                          : "transition-transform"
-                      }
-                      data-icon="inline-end"
-                    />
-                  </Button>
-                  <DesktopOverflow
-                    open={moreOpen}
-                    onNavigate={setActiveTab}
-                    onEditPlan={onEditPlan}
-                    onClose={() => setMoreOpen(false)}
+                    Badges
+                  </DashboardTab>
+                </TabsList>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                <MrKimHeaderButton />
+                <SettingsHeaderButton />
+                <div data-tour-id="account">
+                  <AccountAccess
+                    viewer={viewer}
+                    savedPlan={savedPlan}
+                    onViewerChange={onViewerChange}
+                    className="w-11 px-0 [&>span]:hidden"
                   />
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 justify-self-end sm:gap-2">
-                <ScoutHeaderButton onOpen={() => setMoreOpen(false)} />
-                <AccountAccess
-                  viewer={viewer}
-                  savedPlan={savedPlan}
-                  onViewerChange={onViewerChange}
-                  className="w-11 px-0 [&>span]:hidden"
-                />
               </div>
             </div>
           </header>
@@ -1216,44 +1118,11 @@ export function Dashboard({
           </div>
         ) : null}
 
-        {plan.baselineSkipped && activeTab === "today" && !workspaceOpen ? (
-          <aside
-            className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-7"
-            aria-label="Starter plan notice"
-          >
-            <div className="flex flex-col items-start gap-2 border-b border-border pb-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                <strong className="font-semibold text-foreground">
-                  Your starter plan uses a temporary 18.
-                </strong>{" "}
-                It is not an ACT score.
-              </p>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto shrink-0 p-0"
-                onClick={() => {
-                  void loadAdaptiveCalibrationLab()
-                  setActiveTab("calibrate")
-                }}
-              >
-                Take Quick Check
-                <ArrowRightIcon data-icon="inline-end" />
-              </Button>
-            </div>
-          </aside>
-        ) : null}
-
         <TabsContent value="today">
           <main
             id={activeTab === "today" ? "main-content" : undefined}
             tabIndex={activeTab === "today" ? -1 : undefined}
-            className={
-              workspaceOpen
-                ? "w-full bg-background"
-                : "mx-auto w-full max-w-[86rem] px-4 py-6 sm:px-7 lg:py-8"
-            }
+            className={workspaceOpen ? "w-full bg-background" : "w-full"}
           >
             {workspaceOpen && learning ? (
               <LessonWorkspace
@@ -1268,8 +1137,10 @@ export function Dashboard({
                 onClose={() => setWorkspaceOpen(false)}
               />
             ) : learning ? (
-              <DailyMissionHub
+              <LessonsCommandCenter
                 learning={learning}
+                goalScore={plan.draft.goal}
+                testDate={plan.draft.testDate}
                 busy={submitting}
                 onOpenWorkspace={() => {
                   void loadLessonWorkspace()
@@ -1279,16 +1150,13 @@ export function Dashboard({
                   startMissionAction({ action: "start_next" }, true)
                 }
                 onStartSkill={(skill) =>
-                  startMissionAction({ action: "start_skill", skill })
+                  startMissionAction({ action: "start_skill", skill }, true)
                 }
                 onStartRepair={(mistakeId) =>
                   startMissionAction(
                     { action: "start_repair", mistakeId },
                     true
                   )
-                }
-                onStartCheckpoint={() =>
-                  startMissionAction({ action: "start_checkpoint" }, true)
                 }
                 onStartRetention={(skill) =>
                   startMissionAction({ action: "start_retention", skill }, true)
@@ -1302,6 +1170,9 @@ export function Dashboard({
                 onStartRecovery={() =>
                   startMissionAction({ action: "start_recovery" }, true)
                 }
+                onStartProgressCheck={() => startProgressCheck()}
+                onOpenBadges={() => setActiveTab("badges")}
+                onOpenWeek={() => setActiveTab("plan")}
               />
             ) : (
               <div className="mx-auto max-w-2xl py-20">
@@ -1385,6 +1256,23 @@ export function Dashboard({
             />
           ) : null}
         </TabsContent>
+        <TabsContent value="badges">
+          {activeTab === "badges" && learning ? (
+            <BadgesSurface
+              points={learning.mission.progress.xp}
+              currentStreak={learning.mission.progress.currentStreak}
+              longestStreak={learning.mission.progress.longestStreak}
+              completedLessons={learning.cycle.completedSkills.length}
+              completedSets={learning.mission.progress.completedSets}
+              totalAnswered={learning.mission.progress.totalAnswered}
+              secureSkills={secureSkillCount}
+              totalSkills={learning.learningTwin.skills.length}
+              startingScore={plan.currentComposite}
+              goalScore={plan.draft.goal}
+              onContinueStudying={() => setActiveTab("today")}
+            />
+          ) : null}
+        </TabsContent>
         <TabsContent value="lab">
           {activeTab === "lab" ? (
             <AccessibleTestDayLab
@@ -1392,6 +1280,8 @@ export function Dashboard({
               initialMode={labLaunch.mode}
               initialSection={labLaunch.section}
               canViewTechnicalDetails={viewer.technicalDetails}
+              lockToInitialMode={labLaunch.lockToInitialMode}
+              assessmentLabel={labLaunch.assessmentLabel}
             />
           ) : null}
         </TabsContent>
@@ -1424,63 +1314,41 @@ export function Dashboard({
         ) : null}
 
         {workspaceOpen && activeTab === "today" ? null : (
-          <>
-            <nav
-              className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl md:hidden"
-              aria-label="Primary study navigation"
-            >
-              <div className="grid w-full grid-cols-5">
-                <TabsList className="col-span-4 grid h-auto w-full grid-cols-4 rounded-none bg-transparent p-0">
-                  <DashboardTab value="today" className="min-h-14 px-1 text-xs">
-                    Today
-                  </DashboardTab>
-                  <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
-                    Week
-                  </DashboardTab>
-                  <DashboardTab
-                    value="calibrate"
-                    className="min-h-14 px-1 text-xs"
-                  >
-                    Check
-                  </DashboardTab>
-                  <DashboardTab
-                    value="progress"
-                    className="min-h-14 px-1 text-xs"
-                  >
-                    Progress
-                  </DashboardTab>
-                </TabsList>
-                <Button
-                  ref={mobileMoreTriggerRef}
-                  data-more-surface="true"
-                  type="button"
-                  variant={moreOpen || moreActive ? "secondary" : "ghost"}
-                  className="min-h-14 rounded-none px-1 text-xs"
-                  aria-expanded={moreOpen}
-                  aria-haspopup="menu"
-                  aria-controls="mobile-more-destinations"
-                  aria-current={moreActive ? "page" : undefined}
-                  onClick={() => setMoreOpen((current) => !current)}
-                >
-                  <ChevronDownIcon
-                    className={
-                      moreOpen
-                        ? "rotate-180 transition-transform"
-                        : "transition-transform"
-                    }
-                  />{" "}
-                  More
-                </Button>
-              </div>
-            </nav>
-            <MobileOverflow
-              open={moreOpen}
-              onNavigate={setActiveTab}
-              onEditPlan={onEditPlan}
-              onClose={() => setMoreOpen(false)}
-            />
-          </>
+          <nav
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl lg:hidden"
+            aria-label="Primary study navigation"
+          >
+            <TabsList className="grid h-auto w-full grid-cols-5 rounded-none bg-transparent p-0">
+              <DashboardTab value="today" className="min-h-14 px-1 text-xs">
+                Lessons
+              </DashboardTab>
+              <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
+                Week
+              </DashboardTab>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-14 rounded-none px-1 text-xs"
+                onClick={openTimedPractice}
+              >
+                Practice
+              </Button>
+              <DashboardTab value="progress" className="min-h-14 px-1 text-xs">
+                Progress
+              </DashboardTab>
+              <DashboardTab value="badges" className="min-h-14 px-1 text-xs">
+                Badges
+              </DashboardTab>
+            </TabsList>
+          </nav>
         )}
+        {learning && !workspaceOpen ? (
+          <DashboardOverlays
+            plan={plan}
+            focusSkill={diagnostic?.focusSkills[0]?.label}
+            assessmentRound={learning.cycle.roundNumber}
+          />
+        ) : null}
       </Tabs>
     </ScoutProvider>
   )

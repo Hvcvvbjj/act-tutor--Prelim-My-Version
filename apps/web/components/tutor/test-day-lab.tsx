@@ -50,6 +50,7 @@ export function TestDayLab({
   extendedTime = false,
   initialMode = "sprint",
   initialSection = "english",
+  assessmentLabel = "Timed Practice",
   canViewTechnicalDetails = false,
   onUseForNextRound,
   lockToInitialMode = false,
@@ -57,6 +58,7 @@ export function TestDayLab({
   extendedTime?: boolean
   initialMode?: ExamLabMode
   initialSection?: CoreSection
+  assessmentLabel?: string
   canViewTechnicalDetails?: boolean
   onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
   lockToInitialMode?: boolean
@@ -223,6 +225,10 @@ export function TestDayLab({
         action: "start",
         mode,
         section,
+        purpose:
+          assessmentLabel === "Progress check"
+            ? "progress-check"
+            : "timed-practice",
         timeMultiplier: extendedTime ? 1.5 : 1,
       })
       if (!started) throw new Error("The timed-practice session is missing.")
@@ -409,6 +415,7 @@ export function TestDayLab({
           section={section}
           busy={busy}
           extendedTime={extendedTime}
+          assessmentLabel={assessmentLabel}
           modeLocked={lockToInitialMode}
           onModeChange={setMode}
           onSectionChange={setSection}
@@ -418,6 +425,7 @@ export function TestDayLab({
         <ExamLabRunner
           session={session}
           timeLeft={timeLeft}
+          assessmentLabel={assessmentLabel}
           saveStatus={saveStatus}
           busy={busy}
           onAnswer={answer}
@@ -429,6 +437,7 @@ export function TestDayLab({
         <ExamLabReview
           session={session}
           busy={busy}
+          assessmentLabel={assessmentLabel}
           onReturn={(index) => {
             setScreen("runner")
             move(index)
@@ -438,6 +447,7 @@ export function TestDayLab({
       ) : screen === "results" && session ? (
         <ExamLabReport
           session={session}
+          assessmentLabel={assessmentLabel}
           onNewRun={reset}
           onUseForNextRound={
             onUseForNextRound &&

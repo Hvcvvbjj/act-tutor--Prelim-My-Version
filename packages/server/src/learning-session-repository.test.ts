@@ -552,7 +552,10 @@ describe("FileLearningSessionRepository", () => {
         )?.priorSource,
       );
       expect(rebased.futureTask.reason).toContain(
-        "replaced the temporary baseline",
+        "Your scored baseline is ready",
+      );
+      expect(rebased.futureTask.reason).toContain(
+        "Round 1 still covers every question type",
       );
 
       const duplicate = await repo.rebaseAfterCalibration(
@@ -1350,7 +1353,7 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
-  it("uses a new official-score key to advance a completed round even when the score is unchanged", async () => {
+  it("keeps a completed round at assessment choice after an official-score edit", async () => {
     await withRepository(async (repo, filePath) => {
       const started = await repo.getOrCreate(null, bank, {
         skill: "sentence-boundaries",
@@ -1376,7 +1379,7 @@ describe("FileLearningSessionRepository", () => {
       beforeStore.sessions[started.sessionId].profile.xp = 140;
       await writeFile(filePath, `${JSON.stringify(beforeStore, null, 2)}\n`);
 
-      const advanced = await repo.getOrCreate(started.sessionId, bank, {
+      const refreshed = await repo.getOrCreate(started.sessionId, bank, {
         skill: "sentence-boundaries",
         plan: {
           ...plan,
@@ -1385,21 +1388,25 @@ describe("FileLearningSessionRepository", () => {
         },
       });
 
-      expect(advanced.sessionId).toBe(started.sessionId);
-      expect(advanced.payload.cycle).toMatchObject({
-        roundNumber: 2,
-        kind: "adaptive",
-        status: "lessons",
-        completedSkills: [],
+      expect(refreshed.sessionId).toBe(started.sessionId);
+      expect(refreshed.payload.cycle).toEqual({
+        roundNumber: 1,
+        kind: "foundation",
+        status: "assessment-choice",
+        requiredSkills: bank.skills.map((skill) => skill.slug),
+        completedSkills: bank.skills.map((skill) => skill.slug),
+        nextSkill: null,
       });
-      expect(advanced.payload.cycle.requiredSkills[0]).toBe("linear-equations");
-      expect(advanced.payload.mission.progress.xp).toBe(140);
-      expect(advanced.payload.learningTwin.evidence).toEqual(
+      expect(refreshed.payload.mission.progress.xp).toBe(140);
+      expect(refreshed.payload.learningTwin.evidence).toEqual(
         started.payload.learningTwin.evidence,
       );
-      expect(advanced.payload.futureTask.reason).toContain(
-        "new official score",
+
+      const resumed = await new FileLearningSessionRepository(filePath).get(
+        started.sessionId,
+        bank,
       );
+      expect(resumed.cycle).toEqual(refreshed.payload.cycle);
     });
   });
 

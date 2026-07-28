@@ -67,6 +67,21 @@ export function shouldHoldPracticeFeedback({
   )
 }
 
+export function shouldShowRoundTransition({
+  cycleStatus,
+  workspaceOpen,
+  activeTab,
+}: {
+  cycleStatus: string | undefined
+  workspaceOpen: boolean
+  activeTab: string
+}) {
+  return (
+    cycleStatus === "assessment-choice" &&
+    !(workspaceOpen && activeTab === "today")
+  )
+}
+
 export function buildPracticeExplanation({
   correct,
   rationale,

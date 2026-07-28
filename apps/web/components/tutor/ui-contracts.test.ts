@@ -9,38 +9,30 @@ async function source(path: string) {
 }
 
 describe("mobile navigation contract", () => {
-  it("keeps four primary mobile tabs, puts Scout in the header, and moves secondary tools to More", async () => {
+  it("keeps the compact mobile study loop visible without a More menu", async () => {
     const dashboard = await source("components/tutor/dashboard.tsx")
     const mobileNav = dashboard.slice(
       dashboard.indexOf('aria-label="Primary study navigation"'),
       dashboard.indexOf(
-        "<MobileOverflow",
+        "</nav>",
         dashboard.indexOf('aria-label="Primary study navigation"')
       )
     )
     expect(mobileNav.match(/<DashboardTab/g)).toHaveLength(4)
     expect(mobileNav).toContain('value="today"')
     expect(mobileNav).toContain('value="plan"')
-    expect(mobileNav).toContain('value="calibrate"')
     expect(mobileNav).toContain('value="progress"')
-    expect(mobileNav).not.toContain("<ScoutHeaderButton")
-    expect(dashboard).toContain(
-      "<ScoutHeaderButton onOpen={() => setMoreOpen(false)} />"
-    )
+    expect(mobileNav).toContain('value="badges"')
     expect(dashboard).toContain("grid-cols-5")
-    expect(dashboard).toContain("MessageCircleIcon")
-    expect(dashboard).toContain(
-      'aria-current={moreActive ? "page" : undefined}'
-    )
-    expect(mobileNav).toContain("More")
-    expect(dashboard).toContain("Timed Practice")
-    expect(dashboard).toContain("Data &amp; privacy")
-    expect(dashboard).toContain("Learning settings")
-    expect(dashboard).toContain('aria-label="Scout ACT, go to Today"')
-    expect(dashboard).toContain("More from Scout")
-    expect(dashboard).not.toContain(
-      "Practice, settings, and your learning data."
-    )
+    expect(mobileNav).toContain("Lessons")
+    expect(mobileNav).toContain("Week")
+    expect(mobileNav).toContain("Practice")
+    expect(mobileNav).toContain("Progress")
+    expect(mobileNav).toContain("Badges")
+    expect(mobileNav).not.toContain("More")
+    expect(dashboard).toContain("function MrKimHeaderButton")
+    expect(dashboard).toContain("function SettingsHeaderButton")
+    expect(dashboard).toContain('aria-label="Scout ACT, go to Lessons"')
     expect(dashboard).toContain("sticky top-0 z-50")
   })
 
@@ -50,8 +42,9 @@ describe("mobile navigation contract", () => {
     expect(styles).toContain("min-height: 44px")
   })
 
-  it("keeps the desktop study loop primary and puts timed practice in More", async () => {
+  it("shows every requested desktop destination in one top navigation row", async () => {
     const dashboard = await source("components/tutor/dashboard.tsx")
+    const assistant = await source("components/tutor/scout-assistant.tsx")
     const desktopNav = dashboard.slice(
       dashboard.indexOf('aria-label="Study navigation"'),
       dashboard.indexOf(
@@ -59,23 +52,26 @@ describe("mobile navigation contract", () => {
         dashboard.indexOf('aria-label="Study navigation"')
       )
     )
-    const desktopOverflow = dashboard.slice(
-      dashboard.indexOf("function DesktopOverflow"),
-      dashboard.indexOf("export function Dashboard")
-    )
-
     expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(4)
-    expect(desktopNav).not.toContain('value="lab"')
-    expect(desktopNav).not.toContain("Timed Practice")
-    expect(desktopOverflow).toContain('preloadDashboardSurface("lab")')
-    expect(desktopOverflow).toContain('onNavigate("lab")')
-    expect(desktopOverflow).toContain("Timed Practice")
-    expect(dashboard).toContain(
-      "target.closest('[data-more-surface=\"true\"]')"
-    )
-    expect(dashboard).toContain(
-      'window.addEventListener("pointerdown", closeMoreOnPointerDown)'
-    )
+    const labels = [
+      "Lessons",
+      "My Week",
+      "Full Diagnostic",
+      "Timed Practice",
+      "Progress",
+      "Badges",
+    ]
+    for (const label of labels) expect(desktopNav).toContain(label)
+    for (let index = 1; index < labels.length; index += 1) {
+      expect(desktopNav.indexOf(labels[index - 1]!)).toBeLessThan(
+        desktopNav.indexOf(labels[index]!)
+      )
+    }
+    expect(dashboard).not.toContain("function DesktopOverflow")
+    expect(dashboard).not.toContain("function MobileOverflow")
+    expect(dashboard).not.toContain("More from Scout")
+    expect(assistant).toContain("Data &amp; privacy")
+    expect(assistant).toContain('aria-label="Settings"')
   })
 })
 
@@ -124,15 +120,16 @@ describe("shared visual system contract", () => {
     expect(mission).not.toContain("lg:grid-cols-[minmax(0,1fr)_19rem]")
     expect(onboarding).toContain("grid grid-cols-3 gap-2")
     expect(onboarding).toContain(
-      "w-full border-y-2 border-foreground py-8 sm:py-12"
+      "lg:grid-cols-[minmax(0,1.04fr)_minmax(26rem,0.96fr)]"
     )
+    expect(onboarding).toContain("Your ACT plan starts with a")
     expect(quickCheck).toContain('aria-labelledby="quick-check-heading"')
     expect(quickCheck).toContain('data-testid="quick-check-question-card"')
     expect(quickCheck).not.toContain(">Your next question<")
   })
 })
 
-describe("Scout drawer accessibility contract", () => {
+describe("Mr. Kim drawer accessibility contract", () => {
   it("traps focus, closes on Escape, returns focus, and keeps the launcher in the app header", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")
     const dashboard = await source("components/tutor/dashboard.tsx")
@@ -140,16 +137,16 @@ describe("Scout drawer accessibility contract", () => {
     expect(assistant).toContain('event.key !== "Tab"')
     expect(assistant).toContain("lastFocusRef.current?.focus()")
     expect(assistant).toContain('aria-modal="true"')
-    expect(assistant).not.toContain("<MessageCircleIcon /> Ask Scout")
-    expect(dashboard).toContain("function ScoutHeaderButton")
-    expect(dashboard).toContain('aria-label="Ask Scout"')
+    expect(assistant).toContain('aria-label="Ask Mr. Kim"')
+    expect(dashboard).toContain("function MrKimHeaderButton")
+    expect(dashboard).toContain('aria-label="Ask Mr. Kim"')
     expect(dashboard).toContain("min-h-11 min-w-11")
   })
 
-  it("uses one clear accessible name for learning settings controls", async () => {
+  it("uses one clear accessible name for settings controls", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")
-    expect(assistant).toContain('aria-label="Learning settings"')
-    expect(assistant).toContain('aria-label="Close learning settings"')
+    expect(assistant).toContain('aria-label="Settings"')
+    expect(assistant).toContain('aria-label="Close settings"')
     expect(assistant).not.toContain("aria-label={label}")
     expect(assistant).not.toContain('aria-label="Use fewer technical terms"')
   })
@@ -194,13 +191,12 @@ describe("learner-facing model language", () => {
     )
     const tutorApp = await source("components/tutor/tutor-app.tsx")
     expect(dashboard).not.toContain("function ScoreRoute")
-    expect(dashboard).toContain("<PencilLineIcon /> Goal and schedule")
+    expect(assistant).toContain("Goal and schedule")
+    expect(assistant).toContain("Data &amp; privacy")
     expect(dashboard).toContain(
       'startMissionAction({ action: "start_next" }, true)'
     )
-    expect(dashboard).toContain(
-      'plan.baselineSkipped && activeTab === "today" && !workspaceOpen'
-    )
+    expect(dashboard).not.toContain("temporary 18")
     expect(mission).not.toContain("Next: {nextLabel}")
     expect(mission).toContain("Continue the practice questions for this skill.")
     expect(mission).not.toContain("Why Scout picked this")
@@ -210,21 +206,20 @@ describe("learner-facing model language", () => {
     expect(onboarding).not.toContain(
       "This is a planning goal—not a score prediction"
     )
-    expect(onboarding).toContain("See one answer change the plan")
+    expect(onboarding).not.toContain("See one answer change the plan")
     expect(onboarding).toContain("Type or use the buttons")
     expect(onboarding).toContain("Your starting week")
     expect(onboarding).toContain("You can pick exact weekdays")
-    expect(onboarding).toContain("How Scout saves your work")
-    expect(onboarding).toContain(
-      "this browser keeps your setup, plan, and resume point"
-    )
-    expect(onboarding).toContain(
-      "More → Data &amp; privacy to export or delete saved study data"
-    )
+    expect(onboarding).toContain("full 66-question")
+    expect(onboarding).toContain("No invented score. No shortened baseline.")
+    expect(onboarding).not.toContain("More → Data &amp; privacy")
     expect(onboarding).toContain("Open the judge demo")
     expect(onboarding).toContain("viewer.technicalDetails")
-    expect(onboarding).toContain("Skip for now")
-    expect(onboarding).toContain("Create my starter plan")
+    expect(onboarding).not.toContain("Skip for now")
+    expect(onboarding).toContain("Start my full diagnostic")
+    expect(onboarding).toContain("Your full diagnostic will set the baseline.")
+    expect(tutorApp).toContain('return "diagnostic"')
+    expect(tutorApp).not.toContain("temporary 18")
     expect(onboarding).toContain(
       "Add the scores Scout should use as your starting point."
     )
@@ -284,7 +279,8 @@ describe("learner-facing model language", () => {
     )
     expect(diagnosticRunner).toContain("Your practice range")
     expect(diagnosticRunner).toContain("Answer first blank")
-    expect(diagnosticRunner).toContain("open={unanswered.length > 0}")
+    expect(diagnosticRunner).toContain("Finish unanswered questions")
+    expect(diagnosticRunner).not.toContain("open={unanswered.length > 0}")
     expect(diagnosticRunner).toContain("reviewReturnIndex === currentIndex")
     expect(diagnosticRunner).toContain("returnToReview(nextAnswers)")
     expect(diagnosticRunner).toContain("Start with every ACT question type")
@@ -334,7 +330,7 @@ describe("account access contract", () => {
 })
 
 describe("deadline learner UX contract", () => {
-  it("adds keyboard answers, progressive disclosure, and a copyable week", async () => {
+  it("adds keyboard answers, progressive disclosure, and an adjustable week", async () => {
     const quickCheck = await source(
       "components/tutor/adaptive-calibration-lab.tsx"
     )
@@ -346,9 +342,10 @@ describe("deadline learner UX contract", () => {
     )
     expect(quickCheck).not.toContain("What happens after I answer?")
     expect(quickCheck).not.toContain("Why this question?")
-    expect(studyPlan).toContain("navigator.clipboard.writeText")
-    expect(studyPlan).toContain("Copy week")
-    expect(studyPlan).toContain("Week copied")
+    expect(studyPlan).not.toContain("navigator.clipboard.writeText")
+    expect(studyPlan).not.toContain("Copy week")
+    expect(studyPlan).toContain("Choose the days and minutes")
+    expect(studyPlan).toContain("Save schedule")
     expect(studyPlan.indexOf("<WeekPlanner")).toBeLessThan(
       studyPlan.indexOf("Plan details")
     )

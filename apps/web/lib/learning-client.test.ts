@@ -174,13 +174,19 @@ describe("completed full-test consumption", () => {
       return new Response(JSON.stringify({ reset: true }))
     }) as typeof fetch
 
-    const payload = await consumeCompletedExamForLearningRound(async () => {
-      events.push("start-round")
-      return { roundNumber: 2 }
-    }, request)
+    const payload = await consumeCompletedExamForLearningRound({
+      startRound: async () => {
+        events.push("start-round")
+        return { roundNumber: 2 }
+      },
+      persistPlan: async () => {
+        events.push("save-plan")
+      },
+      request,
+    })
 
     expect(payload).toEqual({ roundNumber: 2 })
-    expect(events).toEqual(["start-round", "delete-exam"])
+    expect(events).toEqual(["start-round", "save-plan", "delete-exam"])
     expect(refreshExam()).toBeNull()
   })
 
@@ -197,20 +203,76 @@ describe("completed full-test consumption", () => {
     }) as typeof fetch
 
     await expect(
-      consumeCompletedExamForLearningRound(async () => {
-        throw new Error("Finish the current lesson round first.")
-      }, request)
+      consumeCompletedExamForLearningRound({
+        startRound: async () => {
+          throw new Error("Finish the current lesson round first.")
+        },
+        persistPlan: async () => undefined,
+        request,
+      })
     ).rejects.toThrow("Finish the current lesson round first.")
 
     expect(refreshExam()).toEqual(completedExam)
   })
 
-  it("keeps the stored learning round successful when exam cleanup fails", async () => {
-    const payload = await consumeCompletedExamForLearningRound(
-      async () => ({ roundNumber: 2 }),
-      (async () => new Response(null, { status: 503 })) as typeof fetch
-    )
+  it("keeps the completed exam when plan persistence fails", async () => {
+    let examDeleted = false
+
+    await expect(
+      consumeCompletedExamForLearningRound({
+        startRound: async () => ({ roundNumber: 2 }),
+        persistPlan: async () => {
+          throw new Error("Plan save failed.")
+        },
+        request: (async () => {
+          examDeleted = true
+          return new Response(null, { status: 200 })
+        }) as typeof fetch,
+      })
+    ).rejects.toThrow("Plan save failed.")
+
+    expect(examDeleted).toBe(false)
+  })
+
+  it("reports cleanup failure and safely retries the idempotent transition", async () => {
+    let newRoundsApplied = 0
+    let roundAlreadyStored = false
+    let cleanupAttempts = 0
+    let persistedExam: { id: string } | null = { id: "full-test-1" }
+    const startRound = async () => {
+      if (!roundAlreadyStored) {
+        roundAlreadyStored = true
+        newRoundsApplied += 1
+      }
+      return { roundNumber: 2 }
+    }
+    const request = (async () => {
+      cleanupAttempts += 1
+      if (cleanupAttempts === 1) {
+        return new Response(null, { status: 503 })
+      }
+      persistedExam = null
+      return new Response(JSON.stringify({ reset: true }), { status: 200 })
+    }) as typeof fetch
+
+    await expect(
+      consumeCompletedExamForLearningRound({
+        startRound,
+        persistPlan: async () => undefined,
+        request,
+      })
+    ).rejects.toThrow("result will not be applied twice")
+    expect(persistedExam).toEqual({ id: "full-test-1" })
+
+    const payload = await consumeCompletedExamForLearningRound({
+      startRound,
+      persistPlan: async () => undefined,
+      request,
+    })
 
     expect(payload).toEqual({ roundNumber: 2 })
+    expect(newRoundsApplied).toBe(1)
+    expect(persistedExam).toBeNull()
+    expect(cleanupAttempts).toBe(2)
   })
 })

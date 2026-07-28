@@ -10,7 +10,7 @@ describe("trust center", () => {
     expect(markup).toContain("What Scout saves—and what it does not.")
     expect(markup).toContain("Guest progress")
     expect(markup).toContain("Account progress")
-    expect(markup).toContain("More → Data &amp; privacy")
+    expect(markup).toContain("Settings → Data &amp; privacy")
     expect(markup).toContain(
       "Study-data deletion does not delete an account’s sign-in."
     )

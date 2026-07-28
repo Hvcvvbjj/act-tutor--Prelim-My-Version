@@ -4,6 +4,7 @@ import {
   diagnosticResultToEvidence,
   scoreDiagnostic,
   toPublicDiagnosticForm,
+  UNANSWERED_DIAGNOSTIC_CHOICE_ID,
   type DiagnosticAnswer,
   type DiagnosticFormSecure,
   type DiagnosticQuestionSecure,
@@ -50,9 +51,42 @@ const FORM: DiagnosticFormSecure = {
   title: "Fixture diagnostic",
   estimatedMinutes: 3,
   blueprint: [
-    { section: "english", officialQuestions: 50, officialScoredQuestions: 40, officialMinutes: 35, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Writing", range: "100%" }, { label: "Language", range: "0%" }] },
-    { section: "math", officialQuestions: 45, officialScoredQuestions: 41, officialMinutes: 50, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Higher Math", range: "80%" }, { label: "Essential Skills", range: "20%" }] },
-    { section: "reading", officialQuestions: 36, officialScoredQuestions: 27, officialMinutes: 40, diagnosticQuestions: 2, diagnosticMinutes: 1, reportingCategories: [{ label: "Ideas", range: "50%" }, { label: "Structure", range: "50%" }] },
+    {
+      section: "english",
+      officialQuestions: 50,
+      officialScoredQuestions: 40,
+      officialMinutes: 35,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 1,
+      reportingCategories: [
+        { label: "Writing", range: "100%" },
+        { label: "Language", range: "0%" },
+      ],
+    },
+    {
+      section: "math",
+      officialQuestions: 45,
+      officialScoredQuestions: 41,
+      officialMinutes: 50,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 1,
+      reportingCategories: [
+        { label: "Higher Math", range: "80%" },
+        { label: "Essential Skills", range: "20%" },
+      ],
+    },
+    {
+      section: "reading",
+      officialQuestions: 36,
+      officialScoredQuestions: 27,
+      officialMinutes: 40,
+      diagnosticQuestions: 2,
+      diagnosticMinutes: 1,
+      reportingCategories: [
+        { label: "Ideas", range: "50%" },
+        { label: "Structure", range: "50%" },
+      ],
+    },
   ],
   questions: [
     question("e1", "english", "boundaries"),
@@ -138,8 +172,7 @@ describe("scoreDiagnostic", () => {
     expect(result.source).toBe("rapid_diagnostic");
     expect(result.calibrationVersion).toBe("rapid-v1");
     expect(
-      result.sectionResults[0].range.high -
-        result.sectionResults[0].range.low,
+      result.sectionResults[0].range.high - result.sectionResults[0].range.low,
     ).toBeLessThanOrEqual(8);
     expect(diagnosticResultToEvidence(result).source).toBe("rapid_diagnostic");
   });
@@ -161,6 +194,19 @@ describe("scoreDiagnostic", () => {
     expect(() => scoreDiagnostic(FORM, answers({ e1: "missing" }))).toThrow(
       "Unknown choice",
     );
+  });
+
+  it("scores a timed-out blank as incorrect", () => {
+    const result = scoreDiagnostic(
+      FORM,
+      answers({ e1: UNANSWERED_DIAGNOSTIC_CHOICE_ID }),
+    );
+
+    expect(result.feedback[0]).toMatchObject({
+      selectedChoiceId: UNANSWERED_DIAGNOSTIC_CHOICE_ID,
+      correct: false,
+    });
+    expect(result.sectionResults[0]?.correct).toBe(1);
   });
 
   it("rejects unknown question IDs", () => {

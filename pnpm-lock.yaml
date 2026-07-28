@@ -130,6 +130,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@act-tutor/content':
+        specifier: workspace:*
+        version: link:../content
       '@act-tutor/core':
         specifier: workspace:*
         version: link:../core

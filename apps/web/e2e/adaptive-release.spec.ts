@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { ACT_PRACTICE_QUESTIONS } from "@act-tutor/content"
 
-import { completeLearnerOrientation } from "./helpers"
+import { openReportedScorePlan } from "./helpers"
 
 interface CalibrationQuestion {
   id: string
@@ -15,57 +15,11 @@ interface CalibrationPayload {
 }
 
 async function openStarterPlan(page: Page) {
-  await page.goto("/")
-  await page.getByRole("button", { name: "Set up my plan" }).click()
-  await page.getByRole("button", { name: "Add my starting score" }).click()
-  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
-  await page.getByRole("radio", { name: /Skip for now/ }).check()
-  await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Create my starter plan" }).click()
-  await completeLearnerOrientation(page)
-  await expect(
-    page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible()
-}
-
-async function answerQuickCheckThroughApi(
-  page: Page,
-  stopAfter = Number.POSITIVE_INFINITY
-) {
-  let calibration = (await (
-    await page.request.get("/api/calibration")
-  ).json()) as CalibrationPayload
-
-  while (
-    calibration.status === "in_progress" &&
-    calibration.responseCount < stopAfter
-  ) {
-    const question = calibration.currentQuestion
-    expect(question).not.toBeNull()
-    const response = await page.request.post("/api/calibration", {
-      data: {
-        action: "answer",
-        questionId: question?.id,
-        choiceId: question?.choices[0]?.id,
-        confidence: "sure",
-      },
-    })
-    expect(response.ok()).toBeTruthy()
-    calibration = (await response.json()) as CalibrationPayload
-  }
-
-  return calibration
+  await openReportedScorePlan(page)
 }
 
 async function openFullDiagnostic(page: Page) {
   await openStarterPlan(page)
-  await expect(page.getByRole("button", { name: "Start lesson" })).toBeVisible({
-    timeout: 20_000,
-  })
-  await page.request.delete("/api/calibration")
-  await answerQuickCheckThroughApi(page)
-  await page.getByRole("tab", { name: /^(Quick Check|Check)$/ }).click()
-  await expect(page.getByText("Quick Check complete")).toBeVisible()
   const diagnosticResponse = await page.request.post("/api/diagnostic", {
     data: { action: "start_new_if_completed" },
   })
@@ -89,25 +43,24 @@ async function openFullDiagnostic(page: Page) {
   await page.getByRole("button", { name: "Start diagnostic" }).click()
 }
 
-test("mobile welcome keeps both first-run actions in view", async ({
+test("mobile welcome keeps the real-baseline action in view and removes the one-answer demo", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 740 })
   await page.goto("/")
 
-  const setupAction = page.getByRole("button", { name: "Set up my plan" })
-  const demoAction = page.getByRole("button", {
-    name: "See one answer change the plan",
+  const setupAction = page.getByRole("button", {
+    name: "Build my starting plan",
   })
   await expect(setupAction).toBeVisible()
-  await expect(demoAction).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "See one answer change the plan" })
+  ).toHaveCount(0)
 
-  for (const action of [setupAction, demoAction]) {
-    const box = await action.boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(740)
-  }
+  const box = await setupAction.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(740)
 
   await page.addStyleTag({ content: ":root { font-size: 20px !important; }" })
   await expect
@@ -120,241 +73,29 @@ test("mobile welcome keeps both first-run actions in view", async ({
     .toEqual({ scrollWidth: 320, viewportWidth: 320 })
 })
 
-test("Quick Check recovers after its first request fails", async ({
-  page,
-  request,
-}) => {
-  await request.delete("/api/calibration")
-  let failedInitialLoad = false
-  await page.route("**/api/calibration", async (route) => {
-    if (route.request().method() === "GET" && !failedInitialLoad) {
-      failedInitialLoad = true
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: "Quick Check is temporarily unavailable.",
-        }),
-      })
-      return
-    }
-    await route.continue()
-  })
-
-  await page.goto("/")
-  await page
-    .getByRole("button", { name: "See one answer change the plan" })
-    .click()
-
-  const quickCheckError = page
-    .getByRole("alert")
-    .filter({ hasText: "Quick Check unavailable" })
-  await expect(quickCheckError).toContainText("Quick Check unavailable")
-  await expect(quickCheckError).toContainText(
-    "Quick Check is temporarily unavailable."
-  )
-  await page.getByRole("button", { name: "Try Quick Check again" }).click()
-
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
-    timeout: 20_000,
-  })
-  await expect(
-    page.getByRole("button", { name: "Try Quick Check again" })
-  ).toHaveCount(0)
-  await request.delete("/api/calibration")
-})
-
-test("Quick Check focuses each new question and keeps answer shortcuts active", async ({
-  page,
-}) => {
-  await openStarterPlan(page)
-  await page.request.delete("/api/calibration")
-  await page.getByRole("tab", { name: "Quick Check" }).click()
-
-  const prompt = page.getByTestId("quick-check-question-card").locator("h2")
-  const firstPrompt = await prompt.textContent()
-  await page.keyboard.press("a")
-  await expect(
-    page
-      .getByRole("radiogroup", {
-        name: "Answer choices for Quick Check question 1",
-      })
-      .getByRole("radio")
-      .first()
-  ).toBeChecked()
-  await page.evaluate(() => {
-    window.scrollTo({ top: document.documentElement.scrollHeight })
-  })
-  await expect(
-    page.getByRole("button", { name: "Check my answer" })
-  ).toBeEnabled()
-  await page.getByRole("button", { name: "Check my answer" }).click()
-
-  await expect(prompt).not.toHaveText(firstPrompt ?? "")
-  await expect(prompt).toBeFocused()
-  const promptBounds = await prompt.boundingBox()
-  expect(promptBounds).not.toBeNull()
-  expect(promptBounds!.y).toBeGreaterThanOrEqual(0)
-
-  await page.keyboard.press("b")
-  await expect(
-    page
-      .getByRole("radiogroup", {
-        name: "Answer choices for Quick Check question 2",
-      })
-      .getByRole("radio")
-      .nth(1)
-  ).toBeChecked()
-})
-
-test("required Quick Check completion leaves one clear plan-building action", async ({
+test("a learner without a score starts the full 66-question diagnostic", async ({
   page,
 }) => {
   await page.goto("/")
-  await page.getByRole("button", { name: "Set up my plan" }).click()
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
   await page.getByRole("button", { name: "Add my starting score" }).click()
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
-  await page
-    .getByRole("radio", {
-      name: /Take the 8–12 question starting check/,
-    })
-    .check()
+  await expect(page.getByText("Skip for now")).toHaveCount(0)
   await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Take my starting check" }).click()
-  await expect(page.getByTestId("quick-check-question-card")).toBeVisible()
+  await page.getByRole("button", { name: "Start my full diagnostic" }).click()
 
-  await answerQuickCheckThroughApi(page, 7)
-  await page.reload()
-
-  const completionHeading = page.getByRole("heading", {
-    name: "Starting point saved.",
-  })
-  for (let index = 0; index < 5; index += 1) {
-    const questionCard = page.getByTestId("quick-check-question-card")
-    const firstChoice = questionCard.getByRole("radio").first()
-    await firstChoice.focus()
-    await page.keyboard.press("Space")
-    await expect(firstChoice).toBeChecked()
-    const responsePromise = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/calibration") &&
-        response.request().method() === "POST"
-    )
-    await page.getByRole("button", { name: "Check my answer" }).click()
-    const response = await responsePromise
-    const calibration = (await response.json()) as CalibrationPayload
-    if (calibration.status === "complete") {
-      await expect(completionHeading).toBeVisible()
-      break
-    }
-    await expect(
-      page.getByRole("radiogroup", {
-        name: `Answer choices for Quick Check question ${
-          calibration.responseCount + 1
-        }`,
-      })
-    ).toBeVisible()
-  }
-
-  await expect(completionHeading).toBeVisible()
-  await expect(page.getByRole("button", { name: "Back to today" })).toHaveCount(
-    0
-  )
   await expect(
-    page.getByRole("button", { name: "View my skills" })
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
+  await expect(
+    page.getByText(/66 original questions across English, Math, and Reading/)
+  ).toBeVisible()
+  await expect(
+    page.getByText("Your starter plan uses a temporary 18.")
   ).toHaveCount(0)
-  await expect(
-    page.getByRole("button", { name: "Build my plan from this check" })
-  ).toBeVisible()
 })
 
-test("a guest can open the one-answer demo and see the adaptive proof", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 320, height: 760 })
-  await page.goto("/")
-  await page
-    .getByRole("button", { name: "See one answer change the plan" })
-    .click()
-
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
-    timeout: 20_000,
-  })
-  await expect(
-    page.getByLabel("About 2–8 min. Question 8 of up to 12.")
-  ).toBeVisible()
-
-  const questionPrompt = await page
-    .getByRole("heading", { name: /A solution contains water/ })
-    .boundingBox()
-  const firstChoice = await page
-    .getByTestId("quick-check-choice")
-    .first()
-    .boundingBox()
-  const mobileNavigation = await page
-    .getByRole("navigation", { name: "Primary study navigation" })
-    .boundingBox()
-  expect(questionPrompt).not.toBeNull()
-  expect(firstChoice).not.toBeNull()
-  expect(mobileNavigation).not.toBeNull()
-  expect(questionPrompt!.y + questionPrompt!.height).toBeLessThan(
-    mobileNavigation!.y
-  )
-  expect(firstChoice!.y + firstChoice!.height).toBeLessThan(mobileNavigation!.y)
-
-  await page.keyboard.press("b")
-  await expect(page.getByRole("radio", { name: "B 12" })).toBeChecked()
-  await page.getByRole("button", { name: "Check my answer" }).click()
-
-  await expect(
-    page.getByRole("heading", {
-      name: "Scout updated your skill estimates.",
-    })
-  ).toBeVisible()
-  const proofHeading = page.getByRole("heading", {
-    name: "Scout updated your skill estimates.",
-  })
-  await expect(page.getByRole("status")).toHaveText("Correct.")
-  const proofStep = page.getByText("1 · Question match")
-  await expect(proofHeading).toBeFocused()
-  await expect(proofStep).toBeVisible()
-  await expect(page.getByText("2 · Ratios and percent estimate")).toBeVisible()
-  await expect(page.getByText(/After Round 1/)).toBeVisible()
-  await expect(page.getByText(/later-round priority/).first()).toBeVisible()
-  await expect(
-    page.getByText("Seven sample answers are loaded")
-  ).not.toBeVisible()
-  await expect(
-    page.getByText("Scout updated the sample learner from one answer.")
-  ).toBeVisible()
-  await expect(page.getByText(/Build my study plan/)).not.toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Back to sample day" })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "View sample skills" })
-  ).toBeVisible()
-  const proofHeadingBounds = await proofHeading.boundingBox()
-  const proofStepBounds = await proofStep.boundingBox()
-  const proofNavigationBounds = await page
-    .getByRole("navigation", { name: "Primary study navigation" })
-    .boundingBox()
-  expect(proofHeadingBounds).not.toBeNull()
-  expect(proofStepBounds).not.toBeNull()
-  expect(proofNavigationBounds).not.toBeNull()
-  expect(proofHeadingBounds!.y).toBeGreaterThanOrEqual(0)
-  expect(proofHeadingBounds!.y + proofHeadingBounds!.height).toBeLessThan(
-    proofNavigationBounds!.y
-  )
-  expect(proofStepBounds!.y + proofStepBounds!.height).toBeLessThan(
-    proofNavigationBounds!.y
-  )
-  await expect(
-    page.getByRole("button", { name: "Sign in / save progress" })
-  ).toBeVisible()
-})
-
-test("Quick Check atomically replaces the temporary server lesson and Today mission", async ({
+test("an optional Quick Check preserves the current foundation lesson while refreshing skill evidence", async ({
   request,
 }) => {
   await request.delete("/api/learning")
@@ -366,7 +107,7 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
       skill: "sentence-boundaries",
       diagnosticSkillResults: [],
       goalScore: 30,
-      currentScore: 18,
+      currentScore: 24,
       daysUntilTest: 36,
       minutesPerSession: 30,
       studyDaysPerWeek: 5,
@@ -424,8 +165,12 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
     )
   ).toBeTruthy()
   expect(rebased.learning.futureTask.reason).toContain(
-    "Quick Check replaced the temporary baseline"
+    "Your scored baseline is ready."
   )
+  expect(rebased.learning.futureTask.reason).toContain(
+    "Round 1 still covers every question type"
+  )
+  expect(rebased.learning.futureTask.reason).not.toContain("temporary")
   expect(rebased.baseline.skillResults.length).toBeGreaterThan(0)
   expect(rebased.baseline.composite).not.toBe(36)
 
@@ -439,7 +184,7 @@ test("Quick Check atomically replaces the temporary server lesson and Today miss
 test("mobile onboarding actions stay within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 })
   await page.goto("/")
-  await page.getByRole("button", { name: "Set up my plan" }).click()
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
   const goalHeading = page.getByRole("heading", {
     name: "Choose your ACT goal",
   })
@@ -508,51 +253,7 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
     .toBe(true)
 })
 
-test("mobile Quick Check answer choices keep their full reading width", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 320, height: 760 })
-  await openStarterPlan(page)
-  await page.getByRole("tab", { name: "Check" }).click()
-
-  const passage = page.getByTestId("quick-check-stimulus")
-  const mobilePassage = await passage.evaluate((element) => ({
-    clientHeight: element.clientHeight,
-    overflowY: getComputedStyle(element).overflowY,
-    scrollHeight: element.scrollHeight,
-  }))
-  expect(mobilePassage.scrollHeight).toBe(mobilePassage.clientHeight)
-  expect(mobilePassage.overflowY).toBe("visible")
-
-  const answerChoices = page.getByTestId("quick-check-choice")
-  await expect(answerChoices).toHaveCount(4)
-  const firstChoice = answerChoices.first()
-  await expect(firstChoice).toBeVisible()
-  const choiceBox = await firstChoice.boundingBox()
-  expect(choiceBox?.width).toBeGreaterThanOrEqual(270)
-  expect(choiceBox?.height).toBeLessThan(180)
-
-  const firstRadio = page.getByRole("radio", {
-    name: "A After three weeks, of collecting data Imani transferred the times to a digital map.",
-  })
-  await page.keyboard.press("a")
-  await expect(firstRadio).toBeChecked()
-  await expect(
-    page.getByRole("button", { name: "Check my answer" })
-  ).toBeEnabled()
-
-  await page.setViewportSize({ width: 1024, height: 800 })
-  const desktopPassage = await passage.evaluate((element) => ({
-    clientHeight: element.clientHeight,
-    overflowY: getComputedStyle(element).overflowY,
-    scrollHeight: element.scrollHeight,
-  }))
-  expect(desktopPassage.scrollHeight).toBe(desktopPassage.clientHeight)
-  expect(desktopPassage.overflowY).toBe("visible")
-  await expect(page.getByText("Full passage", { exact: true })).toBeVisible()
-})
-
-test("mobile study navigation fits and Scout behaves as a focus-trapped bottom sheet", async ({
+test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom sheet", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 760 })
@@ -562,11 +263,20 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   })
   await expect(primaryNavigation.getByRole("tab")).toHaveCount(4)
   await expect(
-    primaryNavigation.getByRole("tab", { name: "Check" })
+    primaryNavigation.getByRole("tab", { name: "Lessons" })
   ).toBeVisible()
-  await expect(page.getByRole("button", { name: "Ask Scout" })).toBeVisible()
   await expect(
-    primaryNavigation.getByRole("button", { name: "Ask Scout" })
+    primaryNavigation.getByRole("tab", { name: "Badges" })
+  ).toBeVisible()
+  await expect(
+    primaryNavigation.getByRole("button", { name: "Practice" })
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Ask Mr. Kim" })).toBeVisible()
+  await expect(
+    primaryNavigation.getByRole("button", { name: "Ask Mr. Kim" })
+  ).toHaveCount(0)
+  await expect(
+    primaryNavigation.getByRole("button", { name: "More" })
   ).toHaveCount(0)
 
   const inactiveNavigationStyles = await primaryNavigation
@@ -611,15 +321,16 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
     expect(styles.fontSize).toBeGreaterThanOrEqual(12)
   }
 
-  const todayFocus = page.getByTestId("today-focus")
-  await expect(todayFocus).toBeVisible()
-  await expect(todayFocus.getByRole("heading", { level: 1 })).toBeVisible()
-  await expect(todayFocus.getByRole("button")).toHaveCount(1)
+  const lessons = page.getByTestId("lessons-command-center")
+  await expect(lessons).toBeVisible()
+  await expect(
+    lessons.getByRole("heading", {
+      name: "Learn the types. Then sharpen the weak spots.",
+    })
+  ).toBeVisible()
+  await expect(lessons.getByText("More study options")).toBeVisible()
   await expect(page.getByText("Why Scout picked this")).toHaveCount(0)
   await expect(page.getByText("Later today")).toHaveCount(0)
-  await expect(
-    page.locator("aside").filter({ hasText: "Your week" })
-  ).toHaveCount(0)
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -701,7 +412,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   const enlargedFirstHeaderActionBounds = await page
     .locator("header")
     .first()
-    .getByRole("button", { name: "Ask Scout" })
+    .getByRole("button", { name: "Ask Mr. Kim" })
     .boundingBox()
   expect(enlargedBrandBounds).not.toBeNull()
   expect(enlargedFirstHeaderActionBounds).not.toBeNull()
@@ -713,12 +424,12 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   })
 
   await page.setViewportSize({ width: 700, height: 800 })
-  await expect(page.getByRole("button", { name: "Ask Scout" })).toHaveCount(1)
+  await expect(page.getByRole("button", { name: "Ask Mr. Kim" })).toHaveCount(1)
   await page.setViewportSize({ width: 390, height: 844 })
 
-  const launcher = page.getByRole("button", { name: "Ask Scout" }).first()
+  const launcher = page.getByRole("button", { name: "Ask Mr. Kim" }).first()
   await launcher.click()
-  const dialog = page.getByRole("dialog", { name: "Ask Scout" })
+  const dialog = page.getByRole("dialog", { name: "Ask Mr. Kim" })
   await expect(dialog).toBeVisible()
   const box = await dialog.boundingBox()
   expect(box?.width).toBe(390)
@@ -727,7 +438,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await dialog
     .getByLabel("Your question")
     .fill("What does margin of error mean in regular English?")
-  await dialog.getByRole("button", { name: "Ask Scout", exact: true }).click()
+  await dialog.getByRole("button", { name: "Ask Mr. Kim", exact: true }).click()
   await expect(dialog).toContainText(/not ACT score points/i)
   await expect(dialog.getByText("How this answer was made")).toHaveCount(0)
 
@@ -742,23 +453,13 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
   await expect(dialog).toBeHidden()
   await expect(launcher).toBeFocused()
 
-  const moreButton = primaryNavigation.getByRole("button", { name: "More" })
-  const moreMenu = page.getByRole("menu", { name: "More from Scout" })
-  await moreButton.click()
-  await expect(moreMenu.getByRole("menuitem")).toHaveCount(4)
+  await primaryNavigation.getByRole("button", { name: "Practice" }).click()
   await expect(
-    moreMenu.getByRole("menuitem", { name: "Goal and schedule" })
+    page.getByRole("heading", { name: "Choose a practice run." })
   ).toBeVisible()
-  await page.keyboard.press("Escape")
-  await expect(moreMenu).toBeHidden()
 
-  await moreButton.click()
-  await moreMenu.getByRole("menuitem", { name: "Timed Practice" }).click()
-  await expect(moreButton).toHaveAttribute("aria-current", "page")
-
-  await moreButton.click()
-  await moreMenu.getByRole("menuitem", { name: "Learning settings" }).click()
-  const settings = page.getByRole("dialog", { name: "Learning settings" })
+  await page.getByRole("button", { name: "Open settings" }).click()
+  const settings = page.getByRole("dialog", { name: "Settings" })
   await expect(settings).toBeVisible()
   await expect(
     settings.getByRole("switch", {
@@ -772,9 +473,7 @@ test("mobile study navigation fits and Scout behaves as a focus-trapped bottom s
       exact: true,
     })
   ).toBeVisible()
-  await settings
-    .getByRole("button", { name: "Close learning settings" })
-    .click()
+  await settings.getByRole("button", { name: "Close settings" }).click()
   await expect(settings).toBeHidden()
 })
 
@@ -783,7 +482,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
 }) => {
   await page.setViewportSize({ width: 320, height: 760 })
   await openStarterPlan(page)
-  await page.getByRole("button", { name: "Start lesson" }).click()
+  await page.getByRole("button", { name: "Open lesson" }).click()
 
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
   const stageButtons = stages.getByRole("button")
@@ -828,7 +527,7 @@ test("practice keeps scored feedback with its question until Next question", asy
   page,
 }) => {
   await openStarterPlan(page)
-  await page.getByRole("button", { name: "Start lesson" }).click()
+  await page.getByRole("button", { name: "Open lesson" }).click()
 
   const lessonResponse = await page.request.get("/api/learning")
   expect(lessonResponse.ok()).toBeTruthy()
@@ -917,8 +616,10 @@ test("timed practice opens at the first question on a narrow phone", async ({
   await openStarterPlan(page)
   await page.request.delete("/api/exam-lab")
 
-  await page.getByRole("button", { name: "More", exact: true }).click()
-  await page.getByRole("menuitem", { name: "Timed Practice" }).click()
+  await page
+    .getByRole("navigation", { name: "Primary study navigation" })
+    .getByRole("button", { name: "Practice" })
+    .click()
   await expect(
     page.getByRole("heading", { name: "Choose a practice run." })
   ).toBeVisible()
@@ -953,9 +654,23 @@ test("a guest plan survives a refresh on the same device", async ({ page }) => {
   await openStarterPlan(page)
   await page.reload()
 
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("ai-act-tutor-placement-v3")
+        if (!raw) return null
+        return (
+          JSON.parse(raw) as {
+            guestPlan?: { currentComposite?: number }
+          }
+        ).guestPlan?.currentComposite
+      })
+    )
+    .toBe(24)
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     page.getByRole("button", { name: "Sign in / save progress" })
   ).toBeVisible()
@@ -981,8 +696,8 @@ test("an in-progress full diagnostic resumes without discarding the guest plan",
   await expect(resumedFirstAnswer).toBeChecked()
 
   await page.getByRole("button", { name: "Save and exit" }).click()
-  await page.getByRole("button", { name: "Return to Quick Check" }).click()
-  await expect(page.getByText("Quick Check complete")).toBeVisible()
+  await page.getByRole("button", { name: "Return to dashboard" }).click()
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
   await expect(
     page.getByRole("button", { name: "Sign in / save progress" })
   ).toBeVisible()
@@ -1274,8 +989,10 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
     result.review.find((answer) => answer.selectedChoiceId !== null)?.confidence
   ).toBeNull()
 
-  await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Timed Practice" }).click()
+  await page
+    .getByRole("navigation", { name: "Primary study navigation" })
+    .getByRole("button", { name: "Practice" })
+    .click()
 
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
@@ -1310,7 +1027,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   ).toContainText(`${result.correct}/1 completed answer`)
 })
 
-test("a learner can save the skipped-check plan and restore it after sign-in", async ({
+test("a learner can save a reported-score plan and restore it after sign-in", async ({
   page,
 }) => {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 10_000)}`
@@ -1337,14 +1054,16 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
     timeout: 15_000,
   })
   await page.reload({ waitUntil: "networkidle" })
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
   await expect(
-    page
-      .getByText("Your starter plan uses a temporary 18.")
-      .filter({ visible: true })
-  ).toBeVisible()
+    page.getByText("Your starter plan uses a temporary 18.")
+  ).toHaveCount(0)
 
-  await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
+  await page.getByRole("button", { name: "Open settings" }).click()
+  await page
+    .getByRole("dialog", { name: "Settings" })
+    .getByRole("button", { name: "Data & privacy" })
+    .click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toHaveCount(0)
@@ -1355,17 +1074,20 @@ test("a learner can save the skipped-check plan and restore it after sign-in", a
   })
   await savedAccount.getByRole("button", { name: "Sign out" }).click()
   await expect(
-    page.getByRole("button", { name: "Sign in / save progress" })
+    page.getByRole("button", { name: "Sign in", exact: true })
   ).toBeVisible()
 
-  await page.getByRole("button", { name: "Sign in / save progress" }).click()
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
   const signIn = page.getByRole("dialog", { name: "Welcome back." })
   await signIn.getByLabel("Username").fill(username)
   await signIn.getByLabel("Password").fill(password)
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible({
+    timeout: 15_000,
+  })
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible({ timeout: 15_000 })
+  ).toHaveCount(0)
 })
 
 test("the server-verified judge account reveals the technical review layer", async ({
@@ -1382,26 +1104,31 @@ test("the server-verified judge account reveals the technical review layer", asy
     "Set SCOUT_E2E_JUDGE_PASSWORD for the judge flow."
   ).toBeTruthy()
 
+  await page.addInitScript(() => {
+    window.localStorage.setItem("scout-dashboard-tour-v2", "done")
+  })
   await page.goto("/")
-  await page.getByRole("button", { name: "Sign in / save progress" }).click()
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
   const signIn = page.getByRole("dialog", { name: "Welcome back." })
   await signIn.getByLabel("Username").fill(judgeUsername!)
   await signIn.getByLabel("Password").fill(judgePassword!)
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
 
   await expect(page.getByRole("button", { name: "Judge view" })).toBeVisible()
-  await page
-    .getByRole("button", { name: "See one answer change the plan" })
-    .click()
-  await expect(page.getByText("Seven sample answers are loaded")).toBeVisible({
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
+  await page.getByRole("button", { name: "Open the judge demo" }).click()
+  await expect(page.getByRole("heading", { name: "Quick Check" })).toBeVisible({
     timeout: 20_000,
   })
   await expect(
     page.getByText("How Scout chose this question", { exact: false })
   ).toBeVisible()
 
-  await page.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
+  await page.getByRole("button", { name: "Open settings" }).click()
+  await page
+    .getByRole("dialog", { name: "Settings" })
+    .getByRole("button", { name: "Data & privacy" })
+    .click()
   await expect(
     page.getByRole("button", { name: "Technical details" })
   ).toBeVisible()

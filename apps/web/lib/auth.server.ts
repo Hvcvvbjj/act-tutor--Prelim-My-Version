@@ -11,6 +11,7 @@ import type { PlacementDraft, TutorJourney } from "@/components/tutor/types"
 import {
   GUEST_VIEWER,
   type AuthViewer,
+  type PendingTutorSetup,
   type SavedTutorPlan,
 } from "@/lib/auth-types"
 import { sessionDocumentStore } from "@/lib/session-document-store.server"
@@ -45,6 +46,7 @@ interface StoredAccount {
   password: PasswordRecord
   linkedSessions: LinkedSessions
   savedPlan: SavedTutorPlan | null
+  pendingSetup?: PendingTutorSetup | null
   createdAt: string
   updatedAt: string
 }
@@ -446,15 +448,20 @@ function parseTutorJourney(value: unknown): TutorJourney {
   }
 }
 
-function parseDraft(value: unknown): PlacementDraft {
+function parseDraft(
+  value: unknown,
+  options: { allowIncompleteScoreSetup?: boolean } = {}
+): PlacementDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new AuthRequestError("The plan setup is incomplete.", 400)
   }
   const draft = value as Record<string, unknown>
+  const allowIncompleteScoreSetup = options.allowIncompleteScoreSetup === true
   if (
     draft.priorScoreChoice !== "scores" &&
     draft.priorScoreChoice !== "composite_only" &&
-    draft.priorScoreChoice !== "never"
+    draft.priorScoreChoice !== "never" &&
+    (!allowIncompleteScoreSetup || draft.priorScoreChoice !== "undecided")
   ) {
     throw new AuthRequestError("The starting-score choice is invalid.", 400)
   }
@@ -469,7 +476,8 @@ function parseDraft(value: unknown): PlacementDraft {
       draft.scoreSource !== "official" &&
       draft.scoreSource !== "practice") ||
     typeof draft.testDate !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(draft.testDate) ||
+    (!/^\d{4}-\d{2}-\d{2}$/.test(draft.testDate) &&
+      (!allowIncompleteScoreSetup || draft.testDate !== "")) ||
     !Number.isInteger(draft.studyDaysPerWeek) ||
     Number(draft.studyDaysPerWeek) < 1 ||
     Number(draft.studyDaysPerWeek) > 7 ||
@@ -493,21 +501,29 @@ function parseDraft(value: unknown): PlacementDraft {
     composite: draftScore(
       draft.composite,
       "Composite",
-      draft.priorScoreChoice !== "never"
+      !allowIncompleteScoreSetup && draft.priorScoreChoice !== "never"
     ),
     english: draftScore(
       draft.english,
       "English",
-      draft.priorScoreChoice === "scores"
+      !allowIncompleteScoreSetup && draft.priorScoreChoice === "scores"
     ),
-    math: draftScore(draft.math, "Math", draft.priorScoreChoice === "scores"),
+    math: draftScore(
+      draft.math,
+      "Math",
+      !allowIncompleteScoreSetup && draft.priorScoreChoice === "scores"
+    ),
     reading: draftScore(
       draft.reading,
       "Reading",
-      draft.priorScoreChoice === "scores"
+      !allowIncompleteScoreSetup && draft.priorScoreChoice === "scores"
     ),
     scienceEnabled: draft.scienceEnabled,
-    science: draftScore(draft.science, "Science", draft.scienceEnabled),
+    science: draftScore(
+      draft.science,
+      "Science",
+      !allowIncompleteScoreSetup && draft.scienceEnabled
+    ),
     testDate: draft.testDate,
     studyDaysPerWeek: Number(draft.studyDaysPerWeek),
     minutesPerSession: Number(draft.minutesPerSession),
@@ -605,6 +621,54 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
   }
 }
 
+export function parsePendingTutorSetup(value: unknown): PendingTutorSetup {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new AuthRequestError("The saved setup is incomplete.", 400)
+  }
+  const input = value as Record<string, unknown>
+  if (input.version !== 1 || input.diagnosticPurpose !== "baseline") {
+    throw new AuthRequestError("The saved setup version is not supported.", 400)
+  }
+  const resumeSurface =
+    input.resumeSurface === undefined || input.resumeSurface === "diagnostic"
+      ? "diagnostic"
+      : input.resumeSurface === "onboarding"
+        ? "onboarding"
+        : null
+  const onboardingStep =
+    input.onboardingStep === 1 ||
+    input.onboardingStep === 2 ||
+    input.onboardingStep === 3
+      ? input.onboardingStep
+      : resumeSurface === "diagnostic"
+        ? 3
+        : null
+  if (!resumeSurface || !onboardingStep) {
+    throw new AuthRequestError("The saved setup destination is invalid.", 400)
+  }
+  const draft = parseDraft(input.draft, {
+    allowIncompleteScoreSetup: resumeSurface === "onboarding",
+  })
+  if (resumeSurface === "diagnostic" && draft.priorScoreChoice !== "never") {
+    throw new AuthRequestError(
+      "A diagnostic setup must be for a learner without a starting score.",
+      400
+    )
+  }
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    draft: {
+      ...draft,
+      startingCheckChoice:
+        resumeSurface === "diagnostic" ? "take" : draft.startingCheckChoice,
+    },
+    diagnosticPurpose: "baseline",
+    resumeSurface,
+    onboardingStep,
+  }
+}
+
 function validateStore(value: unknown): AuthStoreFile {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Unsupported account store format.")
@@ -674,6 +738,7 @@ function viewerFor(
     displayName: session.displayName,
     technicalDetails: session.role === "judge",
     savedPlan: account?.savedPlan ?? null,
+    pendingSetup: account?.pendingSetup ?? null,
   }
 }
 
@@ -791,6 +856,7 @@ export async function registerLearner(
     displayName: unknown
     password: unknown
     savedPlan?: unknown
+    pendingSetup?: unknown
   }
 ): Promise<AuthSuccess> {
   const username = parseUsername(input.username)
@@ -801,6 +867,16 @@ export async function registerLearner(
     input.savedPlan === undefined || input.savedPlan === null
       ? null
       : parseSavedTutorPlan(input.savedPlan)
+  const pendingSetup =
+    input.pendingSetup === undefined || input.pendingSetup === null
+      ? null
+      : parsePendingTutorSetup(input.pendingSetup)
+  if (savedPlan && pendingSetup) {
+    throw new AuthRequestError(
+      "Save either a completed plan or a pending diagnostic setup.",
+      400
+    )
+  }
   const linkedSessions = linkedSessionsFromRequest(request)
   const judge = judgeCredentials()
   const passwordRecord = await hashPassword(password)
@@ -827,6 +903,7 @@ export async function registerLearner(
       password: passwordRecord,
       linkedSessions,
       savedPlan,
+      pendingSetup,
       createdAt: now,
       updatedAt: now,
     }
@@ -848,7 +925,11 @@ export async function registerLearner(
 }
 
 export async function signIn(
-  input: { username: unknown; password: unknown },
+  input: {
+    username: unknown
+    password: unknown
+    pendingSetup?: unknown
+  },
   request: NextRequest
 ): Promise<AuthSuccess> {
   const username = parseUsername(input.username)
@@ -885,6 +966,7 @@ export async function signIn(
           displayName: "Hackathon judges",
           technicalDetails: true,
           savedPlan: null,
+          pendingSetup: null,
         },
       }
     }
@@ -901,6 +983,15 @@ export async function signIn(
     }
 
     delete store.attempts[normalized]
+    if (
+      !account.savedPlan &&
+      !account.pendingSetup &&
+      input.pendingSetup !== undefined &&
+      input.pendingSetup !== null
+    ) {
+      account.pendingSetup = parsePendingTutorSetup(input.pendingSetup)
+      account.updatedAt = new Date(now).toISOString()
+    }
     const currentSessions = linkedSessionsFromRequest(request)
     if (
       Object.keys(account.linkedSessions).length === 0 &&
@@ -977,6 +1068,37 @@ export async function saveAccountPlan(
       throw new AuthRequestError("Sign in to save this plan.", 401)
     }
     account.savedPlan = savedPlan
+    account.pendingSetup = null
+    account.linkedSessions = {
+      ...account.linkedSessions,
+      ...linkedSessionsFromRequest(request),
+    }
+    account.updatedAt = new Date().toISOString()
+    await documentStore.write(store)
+    return viewerFor(session, account)
+  })
+}
+
+export async function savePendingTutorSetup(
+  request: NextRequest,
+  value: unknown
+): Promise<AuthViewer> {
+  const token = request.cookies.get(AUTH_COOKIE)?.value
+  if (!token) throw new AuthRequestError("Sign in to save this setup.", 401)
+  const tokenHash = await sha256(token)
+  const pendingSetup = parsePendingTutorSetup(value)
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    removeExpired(store, Date.now())
+    const session = store.sessions[tokenHash]
+    const account =
+      session?.role === "learner" && session.accountId
+        ? store.accounts[session.accountId]
+        : undefined
+    if (!session || !account) {
+      throw new AuthRequestError("Sign in to save this setup.", 401)
+    }
+    account.pendingSetup = pendingSetup
     account.linkedSessions = {
       ...account.linkedSessions,
       ...linkedSessionsFromRequest(request),
@@ -1014,6 +1136,7 @@ export async function deleteAccountSavedPlan(
       )
     }
     account.savedPlan = null
+    account.pendingSetup = null
     account.updatedAt = new Date().toISOString()
     await documentStore.write(store)
     return viewerFor(session, account)

@@ -18,6 +18,7 @@ import type {
 } from "@act-tutor/core"
 import { SendIcon, Volume2Icon, XIcon } from "lucide-react"
 
+import { replayDashboardTour } from "@/components/tutor/dashboard-tour"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -149,8 +150,8 @@ function ScoutAnswerCard({
             <p className="mt-2">Source: {message.answer.source}</p>
             <p className="mt-1">{message.answer.technical}</p>
             <p className="mt-1">
-              This answer used fixed response rules, not a model reading the
-              whole visible screen.
+              Mr. Kim receives only the grounded study context sent by this
+              screen. Guarded requests use reviewed fallback guidance.
             </p>
           </details>
         ) : null}
@@ -177,11 +178,15 @@ export function ScoutProvider({
   activeTab,
   learning,
   canViewTechnicalDetails = false,
+  onEditPlan,
+  onOpenDataPrivacy,
 }: {
   children: ReactNode
   activeTab: string
   learning: LearningSessionPayload | null
   canViewTechnicalDetails?: boolean
+  onEditPlan?: () => void
+  onOpenDataPrivacy?: () => void
 }) {
   const [accommodations, setAccommodations] =
     useState<AccommodationPreferences>(() =>
@@ -203,6 +208,7 @@ export function ScoutProvider({
   >([])
   const [selectedText, setSelectedText] = useState("")
   const [assistantError, setAssistantError] = useState<string | null>(null)
+  const [aiAvailable, setAiAvailable] = useState(false)
   const [busy, setBusy] = useState(false)
   const scoutDialogRef = useRef<HTMLElement | null>(null)
   const toolsDialogRef = useRef<HTMLElement | null>(null)
@@ -220,6 +226,7 @@ export function ScoutProvider({
           )
         }
         if (cancelled) return
+        setAiAvailable(Boolean(payload.aiAvailable))
         const currentLocal = readScoutSettings()
         const serverUsesDefaults =
           JSON.stringify(payload.preferences) ===
@@ -390,6 +397,8 @@ export function ScoutProvider({
   }, [scoutOpen, toolsOpen])
 
   const prompts = useMemo(() => {
+    if (activeTab === "badges")
+      return ["What is my closest badge?", "How does badge progress work?"]
     if (activeTab === "progress")
       return ["Why is this skill next?", "How do I improve this skill?"]
     if (activeTab === "calibrate")
@@ -402,6 +411,8 @@ export function ScoutProvider({
   }, [activeTab])
 
   const helperCopy = useMemo(() => {
+    if (activeTab === "badges")
+      return "Ask about your earned badges, closest milestone, points, or streak."
     if (activeTab === "progress")
       return "Ask about a skill estimate or what to practice next."
     if (activeTab === "calibrate")
@@ -431,7 +442,7 @@ export function ScoutProvider({
           question: nextQuestion,
           screen: activeTab,
           questionId:
-            activeTab === "lab"
+            activeTab === "lab" || activeTab === "badges"
               ? null
               : (learning?.questions[learning.currentQuestionIndex]?.id ??
                 null),
@@ -445,6 +456,7 @@ export function ScoutProvider({
           "error" in payload ? payload.error : "Scout could not answer."
         )
       const nextMessages = [...payload.messages]
+      setAiAvailable(Boolean(payload.aiAvailable))
       const latestMessage = nextMessages.at(-1)
       if (latestMessage) {
         setVisibleMessages((current) =>
@@ -523,15 +535,17 @@ export function ScoutProvider({
             className="absolute right-0 bottom-0 flex max-h-[90svh] w-full flex-col border-2 border-foreground bg-background pb-[env(safe-area-inset-bottom)] shadow-[-8px_-8px_0_rgb(20_35_58_/_0.18)] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-0"
             role="dialog"
             aria-modal="true"
-            aria-label="Ask Scout"
+            aria-label="Ask Mr. Kim"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <header className="flex items-center gap-3 border-b-2 border-foreground bg-foreground p-4 text-background">
               <ScoutMark className="size-10" />
               <div className="min-w-0 flex-1">
-                <p className="font-heading text-2xl font-black">Ask Scout</p>
+                <p className="font-heading text-2xl font-black">Mr. Kim</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
-                  Help for this screen
+                  {aiAvailable
+                    ? "Grounded AI help for this screen"
+                    : "Reviewed study help for this screen"}
                 </p>
               </div>
               <Button
@@ -539,7 +553,7 @@ export function ScoutProvider({
                 variant="ghost"
                 size="icon"
                 onClick={() => setScoutOpen(false)}
-                aria-label="Close Ask Scout"
+                aria-label="Close Mr. Kim"
               >
                 <XIcon />
               </Button>
@@ -643,7 +657,7 @@ export function ScoutProvider({
                 className="mt-3 w-full"
                 disabled={busy || !question.trim()}
               >
-                <SendIcon /> {busy ? "Getting an answer…" : "Ask Scout"}
+                <SendIcon /> {busy ? "Getting an answer…" : "Ask Mr. Kim"}
               </Button>
             </form>
           </aside>
@@ -661,23 +675,60 @@ export function ScoutProvider({
             className="absolute right-0 bottom-0 max-h-[90svh] w-full overflow-y-auto border-2 border-foreground bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:top-0 sm:bottom-auto sm:h-full sm:max-h-none sm:max-w-md sm:pb-5"
             role="dialog"
             aria-modal="true"
-            aria-label="Learning settings"
+            aria-label="Settings"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b-2 border-foreground pb-4">
-              <h2 className="font-heading text-3xl font-black">
-                Learning settings
-              </h2>
+              <h2 className="font-heading text-3xl font-black">Settings</h2>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => setToolsOpen(false)}
-                aria-label="Close learning settings"
+                aria-label="Close settings"
               >
                 <XIcon />
               </Button>
             </div>
+            <section className="grid gap-2 border-b-2 border-foreground py-5">
+              {onEditPlan ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => {
+                    setToolsOpen(false)
+                    onEditPlan()
+                  }}
+                >
+                  Goal and schedule
+                </Button>
+              ) : null}
+              {onOpenDataPrivacy ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => {
+                    setToolsOpen(false)
+                    onOpenDataPrivacy()
+                  }}
+                >
+                  Data &amp; privacy
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-start"
+                onClick={() => {
+                  setToolsOpen(false)
+                  replayDashboardTour()
+                }}
+              >
+                Replay website tour
+              </Button>
+            </section>
             <div className="divide-y">
               {ACCOMMODATION_OPTIONS.map(([key, label, detail]) => (
                 <label

@@ -147,15 +147,36 @@ export async function learningRequest(body: LearningActionRequest) {
   return payload
 }
 
-export async function consumeCompletedExamForLearningRound<T>(
-  startRound: () => Promise<T>,
-  request: typeof fetch = fetch
-): Promise<T> {
+export async function consumeCompletedExamForLearningRound<T>({
+  startRound,
+  persistPlan,
+  request = fetch,
+}: {
+  startRound: () => Promise<T>
+  persistPlan: () => Promise<void>
+  request?: typeof fetch
+}): Promise<T> {
+  // The round start is idempotent by assessment key. Keep the completed exam
+  // until both durable writes finish so any failure can safely retry this saga.
   const payload = await startRound()
-  await request("/api/exam-lab", {
-    method: "DELETE",
-    cache: "no-store",
-  }).catch(() => null)
+  await persistPlan()
+
+  let response: Response
+  try {
+    response = await request("/api/exam-lab", {
+      method: "DELETE",
+      cache: "no-store",
+    })
+  } catch {
+    throw new Error(
+      "Your next lesson round and plan are saved, but Scout could not close the completed test. Try again; the result will not be applied twice."
+    )
+  }
+  if (!response.ok) {
+    throw new Error(
+      "Your next lesson round and plan are saved, but Scout could not close the completed test. Try again; the result will not be applied twice."
+    )
+  }
   return payload
 }
 

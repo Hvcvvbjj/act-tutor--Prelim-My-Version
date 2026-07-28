@@ -4,37 +4,54 @@ export async function completeLearnerOrientation(page: Page) {
   await expect(
     page.getByRole("heading", { name: "Your starting point is ready." })
   ).toBeVisible()
-  await page.getByRole("button", { name: "Start the tour" }).click()
-
-  for (let index = 0; index < 2; index += 1) {
-    await page.getByRole("button", { name: "Next feature" }).click()
-  }
   await page.getByRole("button", { name: "See my skill profile" }).click()
+  const profileHeading = page.getByRole("heading", {
+    name: /^(Your question-type map\.|Your score is set\. The skill map starts empty\.)$/,
+  })
+  const tourDialog = page.getByRole("dialog", {
+    name: /Scout dashboard tour/,
+  })
+  await expect(profileHeading.or(tourDialog)).toBeVisible()
+  if (await tourDialog.isVisible()) {
+    await tourDialog.getByRole("button", { name: "Skip website tour" }).click()
+  }
 
-  const measuredProfileHeading = page.getByRole("heading", {
-    name: "Your question-type map.",
-  })
-  const emptyProfileHeading = page.getByRole("heading", {
-    name: "No skill map yet.",
-  })
-  await expect(measuredProfileHeading.or(emptyProfileHeading)).toBeVisible()
-  if (await measuredProfileHeading.isVisible()) {
-    for (const title of ["English", "Math", "Reading", "Overall"]) {
-      await expect(page.getByRole("heading", { name: title })).toBeVisible()
-    }
-  } else {
-    await expect(
-      page.getByRole("heading", {
-        name: "Your first lessons will create it.",
-      })
-    ).toBeVisible()
+  await expect(profileHeading).toBeVisible()
+  for (const title of ["English", "Math", "Reading", "Overall"]) {
+    await expect(page.getByRole("heading", { name: title })).toBeVisible()
   }
 
   await page.getByRole("button", { name: "Continue to Mr. Kim" }).click()
   await expect(
     page.getByRole("heading", {
-      name: "Want a quick question-type preview?",
+      name: "Want me to teach the 12 question types first?",
     })
   ).toBeVisible()
   await page.getByRole("button", { name: "Start lesson one" }).click()
+  await expect(page.getByTestId("lessons-command-center")).toBeVisible()
+}
+
+export async function openReportedScorePlan(page: Page, composite = 24) {
+  await page.addInitScript(
+    ({ startingScore }) => {
+      window.localStorage.setItem("scout-dashboard-tour-v2", "done")
+      for (const section of ["english", "math", "reading"]) {
+        window.localStorage.setItem(
+          `scout-goal-support-${startingScore}-30-${section}`,
+          "seen"
+        )
+      }
+    },
+    { startingScore: composite }
+  )
+  await page.goto("/")
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I only know my Composite" }).check()
+  await page
+    .getByRole("spinbutton", { name: "Composite ACT score" })
+    .fill(String(composite))
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+  await page.getByRole("button", { name: "Create my first plan" }).click()
+  await completeLearnerOrientation(page)
 }

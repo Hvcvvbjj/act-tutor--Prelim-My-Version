@@ -172,6 +172,7 @@ function TechnicalMethod() {
 }
 
 export function LearningTwinLab({
+  plan,
   learning,
   onOpenLesson,
   canViewTechnicalDetails,
@@ -237,6 +238,8 @@ export function LearningTwinLab({
         selectedSkill={effectiveSelected}
         onSelect={setSelectedSkill}
         canViewTechnicalDetails={canViewTechnicalDetails}
+        points={learning.mission.progress.xp}
+        startingScore={plan.currentComposite}
       />
 
       <AnswerHistory learning={learning} />

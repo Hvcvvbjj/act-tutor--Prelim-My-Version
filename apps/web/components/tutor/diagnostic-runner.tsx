@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type {
   CoreSection,
   DiagnosticAnswer,
@@ -9,15 +9,23 @@ import type {
   DiagnosticResult,
   DiagnosticSessionPayload,
 } from "@act-tutor/core"
+import { UNANSWERED_DIAGNOSTIC_CHOICE_ID } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
   CircleAlertIcon,
+  Clock3Icon,
   LoaderCircleIcon,
   ShieldCheckIcon,
 } from "lucide-react"
 
+import {
+  assessmentSecondsRemaining,
+  diagnosticTimerStorageKey,
+  formatAssessmentTime,
+  resolveAssessmentDeadline,
+} from "@/components/tutor/assessment-display"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -43,6 +51,34 @@ const SECTION_LABELS: Record<CoreSection, string> = {
   english: "English",
   math: "Math",
   reading: "Reading",
+}
+
+function restoreDiagnosticDeadline(session: DiagnosticSessionPayload) {
+  const storageKey = diagnosticTimerStorageKey(session.attemptId)
+  let storedDeadline: string | null = null
+  try {
+    storedDeadline = window.localStorage.getItem(storageKey)
+  } catch {
+    // Private browsing can deny storage. The in-memory deadline still works.
+  }
+  const deadline = resolveAssessmentDeadline(
+    storedDeadline,
+    Date.now(),
+    session.form.estimatedMinutes * 60
+  )
+  const parsedStoredDeadline = Number(storedDeadline)
+  if (
+    storedDeadline === null ||
+    !Number.isFinite(parsedStoredDeadline) ||
+    parsedStoredDeadline <= 0
+  ) {
+    try {
+      window.localStorage.setItem(storageKey, String(deadline))
+    } catch {
+      // Keep the current attempt timed even when persistence is unavailable.
+    }
+  }
+  return deadline
 }
 
 function QuestionView({
@@ -200,6 +236,7 @@ function QuestionView({
 function ReviewView({
   form,
   answers,
+  timeExpired,
   status,
   error,
   onEdit,
@@ -207,6 +244,7 @@ function ReviewView({
 }: {
   form: DiagnosticFormPublic
   answers: Record<string, string>
+  timeExpired: boolean
   status: RunnerStatus
   error: string | null
   onEdit: (index: number) => void
@@ -230,8 +268,9 @@ function ReviewView({
         Review your answers.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        Correctness is still hidden. Check every response, then submit once to
-        build your study starting point.
+        {timeExpired
+          ? "Time ended. Scout is scoring every unanswered question as blank."
+          : "Correct answers stay hidden during the test. Fill any blanks, review, then submit."}
       </p>
 
       <div className="mt-8 flex flex-wrap items-baseline justify-between gap-4 border-y-2 border-foreground py-6">
@@ -254,7 +293,7 @@ function ReviewView({
       ) : null}
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-        {unanswered.length > 0 ? (
+        {unanswered.length > 0 && !timeExpired ? (
           <Button
             type="button"
             size="xl"
@@ -284,19 +323,25 @@ function ReviewView({
             ) : (
               <ShieldCheckIcon data-icon="inline-start" />
             )}
-            {status === "submitting" ? "Scoring…" : "Submit diagnostic"}
+            {status === "submitting"
+              ? "Scoring…"
+              : timeExpired
+                ? "Score timed diagnostic"
+                : "Submit diagnostic"}
           </Button>
         )}
         <p className="text-sm text-muted-foreground">
-          {unanswered.length === 0
-            ? `All ${form.questions.length} questions answered.`
-            : `${unanswered.length} question${unanswered.length === 1 ? "" : "s"} still unanswered.`}
+          {timeExpired
+            ? "Blank answers count as incorrect."
+            : unanswered.length === 0
+              ? `All ${form.questions.length} questions answered.`
+              : `${unanswered.length} question${unanswered.length === 1 ? "" : "s"} still unanswered.`}
         </p>
       </div>
 
       <details
         className="group mt-8 border-y-2 border-foreground"
-        open={unanswered.length > 0}
+        open={unanswered.length > 0 && !timeExpired}
       >
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
           <span>
@@ -329,6 +374,7 @@ function ReviewView({
                 type="button"
                 variant="ghost"
                 onClick={() => onEdit(index)}
+                disabled={timeExpired}
               >
                 Edit
               </Button>
@@ -361,22 +407,19 @@ function ResultsView({
     <section>
       <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
       <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
-        Your practice range is {result.compositeRange.low}–
-        {result.compositeRange.high}.
+        {isBaseline ? "Your starting estimate" : "Your new estimate"} is{" "}
+        {result.compositeRange.estimate}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
-        Scout will use {result.compositeRange.estimate} as study evidence for
-        the next plan. This practice estimate is not an official ACT score or
-        score prediction.
+        Your practice range is {result.compositeRange.low}–
+        {result.compositeRange.high}. I&apos;ll use{" "}
+        {result.compositeRange.estimate} to build your plan. It isn&apos;t an
+        official ACT score or prediction.
       </p>
 
       <div className="mt-9 border-y-2 border-foreground py-6">
         <p className="ink-label text-primary">
-          {isBaseline
-            ? "Round 1"
-            : primaryFocus
-              ? "Next-round priority"
-              : "Next round"}
+          {isBaseline ? "Round 1" : primaryFocus ? "Study next" : "Next round"}
         </p>
         <h2 className="mt-2 font-heading text-3xl font-black">
           {isBaseline
@@ -385,10 +428,10 @@ function ResultsView({
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
           {isBaseline
-            ? "Your first round explains all 12 question types before later rounds specialize."
+            ? "Round 1 teaches all 12 question types. Later rounds focus on what you need most."
             : primaryFocus
-              ? "Your next round will start here, based on this diagnostic."
-              : "No single question type needs to lead, so your next round will stay balanced."}
+              ? "Your next round starts here."
+              : "No single question type stands out, so your next round stays balanced."}
         </p>
       </div>
 
@@ -454,7 +497,7 @@ function ResultsView({
                 {hasFocusSkills
                   ? isBaseline
                     ? "Skills to revisit after Round 1"
-                    : "Next-round priority skills"
+                    : "Skills for your next round"
                   : "Skills to confirm later"}
               </h2>
               <ul className="mt-4 flex flex-col gap-3">
@@ -525,8 +568,12 @@ export function DiagnosticRunner({
   const [reviewReturnIndex, setReviewReturnIndex] = useState<number | null>(
     null
   )
+  const [timerDeadline, setTimerDeadline] = useState<number | null>(null)
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
+  const [timeExpired, setTimeExpired] = useState(false)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
+  const timedSubmitAttempted = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -548,6 +595,9 @@ export function DiagnosticRunner({
           setResult(session.result)
           setPhase("results")
         } else {
+          const deadline = restoreDiagnosticDeadline(session)
+          setTimerDeadline(deadline)
+          setTimeRemaining(assessmentSecondsRemaining(deadline, Date.now()))
           setPhase(session.progress.phase)
         }
         setStatus("ready")
@@ -564,6 +614,21 @@ export function DiagnosticRunner({
 
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    if (timerDeadline === null || phase === "results") return
+    const updateClock = () => {
+      const next = assessmentSecondsRemaining(timerDeadline, Date.now())
+      setTimeRemaining(next)
+      if (next === 0) {
+        setTimeExpired(true)
+        setPhase((current) => (current === "results" ? current : "review"))
+      }
+    }
+    updateClock()
+    const interval = window.setInterval(updateClock, 1_000)
+    return () => window.clearInterval(interval)
+  }, [phase, timerDeadline])
 
   function persistProgress(
     nextAnswers: Record<string, string>,
@@ -623,49 +688,74 @@ export function DiagnosticRunner({
     persistProgress(nextAnswers, currentIndex, "review")
   }
 
-  async function submitDiagnostic() {
-    if (!form || status === "submitting") return
-    setStatus("submitting")
-    setError(null)
+  const submitDiagnostic = useCallback(
+    async (includeTimedOutBlanks = false) => {
+      if (!form || status === "submitting") return
+      setStatus("submitting")
+      setError(null)
 
-    try {
-      await saveQueue.current
-      const diagnosticAnswers: DiagnosticAnswer[] = form.questions.map(
-        (question) => ({
-          questionId: question.id,
-          choiceId: answers[question.id],
+      try {
+        await saveQueue.current
+        const diagnosticAnswers: DiagnosticAnswer[] = form.questions.map(
+          (question) => ({
+            questionId: question.id,
+            choiceId:
+              answers[question.id] ??
+              (includeTimedOutBlanks ? UNANSWERED_DIAGNOSTIC_CHOICE_ID : ""),
+          })
+        )
+        const response = await fetch("/api/diagnostic", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            formId: form.id,
+            formVersion: form.version,
+            answers: diagnosticAnswers,
+          }),
         })
-      )
-      const response = await fetch("/api/diagnostic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          formId: form.id,
-          formVersion: form.version,
-          answers: diagnosticAnswers,
-        }),
-      })
-      const body = (await response.json()) as DiagnosticSessionPayload & {
-        error?: string
-      }
-      if (!response.ok) {
-        throw new Error(body.error ?? "The diagnostic could not be scored.")
-      }
-      if (!body.result) throw new Error("The diagnostic result is missing.")
+        const body = (await response.json()) as DiagnosticSessionPayload & {
+          error?: string
+        }
+        if (!response.ok) {
+          throw new Error(body.error ?? "The diagnostic could not be scored.")
+        }
+        if (!body.result) throw new Error("The diagnostic result is missing.")
 
-      setAttemptId(body.attemptId)
-      setResult(body.result)
-      setPhase("results")
-      setStatus("ready")
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The diagnostic could not be scored."
-      )
-      setStatus("ready")
+        setAttemptId(body.attemptId)
+        setResult(body.result)
+        setPhase("results")
+        setStatus("ready")
+        try {
+          window.localStorage.removeItem(
+            diagnosticTimerStorageKey(body.attemptId)
+          )
+        } catch {
+          // A completed attempt no longer needs its local timer key.
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The diagnostic could not be scored."
+        )
+        setStatus("ready")
+      }
+    },
+    [answers, form, status]
+  )
+
+  useEffect(() => {
+    if (
+      !timeExpired ||
+      phase === "results" ||
+      status !== "ready" ||
+      timedSubmitAttempted.current
+    ) {
+      return
     }
-  }
+    timedSubmitAttempted.current = true
+    void submitDiagnostic(true)
+  }, [phase, status, submitDiagnostic, timeExpired])
 
   async function saveAndExit() {
     try {
@@ -684,7 +774,7 @@ export function DiagnosticRunner({
             className="animate-spin text-primary"
             aria-hidden="true"
           />
-          Loading reviewed questions…
+          Loading your diagnostic…
         </p>
       </div>
     )
@@ -730,6 +820,30 @@ export function DiagnosticRunner({
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
+          {phase !== "results" && timeRemaining !== null ? (
+            <div
+              role="timer"
+              aria-label={`Diagnostic time remaining: ${formatAssessmentTime(timeRemaining)}`}
+              className={cn(
+                "flex min-h-11 items-center gap-2 border-2 border-foreground px-3 py-1.5",
+                timeRemaining <= 300 &&
+                  "border-[var(--scout-coral)] bg-[var(--coach-surface)] text-destructive"
+              )}
+            >
+              <Clock3Icon
+                className={cn("size-4", timeRemaining <= 60 && "animate-pulse")}
+                aria-hidden="true"
+              />
+              <span>
+                <span className="hidden text-[0.62rem] font-bold tracking-wide uppercase lg:block">
+                  {timeRemaining === 0 ? "Time is up" : "Time remaining"}
+                </span>
+                <span className="block font-mono text-sm font-black tabular-nums sm:text-base">
+                  {formatAssessmentTime(timeRemaining)}
+                </span>
+              </span>
+            </div>
+          ) : null}
           <span
             className={cn(
               "hidden items-center gap-2 text-sm sm:flex",
@@ -815,10 +929,14 @@ export function DiagnosticRunner({
           <ReviewView
             form={form}
             answers={answers}
+            timeExpired={timeExpired}
             status={status}
             error={error}
             onEdit={editFromReview}
-            onSubmit={submitDiagnostic}
+            onSubmit={() => {
+              timedSubmitAttempted.current = true
+              void submitDiagnostic(timeExpired)
+            }}
           />
         ) : result ? (
           <ResultsView

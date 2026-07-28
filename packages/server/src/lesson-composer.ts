@@ -44,9 +44,9 @@ function depthFor(input: LessonCompositionInput): LessonDepth {
 function evidenceSummary(input: LessonCompositionInput) {
   const evidence = diagnosticEvidence(input);
   if (!evidence || evidence.total === 0) {
-    return `You have not answered a ${input.skill.label.toLowerCase()} question yet, so Scout will teach the rule first and then give you a quick check.`;
+    return `You have not answered a scored ${input.skill.label.toLowerCase()} question yet. This lesson starts with the basics, then gives you practice.`;
   }
-  return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on your latest scored check (${Math.round(evidence.accuracy * 100)}%).`;
+  return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on your latest check.`;
 }
 
 export function buildAuthoredPersonalizedLesson(
@@ -57,11 +57,11 @@ export function buildAuthoredPersonalizedLesson(
   const evidence = diagnosticEvidence(input);
   const urgency =
     input.plan.daysUntilTest <= 14
-      ? "Your test is close, so this lesson starts with the fastest useful rule."
-      : "You have time to learn the rule before adding a timer.";
+      ? "Your test is close, so we’ll start with the fastest useful method."
+      : "We’ll learn the method first, then add time pressure.";
   const assignmentReason = evidence
-    ? `Scout picked it because you got ${evidence.correct} of ${evidence.total} matching questions right on your latest scored check.`
-    : "Scout picked it because you have not answered a scored question for this skill yet.";
+    ? `This is next because you got ${evidence.correct} of ${evidence.total} matching questions right on your latest check.`
+    : "This is next because you have not answered a scored question for this skill yet.";
 
   return {
     ...input.baseLesson,
@@ -71,10 +71,10 @@ export function buildAuthoredPersonalizedLesson(
     evidenceSummary: evidenceSummary(input),
     tutorOpening:
       depth === "foundation"
-        ? `First, learn what a ${input.skill.label.toLowerCase()} question is asking. Then we’ll build the rule one small step at a time.`
+        ? `First, see what a ${input.skill.label.toLowerCase()} question asks. Then use a simple method and practice it.`
         : depth === "stretch"
-          ? `You know the basic rule. Now let’s try the harder versions you may see near a ${input.plan.goalScore}.`
-          : `You know part of this. Let’s turn it into a rule you can use every time.`,
+          ? `You know the basics. Now try the harder versions that can show up near a ${input.plan.goalScore}.`
+          : "You have the basics. Let’s make your approach more consistent.",
     sections: [
       {
         id: "question-type",
@@ -90,13 +90,13 @@ export function buildAuthoredPersonalizedLesson(
       },
       {
         id: "guided-example",
-        title: "See one worked out",
+        title: "Try a worked example",
         explanation: `${input.baseLesson.workedExample.prompt} ${input.baseLesson.workedExample.explanation.join(" ")}`,
         coachPrompt: `Follow the first step, then compare your thinking with: ${input.baseLesson.workedExample.answer}.`,
       },
       {
         id: "decision-rule",
-        title: "Follow the decision steps",
+        title: "Use these steps",
         explanation: input.baseLesson.steps.join(" "),
         coachPrompt: `Use these steps to avoid the common trap: ${input.baseLesson.trap}`,
       },
@@ -108,7 +108,7 @@ export function buildAuthoredPersonalizedLesson(
       },
     ],
     strategyChecklist: input.baseLesson.steps,
-    transferPrompt: `Use the ${input.skill.label.toLowerCase()} steps from the lesson on each question.`,
+    transferPrompt: `Use these ${input.skill.label.toLowerCase()} steps when the wording changes.`,
     generation: {
       mode: "authored-fallback",
       provider: "Reviewed lesson engine",
@@ -239,7 +239,7 @@ function validateGeneratedLesson(
     throw new TypeError("AI lesson failed the claim or answer-leakage check.");
   }
   if (
-    /\b(in your own words|rewrite the rule|(?:say|state|name) the rule)\b/.test(
+    /\b(?:in your own words|rewrite the (?:rule|method)|restate the (?:rule|method)|summarize the (?:rule|method)|teach (?:it|the (?:rule|method)) back|(?:say|state|name|explain) the (?:rule|method))\b/.test(
       generatedText,
     )
   ) {
@@ -338,7 +338,7 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
               {
                 role: "system",
                 content:
-                  "You are Scout, a friendly ACT tutor speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Do not use the words evidence, model, latent, calibrated, probe, optimize, route, decision rule, transfer, mastery, readiness, priority, or confidence unless one is a necessary subject term in the reviewed lesson. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or facts beyond the supplied reviewed lesson. Return only valid JSON.",
+                  "You are Mr. Kim, Scout ACT’s friendly AI tutor, speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Never ask the student to rewrite, restate, name, summarize, or teach back a rule or method. Do not use the words evidence, model, latent, calibrated, probe, optimize, route, decision rule, transfer, mastery, readiness, priority, or confidence unless one is a necessary subject term in the reviewed lesson. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or facts beyond the supplied reviewed lesson. Return only valid JSON.",
               },
               {
                 role: "user",

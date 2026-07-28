@@ -21,7 +21,6 @@ import {
   ChevronRightIcon,
   CircleIcon,
   Clock3Icon,
-  CopyIcon,
   DumbbellIcon,
   GaugeIcon,
   HistoryIcon,
@@ -146,28 +145,6 @@ function daysBetween(start: string, end: string) {
       new Date(`${start}T00:00:00.000Z`).getTime()) /
       86_400_000
   )
-}
-
-function studyWeekShareText(plan: AdaptiveStudyPlan, weekStart: string) {
-  const weekEnd = addCalendarDaysFrom(weekStart, 6)
-  const tasks = [...tasksForStudyWeek(plan.tasks, weekStart)].sort(
-    (left, right) =>
-      left.date.localeCompare(right.date) || left.id.localeCompare(right.id)
-  )
-  const taskLines = tasks.map((task) => {
-    const status = task.status === "complete" ? " · done" : ""
-    return `${longWeekday(task.date)}, ${shortDate(task.date)} — ${TASK_META[task.kind].label}: ${task.title} (${task.minutes} min${status})`
-  })
-
-  return [
-    "Scout ACT study week",
-    `${shortDate(weekStart)}–${shortDate(weekEnd)}`,
-    "",
-    ...(taskLines.length ? taskLines : ["No study tasks scheduled this week."]),
-    "",
-    `ACT test day: ${formatCalendarDate(plan.testDate)}`,
-    "Practice plan only—not an official ACT score prediction.",
-  ].join("\n")
 }
 
 function AvailabilityEditor({
@@ -650,9 +627,6 @@ export function AdaptivePlanStudio({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [changingTaskId, setChangingTaskId] = useState<string | null>(null)
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
-    "idle"
-  )
   const initializedKey = `${plan.today}:${plan.draft.testDate}:${plan.currentComposite}:${plan.draft.goal}:${plan.intensity.studyDaysPerWeek}:${plan.intensity.minutesPerSession}`
   const initializedRef = useRef<string | null>(null)
   const syncedSkillsRef = useRef<string | null>(null)
@@ -765,20 +739,6 @@ export function AdaptivePlanStudio({
 
   function showWeek(nextWeek: string) {
     setWeekStart(nextWeek)
-    setCopyStatus("idle")
-  }
-
-  async function copyWeek() {
-    if (!adaptivePlan) return
-    try {
-      if (!navigator.clipboard) throw new Error("Clipboard unavailable")
-      await navigator.clipboard.writeText(
-        studyWeekShareText(adaptivePlan, weekStart)
-      )
-      setCopyStatus("copied")
-    } catch {
-      setCopyStatus("error")
-    }
   }
 
   async function updateAvailability(
@@ -921,15 +881,6 @@ export function AdaptivePlanStudio({
             <Button
               type="button"
               variant="outline"
-              onClick={() => void copyWeek()}
-              aria-describedby="copy-week-status"
-            >
-              {copyStatus === "copied" ? <CheckIcon /> : <CopyIcon />}
-              {copyStatus === "copied" ? "Week copied" : "Copy week"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
               size="icon"
               onClick={() => showWeek(shiftStudyWeek(weekStart, -1))}
               disabled={!canGoBack}
@@ -969,22 +920,6 @@ export function AdaptivePlanStudio({
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <section className="min-w-0" aria-label="Weekly assignments">
-          <p id="copy-week-status" className="sr-only" aria-live="polite">
-            {copyStatus === "copied"
-              ? "This study week was copied to your clipboard."
-              : copyStatus === "error"
-                ? "Scout could not copy this week. Check your browser clipboard permission."
-                : "Copy the visible study week as plain text."}
-          </p>
-          {copyStatus === "error" ? (
-            <p
-              className="mb-4 text-sm font-semibold text-destructive"
-              role="alert"
-            >
-              Copying was blocked. Check your browser&apos;s clipboard
-              permission.
-            </p>
-          ) : null}
           <WeekPlanner
             plan={adaptivePlan}
             weekStart={weekStart}

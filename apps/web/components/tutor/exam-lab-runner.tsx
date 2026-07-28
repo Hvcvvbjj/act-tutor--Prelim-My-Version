@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 interface ExamLabRunnerProps {
   session: ExamLabSessionPayload
   timeLeft: number
+  assessmentLabel?: string
   saveStatus: "saved" | "saving" | "error"
   busy: boolean
   onAnswer: (choiceId: string) => void
@@ -100,6 +101,7 @@ function QuestionNavigator({
 export function ExamLabRunner({
   session,
   timeLeft,
+  assessmentLabel = "Timed Practice",
   saveStatus,
   busy,
   onAnswer,
@@ -140,7 +142,7 @@ export function ExamLabRunner({
       <header className="sticky top-0 z-30 border-b-2 border-foreground bg-background">
         <div className="mx-auto grid max-w-[100rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-7 lg:grid-cols-[1fr_auto_1fr]">
           <div>
-            <p className="ink-label text-primary">Timed Practice</p>
+            <p className="ink-label text-primary">{assessmentLabel}</p>
             <p className="mt-1 truncate font-heading text-xl font-bold">
               {session.title}
             </p>

@@ -6,15 +6,12 @@ import type {
   CoreSectionScores,
   DiagnosticSkillResult,
 } from "@act-tutor/core"
+import { REVIEWED_ACT_QUESTION_EXAMPLES } from "@act-tutor/content"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   BookOpenCheckIcon,
   BrainCircuitIcon,
-  CircleGaugeIcon,
-  Clock3Icon,
-  MessageCircleIcon,
-  RouteIcon,
 } from "lucide-react"
 
 import { ScoutMark } from "@/components/tutor/scout"
@@ -31,11 +28,12 @@ export interface LearnerOrientationProps {
   skillResults?: ReadonlyArray<DiagnosticSkillResult> | null
   sectionScores?: CoreSectionScores | null
   evidenceSource?: LearnerOrientationEvidenceSource
+  startAtProfile?: boolean
+  onStartDashboardTour?: () => boolean
   onComplete: (choice: LearnerOrientationChoice) => void
 }
 
-type OrientationStage = "score" | "tour" | "profile" | "choice" | "explain"
-type TourPreviewKind = "plan" | "check" | "practice"
+type OrientationStage = "score" | "profile" | "choice" | "explain"
 
 interface SkillDefinition {
   slug: string
@@ -154,29 +152,19 @@ const SECTION_SKILLS = {
   ],
 } as const satisfies Record<CoreSection, ReadonlyArray<SkillDefinition>>
 
-const TOUR_STEPS = [
-  {
-    label: "Today + My Week",
-    title: "One plan, two views.",
-    copy: "Today shows what to do next. My Week shows when it fits.",
-    icon: RouteIcon,
-    preview: "plan",
-  },
-  {
-    label: "Checks + Progress",
-    title: "See what Scout has measured.",
-    copy: "Quick Checks update your skill map. Progress shows what changed.",
-    icon: CircleGaugeIcon,
-    preview: "check",
-  },
-  {
-    label: "Coach and practice",
-    title: "Get help when you need it.",
-    copy: "Ask Mr. Kim for an explanation, then practice with or without a timer.",
-    icon: MessageCircleIcon,
-    preview: "practice",
-  },
-] as const
+const QUESTION_TYPE_SLIDES = SECTION_ORDER.flatMap((section) =>
+  SECTION_SKILLS[section].map((skill) => {
+    const example = REVIEWED_ACT_QUESTION_EXAMPLES.find(
+      (question) => question.skill === skill.slug
+    )
+
+    if (!example) {
+      throw new Error(`Missing reviewed example for ${skill.slug}.`)
+    }
+
+    return { section, skill, example }
+  })
+)
 
 function normalizeActScore(value: number) {
   if (!Number.isFinite(value)) {
@@ -546,129 +534,19 @@ function SkillPolygon({
   )
 }
 
-function TourPreview({ kind }: { kind: TourPreviewKind }) {
-  if (kind === "plan") {
-    return (
-      <div className="w-full border bg-background" aria-hidden="true">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-4">
-          <span className="flex size-9 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
-            1
-          </span>
-          <div>
-            <p className="ink-label text-primary">Today</p>
-            <p className="mt-1 text-sm font-bold">Question types first</p>
-          </div>
-          <span className="font-mono text-xs text-muted-foreground">7 min</span>
-        </div>
-        <div className="border-t p-4">
-          <div className="flex items-baseline justify-between gap-4">
-            <div>
-              <p className="ink-label text-muted-foreground">My Week</p>
-              <p className="mt-1 text-sm font-bold">Three short sessions</p>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">
-              36 min
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-5 gap-2">
-            {["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => (
-              <div
-                key={day}
-                className={cn(
-                  "border px-2 py-3 text-center",
-                  index === 2 ? "border-primary bg-secondary" : "bg-background"
-                )}
-              >
-                <p className="ink-label text-muted-foreground">{day}</p>
-                <span
-                  className={cn(
-                    "mx-auto mt-4 block size-3 rounded-full",
-                    index === 2
-                      ? "bg-primary"
-                      : index < 2
-                        ? "bg-[var(--scout-sun)]"
-                        : "border-2 border-border"
-                  )}
-                />
-                <p className="mt-3 font-mono text-xs">
-                  {index === 2 ? "12m" : index < 2 ? "Done" : "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (kind === "check") {
-    return (
-      <div className="w-full border bg-background p-5" aria-hidden="true">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="ink-label text-primary">Quick Check</p>
-            <p className="mt-2 font-heading text-2xl font-black">
-              8–12 questions
-            </p>
-          </div>
-          <CircleGaugeIcon className="size-14 text-primary" />
-        </div>
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-2/5 rounded-full bg-primary" />
-        </div>
-        <div className="mt-3 flex justify-between font-mono text-xs text-muted-foreground">
-          <span>Adapts as you go</span>
-          <span>Question 4</span>
-        </div>
-        <div className="mt-5 border-t pt-4">
-          <div className="flex items-center justify-between gap-4">
-            <p className="ink-label text-muted-foreground">Progress</p>
-            <p className="text-xs font-semibold text-primary">
-              Skill map updated
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="w-full border bg-background" aria-hidden="true">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 bg-[var(--coach-surface)] p-4">
-        <MessageCircleIcon className="mt-1 size-6 text-[var(--scout-coral-text)]" />
-        <div>
-          <p className="ink-label text-[var(--scout-coral-text)]">
-            Ask Mr. Kim
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            “Show me why this answer works in regular English.”
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-4 border-t p-4">
-        <div className="flex items-center gap-3">
-          <Clock3Icon className="size-7 text-primary" />
-          <div>
-            <p className="font-bold">Timed Practice</p>
-            <p className="mt-1 text-xs text-muted-foreground">Optional timer</p>
-          </div>
-        </div>
-        <span className="font-mono text-sm font-bold">04:32</span>
-      </div>
-    </div>
-  )
-}
-
 export function LearnerOrientation({
   currentComposite,
   targetComposite,
   skillResults = [],
   sectionScores = null,
   evidenceSource,
+  startAtProfile = false,
+  onStartDashboardTour,
   onComplete,
 }: LearnerOrientationProps) {
-  const [stage, setStage] = useState<OrientationStage>("score")
-  const [tourIndex, setTourIndex] = useState(0)
+  const [stage, setStage] = useState<OrientationStage>(
+    startAtProfile ? "profile" : "score"
+  )
   const [explainerIndex, setExplainerIndex] = useState(0)
   const [scoreReady, setScoreReady] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -751,7 +629,7 @@ export function LearnerOrientation({
       top: 0,
       behavior: reducedMotion ? "auto" : "smooth",
     })
-  }, [explainerIndex, reducedMotion, stage, tourIndex])
+  }, [explainerIndex, reducedMotion, stage])
 
   function finish(choice: LearnerOrientationChoice) {
     if (completionSent.current) {
@@ -827,105 +705,11 @@ export function LearnerOrientation({
                 size="xl"
                 className="mt-8 w-full max-w-sm"
                 disabled={!scoreReady}
-                onClick={() => setStage("tour")}
-              >
-                Start the tour
-                <ArrowRightIcon data-icon="inline-end" />
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {stage === "tour" ? (
-          <section className="mx-auto max-w-4xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="ink-label text-primary">
-                Tour · {tourIndex + 1} of {TOUR_STEPS.length}
-              </p>
-              <ol className="flex gap-2" aria-label="Feature tour progress">
-                {TOUR_STEPS.map((step, index) => (
-                  <li key={step.label}>
-                    <span
-                      className={cn(
-                        "block h-2.5 rounded-full transition-[width,background-color] motion-reduce:transition-none",
-                        index === tourIndex
-                          ? "w-9 bg-primary"
-                          : index < tourIndex
-                            ? "w-2.5 bg-[var(--scout-sun)]"
-                            : "w-2.5 bg-border"
-                      )}
-                      aria-current={index === tourIndex ? "step" : undefined}
-                    >
-                      <span className="sr-only">
-                        {step.label}
-                        {index === tourIndex ? ", current step" : ""}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            {(() => {
-              const step = TOUR_STEPS[tourIndex]
-              const StepIcon = step.icon
-
-              return (
-                <div className="mt-7 text-center">
-                  <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-secondary text-primary">
-                    <StepIcon className="size-5" aria-hidden="true" />
-                  </div>
-                  <p className="ink-label mt-4 text-muted-foreground">
-                    {step.label}
-                  </p>
-                  <h1
-                    ref={headingRef}
-                    tabIndex={-1}
-                    className="mx-auto mt-2 max-w-3xl font-heading text-4xl leading-[1.04] font-black tracking-[-0.035em] outline-none sm:text-5xl"
-                  >
-                    {step.title}
-                  </h1>
-                  <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-                    {step.copy}
-                  </p>
-
-                  <div className="paper-panel mx-auto mt-7 flex min-h-64 max-w-2xl items-center border p-5 text-left sm:p-7">
-                    <TourPreview kind={step.preview} />
-                  </div>
-                </div>
-              )
-            })()}
-
-            <div className="mt-10 flex items-center justify-between border-t pt-6">
-              <Button
-                type="button"
-                variant="ghost"
-                size="lg"
                 onClick={() => {
-                  if (tourIndex === 0) {
-                    setStage("score")
-                    return
-                  }
-                  setTourIndex((index) => index - 1)
+                  if (!onStartDashboardTour?.()) setStage("profile")
                 }}
               >
-                <ArrowLeftIcon data-icon="inline-start" />
-                Back
-              </Button>
-              <Button
-                type="button"
-                size="lg"
-                onClick={() => {
-                  if (tourIndex === TOUR_STEPS.length - 1) {
-                    setStage("profile")
-                    return
-                  }
-                  setTourIndex((index) => index + 1)
-                }}
-              >
-                {tourIndex === TOUR_STEPS.length - 1
-                  ? "See my skill profile"
-                  : "Next feature"}
+                See my skill profile
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             </div>
@@ -943,46 +727,39 @@ export function LearnerOrientation({
               >
                 {hasSkillEvidence
                   ? "Your question-type map."
-                  : "No skill map yet."}
+                  : "Your score is set. The skill map starts empty."}
               </h1>
               <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {hasSkillEvidence
                   ? `These four shapes use only what your ${sourceLabel} measured. Blank points were not tested.`
-                  : "Scout will build these four views from your first scored questions."}
+                  : "Your reported score sets the starting point. Diagnostic and practice answers fill in each question type without inventing detail."}
+              </p>
+              <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
+                Study points never inflate this map. Badges uses 1,000 points as
+                a +1 ACT-point motivation marker; only scored answers change
+                these polygons.
               </p>
             </div>
 
-            {hasSkillEvidence ? (
-              <div className="mt-8 grid gap-px overflow-hidden border bg-border sm:grid-cols-2">
-                {SECTION_ORDER.map((section) => (
-                  <SkillPolygon
-                    key={section}
-                    title={SECTION_LABELS[section]}
-                    subtitle={
-                      sectionScores
-                        ? `Planning score ${normalizeActScore(sectionScores[section])}`
-                        : "Question types"
-                    }
-                    data={sectionData[section]}
-                  />
-                ))}
+            <div className="mt-8 grid gap-px overflow-hidden border bg-border sm:grid-cols-2">
+              {SECTION_ORDER.map((section) => (
                 <SkillPolygon
-                  title="Overall"
-                  subtitle={`${currentScore} now · ${targetScore} goal`}
-                  data={overallData.data}
+                  key={section}
+                  title={SECTION_LABELS[section]}
+                  subtitle={
+                    sectionScores
+                      ? `Planning score ${normalizeActScore(sectionScores[section])}`
+                      : "Question types"
+                  }
+                  data={sectionData[section]}
                 />
-              </div>
-            ) : (
-              <div className="mx-auto mt-8 max-w-2xl border-y bg-background px-4 py-8 text-center sm:px-8">
-                <h2 className="font-heading text-2xl font-black">
-                  Your first lessons will create it.
-                </h2>
-                <p className="mt-3 leading-7 text-muted-foreground">
-                  You’ll still learn all 12 question types. Scout adds the
-                  English, Math, Reading, and overall shapes as you answer.
-                </p>
-              </div>
-            )}
+              ))}
+              <SkillPolygon
+                title="Overall"
+                subtitle={`${currentScore} now · ${targetScore} goal`}
+                data={overallData.data}
+              />
+            </div>
 
             <div className="mt-8 flex justify-center">
               <Button
@@ -1012,11 +789,11 @@ export function LearnerOrientation({
                 tabIndex={-1}
                 className={cn(sharedHeadingClass, "mx-auto mt-4 max-w-3xl")}
               >
-                Want a quick question-type preview?
+                Want me to teach the 12 question types first?
               </h1>
               <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-                See the 12 types now, or start lesson one. Round one teaches all
-                of them either way.
+                I can walk through one reviewed example for every English, Math,
+                and Reading type—or you can go straight to lesson one.
               </p>
 
               <div className="mx-auto mt-8 grid max-w-3xl gap-4 sm:grid-cols-2">
@@ -1030,10 +807,10 @@ export function LearnerOrientation({
                 >
                   <BrainCircuitIcon className="size-7 text-primary" />
                   <span className="mt-4 block font-heading text-xl font-black">
-                    Show me the question types
+                    Teach me the question types
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-muted-foreground">
-                    Preview English, Math, and Reading.
+                    12 focused slides with an example and answer.
                   </span>
                 </button>
 
@@ -1047,7 +824,7 @@ export function LearnerOrientation({
                     Start lesson one
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-background/75">
-                    Skip the preview and begin.
+                    Go straight to the first foundation lesson.
                   </span>
                 </button>
               </div>
@@ -1056,64 +833,123 @@ export function LearnerOrientation({
         ) : null}
 
         {stage === "explain" ? (
-          <section className="mx-auto max-w-4xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
+          <section className="mx-auto max-w-6xl animate-in duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none">
             {(() => {
-              const section = SECTION_ORDER[explainerIndex]
-              const skills = SECTION_SKILLS[section]
+              const slide = QUESTION_TYPE_SLIDES[explainerIndex]
+              const nextSlide = QUESTION_TYPE_SLIDES[explainerIndex + 1]
 
               return (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <p className="ink-label text-primary">
-                      Question-type preview · {explainerIndex + 1} of{" "}
-                      {SECTION_ORDER.length}
+                      Question type · {explainerIndex + 1} of{" "}
+                      {QUESTION_TYPE_SLIDES.length}
                     </p>
-                    <div className="flex gap-2" aria-hidden="true">
-                      {SECTION_ORDER.map((item, index) => (
+                    <div
+                      className="flex max-w-sm flex-wrap justify-end gap-1.5"
+                      aria-hidden="true"
+                    >
+                      {QUESTION_TYPE_SLIDES.map((item, index) => (
                         <span
-                          key={item}
+                          key={item.skill.slug}
                           className={cn(
-                            "h-2.5 rounded-full",
+                            "h-2 rounded-full",
                             index === explainerIndex
-                              ? "w-10 bg-primary"
+                              ? "w-8 bg-primary"
                               : index < explainerIndex
-                                ? "w-2.5 bg-[var(--scout-sun)]"
-                                : "w-2.5 bg-border"
+                                ? "w-2 bg-[var(--scout-sun)]"
+                                : "w-2 bg-border"
                           )}
                         />
                       ))}
                     </div>
                   </div>
 
-                  <div className="mt-8 text-center">
+                  <div className="mt-7">
+                    <p className="font-mono text-xs font-black tracking-[0.12em] text-muted-foreground uppercase">
+                      {SECTION_LABELS[slide.section]}
+                    </p>
                     <h1
                       ref={headingRef}
                       tabIndex={-1}
-                      className={cn(sharedHeadingClass, "mx-auto")}
+                      className="mt-2 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.04em] outline-none sm:text-5xl"
                     >
-                      {SECTION_LABELS[section]} question types
+                      {slide.skill.label}
                     </h1>
-                    <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-                      These four patterns make up your first{" "}
-                      {SECTION_LABELS[section]} lessons.
+                    <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
+                      {slide.skill.explanation}
                     </p>
                   </div>
 
-                  <ol className="mt-8 grid gap-px overflow-hidden border bg-border sm:grid-cols-2">
-                    {skills.map((skill, index) => (
-                      <li key={skill.slug} className="bg-background p-5 sm:p-6">
-                        <span className="font-mono text-xs font-black text-primary">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <h2 className="mt-3 font-heading text-xl font-black">
-                          {skill.label}
-                        </h2>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {skill.explanation}
+                  <div className="mt-7 grid overflow-hidden rounded-2xl border bg-border lg:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)] lg:gap-px">
+                    <article className="bg-background p-5 sm:p-7">
+                      <p className="ink-label text-primary">
+                        Reviewed ACT-style example
+                      </p>
+                      {slide.example.stimulus ? (
+                        <p className="mt-4 border-l-2 border-primary/40 pl-4 text-sm leading-6">
+                          {slide.example.stimulus}
                         </p>
-                      </li>
-                    ))}
-                  </ol>
+                      ) : null}
+                      <h2 className="mt-5 text-lg leading-7 font-black">
+                        {slide.example.prompt}
+                      </h2>
+                      <ol className="mt-5 grid gap-2">
+                        {slide.example.choices.map((choice) => {
+                          const correct =
+                            choice.id === slide.example.correctChoiceId
+                          return (
+                            <li
+                              key={choice.id}
+                              className={cn(
+                                "grid grid-cols-[2rem_minmax(0,1fr)] gap-3 rounded-xl border px-4 py-3 text-sm leading-6",
+                                correct
+                                  ? "border-primary bg-secondary"
+                                  : "border-border bg-muted/35"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "font-mono font-black",
+                                  correct
+                                    ? "text-primary"
+                                    : "text-muted-foreground"
+                                )}
+                              >
+                                {choice.id}
+                              </span>
+                              <span className={correct ? "font-semibold" : ""}>
+                                {choice.text}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ol>
+                    </article>
+
+                    <aside className="bg-[var(--info-surface)] p-5 sm:p-7">
+                      <div className="flex items-center gap-3">
+                        <ScoutMark className="size-14" />
+                        <div>
+                          <p className="font-heading text-xl font-black">
+                            Mr. Kim explains
+                          </p>
+                          <p className="text-xs font-bold text-primary">
+                            Answer {slide.example.correctChoiceId}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-5 text-sm leading-7">
+                        {slide.example.rationale}
+                      </p>
+                      <p className="mt-6 border-t border-foreground/15 pt-5 text-sm leading-6 text-muted-foreground">
+                        <strong className="text-foreground">
+                          What to notice:
+                        </strong>{" "}
+                        {slide.example.difficultyEvidence[0]}
+                      </p>
+                    </aside>
+                  </div>
 
                   <div className="mt-10 flex items-center justify-between border-t pt-6">
                     <Button
@@ -1135,16 +971,19 @@ export function LearnerOrientation({
                       type="button"
                       size="lg"
                       onClick={() => {
-                        if (explainerIndex === SECTION_ORDER.length - 1) {
+                        if (
+                          explainerIndex ===
+                          QUESTION_TYPE_SLIDES.length - 1
+                        ) {
                           finish("explain-types")
                           return
                         }
                         setExplainerIndex((index) => index + 1)
                       }}
                     >
-                      {explainerIndex === SECTION_ORDER.length - 1
+                      {explainerIndex === QUESTION_TYPE_SLIDES.length - 1
                         ? "Start lessons"
-                        : `Next: ${SECTION_LABELS[SECTION_ORDER[explainerIndex + 1]]}`}
+                        : `Next: ${nextSlide.skill.label}`}
                       <ArrowRightIcon data-icon="inline-end" />
                     </Button>
                   </div>

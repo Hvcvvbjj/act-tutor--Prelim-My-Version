@@ -10,11 +10,9 @@ export function baselineStateForDraft(
       baselineSkipped: false,
     }
   }
-  const baselineSkipped =
-    draft.priorScoreChoice === "never" && draft.startingCheckChoice === "skip"
   return {
-    adaptiveBaselineRequired: !baselineSkipped,
-    baselineSkipped,
+    adaptiveBaselineRequired: draft.priorScoreChoice === "never",
+    baselineSkipped: false,
   }
 }
 

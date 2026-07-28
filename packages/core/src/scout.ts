@@ -1,5 +1,14 @@
-export type ScoutScreen =
-  "today" | "plan" | "calibrate" | "progress" | "lab" | "control";
+export const SCOUT_SCREENS = [
+  "today",
+  "plan",
+  "calibrate",
+  "progress",
+  "badges",
+  "lab",
+  "control",
+] as const;
+
+export type ScoutScreen = (typeof SCOUT_SCREENS)[number];
 
 export type ScoutAssistanceMode = "study" | "timed-test" | "review";
 
@@ -47,6 +56,22 @@ export interface ScoutMessage {
   answer: ScoutAnswer;
 }
 
+export interface ScoutBadgeProgress {
+  points: number;
+  currentStreak: number;
+  secureSkills: number;
+  totalSkills: number;
+  earnedCount: number;
+  totalCount: number;
+  nextBadge: {
+    id: string;
+    title: string;
+    description: string;
+    progress: number;
+    target: number;
+  } | null;
+}
+
 export interface ScoutAskRequest {
   question: string;
   screen: ScoutScreen;
@@ -55,6 +80,7 @@ export interface ScoutAskRequest {
 }
 
 export interface ScoutAskResponse {
+  aiAvailable?: boolean;
   answer: ScoutAnswer;
   messages: ReadonlyArray<ScoutMessage>;
   preferences: ScoutExplanationPreferences;
@@ -63,6 +89,7 @@ export interface ScoutAskResponse {
 }
 
 export interface ScoutStateResponse {
+  aiAvailable?: boolean;
   messages: ReadonlyArray<ScoutMessage>;
   preferences: ScoutExplanationPreferences;
   preferencesVersion: 2;

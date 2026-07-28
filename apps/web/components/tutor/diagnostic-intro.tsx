@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { formatCalendarDate } from "@/lib/dates"
 
 interface DiagnosticIntroProps {
+  backLabel?: string
   error?: string | null
   goal: number
   purpose?: "baseline" | "round"
@@ -17,24 +18,13 @@ interface DiagnosticIntroProps {
 }
 
 const SECTION_BLUEPRINT = [
-  [
-    "English",
-    "25 questions · 18-minute target",
-    "Half of the enhanced ACT's 50-question section",
-  ],
-  [
-    "Math",
-    "23 questions · 25-minute target",
-    "Half of the enhanced ACT's 45-question section, rounded up",
-  ],
-  [
-    "Reading",
-    "18 questions · 20-minute target",
-    "Half of the enhanced ACT's 36-question section",
-  ],
+  ["English", "25 questions · 18-minute target"],
+  ["Math", "23 questions · 25-minute target"],
+  ["Reading", "18 questions · 20-minute target"],
 ] as const
 
 export function DiagnosticIntro({
+  backLabel,
   error,
   goal,
   purpose = "baseline",
@@ -60,9 +50,10 @@ export function DiagnosticIntro({
       >
         <Button type="button" variant="ghost" onClick={onBack}>
           <ArrowLeftIcon data-icon="inline-start" />
-          {purpose === "round"
-            ? "Return to assessment choice"
-            : "Return to Quick Check"}
+          {backLabel ??
+            (purpose === "round"
+              ? "Return to assessment choice"
+              : "Change my starting information")}
         </Button>
         <section className="mx-auto mt-10 max-w-3xl">
           <p className="ink-label text-primary">
@@ -84,14 +75,14 @@ export function DiagnosticIntro({
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              Builds a study starting point for your {goal} goal on{" "}
+              I&apos;ll use this result to build a plan for your {goal} goal on{" "}
               {formatCalendarDate(testDate)}.
             </p>
           </div>
 
           {error ? (
             <Alert role="alert" className="mt-6">
-              <AlertTitle>Scout could not use that result yet</AlertTitle>
+              <AlertTitle>Couldn&apos;t start the diagnostic</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}

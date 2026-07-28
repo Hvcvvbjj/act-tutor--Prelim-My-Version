@@ -13,14 +13,20 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { AuthViewer, SavedTutorPlan } from "@/lib/auth-types"
+import type {
+  AuthViewer,
+  PendingTutorSetup,
+  SavedTutorPlan,
+} from "@/lib/auth-types"
 import { cn } from "@/lib/utils"
 
 interface AccountAccessProps {
   viewer: AuthViewer
   savedPlan: SavedTutorPlan | null
+  pendingSetup?: PendingTutorSetup | null
   onViewerChange: (viewer: AuthViewer) => void
   className?: string
+  guestLabel?: string
 }
 
 type Mode = "login" | "signup"
@@ -34,10 +40,11 @@ async function accountRequest(body: Record<string, unknown>) {
   const response = await fetch("/api/auth", {
     method: "POST",
     cache: "no-store",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
-  const payload = (await response.json()) as AuthResponse
+  const payload = (await response.json().catch(() => ({}))) as AuthResponse
   if (!response.ok || !payload.viewer) {
     throw new Error(payload.error ?? "The account request did not finish.")
   }
@@ -47,8 +54,10 @@ async function accountRequest(body: Record<string, unknown>) {
 export function AccountAccess({
   viewer,
   savedPlan,
+  pendingSetup = null,
   onViewerChange,
   className,
+  guestLabel,
 }: AccountAccessProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>("login")
@@ -129,11 +138,13 @@ export function AccountAccess({
               displayName,
               password,
               savedPlan,
+              pendingSetup,
             }
           : {
               action: "login",
               username,
               password,
+              pendingSetup,
             }
       )
       onViewerChange(nextViewer)
@@ -176,7 +187,7 @@ export function AccountAccess({
       ? "Judge view"
       : viewer.role === "learner"
         ? viewer.displayName || viewer.username || "My account"
-        : "Sign in / save progress"
+        : (guestLabel ?? "Sign in / save progress")
 
   return (
     <>

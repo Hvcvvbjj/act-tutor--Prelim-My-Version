@@ -1,15 +1,14 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import Image from "next/image"
 import { calendarDaysUntil, type StudyWeekday } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  ChevronDownIcon,
   MinusIcon,
   PlayCircleIcon,
   PlusIcon,
-  SkipForwardIcon,
 } from "lucide-react"
 
 import { AccountAccess } from "@/components/tutor/account-access"
@@ -30,13 +29,18 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { formatCalendarDate } from "@/lib/dates"
-import type { AuthViewer, SavedTutorPlan } from "@/lib/auth-types"
+import type {
+  AuthViewer,
+  PendingTutorSetup,
+  SavedTutorPlan,
+} from "@/lib/auth-types"
 import { cn } from "@/lib/utils"
 
 interface OnboardingProps {
   draft: PlacementDraft
   viewer: AuthViewer
   savedPlan: SavedTutorPlan | null
+  pendingSetup: PendingTutorSetup | null
   error: string | null
   step: number
   today: string
@@ -44,6 +48,7 @@ interface OnboardingProps {
   onCancel?: () => void
   onContinue: () => void
   onDismissWelcome: () => void
+  onStartFullDiagnostic: () => void
   onJudgeDemo: () => void
   showWelcome: boolean
   onViewerChange: (viewer: AuthViewer) => void
@@ -100,37 +105,6 @@ interface ScoreFieldProps {
   value: number
   error?: string | null
   onChange: (value: number) => void
-}
-
-function LearningDataNotice({ className }: { className?: string }) {
-  return (
-    <details
-      data-testid="learning-data-notice"
-      className={cn(
-        "group max-w-3xl rounded-xl border border-border/80 bg-background",
-        className
-      )}
-    >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-        <span>How Scout saves your work</span>
-        <ChevronDownIcon
-          className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-          aria-hidden="true"
-        />
-      </summary>
-      <div className="border-t border-border/80 px-4 py-3 text-sm leading-6 text-muted-foreground">
-        <p>
-          As a guest, this browser keeps your setup, plan, and resume point.
-          Create an account only if you want to reopen the latest saved plan on
-          another device.
-        </p>
-        <p className="mt-2">
-          Scored answers also update Scout&apos;s learning record. After setup,
-          open More → Data &amp; privacy to export or delete saved study data.
-        </p>
-      </div>
-    </details>
-  )
 }
 
 function ScoreField({ id, label, value, error, onChange }: ScoreFieldProps) {
@@ -264,6 +238,7 @@ export function Onboarding({
   draft,
   viewer,
   savedPlan,
+  pendingSetup,
   error,
   step,
   today,
@@ -271,6 +246,7 @@ export function Onboarding({
   onCancel,
   onContinue,
   onDismissWelcome,
+  onStartFullDiagnostic,
   onJudgeDemo,
   showWelcome,
   onViewerChange,
@@ -303,66 +279,137 @@ export function Onboarding({
 
   if (showWelcome) {
     return (
-      <div className="min-h-svh bg-[var(--canvas)] text-foreground">
-        <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border/80 bg-background px-5 py-1.5 sm:px-8">
-          <div className="flex items-center gap-2.5">
-            <ScoutMark className="size-8" />
-            <p className="font-brand text-lg font-black tracking-tight">
-              SCOUT <span className="text-primary">ACT</span>
-            </p>
+      <div
+        data-hide-global-footer
+        className="min-h-svh overflow-hidden bg-[var(--canvas)] text-foreground"
+      >
+        <header className="relative z-20 border-b border-border/80 bg-background/95 backdrop-blur-xl">
+          <div className="mx-auto flex min-h-18 max-w-[90rem] items-center justify-between gap-5 px-5 py-3 sm:px-8 lg:px-12">
+            <div className="flex shrink-0 items-center gap-3">
+              <ScoutMark className="size-10" />
+              <p className="font-brand text-lg font-black tracking-[-0.03em]">
+                SCOUT <span className="text-primary">ACT</span>
+              </p>
+            </div>
+            <nav
+              className="hidden items-center gap-7 text-sm font-bold text-muted-foreground lg:flex"
+              aria-label="Welcome"
+            >
+              <a
+                href="/how-scout-works"
+                className="transition-colors hover:text-foreground"
+              >
+                How it works
+              </a>
+              <button
+                type="button"
+                className="transition-colors hover:text-foreground"
+                onClick={onStartFullDiagnostic}
+              >
+                Full diagnostic
+              </button>
+              <a
+                href="#meet-mr-kim"
+                className="transition-colors hover:text-foreground"
+              >
+                Meet Mr. Kim
+              </a>
+            </nav>
+            <div className="flex items-center gap-2">
+              <AccountAccess
+                viewer={viewer}
+                savedPlan={savedPlan}
+                pendingSetup={pendingSetup}
+                onViewerChange={onViewerChange}
+                guestLabel="Sign in"
+              />
+              <Button
+                type="button"
+                className="hidden sm:inline-flex"
+                onClick={onDismissWelcome}
+              >
+                Start my plan
+              </Button>
+            </div>
           </div>
-          <AccountAccess
-            viewer={viewer}
-            savedPlan={savedPlan}
-            onViewerChange={onViewerChange}
-          />
         </header>
 
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="mx-auto flex w-full max-w-5xl items-center px-4 py-4 sm:min-h-[calc(100svh-3.5rem)] sm:px-8 sm:py-12"
-        >
-          <section
-            aria-labelledby="scout-welcome-title"
-            className="w-full border-y-2 border-foreground py-8 sm:py-12"
-          >
-            <div className="grid items-start gap-4 sm:gap-7 lg:grid-cols-[7rem_minmax(0,1fr)] lg:gap-9">
-              <ScoutMark className="size-14 sm:size-24" />
-              <div className="min-w-0">
-                <p className="text-[0.6875rem] leading-4 font-bold tracking-[0.12em] text-primary uppercase sm:text-xs">
-                  Meet Scout, your study coach
-                </p>
-                <h1
-                  id="scout-welcome-title"
-                  className="mt-2 max-w-4xl font-heading text-[2rem] leading-[1.03] font-black tracking-[-0.025em] sm:mt-3 sm:text-5xl"
+        <main id="main-content" tabIndex={-1}>
+          <section className="relative mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[90rem] items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.04fr)_minmax(26rem,0.96fr)] lg:px-12 lg:py-16">
+            <div className="relative z-10 max-w-3xl">
+              <p className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-secondary px-3.5 py-2 text-xs font-black tracking-[0.12em] text-primary uppercase">
+                Real baseline. Personal weekly path.
+              </p>
+              <h1
+                id="scout-welcome-title"
+                className="mt-7 max-w-3xl font-heading text-[clamp(3.5rem,6.6vw,6.9rem)] leading-[0.88] font-black tracking-[-0.07em]"
+              >
+                Your ACT plan starts with a{" "}
+                <span className="text-primary">real baseline.</span>
+              </h1>
+              <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
+                Enter a recent score, or take Scout&apos;s full 66-question
+                diagnostic. Mr. Kim turns the result into lessons you can fit
+                into an actual week.
+              </p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button
+                  type="button"
+                  size="xl"
+                  className="min-w-52"
+                  onClick={onDismissWelcome}
                 >
-                  A study plan that changes when your answers do.
-                </h1>
-                <p className="mt-4 max-w-2xl text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8">
-                  Tell me your goal, where you&apos;re starting, and when you
-                  can study. I&apos;ll turn that into a first week you can
-                  actually follow.
+                  Build my starting plan
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  No invented score. No shortened baseline.
                 </p>
-
-                <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:items-center">
-                  <Button type="button" size="xl" onClick={onDismissWelcome}>
-                    Set up my plan
-                    <ArrowRightIcon data-icon="inline-end" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={onJudgeDemo}
-                    className="h-auto justify-start px-0 text-left font-bold whitespace-normal sm:px-4"
-                  >
-                    <PlayCircleIcon data-icon="inline-start" />
-                    See one answer change the plan
-                  </Button>
-                </div>
-                <LearningDataNotice className="mt-5" />
               </div>
+
+              <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-3">
+                {[
+                  ["01", "Full diagnostic", "66 timed questions"],
+                  ["02", "Weekly lessons", "A clear path, not a pile"],
+                  ["03", "Test day", "Review, adjust, repeat"],
+                ].map(([number, title, detail]) => (
+                  <li key={number} className="min-w-0 bg-background px-5 py-5">
+                    <p className="font-mono text-xs font-black text-primary">
+                      {number}
+                    </p>
+                    <p className="mt-3 font-heading text-lg font-black">
+                      {title}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {detail}
+                    </p>
+                  </li>
+                ))}
+              </ol>
             </div>
+
+            <figure
+              id="meet-mr-kim"
+              className="relative mx-auto hidden h-[min(72svh,48rem)] w-full max-w-[38rem] overflow-hidden rounded-[2rem] border border-border bg-[#06152d] shadow-[0_24px_70px_rgb(16_33_63_/_0.18)] lg:block"
+            >
+              <Image
+                src="/images/mr-kim.png"
+                alt="Mr. Kim, Scout's illustrated AI tutor"
+                fill
+                priority
+                sizes="(min-width: 1024px) 42vw, 0px"
+                className="object-cover"
+              />
+              <figcaption className="absolute inset-x-5 bottom-5 rounded-2xl border border-border/80 bg-background/92 p-5 text-foreground backdrop-blur-lg">
+                <p className="font-mono text-xs font-black tracking-[0.12em] text-primary uppercase">
+                  Mr. Kim · AI tutor
+                </p>
+                <p className="mt-2 text-base leading-6">
+                  “Hi—I&apos;m Mr. Kim. I&apos;ll explain the hard part, then
+                  get you back to the question.”
+                </p>
+              </figcaption>
+            </figure>
           </section>
         </main>
       </div>
@@ -384,6 +431,7 @@ export function Onboarding({
         <AccountAccess
           viewer={viewer}
           savedPlan={savedPlan}
+          pendingSetup={pendingSetup}
           onViewerChange={onViewerChange}
         />
       </header>
@@ -516,6 +564,9 @@ export function Onboarding({
                       onUpdate({
                         priorScoreChoice:
                           value as PlacementDraft["priorScoreChoice"],
+                        ...(value === "never"
+                          ? { startingCheckChoice: "take" as const }
+                          : {}),
                       })
                     }
                     className="mt-6 grid gap-3 md:grid-cols-3"
@@ -666,63 +717,15 @@ export function Onboarding({
                       </div>
                     </div>
                   ) : draft.priorScoreChoice === "never" ? (
-                    <div className="mt-6 max-w-2xl">
-                      <RadioGroup
-                        value={draft.startingCheckChoice}
-                        onValueChange={(value) =>
-                          onUpdate({
-                            startingCheckChoice:
-                              value as PlacementDraft["startingCheckChoice"],
-                          })
-                        }
-                        className="grid gap-3"
-                        aria-label="Starting check choice"
-                      >
-                        <FieldLabel
-                          className={cn(
-                            "cursor-pointer rounded-xl border p-4",
-                            draft.startingCheckChoice === "take" &&
-                              "border-primary bg-secondary"
-                          )}
-                        >
-                          <Field orientation="horizontal">
-                            <RadioGroupItem value="take" />
-                            <FieldContent>
-                              <span className="font-semibold">
-                                Take the 8–12 question starting check
-                              </span>
-                              <FieldDescription>
-                                Recommended. Use your answers to build starting
-                                skill estimates.
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        </FieldLabel>
-                        <FieldLabel
-                          className={cn(
-                            "cursor-pointer rounded-xl border p-4",
-                            draft.startingCheckChoice === "skip" &&
-                              "border-primary bg-secondary"
-                          )}
-                        >
-                          <Field orientation="horizontal">
-                            <RadioGroupItem value="skip" />
-                            <FieldContent>
-                              <span className="flex items-center gap-2 font-semibold">
-                                <SkipForwardIcon
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                                Skip for now
-                              </span>
-                              <FieldDescription>
-                                Open a starter plan now and take Quick Check
-                                later.
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        </FieldLabel>
-                      </RadioGroup>
+                    <div className="mt-6 max-w-2xl rounded-xl border border-primary/40 bg-secondary p-5">
+                      <p className="font-semibold">
+                        Your full diagnostic will set the baseline.
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        You&apos;ll answer 66 English, Math, and Reading
+                        questions in about 63 minutes. Scout autosaves each
+                        section, so you can leave and continue later.
+                      </p>
                     </div>
                   ) : (
                     <p className="mt-5 max-w-2xl text-sm text-muted-foreground">
@@ -910,9 +913,7 @@ export function Onboarding({
               >
                 {step === 3
                   ? draft.priorScoreChoice === "never"
-                    ? draft.startingCheckChoice === "skip"
-                      ? "Create my starter plan"
-                      : "Take my starting check"
+                    ? "Start my full diagnostic"
                     : stepCopy.next
                   : stepCopy.next}
                 <ArrowRightIcon data-icon="inline-end" />

@@ -18,16 +18,6 @@ export interface InitialStudyPlanInput {
   minutesPerSession: number
 }
 
-const DEFAULT_STUDY_DAY_ORDER: ReadonlyArray<StudyWeekday> = [
-  "mon",
-  "wed",
-  "fri",
-  "tue",
-  "thu",
-  "sat",
-  "sun",
-]
-
 const WEEKDAY_BY_UTC_DAY: ReadonlyArray<StudyWeekday> = [
   "sun",
   "mon",
@@ -36,6 +26,16 @@ const WEEKDAY_BY_UTC_DAY: ReadonlyArray<StudyWeekday> = [
   "thu",
   "fri",
   "sat",
+]
+
+const LEGACY_DEFAULT_STUDY_DAY_ORDER: ReadonlyArray<StudyWeekday> = [
+  "mon",
+  "wed",
+  "fri",
+  "tue",
+  "thu",
+  "sat",
+  "sun",
 ]
 
 function responseError(payload: PlanResponse, fallback: string) {
@@ -101,16 +101,30 @@ function isDefaultAvailability(plan: AdaptiveStudyPlan) {
     "2026-07-24",
     "2026-07-25",
     "2026-07-26",
-  ].some((representativeDate) =>
-    sameAvailability(
-      plan.availability,
-      defaultStudyAvailability(
-        representativeDate,
-        plan.availability.entries.length,
-        firstMinutes
-      )
+  ].some((representativeDate) => {
+    const utcDay = new Date(`${representativeDate}T00:00:00.000Z`).getUTCDay()
+    const todayWeekday = WEEKDAY_BY_UTC_DAY[utcDay]
+    const legacyAvailability: StudyAvailability = {
+      entries: [
+        todayWeekday,
+        ...LEGACY_DEFAULT_STUDY_DAY_ORDER.filter(
+          (weekday) => weekday !== todayWeekday
+        ),
+      ]
+        .slice(0, plan.availability.entries.length)
+        .map((weekday) => ({ weekday, minutes: firstMinutes })),
+    }
+    return (
+      sameAvailability(
+        plan.availability,
+        defaultStudyAvailability(
+          representativeDate,
+          plan.availability.entries.length,
+          firstMinutes
+        )
+      ) || sameAvailability(plan.availability, legacyAvailability)
     )
-  )
+  })
 }
 
 function sameSkills(
@@ -162,11 +176,13 @@ export function defaultStudyAvailability(
   minutesPerSession: number
 ): StudyAvailability {
   const utcDay = new Date(`${today}T00:00:00.000Z`).getUTCDay()
-  const todayWeekday = WEEKDAY_BY_UTC_DAY[utcDay]
-  const weekdays = [
-    todayWeekday,
-    ...DEFAULT_STUDY_DAY_ORDER.filter((weekday) => weekday !== todayWeekday),
-  ].slice(0, studyDaysPerWeek)
+  const offsets = Array.from({ length: studyDaysPerWeek }, (_, index) =>
+    Math.floor((index * WEEKDAY_BY_UTC_DAY.length) / studyDaysPerWeek)
+  )
+  const weekdays = offsets.map(
+    (offset) =>
+      WEEKDAY_BY_UTC_DAY[(utcDay + offset) % WEEKDAY_BY_UTC_DAY.length]
+  )
 
   return {
     entries: weekdays.map((weekday) => ({

@@ -8,6 +8,7 @@ import {
   deleteAccountSavedPlan,
   registerLearner,
   saveAccountPlan,
+  savePendingTutorSetup,
   setAuthCookie,
   signIn,
   signOut,
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
         displayName: body.displayName,
         password: body.password,
         savedPlan: body.savedPlan,
+        pendingSetup: body.pendingSetup,
       })
       const response = json({ viewer: result.viewer }, 201)
       setAuthCookie(response, result.token, "learner")
@@ -58,7 +60,11 @@ export async function POST(request: NextRequest) {
 
     if (body.action === "login") {
       const result = await signIn(
-        { username: body.username, password: body.password },
+        {
+          username: body.username,
+          password: body.password,
+          pendingSetup: body.pendingSetup,
+        },
         request
       )
       const response = json({ viewer: result.viewer })
@@ -73,6 +79,12 @@ export async function POST(request: NextRequest) {
 
     if (body.action === "save_plan") {
       return json({ viewer: await saveAccountPlan(request, body.savedPlan) })
+    }
+
+    if (body.action === "save_setup") {
+      return json({
+        viewer: await savePendingTutorSetup(request, body.pendingSetup),
+      })
     }
 
     if (body.action === "delete_saved_plan") {

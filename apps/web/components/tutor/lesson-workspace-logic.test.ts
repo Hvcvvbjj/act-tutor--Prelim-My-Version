@@ -5,6 +5,7 @@ import {
   lessonSegmentMinutes,
   lessonSectionsForDisplay,
   shouldHoldPracticeFeedback,
+  shouldShowRoundTransition,
 } from "@/components/tutor/lesson-workspace-logic"
 
 describe("lesson workspace learner flow", () => {
@@ -87,6 +88,30 @@ describe("lesson workspace learner flow", () => {
         dismissedFeedbackIdentity: "question-2:attempt-1",
       })
     ).toBe(true)
+  })
+
+  it("keeps the final lesson workspace visible until its feedback is dismissed", () => {
+    expect(
+      shouldShowRoundTransition({
+        cycleStatus: "assessment-choice",
+        workspaceOpen: true,
+        activeTab: "today",
+      })
+    ).toBe(false)
+    expect(
+      shouldShowRoundTransition({
+        cycleStatus: "assessment-choice",
+        workspaceOpen: false,
+        activeTab: "today",
+      })
+    ).toBe(true)
+    expect(
+      shouldShowRoundTransition({
+        cycleStatus: "lessons",
+        workspaceOpen: false,
+        activeTab: "today",
+      })
+    ).toBe(false)
   })
 
   it("keeps incorrect-answer feedback concise in every display mode", () => {

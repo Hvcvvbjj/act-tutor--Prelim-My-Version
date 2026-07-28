@@ -62,9 +62,9 @@ describe("reported score provenance", () => {
     ).toBeNull()
   })
 
-  it("requires a skill baseline when an edited plan has no profile", () => {
+  it("uses entered scores immediately and requires a full baseline only without scores", () => {
     expect(baselineStateForDraft(draft, false)).toEqual({
-      adaptiveBaselineRequired: true,
+      adaptiveBaselineRequired: false,
       baselineSkipped: false,
     })
     expect(
@@ -72,13 +72,12 @@ describe("reported score provenance", () => {
         {
           ...draft,
           priorScoreChoice: "never",
-          startingCheckChoice: "skip",
         },
         false
       )
     ).toEqual({
-      adaptiveBaselineRequired: false,
-      baselineSkipped: true,
+      adaptiveBaselineRequired: true,
+      baselineSkipped: false,
     })
     expect(baselineStateForDraft(draft, true)).toEqual({
       adaptiveBaselineRequired: false,

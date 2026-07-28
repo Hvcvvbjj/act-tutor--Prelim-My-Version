@@ -10,12 +10,9 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { syncLinkedSession } from "@/lib/auth.server"
-import {
-  FULL_LENGTH_PRACTICE_FORM,
-  RAPID_DIAGNOSTIC_FORM,
-} from "@/lib/diagnostic-content.server"
+import { RAPID_DIAGNOSTIC_FORM } from "@/lib/diagnostic-content.server"
 import { diagnosticSessions } from "@/lib/diagnostic-sessions.server"
-import { examLabSessions } from "@/lib/exam-lab.server"
+import { getExamLabSession } from "@/lib/exam-lab.server"
 import { LEARNING_BANK } from "@/lib/learning-content.server"
 import { lessonComposer } from "@/lib/lesson-composer.server"
 import { learningSessions } from "@/lib/learning-sessions.server"
@@ -162,10 +159,7 @@ async function resolveRoundAssessment(
         "Finish a new full-length test before starting the next lesson round."
       )
     }
-    const session = await examLabSessions.get(
-      sessionId,
-      FULL_LENGTH_PRACTICE_FORM
-    )
+    const { session } = await getExamLabSession(sessionId)
     const result = session.result
     if (
       session.status !== "completed" ||

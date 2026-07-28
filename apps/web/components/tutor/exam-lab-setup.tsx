@@ -17,6 +17,7 @@ interface ExamLabSetupProps {
   section: CoreSection
   busy: boolean
   extendedTime: boolean
+  assessmentLabel?: string
   modeLocked?: boolean
   onModeChange: (mode: ExamLabMode) => void
   onSectionChange: (section: CoreSection) => void
@@ -56,6 +57,7 @@ export function ExamLabSetup({
   section,
   busy,
   extendedTime,
+  assessmentLabel = "Timed Practice",
   modeLocked = false,
   onModeChange,
   onSectionChange,
@@ -74,13 +76,15 @@ export function ExamLabSetup({
       className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 lg:py-14"
     >
       <section>
-        <p className="ink-label text-primary">Timed Practice</p>
+        <p className="ink-label text-primary">{assessmentLabel}</p>
         <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
           Choose a practice run.
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
           {modeLocked
-            ? "Your next lesson round needs a full-length practice result."
+            ? mode === "section"
+              ? "This progress check uses a complete ACT-length section with the official section time."
+              : "Your next lesson round needs a full-length practice result."
             : "Pick the amount of test practice you have time for. Answers stay hidden until you submit."}
         </p>
 
@@ -189,7 +193,11 @@ export function ExamLabSetup({
         <div className="mt-8 flex items-center gap-4">
           <Button type="button" size="xl" onClick={onStart} disabled={busy}>
             <TimerResetIcon data-icon="inline-start" />
-            {busy ? "Getting questions ready…" : "Start timed practice"}
+            {busy
+              ? "Getting questions ready…"
+              : assessmentLabel === "Progress check"
+                ? "Start progress check"
+                : "Start timed practice"}
           </Button>
           {extendedTime ? (
             <p className="text-sm font-semibold text-primary">

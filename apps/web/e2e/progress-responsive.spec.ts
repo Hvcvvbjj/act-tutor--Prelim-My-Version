@@ -1,26 +1,12 @@
 import { expect, test } from "@playwright/test"
 
-import { completeLearnerOrientation } from "./helpers"
-
-async function openStarterPlan(page: import("@playwright/test").Page) {
-  await page.goto("/")
-  await page.getByRole("button", { name: "Set up my plan" }).click()
-  await page.getByRole("button", { name: "Add my starting score" }).click()
-  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
-  await page.getByRole("radio", { name: /Skip for now/ }).check()
-  await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Create my starter plan" }).click()
-  await completeLearnerOrientation(page)
-  await expect(
-    page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible()
-}
+import { openReportedScorePlan } from "./helpers"
 
 test("Progress keeps its skill comparison readable at mobile and desktop sizes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 760 })
-  await openStarterPlan(page)
+  await openReportedScorePlan(page)
   await page
     .getByRole("navigation", { name: "Primary study navigation" })
     .getByRole("tab", { name: "Progress" })

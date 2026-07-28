@@ -81,7 +81,7 @@ test("Mr. Kim compares a reported score with the official onboarding baseline", 
   await page.getByText("I tested and have my scores", { exact: true }).click()
   await page.getByRole("button", { name: "Continue" }).click()
   await page.getByLabel("Composite").fill("26")
-  await page.getByRole("button", { name: "See my check-in" }).click()
+  await page.getByRole("button", { name: "Continue" }).click()
 
   await expect(
     page.getByRole("heading", { name: "You moved up 4 points." })

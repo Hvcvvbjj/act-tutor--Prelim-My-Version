@@ -19,6 +19,7 @@ import {
 
 import { Onboarding } from "@/components/tutor/onboarding"
 import type { TestDayCheckInResult } from "@/components/tutor/test-day-check-in"
+import { DASHBOARD_TOUR_STORAGE_KEY } from "@/components/tutor/dashboard-tour"
 import {
   applyEditedPlanJourney,
   applyReportedScoreSource,
@@ -33,6 +34,7 @@ import type {
 import {
   GUEST_VIEWER,
   type AuthViewer,
+  type PendingTutorSetup,
   type SavedTutorPlan,
 } from "@/lib/auth-types"
 import { addCalendarDaysFrom } from "@/lib/dates"
@@ -536,6 +538,12 @@ function activeTestDayCheckIn(plan: GeneratedPlan) {
 }
 
 function surfaceForPlan(plan: GeneratedPlan): TutorSurface {
+  if (
+    plan.draft.priorScoreChoice === "never" &&
+    (plan.adaptiveBaselineRequired || plan.baselineSkipped)
+  ) {
+    return "diagnostic"
+  }
   if (!plan.journey.onboardingCompleted && !plan.adaptiveBaselineRequired) {
     return "orientation"
   }
@@ -682,12 +690,28 @@ export function TutorApp({
   const [restoredAtLoad] = useState(() =>
     restoredPlanFrom(today, initialViewer.savedPlan)
   )
-  const [draft, setDraft] = useState<PlacementDraft>(
-    () => restoredAtLoad?.draft ?? initialDraft(initialTestDate)
+  const [pendingSetupAtLoad] = useState(
+    () => initialViewer.pendingSetup ?? null
   )
-  const [step, setStep] = useState(1)
+  const [draft, setDraft] = useState<PlacementDraft>(
+    () =>
+      pendingSetupAtLoad?.draft ??
+      restoredAtLoad?.draft ??
+      initialDraft(initialTestDate)
+  )
+  const [step, setStep] = useState<number>(
+    pendingSetupAtLoad?.resumeSurface === "onboarding"
+      ? (pendingSetupAtLoad.onboardingStep ?? 1)
+      : 1
+  )
   const [surface, setSurface] = useState<TutorSurface>(
-    restoredAtLoad ? surfaceForPlan(restoredAtLoad) : "onboarding"
+    pendingSetupAtLoad
+      ? pendingSetupAtLoad.resumeSurface === "onboarding"
+        ? "onboarding"
+        : "diagnostic"
+      : restoredAtLoad
+        ? surfaceForPlan(restoredAtLoad)
+        : "onboarding"
   )
   const [dashboardInitialTab, setDashboardInitialTab] =
     useState<DashboardInitialTab>()
@@ -698,9 +722,26 @@ export function TutorApp({
   const [error, setError] = useState<string | null>(null)
   const [storageReady, setStorageReady] = useState(false)
   const [welcomeComplete, setWelcomeComplete] = useState(
-    Boolean(restoredAtLoad)
+    Boolean(restoredAtLoad || pendingSetupAtLoad)
   )
   const [editingPlan, setEditingPlan] = useState(false)
+  const [orientationTourActive, setOrientationTourActive] = useState(false)
+  const [orientationResumeProfile, setOrientationResumeProfile] =
+    useState(false)
+
+  useEffect(() => {
+    if (!orientationTourActive) return
+    const finishOrientationTour = () => {
+      setOrientationTourActive(false)
+      setOrientationResumeProfile(true)
+      setSurface("orientation")
+    }
+    window.addEventListener("scout:tour-complete", finishOrientationTour, {
+      once: true,
+    })
+    return () =>
+      window.removeEventListener("scout:tour-complete", finishOrientationTour)
+  }, [orientationTourActive])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -719,7 +760,9 @@ export function TutorApp({
             resumeSurface?: unknown
             diagnosticPurpose?: unknown
           }
-          let planAvailable = Boolean(restoredAtLoad)
+          let resumableSetupAvailable = Boolean(
+            restoredAtLoad || pendingSetupAtLoad
+          )
           if (!restoredAtLoad && initialViewer.role === "guest") {
             const restoredGuestPlan =
               parsed.version === 2 ||
@@ -734,7 +777,7 @@ export function TutorApp({
               setPlan(restoredGuestPlan)
               setSurface(surfaceForPlan(restoredGuestPlan))
               setWelcomeComplete(true)
-              planAvailable = true
+              resumableSetupAvailable = true
             } else if (
               (parsed.version === 1 ||
                 parsed.version === 2 ||
@@ -751,6 +794,7 @@ export function TutorApp({
                   ? parsed.draft
                   : clearLegacyDefaultScoreAssumptions(parsed.draft)
               setDraft({ ...initialDraft(initialTestDate), ...restoredDraft })
+              resumableSetupAvailable = true
             }
           }
           if (
@@ -759,7 +803,7 @@ export function TutorApp({
               parsed.version === 5 ||
               parsed.version === 6) &&
             parsed.viewerRole === initialViewer.role &&
-            planAvailable &&
+            resumableSetupAvailable &&
             isDiagnosticSurface(parsed.resumeSurface)
           ) {
             setDiagnosticPurpose(
@@ -786,7 +830,13 @@ export function TutorApp({
     }, 0)
 
     return () => window.clearTimeout(timeout)
-  }, [initialTestDate, initialViewer.role, restoredAtLoad, today])
+  }, [
+    initialTestDate,
+    initialViewer.role,
+    pendingSetupAtLoad,
+    restoredAtLoad,
+    today,
+  ])
 
   useEffect(() => {
     if (!storageReady) return
@@ -799,7 +849,7 @@ export function TutorApp({
           guestPlan:
             viewer.role === "guest" && plan ? savedPlanFrom(plan) : null,
           viewerRole: viewer.role,
-          resumeSurface: plan && isDiagnosticSurface(surface) ? surface : null,
+          resumeSurface: isDiagnosticSurface(surface) ? surface : null,
           diagnosticPurpose: diagnosticPurposeForStorage(
             surface,
             diagnosticPurpose
@@ -897,20 +947,71 @@ export function TutorApp({
     }
   }
 
+  async function persistPendingSetup(nextDraft: PlacementDraft) {
+    if (viewer.role !== "learner") return true
+    const pendingSetup: PendingTutorSetup = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      draft: {
+        ...nextDraft,
+        startingCheckChoice: "take",
+      },
+      diagnosticPurpose: "baseline",
+      resumeSurface: "diagnostic",
+      onboardingStep: 3,
+    }
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_setup",
+          pendingSetup,
+        }),
+      })
+      const payload = (await response.json()) as {
+        viewer?: AuthViewer
+        error?: string
+      }
+      if (!response.ok || !payload.viewer) {
+        throw new Error(payload.error ?? "The setup could not be saved.")
+      }
+      setViewer(payload.viewer)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   function handleViewerChange(nextViewer: AuthViewer) {
     setViewer(nextViewer)
     const restored = restoredPlanFrom(today, nextViewer.savedPlan)
+    if (nextViewer.pendingSetup) {
+      setDraft(nextViewer.pendingSetup.draft)
+      setPlan(restored)
+      setDiagnosticPurpose("baseline")
+      if (nextViewer.pendingSetup.resumeSurface === "onboarding") {
+        setStep(nextViewer.pendingSetup.onboardingStep ?? 1)
+        setSurface("onboarding")
+      } else {
+        setSurface("diagnostic")
+      }
+      setWelcomeComplete(true)
+      setError(null)
+      return
+    }
     if (restored) {
       setDraft(restored.draft)
       setPlan(restored)
       setSurface(surfaceForPlan(restored))
       setWelcomeComplete(true)
       setError(null)
+      return
     }
   }
 
-  function createPlan() {
-    void loadDashboard()
+  async function createPlan() {
     try {
       const daysUntilTest = calendarDaysUntil(today, draft.testDate)
       if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
@@ -922,36 +1023,43 @@ export function TutorApp({
       }
 
       if (draft.priorScoreChoice === "never") {
-        const evidence: NormalizedScoreEvidence = {
-          source: "not_taken",
-          reportedComposite: null,
-          calculatedComposite: null,
-          reportedSections: null,
-          planningBaseline: { english: 18, math: 18, reading: 18 },
-          science: null,
-          confidence: "none",
-          compositeDifference: null,
+        const nextDraft = {
+          ...draft,
+          startingCheckChoice: "take" as const,
         }
-        const baseline = evidence.planningBaseline
-        if (!baseline) throw new Error("Could not start the adaptive baseline.")
-        const baselineState = baselineStateForDraft(
-          draft,
-          Boolean(editingPlan && plan?.profileSkillResults.length)
+        const [setupSaved, response] = await Promise.all([
+          persistPendingSetup(nextDraft),
+          fetch("/api/diagnostic", {
+            method: "POST",
+            cache: "no-store",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "start_new_if_completed" }),
+          }),
+        ])
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string
+          } | null
+          throw new Error(
+            payload?.error ?? "Could not prepare the starting diagnostic."
+          )
+        }
+        setDraft(nextDraft)
+        if (!editingPlan) setPlan(null)
+        setDiagnosticPurpose("baseline")
+        setDashboardInitialTab(undefined)
+        setSurface("diagnostic")
+        setError(
+          setupSaved
+            ? null
+            : "Your diagnostic is ready, but Scout could not sync this setup to your account yet."
         )
-        buildPlanFromEvidence(evidence, baseline, 18, undefined, draft, {
-          ...baselineState,
-          profileSkillResults:
-            editingPlan && plan ? [...plan.profileSkillResults] : undefined,
-          profileSource: editingPlan && plan ? plan.profileSource : undefined,
-          journey:
-            editingPlan && plan
-              ? applyEditedPlanJourney(plan.journey, plan.draft, draft)
-              : applyReportedScoreSource(newTutorJourney(), draft),
-        })
+        void loadDiagnosticIntro()
         setEditingPlan(false)
         return
       }
 
+      void loadDashboard()
       const evidence =
         draft.priorScoreChoice === "composite_only"
           ? normalizeCurrentScore({
@@ -977,7 +1085,9 @@ export function TutorApp({
       buildPlanFromEvidence(
         evidence,
         baseline,
-        evidence.calculatedComposite ?? draft.composite,
+        evidence.reportedComposite ??
+          evidence.calculatedComposite ??
+          draft.composite,
         editingPlan && plan ? plan.diagnosticResult : undefined,
         draft,
         {
@@ -1001,15 +1111,6 @@ export function TutorApp({
     }
   }
 
-  function startOver() {
-    setEditingPlan(false)
-    setStep(1)
-    setSurface("onboarding")
-    setDashboardInitialTab(undefined)
-    setPlan(null)
-    setError(null)
-  }
-
   function editPlan() {
     setEditingPlan(true)
     setStep(1)
@@ -1024,17 +1125,28 @@ export function TutorApp({
     setEditingPlan(false)
     setStep(1)
     setDashboardInitialTab(undefined)
-    setSurface("dashboard")
+    setSurface(plan ? surfaceForPlan(plan) : "onboarding")
     setError(null)
   }
 
-  function returnToQuickCheck() {
-    if (!plan) {
-      startOver()
+  function returnFromBaselineDiagnostic() {
+    const planAlreadyHasBaseline =
+      plan &&
+      draft.priorScoreChoice !== "never" &&
+      !(
+        plan.draft.priorScoreChoice === "never" &&
+        (plan.adaptiveBaselineRequired || plan.baselineSkipped)
+      )
+    if (planAlreadyHasBaseline) {
+      setDashboardInitialTab("today")
+      setSurface("dashboard")
+      setError(null)
       return
     }
-    setDashboardInitialTab("calibrate")
-    setSurface("dashboard")
+    setEditingPlan(Boolean(plan))
+    setStep(2)
+    setWelcomeComplete(true)
+    setSurface("onboarding")
     setError(null)
   }
 
@@ -1129,7 +1241,7 @@ export function TutorApp({
         }
       }
       setDiagnosticPurpose("baseline")
-      buildPlanFromEvidence(
+      const nextPlan = buildPlanFromEvidence(
         evidence,
         result.planningBaseline,
         result.compositeRange.estimate,
@@ -1141,8 +1253,14 @@ export function TutorApp({
           journey: plan?.journey,
           adaptiveBaselineRequired: false,
           baselineSkipped: false,
+          save: false,
         }
       )
+      if (!(await persistPlan(nextPlan))) {
+        throw new Error(
+          "Scout scored the diagnostic, but could not save your starting point yet. Try again before leaving this page."
+        )
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -1234,26 +1352,27 @@ export function TutorApp({
       confidence: "medium",
       compositeDifference: null,
     }
-    const nextPlan = buildPlanFromEvidence(
+    const nextPlan = makeGeneratedPlan({
+      today,
+      draft: plan.draft,
       evidence,
-      sectionScores,
-      session.result.practiceEstimate.estimate,
-      plan.diagnosticResult,
-      plan.draft,
-      {
-        profileSkillResults: skillResults,
-        profileSource: "full-test",
-        journey: plan.journey,
-        adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
-        baselineSkipped: plan.baselineSkipped,
-        save: false,
-      }
-    )
+      baseline: sectionScores,
+      currentComposite: session.result.practiceEstimate.estimate,
+      diagnosticResult: plan.diagnosticResult,
+      profileSkillResults: skillResults,
+      profileSource: "full-test",
+      journey: plan.journey,
+      adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
+      baselineSkipped: plan.baselineSkipped,
+    })
     if (!(await persistPlan(nextPlan))) {
       throw new Error(
         "Scout kept the full-test result open, but could not save the updated plan yet. Try again before leaving this page."
       )
     }
+    setPlan(nextPlan)
+    setSurface(surfaceForPlan(nextPlan))
+    setError(null)
   }
 
   async function saveTestDayCheckIn(result: TestDayCheckInResult) {
@@ -1466,6 +1585,7 @@ export function TutorApp({
   if (surface === "orientation" && plan) {
     return (
       <LearnerOrientation
+        startAtProfile={orientationResumeProfile}
         currentComposite={plan.currentComposite}
         targetComposite={plan.draft.goal}
         skillResults={plan.profileSkillResults}
@@ -1481,6 +1601,18 @@ export function TutorApp({
                   ? "quick-check"
                   : undefined
         }
+        onStartDashboardTour={() => {
+          if (!window.matchMedia("(min-width: 1024px)").matches) return false
+          try {
+            window.localStorage.removeItem(DASHBOARD_TOUR_STORAGE_KEY)
+          } catch {
+            // The tour can still open in this session without persistence.
+          }
+          setDashboardInitialTab("today")
+          setOrientationTourActive(true)
+          setSurface("dashboard")
+          return true
+        }}
         onComplete={(choice) => {
           const nextPlan: GeneratedPlan = {
             ...plan,
@@ -1491,6 +1623,7 @@ export function TutorApp({
             },
           }
           setPlan(nextPlan)
+          setOrientationResumeProfile(false)
           setSurface("dashboard")
           setError(null)
           void persistPlan(nextPlan)
@@ -1568,6 +1701,11 @@ export function TutorApp({
   if (surface === "diagnostic") {
     return (
       <DiagnosticIntro
+        backLabel={
+          plan && diagnosticPurpose === "baseline"
+            ? "Return to dashboard"
+            : undefined
+        }
         error={error}
         goal={draft.goal}
         purpose={diagnosticPurpose}
@@ -1578,7 +1716,7 @@ export function TutorApp({
             setSurface("dashboard")
             return
           }
-          returnToQuickCheck()
+          returnFromBaselineDiagnostic()
         }}
         onStart={() => {
           void loadDiagnosticRunner()
@@ -1601,11 +1739,24 @@ export function TutorApp({
     )
   }
 
+  const pendingOnboardingSetup: PendingTutorSetup | null =
+    !plan && welcomeComplete
+      ? {
+          version: 1,
+          savedAt: new Date().toISOString(),
+          draft,
+          diagnosticPurpose: "baseline",
+          resumeSurface: "onboarding",
+          onboardingStep: step === 2 || step === 3 ? step : 1,
+        }
+      : null
+
   return (
     <Onboarding
       draft={draft}
       viewer={viewer}
       savedPlan={plan ? savedPlanFrom(plan) : null}
+      pendingSetup={pendingOnboardingSetup}
       error={error}
       step={step}
       today={today}
@@ -1624,10 +1775,20 @@ export function TutorApp({
           setError(null)
           return
         }
-        createPlan()
+        void createPlan()
       }}
       showWelcome={!welcomeComplete}
       onDismissWelcome={() => setWelcomeComplete(true)}
+      onStartFullDiagnostic={() => {
+        setDraft((current) => ({
+          ...current,
+          priorScoreChoice: "never",
+          startingCheckChoice: "take",
+        }))
+        setStep(1)
+        setError(null)
+        setWelcomeComplete(true)
+      }}
       onJudgeDemo={() => {
         setWelcomeComplete(true)
         void launchJudgeDemo()

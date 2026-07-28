@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 
 interface ExamLabReportProps {
   session: ExamLabSessionPayload
+  assessmentLabel?: string
   onNewRun: () => void
   onUseForNextRound?: () => void
   applyingToPlan?: boolean
@@ -55,6 +56,7 @@ function MetricBar({
 
 export function ExamLabReport({
   session,
+  assessmentLabel = "Timed Practice",
   onNewRun,
   onUseForNextRound,
   applyingToPlan = false,
@@ -82,8 +84,12 @@ export function ExamLabReport({
         <div>
           <p className="ink-label text-primary">
             {readiness.sufficient
-              ? "Timed-practice results"
-              : "Incomplete timed practice"}
+              ? assessmentLabel === "Timed Practice"
+                ? "Timed-practice results"
+                : `${assessmentLabel} results`
+              : assessmentLabel === "Timed Practice"
+                ? "Incomplete timed practice"
+                : `Incomplete ${assessmentLabel.toLowerCase()}`}
           </p>
           <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
             {readiness.sufficient

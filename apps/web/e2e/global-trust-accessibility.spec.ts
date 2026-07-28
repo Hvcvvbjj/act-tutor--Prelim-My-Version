@@ -1,19 +1,6 @@
 import { expect, test } from "@playwright/test"
 
-import { completeLearnerOrientation } from "./helpers"
-
-async function openStarterPlan(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Set up my plan" }).click()
-  await page.getByRole("button", { name: "Add my starting score" }).click()
-  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
-  await page.getByRole("radio", { name: /Skip for now/ }).check()
-  await page.getByRole("button", { name: "Set my schedule" }).click()
-  await page.getByRole("button", { name: "Create my starter plan" }).click()
-  await completeLearnerOrientation(page)
-  await expect(
-    page.getByText("Your starter plan uses a temporary 18.")
-  ).toBeVisible()
-}
+import { openReportedScorePlan } from "./helpers"
 
 async function expectSkipLinkToFocusMain(
   page: import("@playwright/test").Page
@@ -76,36 +63,31 @@ async function expectNoHorizontalOverflow(
     })
 }
 
-test("the welcome screen states product identity and independence clearly", async ({
+test("the welcome screen leads with a real baseline and Mr. Kim", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
   await expect(
-    page.getByRole("button", { name: "Set up my plan" })
+    page.getByRole("button", { name: "Build my starting plan" })
   ).toBeVisible()
 
-  await expect(page.getByText("Meet Scout, your study coach")).toBeVisible()
-  await expect(page.getByText(/Mr\. Kim/)).toHaveCount(0)
-  const learningDataNotice = page.getByTestId("learning-data-notice")
   await expect(
-    learningDataNotice.getByText("How Scout saves your work")
+    page.getByRole("heading", {
+      name: "Your ACT plan starts with a real baseline.",
+    })
   ).toBeVisible()
-  await learningDataNotice.getByText("How Scout saves your work").click()
-  await expect(learningDataNotice).toContainText(
-    "this browser keeps your setup, plan, and resume point"
-  )
-  await expect(learningDataNotice).toContainText(
-    "More → Data & privacy to export or delete saved study data"
-  )
-  const productNotes = page.getByRole("contentinfo")
-  await expect(productNotes).toContainText("Independent hackathon project.")
-  await expect(productNotes).toContainText(
-    "Scout ACT is not affiliated with or endorsed by ACT."
-  )
-  await expect(productNotes).toContainText(
-    "learning estimates—not official ACT results"
-  )
+  await expect(page.getByText(/full 66-question diagnostic/)).toBeVisible()
+  await expect(
+    page.getByText(/Mr\. Kim turns the result into lessons/)
+  ).toBeVisible()
+  await expect(page.getByTestId("learning-data-notice")).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "See one answer change the plan" })
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Sign in", exact: true })
+  ).toBeVisible()
 
   await expect
     .poll(() =>
@@ -134,7 +116,7 @@ test("the public trust center explains storage, control, and AI limits", async (
   await expect(
     page.getByRole("heading", { name: "Account progress" })
   ).toBeVisible()
-  await expect(page.getByText(/More → Data & privacy/)).toBeVisible()
+  await expect(page.getByText(/Settings → Data & privacy/)).toBeVisible()
   await expect(
     page.getByRole("heading", {
       name: "AI may explain. Evidence makes the decision.",
@@ -153,7 +135,7 @@ test("the public trust center explains storage, control, and AI limits", async (
 
   await page.getByRole("link", { name: "Back to Scout" }).click()
   await expect(
-    page.getByRole("button", { name: "Set up my plan" })
+    page.getByRole("button", { name: "Build my starting plan" })
   ).toBeVisible()
 })
 
@@ -223,7 +205,7 @@ test("the skip link is first and follows the active study surface", async ({
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
   await expect(
-    page.getByRole("button", { name: "Set up my plan" })
+    page.getByRole("button", { name: "Build my starting plan" })
   ).toBeVisible()
 
   await page.keyboard.press("Tab")
@@ -233,13 +215,13 @@ test("the skip link is first and follows the active study surface", async ({
   await page.keyboard.press("Enter")
   await expect(page.locator("main#main-content")).toBeFocused()
 
-  await openStarterPlan(page)
+  await openReportedScorePlan(page)
   const navigation = page.getByRole("navigation", {
     name: "Primary study navigation",
   })
   await expect(page.locator("#main-content")).toHaveCount(1)
   await expectSkipLinkToFocusMain(page)
-  for (const destination of ["Week", "Check", "Progress"]) {
+  for (const destination of ["Week", "Progress", "Badges"]) {
     const destinationTab = navigation.getByRole("tab", { name: destination })
     await destinationTab.click()
     await expect(destinationTab).toHaveAttribute("aria-selected", "true")
@@ -252,17 +234,18 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 768 })
-  await page.goto("/")
-  await openStarterPlan(page)
+  await openReportedScorePlan(page)
 
   const header = page.locator("header")
   const targets = [
-    page.getByRole("tab", { name: "Today" }),
-    page.getByRole("tab", { name: "My week" }),
-    page.getByRole("tab", { name: "Quick Check" }),
-    page.getByRole("tab", { name: "Progress" }),
-    header.getByRole("button", { name: "More" }),
-    header.getByRole("button", { name: "Ask Scout" }),
+    header.getByRole("tab", { name: "Lessons" }),
+    header.getByRole("tab", { name: "My Week" }),
+    header.getByRole("button", { name: "Full Diagnostic" }),
+    header.getByRole("button", { name: "Timed Practice" }),
+    header.getByRole("tab", { name: "Progress" }),
+    header.getByRole("tab", { name: "Badges" }),
+    header.getByRole("button", { name: "Ask Mr. Kim" }),
+    header.getByRole("button", { name: "Open settings" }),
     header.getByRole("button", { name: "Sign in / save progress" }),
   ]
 
@@ -273,22 +256,19 @@ test("compact desktop navigation keeps primary controls easy to target", async (
     expect(bounds!.width).toBeGreaterThanOrEqual(44)
   }
 
-  await header.getByRole("button", { name: "More" }).click()
-  const goalAndSchedule = page.getByRole("menuitem", {
-    name: "Goal and schedule",
-  })
-  const goalBounds = await goalAndSchedule.boundingBox()
-  expect(goalBounds).not.toBeNull()
-  expect(goalBounds!.height).toBeGreaterThanOrEqual(44)
-  await header.getByRole("button", { name: "More" }).click()
+  await expect(header.getByRole("button", { name: "More" })).toHaveCount(0)
+  await expect(page.getByRole("menu", { name: "More from Scout" })).toHaveCount(
+    0
+  )
 
-  for (const destination of ["Today", "My week", "Progress"]) {
+  for (const destination of ["Lessons", "My Week", "Progress", "Badges"]) {
     await page.getByRole("tab", { name: destination }).click()
     await expectNoHorizontalOverflow(page)
   }
 
-  await header.getByRole("button", { name: "More" }).click()
-  await page.getByRole("menuitem", { name: "Data & privacy" }).click()
+  await header.getByRole("button", { name: "Open settings" }).click()
+  const settings = page.getByRole("dialog", { name: "Settings" })
+  await settings.getByRole("button", { name: "Data & privacy" }).click()
   await expectNoHorizontalOverflow(page)
 
   await header.getByRole("button", { name: "Sign in / save progress" }).click()
@@ -313,12 +293,11 @@ test("learner actions stay comfortably targetable across the core study surfaces
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 800 })
-  await page.goto("/")
-  await openStarterPlan(page)
+  await openReportedScorePlan(page)
 
-  const today = page.getByRole("tabpanel", { name: "Today" })
-  await today.getByText("More study options").click()
-  await expectActionTargetsAtLeast44(today)
+  const lessons = page.getByRole("tabpanel", { name: "Lessons" })
+  await expect(lessons.getByText("More study options")).toBeVisible()
+  await expectActionTargetsAtLeast44(lessons)
 
   await page.getByRole("tab", { name: "My week" }).click()
   await expectActionTargetsAtLeast44(
@@ -331,10 +310,10 @@ test("learner actions stay comfortably targetable across the core study surfaces
   )
 
   await page.setViewportSize({ width: 320, height: 760 })
-  await page.getByRole("tab", { name: "Today" }).click()
-  const mobileToday = page.getByRole("tabpanel", { name: "Today" })
-  await mobileToday.getByText("More study options").click()
-  await expectActionTargetsAtLeast44(mobileToday)
+  await page.getByRole("tab", { name: "Lessons" }).click()
+  const mobileLessons = page.getByRole("tabpanel", { name: "Lessons" })
+  await expect(mobileLessons.getByText("More study options")).toBeVisible()
+  await expectActionTargetsAtLeast44(mobileLessons)
 
   await page.getByRole("tab", { name: "Week" }).click()
   await expectActionTargetsAtLeast44(

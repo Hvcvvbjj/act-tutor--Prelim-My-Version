@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 interface ExamLabReviewProps {
   session: ExamLabSessionPayload
   busy: boolean
+  assessmentLabel?: string
   onReturn: (index: number) => void
   onSubmit: () => void
 }
@@ -16,6 +17,7 @@ interface ExamLabReviewProps {
 export function ExamLabReview({
   session,
   busy,
+  assessmentLabel = "Timed Practice",
   onReturn,
   onSubmit,
 }: ExamLabReviewProps) {
@@ -34,7 +36,9 @@ export function ExamLabReview({
       className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8 lg:py-14"
     >
       <section>
-        <p className="ink-label text-primary">Final review</p>
+        <p className="ink-label text-primary">
+          {assessmentLabel} · Final review
+        </p>
         <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
           Review and submit.
         </h1>
@@ -64,7 +68,11 @@ export function ExamLabReview({
 
         <div className="mt-7 flex flex-wrap gap-3">
           <Button type="button" size="xl" onClick={onSubmit} disabled={busy}>
-            {busy ? "Building your report…" : "Score this practice test"}
+            {busy
+              ? "Building your report…"
+              : assessmentLabel === "Progress check"
+                ? "Score this progress check"
+                : "Score this practice test"}
             <SendIcon data-icon="inline-end" />
           </Button>
           <Button

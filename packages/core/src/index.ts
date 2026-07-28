@@ -4,6 +4,7 @@ export * from "./exam-lab";
 export * from "./learning";
 export * from "./learning-twin";
 export * from "./mission";
+export * from "./motivation";
 export * from "./planning";
 export * from "./scout";
 export * from "./learning-actions";

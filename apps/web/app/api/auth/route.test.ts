@@ -60,6 +60,33 @@ const savedPlan = {
   baselineSkipped: true,
 }
 
+const pendingSetup = {
+  version: 1,
+  savedAt: "2000-01-01T00:00:00.000Z",
+  draft: {
+    ...savedPlan.draft,
+    startingCheckChoice: "take",
+  },
+  diagnosticPurpose: "baseline",
+}
+
+const pendingOnboardingSetup = {
+  version: 1,
+  savedAt: "2000-01-01T00:00:00.000Z",
+  draft: {
+    ...savedPlan.draft,
+    goal: 33,
+    priorScoreChoice: "scores",
+    composite: 27,
+    english: 0,
+    math: 0,
+    reading: 0,
+  },
+  diagnosticPurpose: "baseline",
+  resumeSurface: "onboarding",
+  onboardingStep: 2,
+}
+
 describe.sequential("optional learner and judge accounts", () => {
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "scout-auth-test-"))
@@ -158,6 +185,201 @@ describe.sequential("optional learner and judge accounts", () => {
             baselineOfficialComposite: 24,
           },
         },
+      },
+    })
+  })
+
+  it("stores an incomplete onboarding draft during account signup", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-onboarding-signup",
+        displayName: "Signup Resume",
+        password: "SignupResume!2026",
+        pendingSetup: pendingOnboardingSetup,
+      })
+    )
+
+    expect(signup.status).toBe(201)
+    await expect(signup.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: null,
+        pendingSetup: {
+          resumeSurface: "onboarding",
+          onboardingStep: 2,
+          draft: {
+            goal: 33,
+            priorScoreChoice: "scores",
+            composite: 27,
+            english: 0,
+          },
+        },
+      },
+    })
+
+    const login = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-onboarding-signup",
+        password: "SignupResume!2026",
+      })
+    )
+    await expect(login.json()).resolves.toMatchObject({
+      viewer: {
+        pendingSetup: {
+          resumeSurface: "onboarding",
+          onboardingStep: 2,
+          draft: { goal: 33, composite: 27 },
+        },
+      },
+    })
+  })
+
+  it("attaches a local onboarding draft when an empty account signs in", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-onboarding-login",
+        displayName: "Login Resume",
+        password: "LoginResume!2026",
+      })
+    )
+    expect(signup.status).toBe(201)
+
+    const login = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-onboarding-login",
+        password: "LoginResume!2026",
+        pendingSetup: pendingOnboardingSetup,
+      })
+    )
+    expect(login.status).toBe(200)
+    await expect(login.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: null,
+        pendingSetup: {
+          resumeSurface: "onboarding",
+          onboardingStep: 2,
+          draft: { goal: 33, composite: 27 },
+        },
+      },
+    })
+
+    const preserved = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-onboarding-login",
+        password: "LoginResume!2026",
+        pendingSetup: {
+          ...pendingOnboardingSetup,
+          draft: { ...pendingOnboardingSetup.draft, goal: 35 },
+        },
+      })
+    )
+    await expect(preserved.json()).resolves.toMatchObject({
+      viewer: {
+        pendingSetup: {
+          draft: { goal: 33 },
+        },
+      },
+    })
+  })
+
+  it("saves and restores a pending full-diagnostic setup without inventing a score", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-diagnostic",
+        displayName: "Diagnostic Learner",
+        password: "DiagnosticPlan!2026",
+      })
+    )
+    const token = signup.cookies.get("scout_auth_session")?.value
+    expect(token).toBeTruthy()
+
+    const saved = await POST(
+      authRequest(
+        {
+          action: "save_setup",
+          pendingSetup,
+        },
+        `scout_auth_session=${token}; ai_act_diag_session=diagnostic-session-one`
+      )
+    )
+    expect(saved.status).toBe(200)
+    await expect(saved.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: null,
+        pendingSetup: {
+          version: 1,
+          diagnosticPurpose: "baseline",
+          draft: {
+            priorScoreChoice: "never",
+            startingCheckChoice: "take",
+          },
+        },
+      },
+    })
+
+    const login = await POST(
+      authRequest({
+        action: "login",
+        username: "learner-diagnostic",
+        password: "DiagnosticPlan!2026",
+      })
+    )
+    await expect(login.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: null,
+        pendingSetup: {
+          diagnosticPurpose: "baseline",
+          draft: { priorScoreChoice: "never" },
+        },
+      },
+    })
+    expect(login.cookies.get("ai_act_diag_session")?.value).toBe(
+      "diagnostic-session-one"
+    )
+
+    const loginToken = login.cookies.get("scout_auth_session")?.value
+    expect(loginToken).toBeTruthy()
+    const completed = await POST(
+      authRequest(
+        { action: "save_plan", savedPlan },
+        `scout_auth_session=${loginToken}`
+      )
+    )
+    await expect(completed.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: { currentComposite: 18 },
+        pendingSetup: null,
+      },
+    })
+
+    const editedToDiagnostic = await POST(
+      authRequest(
+        { action: "save_setup", pendingSetup },
+        `scout_auth_session=${loginToken}`
+      )
+    )
+    await expect(editedToDiagnostic.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: { currentComposite: 18 },
+        pendingSetup: { diagnosticPurpose: "baseline" },
+      },
+    })
+
+    const diagnosticCompleted = await POST(
+      authRequest(
+        { action: "save_plan", savedPlan },
+        `scout_auth_session=${loginToken}`
+      )
+    )
+    await expect(diagnosticCompleted.json()).resolves.toMatchObject({
+      viewer: {
+        savedPlan: { currentComposite: 18 },
+        pendingSetup: null,
       },
     })
   })

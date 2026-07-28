@@ -24,6 +24,15 @@ export interface SavedTutorPlan {
   baselineSkipped: boolean
 }
 
+export interface PendingTutorSetup {
+  version: 1
+  savedAt: string
+  draft: PlacementDraft
+  diagnosticPurpose: "baseline"
+  resumeSurface: "onboarding" | "diagnostic"
+  onboardingStep: 1 | 2 | 3
+}
+
 export interface AuthViewer {
   authenticated: boolean
   role: AuthRole
@@ -31,6 +40,7 @@ export interface AuthViewer {
   displayName: string | null
   technicalDetails: boolean
   savedPlan: SavedTutorPlan | null
+  pendingSetup: PendingTutorSetup | null
 }
 
 export const GUEST_VIEWER: AuthViewer = {
@@ -40,4 +50,5 @@ export const GUEST_VIEWER: AuthViewer = {
   displayName: null,
   technicalDetails: false,
   savedPlan: null,
+  pendingSetup: null,
 }

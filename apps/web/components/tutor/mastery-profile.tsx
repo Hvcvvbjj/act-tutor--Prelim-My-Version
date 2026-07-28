@@ -6,6 +6,10 @@ import type {
   LearningTwinRecommendation,
   RecommendationContribution,
 } from "@act-tutor/core"
+import {
+  actScoreEquivalentFromPoints,
+  pointsProgressToNextActPoint,
+} from "@act-tutor/core"
 
 import { cn } from "@/lib/utils"
 
@@ -435,12 +439,16 @@ export function MasteryProfile({
   selectedSkill,
   onSelect,
   canViewTechnicalDetails,
+  points,
+  startingScore,
 }: {
   skills: ReadonlyArray<KnowledgeState>
   recommendation: LearningTwinRecommendation
   selectedSkill: string
   onSelect: (skill: string) => void
   canViewTechnicalDetails: boolean
+  points: number
+  startingScore: number
 }) {
   const selected =
     skills.find((skill) => skill.skill === selectedSkill) ?? skills[0]
@@ -457,6 +465,11 @@ export function MasteryProfile({
   const priority = Math.min(
     100,
     contributions.reduce((sum, item) => sum + item.points, 0)
+  )
+  const pointProgress = pointsProgressToNextActPoint(points)
+  const pointScoreEquivalent = actScoreEquivalentFromPoints(
+    startingScore,
+    points
   )
   const selectedSkillHeadingRef = useRef<HTMLHeadingElement>(null)
 
@@ -500,6 +513,21 @@ export function MasteryProfile({
             />
             <MasteryRadar skills={skills} selectedSkill={selected.skill} />
             <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
+              <div className="mb-5 border-y border-white/20 py-3">
+                <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
+                  Points score marker
+                </p>
+                <p className="mt-1 font-heading text-3xl font-black tabular-nums">
+                  {pointScoreEquivalent}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-white/65">
+                  {pointProgress.pointsInCurrentActPoint.toLocaleString(
+                    "en-US"
+                  )}{" "}
+                  / 1,000 points toward the next marker. Scored answers shape
+                  the polygon; points set this matching ACT-scale marker.
+                </p>
+              </div>
               <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
                 Highest current estimates
               </p>

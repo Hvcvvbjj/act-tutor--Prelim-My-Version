@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { answerFor } from "./route"
+import { answerFor, parseScreen } from "./route"
 
 const preferences = {
   depth: "normal",
@@ -49,6 +49,43 @@ const learning = {
 } as never
 
 describe("Scout server policy", () => {
+  it("keeps badges in the route allowlist and grounds answers in badge progress", () => {
+    expect(parseScreen("badges")).toBe("badges")
+    const answer = answerFor({
+      request: {
+        question: "What is my closest badge?",
+        screen: "badges",
+      },
+      preferences,
+      learning: null,
+      exam: null,
+      badgeProgress: {
+        points: 1_250,
+        currentStreak: 4,
+        secureSkills: 2,
+        totalSkills: 12,
+        earnedCount: 3,
+        totalCount: 9,
+        nextBadge: {
+          id: "streak-7",
+          title: "Full-week streak",
+          description: "Keep your study streak going for seven days.",
+          progress: 4,
+          target: 7,
+        },
+      },
+    })
+
+    expect(answer.summary).toBe("Full-week streak is your closest badge.")
+    expect(answer.explanation).toContain("1,250 points")
+    expect(answer.explanation).toContain("4-day streak")
+    expect(answer.source).toBe("Server learning progress and fixed badge rules")
+    expect(answer.receipt.questionId).toBeNull()
+    expect(answer.receipt.skillId).toBeNull()
+    expect(answer.receipt.checks).toContain("server-badge-progress")
+    expect(answer.summary).not.toContain("current skill")
+  })
+
   it("defines margin of error before applying generic simplification", () => {
     const answer = answerFor({
       request: {
@@ -246,7 +283,7 @@ describe("Scout server policy", () => {
     expect(choose.explanation).toContain("36–50 questions")
     expect(choose.explanation).toContain("Full-length contains 131")
     expect(results.explanation).toContain(
-      "does not update Today, My Week, or the skill web"
+      "does not update Lessons, My Week, or the skill web"
     )
   })
 })

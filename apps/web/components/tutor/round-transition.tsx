@@ -32,10 +32,10 @@ export function RoundTransition({
           <ScoutMark mood="correct" className="mx-auto size-16" />
           <p className="ink-label mt-5 text-primary">Mr. Kim</p>
           <h1 className="mt-4 font-heading text-5xl leading-[1.02] font-black tracking-[-0.04em] sm:text-6xl">
-            Round {roundNumber} complete.
+            Nice work. Round {roundNumber} is done.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-            Choose your next assessment.
+            Pick the test that builds your next lesson round.
           </p>
         </section>
 

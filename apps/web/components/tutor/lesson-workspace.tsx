@@ -13,6 +13,10 @@ import {
 
 import { useScoutContext } from "@/components/tutor/scout-assistant"
 import {
+  PRACTICE_DIFFICULTY_LABELS,
+  PRACTICE_DIFFICULTY_STYLES,
+} from "@/components/tutor/assessment-display"
+import {
   buildPracticeExplanation,
   lessonSegmentMinutes,
   lessonSectionsForDisplay,
@@ -294,9 +298,9 @@ function PracticeStage({
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
           {needsAnotherTry
-            ? "You can retry it from Today."
+            ? "You can retry it from Lessons."
             : roundComplete
-              ? "Choose the assessment that will shape your next lesson round."
+              ? "Pick the test that builds your next lesson round."
               : `Next: ${currentRecommendation.label}.`}
         </p>
         <Button
@@ -305,7 +309,7 @@ function PracticeStage({
           className="mx-auto mt-7"
           onClick={onClose}
         >
-          {roundComplete ? "Continue" : "Back to Today"}
+          {roundComplete ? "Continue" : "Back to Lessons"}
         </Button>
       </section>
     )
@@ -316,9 +320,26 @@ function PracticeStage({
       data-practice-workspace
       className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col px-5 py-8 sm:px-8 sm:py-10"
     >
-      <p className="mb-3 text-right text-sm text-muted-foreground tabular-nums">
-        Question {displayedQuestionIndex + 1} of {learning.questions.length}
-      </p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        {displayedQuestion ? (
+          <span
+            data-testid="practice-difficulty"
+            data-difficulty={displayedQuestion.difficulty}
+            className={cn(
+              "inline-flex min-h-7 items-center rounded-full border px-3 font-mono text-[0.68rem] font-bold tracking-wide uppercase",
+              PRACTICE_DIFFICULTY_STYLES[displayedQuestion.difficulty]
+            )}
+            aria-label={`Difficulty: ${PRACTICE_DIFFICULTY_LABELS[displayedQuestion.difficulty]}`}
+          >
+            {PRACTICE_DIFFICULTY_LABELS[displayedQuestion.difficulty]}
+          </span>
+        ) : (
+          <span />
+        )}
+        <p className="text-sm text-muted-foreground tabular-nums">
+          Question {displayedQuestionIndex + 1} of {learning.questions.length}
+        </p>
+      </div>
       <Progress value={progress}>
         <ProgressLabel className="sr-only">
           Focused practice progress
@@ -481,7 +502,7 @@ function PracticeStage({
             ? learning.status === "complete"
               ? roundComplete
                 ? "Choose next assessment"
-                : "Back to Today"
+                : "Back to Lessons"
               : "Next question"
             : submitting
               ? "Checking…"
@@ -530,7 +551,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
           aria-label="Close lesson workspace"
         >
           <ArrowLeftIcon data-icon="inline-start" />
-          Back to Today
+          Back to Lessons
         </Button>
         <h1 className="max-w-64 truncate text-center text-sm font-bold sm:max-w-md sm:text-base">
           {workspaceTitle}

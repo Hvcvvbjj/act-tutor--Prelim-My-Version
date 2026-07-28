@@ -256,7 +256,7 @@ function AdaptiveProofReplay({
             className="mt-7"
             onClick={onReturnToToday}
           >
-            Back to today
+            Back to Lessons
             <ArrowRightIcon data-icon="inline-end" />
           </Button>
         ) : null}
@@ -374,7 +374,7 @@ function AdaptiveProofReplay({
         {!adaptiveBaselineRequired ? (
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button type="button" variant="outline" onClick={onReturnToToday}>
-              {representativeDemo ? "Back to sample day" : "Back to today"}
+              {representativeDemo ? "Back to sample day" : "Back to Lessons"}
             </Button>
             <Button type="button" onClick={onInspectLearningTwin}>
               <BrainCircuitIcon />
@@ -945,7 +945,7 @@ export function AdaptiveCalibrationLab({
               </Button>
             ) : (
               <Button type="button" size="lg" onClick={onReturnToToday}>
-                Back to today
+                Back to Lessons
                 <ArrowRightIcon data-icon="inline-end" />
               </Button>
             )}

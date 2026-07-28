@@ -78,7 +78,7 @@ const OUTCOME_OPTIONS: ReadonlyArray<{
   {
     value: "score_reported",
     title: "I tested and have my scores",
-    detail: "Add the official score ACT reported.",
+    detail: "Enter the official score you received.",
     icon: CheckCircle2Icon,
   },
   {
@@ -90,7 +90,7 @@ const OUTCOME_OPTIONS: ReadonlyArray<{
   {
     value: "did_not_test",
     title: "I didn’t test that day",
-    detail: "No judgment. We’ll decide what comes next.",
+    detail: "That’s okay. We’ll choose what comes next.",
     icon: FlagIcon,
   },
 ]
@@ -286,9 +286,8 @@ function officialScoreFeedback(
 ) {
   if (!prior) {
     return {
-      title: "Now we have a real starting point.",
-      message:
-        "This is your first official score here, so I’m not calling it up or down. I’ll use it to make the next study cycle more accurate.",
+      title: "This is our new starting point.",
+      message: "I’ll use this official score to build your next study cycle.",
     }
   }
 
@@ -296,21 +295,21 @@ function officialScoreFeedback(
   if (difference > 0) {
     return {
       title: `You moved up ${difference} ${difference === 1 ? "point" : "points"}.`,
-      message: `Your official Composite went from ${prior.composite} to ${composite}. Nice work. I’ll keep what helped and use the new score to choose the next skills.`,
+      message: `Your official composite went from ${prior.composite} to ${composite}. Nice work. I’ll keep what worked and adjust what comes next.`,
     }
   }
 
   if (difference === 0) {
     return {
       title: "You held your score.",
-      message: `Your official Composite is still ${composite}. That’s useful data—not a dead end. I’ll look for the skills most likely to unlock the next point.`,
+      message: `Your official composite is still ${composite}. That isn’t a dead end. I’ll target the skills most likely to unlock the next point.`,
     }
   }
 
   const decrease = Math.abs(difference)
   return {
     title: "One test does not erase your progress.",
-    message: `This official score was ${decrease} ${decrease === 1 ? "point" : "points"} below your last one (${prior.composite} to ${composite}). That’s okay. Test conditions and question mix can move a score, so I’ll adjust the next cycle around what this result shows.`,
+    message: `This score was ${decrease} ${decrease === 1 ? "point" : "points"} below your last one (${prior.composite} to ${composite}). That’s okay. I’ll use what this test showed to adjust your next cycle.`,
   }
 }
 
@@ -502,12 +501,12 @@ export function TestDayCheckIn({
         ? {
             title: "No need to guess.",
             message:
-              "Official scores can take time. We’ll save that they’re still pending and use them only after you have the real numbers.",
+              "We’ll mark your scores as pending and update your plan when the official numbers arrive.",
           }
         : {
-            title: "Plans change. We can reset from here.",
+            title: "That’s okay. Plans change.",
             message:
-              "Missing a test date does not mean you failed. Pick another date if you have one, or pause the testing cycle for now.",
+              "Choose another date if you have one, or pause testing for now.",
           }
 
   return (
@@ -530,8 +529,8 @@ export function TestDayCheckIn({
               About Mr. Kim
             </summary>
             <p className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-72 rounded-lg border bg-background p-4 text-sm leading-6 text-muted-foreground shadow-lg">
-              Mr. Kim is Scout ACT&apos;s fictional AI coach. He can organize
-              practice, but he cannot verify or submit scores.
+              Mr. Kim is Scout ACT&apos;s AI tutor. He can explain lessons and
+              adjust practice, but he cannot verify or submit official scores.
             </p>
           </details>
           <Button
@@ -572,8 +571,8 @@ export function TestDayCheckIn({
                   go?
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Tell me what actually happened. This changes what Scout does
-                  next; it does not grade your effort.
+                  Tell me what happened. I&apos;ll adjust your plan—not judge
+                  your effort.
                 </p>
 
                 <RadioGroup
@@ -622,11 +621,10 @@ export function TestDayCheckIn({
                   tabIndex={-1}
                   className="mt-3 max-w-3xl font-heading text-3xl leading-tight font-black tracking-[-0.025em] outline-none sm:text-5xl"
                 >
-                  Add the score ACT reported.
+                  What score did you get?
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Enter the official Composite ACT reported. Section scores are
-                  optional.
+                  Enter your official composite. Section scores are optional.
                 </p>
 
                 <div className="mt-7 max-w-sm">
@@ -691,7 +689,7 @@ export function TestDayCheckIn({
                     Back
                   </Button>
                   <Button type="submit" size="xl">
-                    See my check-in
+                    Continue
                     <ArrowRightIcon data-icon="inline-end" />
                   </Button>
                 </div>
@@ -725,9 +723,8 @@ export function TestDayCheckIn({
                       Your current test plan stays unchanged.
                     </p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      This check-in closes the older pending score only. It will
-                      not replace your current ACT date or pause your current
-                      study cycle.
+                      This closes the older check-in without replacing your ACT
+                      date or pausing your study cycle.
                     </p>
                   </div>
                 ) : (
@@ -739,8 +736,7 @@ export function TestDayCheckIn({
                       id="next-step-help"
                       className="mt-2 text-sm leading-6 text-muted-foreground"
                     >
-                      Add it now so the next plan has a deadline, or pause the
-                      test cycle without losing this check-in.
+                      Add it now, or pause testing without losing this check-in.
                     </p>
                     <RadioGroup
                       value={nextStepChoice}

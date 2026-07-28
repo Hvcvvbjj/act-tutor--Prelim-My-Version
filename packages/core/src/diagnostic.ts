@@ -77,6 +77,8 @@ export interface DiagnosticAnswer {
   choiceId: string;
 }
 
+export const UNANSWERED_DIAGNOSTIC_CHOICE_ID = "__unanswered__" as const;
+
 export interface DiagnosticScoreRange {
   low: number;
   high: number;
@@ -217,7 +219,10 @@ export function scoreDiagnostic(
     if (answersByQuestion.has(answer.questionId)) {
       throw new RangeError(`Duplicate answer for ${answer.questionId}.`);
     }
-    if (!question.choices.some((choice) => choice.id === answer.choiceId)) {
+    if (
+      answer.choiceId !== UNANSWERED_DIAGNOSTIC_CHOICE_ID &&
+      !question.choices.some((choice) => choice.id === answer.choiceId)
+    ) {
       throw new RangeError(`Unknown choice for ${answer.questionId}.`);
     }
     answersByQuestion.set(answer.questionId, answer);

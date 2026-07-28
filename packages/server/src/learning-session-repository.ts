@@ -888,7 +888,7 @@ function missionSummary(
                 ? [
                     {
                       id: "learn",
-                      label: "Review one rule",
+                      label: "Review one worked example",
                       state: session.lessonComplete ? "done" : "current",
                       progress: session.lessonComplete ? 1 : 0,
                       total: 1,
@@ -911,7 +911,7 @@ function missionSummary(
                     return [
                       {
                         id: "learn" as const,
-                        label: "Read one rule and one worked example",
+                        label: "Review one method and worked example",
                         state: learnDone
                           ? ("done" as const)
                           : ("current" as const),
@@ -1380,92 +1380,41 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
             const states = ensureLearningTwin(existing, bank);
             existing.planContext = input.plan;
             const now = new Date().toISOString();
-            if (officialScoreChanged && cycle.status === "assessment-choice") {
-              const requiredSkills = scoreDrivenRoundSkills(
-                bank,
-                states,
-                input.plan,
+            if (
+              officialScoreChanged &&
+              cycle.kind === "adaptive" &&
+              cycle.status === "lessons"
+            ) {
+              const ranked = scoreDrivenRoundSkills(bank, states, input.plan);
+              const activeSkill = cycle.completedSkills.includes(
+                existing.todaySkill,
+              )
+                ? (cycle.nextSkill ?? existing.todaySkill)
+                : existing.todaySkill;
+              const remainingSlots = Math.max(
+                1,
+                Math.min(6, bank.skills.length) - cycle.completedSkills.length,
               );
-              const nextSkill = requiredSkills[0];
-              if (!nextSkill) {
-                throw new RangeError(
-                  "The official score could not produce a next lesson.",
-                );
-              }
-              const lesson = await composeLearningLesson({
-                bank,
-                skillSlug: nextSkill,
-                diagnosticSkillResults: profile.diagnosticSkillResults,
-                plan: input.plan,
-                lessonComposer,
-                foundation: false,
-              });
-              const previousSkill = existing.todaySkill;
-              existing.cycle = {
-                roundNumber: cycle.roundNumber + 1,
-                kind: "adaptive",
-                status: "lessons",
-                requiredSkills,
-                completedSkills: [],
-                nextSkill,
-              };
-              existing.todaySkill = nextSkill;
-              existing.previousNextSkill = previousSkill;
-              existing.nextSkill = nextSkill;
-              existing.mode = "focus";
-              existing.lessonComplete = false;
-              existing.questionIds = getQuestions(bank, nextSkill).map(
-                (question) => question.id,
-              );
-              existing.answers = [];
-              existing.lesson = lesson;
-              captureLessonEvidence(existing, lesson);
+              const remaining = [
+                activeSkill,
+                ...ranked.filter(
+                  (skill) =>
+                    skill !== activeSkill &&
+                    !cycle.completedSkills.includes(skill),
+                ),
+              ].slice(0, remainingSlots);
+              cycle.requiredSkills = [...cycle.completedSkills, ...remaining];
+              cycle.nextSkill = activeSkill;
+              existing.nextSkill = activeSkill;
               existing.futureTask = {
-                todaySkill: nextSkill,
-                nextSkill,
-                changed: nextSkill !== previousSkill,
-                reason: `Round ${cycle.roundNumber + 1} starts with ${getSkill(bank, nextSkill).label}; the new official score changed the section priorities while prior skill evidence stayed intact.`,
+                todaySkill: existing.todaySkill,
+                nextSkill: activeSkill,
+                changed: activeSkill !== existing.todaySkill,
+                reason:
+                  "The new official score reprioritized the remaining skills in this round without erasing completed lessons or practice.",
               };
-              existing.repairMistakeId = null;
-              existing.returnSkillAfterPrerequisite = null;
-              profile.lessonXpAwarded = false;
-              profile.completionXpAwarded = false;
-            } else {
-              if (
-                officialScoreChanged &&
-                cycle.kind === "adaptive" &&
-                cycle.status === "lessons"
-              ) {
-                const ranked = scoreDrivenRoundSkills(bank, states, input.plan);
-                const activeSkill = cycle.completedSkills.includes(
-                  existing.todaySkill,
-                )
-                  ? (cycle.nextSkill ?? existing.todaySkill)
-                  : existing.todaySkill;
-                const remainingSlots = Math.max(
-                  1,
-                  Math.min(6, bank.skills.length) -
-                    cycle.completedSkills.length,
-                );
-                const remaining = [
-                  activeSkill,
-                  ...ranked.filter(
-                    (skill) =>
-                      skill !== activeSkill &&
-                      !cycle.completedSkills.includes(skill),
-                  ),
-                ].slice(0, remainingSlots);
-                cycle.requiredSkills = [...cycle.completedSkills, ...remaining];
-                cycle.nextSkill = activeSkill;
-                existing.nextSkill = activeSkill;
-                existing.futureTask = {
-                  todaySkill: existing.todaySkill,
-                  nextSkill: activeSkill,
-                  changed: activeSkill !== existing.todaySkill,
-                  reason:
-                    "The new official score reprioritized the remaining skills in this round without erasing completed lessons or practice.",
-                };
-              }
+            }
+            if (cycle.status === "lessons") {
               existing.lesson = await composeLearningLesson({
                 bank,
                 skillSlug: existing.todaySkill,
@@ -1654,8 +1603,8 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         changed: nextSkill !== previousSkill,
         reason:
           cycle.kind === "foundation"
-            ? `${input.baselineLabel ?? "Quick Check"} replaced the temporary baseline. Round 1 still covers every curriculum skill, starting with ${getSkill(bank, nextSkill).label}.`
-            : `${input.baselineLabel ?? "Quick Check"} replaced the temporary baseline and updated the next lesson.`,
+            ? `Your scored baseline is ready. Round 1 still covers every question type, starting with ${getSkill(bank, nextSkill).label}.`
+            : "Your latest scored baseline updated the next lesson.",
       };
       session.lesson = lesson;
       session.profile = {
@@ -2143,7 +2092,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         sections: lesson.sections.slice(0, 1),
         strategyChecklist: lesson.strategyChecklist.slice(0, 2),
         tutorOpening:
-          "Three minutes: learn one rule, then answer one question.",
+          "Three minutes: review one method, then answer one question.",
       };
       captureLessonEvidence(session, session.lesson);
       session.planContext = input.plan;

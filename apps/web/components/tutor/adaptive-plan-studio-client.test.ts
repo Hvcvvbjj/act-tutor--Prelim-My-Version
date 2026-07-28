@@ -102,6 +102,46 @@ describe("defaultStudyAvailability", () => {
     ])
   })
 
+  it("distributes every multi-day starter schedule evenly across the week", () => {
+    const dates = [
+      "2026-07-20",
+      "2026-07-21",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-07-24",
+      "2026-07-25",
+      "2026-07-26",
+    ]
+    const weekdayIndex = new Map([
+      ["sun", 0],
+      ["mon", 1],
+      ["tue", 2],
+      ["wed", 3],
+      ["thu", 4],
+      ["fri", 5],
+      ["sat", 6],
+    ])
+
+    for (const date of dates) {
+      for (let studyDays = 2; studyDays <= 7; studyDays += 1) {
+        const indices = defaultStudyAvailability(date, studyDays, 30)
+          .entries.map((entry) => weekdayIndex.get(entry.weekday) ?? -1)
+          .sort((left, right) => left - right)
+        const cyclicGaps = indices.map(
+          (value, index) =>
+            ((indices[(index + 1) % indices.length] ?? value) - value + 7) % 7
+        )
+        const widestGap = Math.max(...cyclicGaps)
+        const narrowestGap = Math.min(...cyclicGaps)
+
+        expect(widestGap - narrowestGap).toBeLessThanOrEqual(1)
+        if (studyDays <= 3) {
+          expect(narrowestGap).toBeGreaterThanOrEqual(2)
+        }
+      }
+    }
+  })
+
   it("includes each possible current weekday even for a one-day plan", () => {
     const dates = [
       ["2026-07-20", "mon"],
@@ -202,6 +242,37 @@ describe("loadInitialStudyPlan", () => {
       action: "start",
       availability: defaultStudyAvailability(changedInput.today, 5, 60),
     })
+  })
+
+  it("replaces a legacy clustered starter calendar with the spaced default", async () => {
+    const tuesdayInput = { ...INPUT, today: "2026-07-21" }
+    const legacyAvailability = {
+      entries: [
+        { weekday: "tue" as const, minutes: 30 },
+        { weekday: "mon" as const, minutes: 30 },
+        { weekday: "wed" as const, minutes: 30 },
+      ],
+    }
+    const saved = makePlan(tuesdayInput, legacyAvailability)
+    const spacedAvailability = defaultStudyAvailability(
+      tuesdayInput.today,
+      tuesdayInput.studyDaysPerWeek,
+      tuesdayInput.minutesPerSession
+    )
+    const rebalanced = makePlan(tuesdayInput, spacedAvailability)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(saved))
+      .mockResolvedValueOnce(jsonResponse(rebalanced))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await loadInitialStudyPlan(tuesdayInput)
+
+    expect(requestBody(fetchMock, 1)).toMatchObject({
+      action: "start",
+      availability: spacedAvailability,
+    })
+    expect(result.availability).toEqual(spacedAvailability)
   })
 
   it("catches up a default calendar across days without rebuilding progress", async () => {

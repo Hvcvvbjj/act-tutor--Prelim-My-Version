@@ -33,9 +33,9 @@ export const siteMetadata: Metadata = {
     images: [
       {
         url: "/scout-social-preview.png",
-        width: 1731,
-        height: 909,
-        alt: "A student studies beside a friendly geometric owl coach.",
+        width: 1200,
+        height: 630,
+        alt: "Mr. Kim guides a student through Scout ACT skill polygons and a lesson path.",
       },
     ],
   },

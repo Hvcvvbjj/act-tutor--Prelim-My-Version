@@ -1,0 +1,269 @@
+"use client"
+
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  CircleIcon,
+  LockKeyholeIcon,
+  MapIcon,
+  PlayIcon,
+} from "lucide-react"
+
+import type {
+  LessonPathItem,
+  LessonPathStatus,
+} from "@/components/tutor/lesson-path"
+import { cn } from "@/lib/utils"
+
+const SECTION_LABEL = {
+  english: "English",
+  math: "Math",
+  reading: "Reading",
+} as const
+
+const STATUS_COPY: Record<LessonPathStatus, string> = {
+  completed: "Complete",
+  current: "Up next",
+  available: "Available",
+  locked: "Later",
+}
+
+const NODE_STYLE: Record<LessonPathStatus, string> = {
+  completed: "border-primary bg-primary text-primary-foreground",
+  current:
+    "border-primary bg-background text-primary ring-4 ring-primary/15 shadow-sm",
+  available:
+    "border-[var(--scout-coral)] bg-background text-[var(--scout-coral-text)]",
+  locked: "border-border bg-muted text-muted-foreground",
+}
+
+function StatusIcon({ status }: { status: LessonPathStatus }) {
+  if (status === "completed") {
+    return <CheckIcon className="size-5" aria-hidden="true" />
+  }
+  if (status === "current") {
+    return <PlayIcon className="size-4 fill-current" aria-hidden="true" />
+  }
+  if (status === "locked") {
+    return <LockKeyholeIcon className="size-4" aria-hidden="true" />
+  }
+  return <CircleIcon className="size-4 fill-current" aria-hidden="true" />
+}
+
+function LessonContent({
+  lesson,
+  index,
+  interactive,
+}: {
+  lesson: LessonPathItem
+  index: number
+  interactive: boolean
+}) {
+  return (
+    <>
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold tracking-[0.1em] uppercase",
+          lesson.status === "current" ? "text-primary" : "text-muted-foreground"
+        )}
+      >
+        <span>Lesson {index + 1}</span>
+        {lesson.section ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{SECTION_LABEL[lesson.section]}</span>
+          </>
+        ) : null}
+        {lesson.minutes ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{lesson.minutes} min</span>
+          </>
+        ) : null}
+      </div>
+      <div className="mt-2 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="font-heading text-lg leading-tight font-black tracking-[-0.02em] sm:text-xl">
+            {lesson.title}
+          </h3>
+          {lesson.description ? (
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {lesson.description}
+            </p>
+          ) : null}
+        </div>
+        {interactive ? (
+          <ArrowRightIcon
+            className="mt-1 size-4 shrink-0 transition-transform group-hover:translate-x-1 group-focus-visible:translate-x-1 motion-reduce:transition-none"
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
+      <p className="mt-3 text-xs font-bold text-muted-foreground">
+        {STATUS_COPY[lesson.status]}
+      </p>
+    </>
+  )
+}
+
+export interface LessonTimelineProps {
+  lessons: ReadonlyArray<LessonPathItem>
+  roundNumber: number
+  roundLabel?: string
+  title?: string
+  description?: string
+  busy?: boolean
+  className?: string
+  onSelectLesson?: (lesson: LessonPathItem) => void
+}
+
+export function LessonTimeline({
+  lessons,
+  roundNumber,
+  roundLabel,
+  title = "Your lesson path",
+  description = "Follow the path in order. Completed lessons stay marked as you move forward.",
+  busy = false,
+  className,
+  onSelectLesson,
+}: LessonTimelineProps) {
+  const completed = lessons.filter(
+    (lesson) => lesson.status === "completed"
+  ).length
+  const progress = lessons.length ? (completed / lessons.length) * 100 : 0
+
+  return (
+    <section
+      className={cn("mx-auto w-full max-w-5xl px-4 py-8 sm:px-7", className)}
+      aria-labelledby="lesson-path-title"
+      data-testid="lesson-timeline"
+    >
+      <header className="grid gap-6 border-b-2 border-foreground pb-7 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-3 text-primary">
+            <MapIcon className="size-5" aria-hidden="true" />
+            <p className="ink-label">{roundLabel ?? `Round ${roundNumber}`}</p>
+          </div>
+          <h2
+            id="lesson-path-title"
+            className="mt-3 font-heading text-4xl leading-none font-black tracking-[-0.04em] sm:text-5xl"
+          >
+            {title}
+          </h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+            {description}
+          </p>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm font-bold">Round progress</p>
+            <p className="font-mono text-xs font-bold text-muted-foreground">
+              {completed} / {lessons.length}
+            </p>
+          </div>
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label={`Round ${roundNumber} lesson progress`}
+            aria-valuemin={0}
+            aria-valuemax={lessons.length}
+            aria-valuenow={completed}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      </header>
+
+      {lessons.length ? (
+        <ol className="mx-auto mt-10 max-w-4xl">
+          {lessons.map((lesson, index) => {
+            const interactive =
+              lesson.status !== "locked" &&
+              lesson.status !== "completed" &&
+              Boolean(onSelectLesson)
+            const contentClass =
+              index % 2 === 0
+                ? "col-start-2 sm:col-start-1 sm:text-right"
+                : "col-start-2 sm:col-start-3"
+            const content = (
+              <LessonContent
+                lesson={lesson}
+                index={index}
+                interactive={interactive}
+              />
+            )
+
+            return (
+              <li
+                key={lesson.id}
+                className="grid min-h-36 grid-cols-[2.75rem_minmax(0,1fr)] gap-x-3 pb-7 sm:grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] sm:gap-x-5"
+                data-status={lesson.status}
+              >
+                <div className="relative col-start-1 row-start-1 flex justify-center sm:col-start-2">
+                  {index < lessons.length - 1 ? (
+                    <span
+                      className="absolute top-11 bottom-[-2.25rem] left-1/2 w-px -translate-x-1/2 bg-border"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span
+                    className={cn(
+                      "relative z-10 flex size-10 items-center justify-center rounded-full border-2",
+                      NODE_STYLE[lesson.status]
+                    )}
+                    aria-hidden="true"
+                  >
+                    <StatusIcon status={lesson.status} />
+                  </span>
+                </div>
+
+                {interactive ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      "group row-start-1 w-full self-start rounded-2xl px-5 py-4 text-left transition duration-200 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none",
+                      contentClass,
+                      lesson.status === "current"
+                        ? "border-2 border-primary bg-secondary shadow-[0_12px_28px_rgb(16_33_63_/_0.08)] hover:-translate-y-0.5"
+                        : "border border-border bg-background hover:border-primary/50 hover:bg-secondary/40"
+                    )}
+                    onClick={() => onSelectLesson?.(lesson)}
+                    disabled={busy}
+                    aria-label={`${STATUS_COPY[lesson.status]} lesson: ${lesson.title}`}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div
+                    className={cn(
+                      "row-start-1 w-full self-start rounded-2xl border px-5 py-4",
+                      contentClass,
+                      lesson.status === "locked"
+                        ? "border-transparent bg-muted/55 text-muted-foreground"
+                        : "border-border bg-background"
+                    )}
+                  >
+                    {content}
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+      ) : (
+        <div className="py-16 text-center">
+          <p className="font-heading text-xl font-black">
+            Your next lesson round is being prepared.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The full lesson path will appear here when it is ready.
+          </p>
+        </div>
+      )}
+    </section>
+  )
+}
