@@ -72,4 +72,24 @@ describe("motivation badges", () => {
       false,
     );
   });
+
+  it("keeps the round-complete badge earned after a later round begins", () => {
+    const badges = buildMotivationBadges({
+      points: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      completedLessons: 0,
+      completedRounds: 1,
+      completedSets: 0,
+      totalAnswered: 0,
+      secureSkills: 0,
+      totalSkills: 12,
+    });
+
+    expect(badges.find((item) => item.id === "milestone-round")).toMatchObject({
+      progress: 12,
+      target: 12,
+      earned: true,
+    });
+  });
 });

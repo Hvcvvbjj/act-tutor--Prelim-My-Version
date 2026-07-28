@@ -129,6 +129,7 @@ export interface BadgesSurfaceProps {
   currentStreak: number
   longestStreak: number
   completedLessons: number
+  completedRounds: number
   completedSets: number
   totalAnswered: number
   secureSkills: number
@@ -144,6 +145,7 @@ export function BadgesSurface({
   currentStreak,
   longestStreak,
   completedLessons,
+  completedRounds,
   completedSets,
   totalAnswered,
   secureSkills,
@@ -158,6 +160,7 @@ export function BadgesSurface({
     currentStreak,
     longestStreak,
     completedLessons,
+    completedRounds,
     completedSets,
     totalAnswered,
     secureSkills,

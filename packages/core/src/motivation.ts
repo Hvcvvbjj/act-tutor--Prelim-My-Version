@@ -18,6 +18,7 @@ export interface MotivationProgressInput {
   currentStreak: number;
   longestStreak: number;
   completedLessons: number;
+  completedRounds?: number;
   completedSets: number;
   totalAnswered: number;
   secureSkills: number;
@@ -95,6 +96,10 @@ export function buildMotivationBadges(
     1,
     nonNegativeInteger(input.totalSkills ?? 12, "Total skills"),
   );
+  const completedRounds = nonNegativeInteger(
+    input.completedRounds ?? 0,
+    "Completed rounds",
+  );
   const improvement = actScoreImprovementFromPoints(input.points);
 
   return [
@@ -167,7 +172,7 @@ export function buildMotivationBadges(
       "milestone",
       "Round complete",
       `Complete all ${totalSkills} lessons in a learning round.`,
-      input.completedLessons,
+      completedRounds > 0 ? totalSkills : input.completedLessons,
       totalSkills,
     ),
   ];

@@ -1263,6 +1263,7 @@ export function Dashboard({
               currentStreak={learning.mission.progress.currentStreak}
               longestStreak={learning.mission.progress.longestStreak}
               completedLessons={learning.cycle.completedSkills.length}
+              completedRounds={Math.max(0, learning.cycle.roundNumber - 1)}
               completedSets={learning.mission.progress.completedSets}
               totalAnswered={learning.mission.progress.totalAnswered}
               secureSkills={secureSkillCount}
