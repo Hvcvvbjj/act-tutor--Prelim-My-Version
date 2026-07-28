@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "build:sites": "pnpm --filter web build:sites && node scripts/stage-sites-build.mjs",
+    "build:sites": "pnpm --filter web build:sites && node scripts/stage-sites-build.mjs && node scripts/verify-sites-build-commit.mjs",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r typecheck",
