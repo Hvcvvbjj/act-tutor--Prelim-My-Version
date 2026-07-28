@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { calendarDaysUntil } from "@act-tutor/core"
+import { calendarDaysUntil, type StudyWeekday } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { AccountAccess } from "@/components/tutor/account-access"
+import { defaultStudyAvailability } from "@/components/tutor/adaptive-plan-studio-client"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import type { PlacementDraft } from "@/components/tutor/types"
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,26 @@ interface OnboardingProps {
 }
 
 const STEP_LABELS = ["Goal", "Scores", "Schedule"] as const
+
+const WEEKDAY_LABELS: Record<StudyWeekday, string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+}
+
+const WEEKDAY_BY_UTC_DAY: ReadonlyArray<StudyWeekday> = [
+  "sun",
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+]
 
 const STEP_COPY = [
   {
@@ -258,6 +279,63 @@ function PlanSummary({
   )
 }
 
+function SchedulePreview({
+  draft,
+  today,
+}: {
+  draft: PlacementDraft
+  today: string
+}) {
+  const availability = defaultStudyAvailability(
+    today,
+    draft.studyDaysPerWeek,
+    draft.minutesPerSession
+  )
+  const todayWeekday =
+    WEEKDAY_BY_UTC_DAY[new Date(`${today}T00:00:00.000Z`).getUTCDay()]
+  const dayLabels = availability.entries.map((entry) =>
+    entry.weekday === todayWeekday
+      ? `Today (${WEEKDAY_LABELS[entry.weekday]})`
+      : WEEKDAY_LABELS[entry.weekday]
+  )
+  const weeklyMinutes = draft.studyDaysPerWeek * draft.minutesPerSession
+
+  return (
+    <aside
+      role="status"
+      aria-atomic="true"
+      data-testid="schedule-preview"
+      className="rounded-xl border-2 border-foreground bg-[var(--info-surface)] p-5"
+    >
+      <p className="ink-label text-primary">Your starting week</p>
+      <h2 className="mt-2 font-heading text-2xl font-black">
+        {draft.studyDaysPerWeek} study blocks · {weeklyMinutes} minutes total
+      </h2>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        Scout starts with {dayLabels.join(", ")}. You can pick exact weekdays or
+        give each day different minutes later in My Week.
+      </p>
+    </aside>
+  )
+}
+
+function testDateDescription(testDate: string, today: string) {
+  if (!testDate) {
+    return "Choose the date you plan to take the ACT."
+  }
+
+  try {
+    const daysToTest = calendarDaysUntil(today, testDate)
+    const distance =
+      daysToTest > 0
+        ? `${daysToTest} ${daysToTest === 1 ? "day" : "days"} away`
+        : "choose a future date"
+    return `${formatCalendarDate(testDate)} · ${distance}. Scout started with a suggested date; replace it with the test date you plan to take.`
+  } catch {
+    return "Choose a valid future test date."
+  }
+}
+
 export function Onboarding({
   draft,
   viewer,
@@ -439,17 +517,38 @@ export function Onboarding({
                     >
                       <MinusIcon />
                     </Button>
-                    <div
-                      className="min-w-0 text-center sm:min-w-28"
-                      aria-live="polite"
-                    >
-                      <p className="text-6xl font-black tracking-[-0.05em] text-primary tabular-nums">
-                        {draft.goal}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                    <Field className="min-w-0 items-center gap-1 sm:min-w-28">
+                      <FieldLabel htmlFor="goal-composite" className="sr-only">
                         Goal Composite
-                      </p>
-                    </div>
+                      </FieldLabel>
+                      <Input
+                        id="goal-composite"
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={36}
+                        step={1}
+                        value={draft.goal}
+                        aria-describedby="goal-score-help goal-score-entry-help"
+                        onChange={(event) => {
+                          const goal = Number(event.target.value)
+                          if (
+                            Number.isInteger(goal) &&
+                            goal >= 1 &&
+                            goal <= 36
+                          ) {
+                            onUpdate({ goal })
+                          }
+                        }}
+                        className="h-auto max-w-28 rounded-lg border-0 bg-transparent px-1 py-0 text-center font-heading text-6xl font-black tracking-[-0.05em] text-primary tabular-nums shadow-none hover:border-transparent focus-visible:border-ring focus-visible:ring-3 md:text-6xl"
+                      />
+                      <FieldDescription
+                        id="goal-score-entry-help"
+                        className="text-center text-xs"
+                      >
+                        Type or use the buttons
+                      </FieldDescription>
+                    </Field>
                     <Button
                       type="button"
                       size="icon-lg"
@@ -744,12 +843,23 @@ export function Onboarding({
                         min={today}
                         value={draft.testDate}
                         aria-invalid={Boolean(error)}
-                        aria-describedby={error ? "test-date-error" : undefined}
+                        aria-describedby={
+                          error
+                            ? "test-date-help test-date-error"
+                            : "test-date-help"
+                        }
                         onChange={(event) =>
                           onUpdate({ testDate: event.target.value })
                         }
                         className="h-12 max-w-sm text-base"
                       />
+                      <FieldDescription
+                        id="test-date-help"
+                        aria-live="polite"
+                        className="max-w-xl"
+                      >
+                        {testDateDescription(draft.testDate, today)}
+                      </FieldDescription>
                       <FieldError id="test-date-error">{error}</FieldError>
                     </Field>
 
@@ -810,6 +920,8 @@ export function Onboarding({
                         ))}
                       </div>
                     </Field>
+
+                    <SchedulePreview draft={draft} today={today} />
 
                     <Field>
                       <FieldLabel id="main-focus-label">

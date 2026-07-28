@@ -1,5 +1,46 @@
 import { expect, test } from "@playwright/test"
 
+test("goal and schedule setup are keyboard-editable and preview the real commitment", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Set up my plan" }).click()
+
+  const goal = page.getByRole("spinbutton", { name: "Goal Composite" })
+  await expect(goal).toHaveValue("30")
+  await goal.fill("27")
+  await expect(goal).toHaveValue("27")
+  await goal.press("ArrowUp")
+  await expect(goal).toHaveValue("28")
+
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
+  await page.getByRole("radio", { name: /Skip for now/ }).check()
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+
+  const dateHelp = page.locator("#test-date-help")
+  await expect(dateHelp).toContainText("days away")
+  await expect(dateHelp).toContainText("suggested date")
+
+  const preview = page.getByTestId("schedule-preview")
+  await expect(preview).toContainText("3 study blocks · 90 minutes total")
+  await expect(preview).toContainText("You can pick exact weekdays")
+
+  await page.getByRole("button", { name: "5 days" }).click()
+  await page.getByRole("button", { name: "45 min" }).click()
+  await expect(preview).toContainText("5 study blocks · 225 minutes total")
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 390, viewportWidth: 390 })
+})
+
 test("score setup waits for the learner instead of inventing evidence", async ({
   page,
 }) => {
@@ -143,10 +184,8 @@ test("legacy prefilled defaults do not return as learner evidence", async ({
   await page.goto("/")
   await page.getByRole("button", { name: "Set up my plan" }).click()
   await expect(
-    page
-      .getByRole("group", { name: "Goal score" })
-      .getByText("31", { exact: true })
-  ).toBeVisible()
+    page.getByRole("spinbutton", { name: "Goal Composite" })
+  ).toHaveValue("31")
   await page.getByRole("button", { name: "Add my starting score" }).click()
 
   for (const source of await page.getByRole("radio").all()) {

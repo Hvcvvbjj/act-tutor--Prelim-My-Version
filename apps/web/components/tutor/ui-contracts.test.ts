@@ -202,6 +202,9 @@ describe("learner-facing model language", () => {
       "This is a planning goal—not a score prediction"
     )
     expect(onboarding).toContain("See one answer change the plan")
+    expect(onboarding).toContain("Type or use the buttons")
+    expect(onboarding).toContain("Your starting week")
+    expect(onboarding).toContain("You can pick exact weekdays")
     expect(onboarding).toContain("How Scout saves your work")
     expect(onboarding).toContain(
       "this browser keeps your setup, plan, and resume point"
