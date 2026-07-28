@@ -37,14 +37,19 @@ const CATEGORY_COPY: Record<
 }
 
 function formatScore(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
+  return Number(value.toFixed(2)).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  })
 }
 
 function formatBadgeProgress(badge: MotivationBadge) {
-  const progress = Number.isInteger(badge.progress)
-    ? String(badge.progress)
-    : badge.progress.toFixed(1)
-  return `${progress} / ${badge.target}`
+  return `${formatScore(badge.progress)} / ${formatScore(badge.target)}`
+}
+
+function formatCount(value: number, singular: string) {
+  return `${value.toLocaleString("en-US")} ${
+    value === 1 ? singular : `${singular}s`
+  }`
 }
 
 function BadgeItem({ badge }: { badge: MotivationBadge }) {
@@ -233,7 +238,7 @@ export function BadgesSurface({
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="font-semibold">
               {pointProgress.pointsUntilNextActPoint.toLocaleString("en-US")}{" "}
-              points to the next point
+              points until your next +1 ACT marker
             </p>
             <p className="text-muted-foreground">
               {POINTS_PER_ACT_POINT.toLocaleString("en-US")} points = +1 ACT
@@ -241,12 +246,12 @@ export function BadgesSurface({
             </p>
           </div>
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
-            Point-based score equivalent:{" "}
+            Points-based score estimate:{" "}
             <strong className="text-foreground">
               {formatScore(scoreEquivalent)}
             </strong>{" "}
-            from a {formatScore(startingScore)} baseline. This is a motivation
-            marker, not a new diagnostic result.
+            from a {formatScore(startingScore)} baseline. It is a motivation
+            marker, not a test result.
           </p>
         </div>
 
@@ -262,7 +267,7 @@ export function BadgesSurface({
                 Current streak
               </dt>
               <dd className="font-mono text-lg font-black tabular-nums">
-                {currentStreak}d
+                {formatCount(currentStreak, "day")}
               </dd>
             </div>
             <div className="flex items-center justify-between gap-4 py-4">
@@ -351,7 +356,8 @@ export function BadgesSurface({
             </h2>
           </div>
           <p className="text-sm text-muted-foreground">
-            Best streak: {longestStreak} days · {completedSets} sessions
+            Best streak: {formatCount(longestStreak, "day")} ·{" "}
+            {formatCount(completedSets, "session")}
           </p>
         </div>
         <ol className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
