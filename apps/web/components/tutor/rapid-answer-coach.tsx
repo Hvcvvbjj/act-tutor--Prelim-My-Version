@@ -60,60 +60,100 @@ export function RapidAnswerCoachDialog({
   open: boolean
   onDismiss: () => void
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const actionRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    if (!dialog.open) dialog.showModal()
     const frame = window.requestAnimationFrame(() => actionRef.current?.focus())
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onDismiss()
-    }
-    document.addEventListener("keydown", onKeyDown)
+
     return () => {
       window.cancelAnimationFrame(frame)
-      document.removeEventListener("keydown", onKeyDown)
+      if (dialog.open) dialog.close()
     }
-  }, [onDismiss, open])
+  }, [open])
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[85] grid place-items-center bg-[#020918]/72 px-4 backdrop-blur-[2px]">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rapid-answer-coach-title"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-foreground/20 bg-background shadow-[0_26px_80px_rgb(0_0_0_/_0.38)]"
-      >
-        <div className="h-1 bg-[var(--scout-coral)]" aria-hidden="true" />
-        <div className="p-6 sm:p-7">
-          <div className="flex items-center gap-4">
-            <ScoutMark className="size-14 shrink-0" mood="ready" />
-            <div>
-              <p className="ink-label text-primary">Mr. Kim pace check</p>
-              <h2
-                id="rapid-answer-coach-title"
-                className="mt-2 font-heading text-2xl leading-tight font-black"
-              >
-                Slow down for the next one.
-              </h2>
-            </div>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="rapid-answer-coach-title"
+      aria-describedby="rapid-answer-coach-description"
+      onCancel={(event) => {
+        event.preventDefault()
+        onDismiss()
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return
+
+        const focusable = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        )
+        const first = focusable.at(0)
+        const last = focusable.at(-1)
+        if (!first || !last) return
+
+        const active = document.activeElement
+        if (
+          first === last ||
+          (event.shiftKey &&
+            (active === first || !event.currentTarget.contains(active))) ||
+          (!event.shiftKey && active === last)
+        ) {
+          event.preventDefault()
+          const nextFocus = event.shiftKey ? last : first
+          nextFocus.focus()
+        }
+      }}
+      onClick={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect()
+        const clickedBackdrop =
+          event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom
+        if (clickedBackdrop) onDismiss()
+      }}
+      className="m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-auto rounded-2xl border border-foreground/20 bg-background p-0 text-foreground shadow-[0_26px_80px_rgb(0_0_0_/_0.38)] backdrop:bg-[#020918]/72 backdrop:backdrop-blur-[2px]"
+    >
+      <div className="h-1 bg-[var(--scout-coral)]" aria-hidden="true" />
+      <div className="p-6 sm:p-7">
+        <div className="flex items-center gap-4">
+          <ScoutMark className="size-14 shrink-0" mood="ready" />
+          <div>
+            <p className="ink-label text-primary">Mr. Kim pace check</p>
+            <h2
+              id="rapid-answer-coach-title"
+              className="mt-2 font-heading text-2xl leading-tight font-black"
+            >
+              Slow down for the next one.
+            </h2>
           </div>
-          <p className="mt-5 text-sm leading-6 text-muted-foreground">
-            You answered 10 questions in under 30 seconds. Take a breath and
-            read every choice before you move on.
-          </p>
-          <Button
-            ref={actionRef}
-            type="button"
-            size="lg"
-            className="mt-6 w-full"
-            onClick={onDismiss}
-          >
-            I&apos;ll slow down
-          </Button>
         </div>
-      </section>
-    </div>
+        <p
+          id="rapid-answer-coach-description"
+          className="mt-5 text-sm leading-6 text-muted-foreground"
+        >
+          You answered 10 questions in under 30 seconds. Take a breath and read
+          every choice before you move on.
+        </p>
+        <Button
+          ref={actionRef}
+          type="button"
+          size="lg"
+          className="mt-6 w-full"
+          onClick={onDismiss}
+        >
+          I&apos;ll slow down
+        </Button>
+      </div>
+    </dialog>
   )
 }

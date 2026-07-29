@@ -1,0 +1,90 @@
+import { expect, test, type Page } from "@playwright/test"
+
+async function startFreshDiagnostic(page: Page) {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+  await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
+  await page.getByRole("button", { name: "Set my schedule" }).click()
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
+  await page.getByRole("button", { name: "Start diagnostic" }).click()
+}
+
+async function answerAndAdvance(
+  page: Page,
+  count: number,
+  answersBeforeFirstQuestion: number
+) {
+  for (let index = 0; index < count; index += 1) {
+    await chooseFirstAnswer(page, answersBeforeFirstQuestion + index + 1)
+    await page.getByRole("button", { name: "Next question" }).click()
+  }
+}
+
+async function chooseFirstAnswer(page: Page, expectedAnswerCount: number) {
+  const save = page.waitForResponse((response) => {
+    if (
+      !response.url().endsWith("/api/diagnostic") ||
+      response.request().method() !== "PATCH"
+    ) {
+      return false
+    }
+    const body = response.request().postDataJSON() as {
+      progress?: { answers?: Record<string, string> }
+    }
+    return (
+      Object.keys(body.progress?.answers ?? {}).length === expectedAnswerCount
+    )
+  })
+  await page.getByRole("radio").first().press("Space")
+  expect((await save).ok()).toBeTruthy()
+}
+
+test("the rapid-answer pace check behaves as a true keyboard modal", async ({
+  page,
+}) => {
+  test.setTimeout(60_000)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await startFreshDiagnostic(page)
+  await answerAndAdvance(page, 9, 0)
+  await chooseFirstAnswer(page, 10)
+
+  const dialog = page.getByRole("dialog", {
+    name: "Slow down for the next one.",
+  })
+  const dismiss = dialog.getByRole("button", { name: "I'll slow down" })
+  await expect(dialog).toBeVisible()
+  await expect(dismiss).toBeFocused()
+
+  await page.keyboard.press("Tab")
+  await expect(dismiss).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(dismiss).toBeFocused()
+
+  await page.getByRole("button", { name: "Next question" }).focus()
+  await expect(dismiss).toBeFocused()
+
+  const bounds = await dialog.boundingBox()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.width).toBeLessThanOrEqual(358)
+  expect(bounds!.y).toBeGreaterThanOrEqual(0)
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844)
+  await page.mouse.click(
+    Math.max(1, bounds!.x - 16),
+    Math.max(1, bounds!.y - 16)
+  )
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole("radio").first()).toBeFocused()
+
+  await page.reload()
+  await page.getByRole("button", { name: "Next question" }).click()
+  await answerAndAdvance(page, 9, 10)
+  await chooseFirstAnswer(page, 20)
+  await expect(dialog).toBeVisible()
+
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole("radio").first()).toBeFocused()
+})
