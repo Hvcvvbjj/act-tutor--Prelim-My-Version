@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import {
   examLabInterpretationReadiness,
   type ExamLabSessionPayload,
@@ -62,6 +63,19 @@ export function ExamLabReport({
   applyingToPlan = false,
   canViewTechnicalDetails,
 }: ExamLabReportProps) {
+  const reportHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      reportHeadingRef.current?.focus({ preventScroll: true })
+      reportHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
   const result = session.result
   if (!result) return null
   const questionMap = new Map(
@@ -73,6 +87,7 @@ export function ExamLabReport({
       ? `${result.correct} of ${readiness.answered}`
       : "None yet"
   const estimateMargin = result.mode === "sprint" ? 4 : 3
+
   return (
     <main
       data-hide-global-footer
@@ -91,7 +106,11 @@ export function ExamLabReport({
                 ? "Incomplete timed practice"
                 : `Incomplete ${assessmentLabel.toLowerCase()}`}
           </p>
-          <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
+          <h1
+            ref={reportHeadingRef}
+            tabIndex={-1}
+            className="mt-3 scroll-mt-6 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
+          >
             {readiness.sufficient
               ? `A ${result.practiceEstimate.low}–${result.practiceEstimate.high} practice range.`
               : "Your completed answers are saved for review."}

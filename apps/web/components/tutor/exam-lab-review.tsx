@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import {
   examLabInterpretationReadiness,
   type ExamLabSessionPayload,
@@ -43,6 +44,19 @@ export function ExamLabReview({
     sufficient: readiness.sufficient,
     unanswered,
   })
+  const reviewHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      reviewHeadingRef.current?.focus({ preventScroll: true })
+      reviewHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
   return (
     <main
       data-hide-global-footer
@@ -54,7 +68,11 @@ export function ExamLabReview({
         <p className="ink-label text-primary">
           {assessmentLabel} · Final review
         </p>
-        <h1 className="mt-3 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
+        <h1
+          ref={reviewHeadingRef}
+          tabIndex={-1}
+          className="mt-3 scroll-mt-6 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
+        >
           {copy.heading}
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">

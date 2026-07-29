@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import type {
   DiagnosticQuestionPublic,
   ExamLabSessionPayload,
@@ -131,6 +132,18 @@ export function ExamLabRunner({
     navigationSection === "mixed"
       ? "Mixed sprint"
       : `${navigationSection[0].toUpperCase()}${navigationSection.slice(1)}`
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      questionHeadingRef.current?.focus({ preventScroll: true })
+      questionHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [question.id])
 
   return (
     <main
@@ -258,7 +271,11 @@ export function ExamLabRunner({
               {question.lineReference}
             </p>
           ) : null}
-          <h1 className="mt-5 font-heading text-3xl leading-tight font-bold tracking-[-0.02em] sm:text-4xl">
+          <h1
+            ref={questionHeadingRef}
+            tabIndex={-1}
+            className="mt-5 scroll-mt-6 font-heading text-3xl leading-tight font-bold tracking-[-0.02em] outline-none sm:text-4xl"
+          >
             {question.prompt}
           </h1>
 
