@@ -162,6 +162,7 @@ export function ExamLabReview({
                     type="button"
                     variant="outline"
                     size="sm"
+                    aria-label={`Reopen question ${index + 1}: ${question.skillLabel}`}
                     onClick={() => onReturn(index)}
                   >
                     Reopen

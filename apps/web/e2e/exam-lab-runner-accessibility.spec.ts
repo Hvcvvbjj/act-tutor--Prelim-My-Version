@@ -17,7 +17,7 @@ async function expectFingerSizedQuestionButtons(questionButtons: Locator) {
   }
 }
 
-test("timed practice exposes its timer and keeps the question map finger-sized", async ({
+test("timed practice keeps timer, navigation, and review controls accessible", async ({
   page,
 }) => {
   test.setTimeout(90_000)
@@ -49,4 +49,19 @@ test("timed practice exposes its timer and keeps the question map finger-sized",
 
   await page.setViewportSize({ width: 1280, height: 900 })
   await expectFingerSizedQuestionButtons(questionButtons)
+
+  await page.getByRole("button", { name: "Review and finish section" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Review and save." })
+  ).toBeVisible()
+  await page.locator("summary").click()
+
+  const reopenButtons = page.getByRole("button", {
+    name: /^Reopen question \d+: .+/,
+  })
+  await expect(reopenButtons).toHaveCount(12)
+  const labels = await reopenButtons.evaluateAll((buttons) =>
+    buttons.map((button) => button.getAttribute("aria-label"))
+  )
+  expect(new Set(labels).size).toBe(12)
 })
