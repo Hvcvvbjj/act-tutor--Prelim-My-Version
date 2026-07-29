@@ -58,7 +58,7 @@ function QuestionNavigator({
         <p className="ink-label text-muted-foreground">Question map</p>
         <Grid3X3Icon className="size-4" aria-hidden="true" />
       </div>
-      <div className="mt-3 grid grid-cols-6 gap-2 lg:grid-cols-5">
+      <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-4">
         {questions.map((question) => {
           const globalIndex = session.questions.findIndex(
             (item) => item.id === question.id
@@ -161,6 +161,8 @@ export function ExamLabRunner({
             </p>
           </div>
           <div
+            role="timer"
+            aria-label={`${sectionName} time remaining: ${formatTime(timeLeft)}`}
             className={cn(
               "flex items-center gap-3 border-2 border-foreground px-4 py-2",
               timeCritical &&
