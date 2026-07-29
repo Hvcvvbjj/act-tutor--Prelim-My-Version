@@ -5,6 +5,7 @@ import { DownloadIcon, Trash2Icon } from "lucide-react"
 
 import type { ScoutOperationsLabProps } from "@/components/tutor/scout-operations/types"
 import { Button } from "@/components/ui/button"
+import { describeLearnerEvidence } from "@/lib/learner-model-evidence"
 
 export function LearnerModelView({
   plan,
@@ -37,6 +38,11 @@ export function LearnerModelView({
     learning.learningTwin.skills.find(
       (skill) => skill.skill === learning.todaySkill
     ) ?? learning.learningTwin.skills[0]
+  const currentEvidenceCount = currentSkill?.evidenceCount ?? 0
+  const evidenceStatus = describeLearnerEvidence(
+    currentSkill?.confidence ?? "exploring",
+    currentEvidenceCount
+  )
 
   function exportData() {
     const blob = new Blob(
@@ -77,21 +83,46 @@ export function LearnerModelView({
             <Button
               type="button"
               variant="ghost"
+              aria-controls="study-data-delete-confirmation"
+              aria-expanded={deleteArmed}
               onClick={() => setDeleteArmed(true)}
             >
               <Trash2Icon /> Delete Scout study data
             </Button>
           ) : (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={busy}
-              onClick={onDeleteData}
+            <div
+              id="study-data-delete-confirmation"
+              className="w-full rounded-xl border-2 border-destructive/45 bg-destructive/5 p-4 sm:w-auto"
             >
-              {busy
-                ? "Deleting Scout study data…"
-                : "Confirm study-data deletion"}
-            </Button>
+              <p className="max-w-md text-sm leading-6 font-semibold">
+                Delete saved study sessions and the current plan? Your account
+                sign-in will stay available.
+              </p>
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                role="group"
+                aria-label="Confirm study-data deletion"
+              >
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={onDeleteData}
+                >
+                  {busy
+                    ? "Deleting Scout study data…"
+                    : "Confirm study-data deletion"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setDeleteArmed(false)}
+                >
+                  Cancel deletion
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -113,16 +144,33 @@ export function LearnerModelView({
                 : 0}
               %
             </span>
+            <span
+              data-testid="skill-evidence-status"
+              className="mt-1 block text-xs font-black text-primary"
+            >
+              {evidenceStatus.label}
+            </span>
             <span className="text-xs text-muted-foreground">
-              {currentSkill?.evidenceCount ?? 0} scored answers
+              {currentEvidenceCount} scored{" "}
+              {currentEvidenceCount === 1 ? "answer" : "answers"}
             </span>
           </span>
         </summary>
         <div className="grid gap-7 border-t-2 border-foreground py-7 lg:grid-cols-2">
-          <p className="text-sm leading-6 font-semibold">
-            This percentage is Scout&apos;s practice estimate for one skill. It
-            is not an ACT score or percent correct.
-          </p>
+          <div>
+            <div className="rounded-xl border-l-4 border-primary bg-[var(--info-surface)] p-4">
+              <p className="font-heading text-xl font-black">
+                {evidenceStatus.label}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {evidenceStatus.description}
+              </p>
+            </div>
+            <p className="mt-4 text-sm leading-6 font-semibold">
+              This percentage is Scout&apos;s practice estimate for one skill.
+              It is not an ACT score or percent correct.
+            </p>
+          </div>
           <dl className="divide-y border-y text-sm leading-6">
             <div className="py-3">
               <dt className="font-bold">Pacing</dt>

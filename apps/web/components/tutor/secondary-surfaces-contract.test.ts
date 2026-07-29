@@ -24,6 +24,8 @@ describe("desktop secondary-surface hierarchy", () => {
       learnerModel.indexOf("Current skill estimate")
     )
     expect(learnerModel).toContain("Correct a skill estimate")
+    expect(learnerModel).toContain("skill-evidence-status")
+    expect(learnerModel).toContain("Cancel deletion")
     expect(learnerModel).not.toContain("Practice options")
     expect(learnerModel.match(/<details/g)?.length).toBeGreaterThanOrEqual(3)
   })
