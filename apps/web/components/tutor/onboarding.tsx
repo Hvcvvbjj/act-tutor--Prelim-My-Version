@@ -322,6 +322,12 @@ export function Onboarding({
               >
                 Data &amp; privacy
               </Link>
+              <Link
+                href="/accessibility"
+                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              >
+                Accessibility
+              </Link>
             </nav>
             <div className="flex items-center">
               <AccountAccess
@@ -433,6 +439,12 @@ export function Onboarding({
                   className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                 >
                   Data, privacy, and limits
+                </Link>
+                <Link
+                  href="/accessibility"
+                  className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  Accessibility
                 </Link>
               </nav>
             </div>

@@ -109,6 +109,11 @@ describe("public metadata routes", () => {
         changeFrequency: "monthly",
         priority: 0.7,
       },
+      {
+        url: `${SITE_URL}/accessibility`,
+        changeFrequency: "monthly",
+        priority: 0.6,
+      },
     ])
   })
 })

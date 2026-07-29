@@ -23,6 +23,7 @@ describe("onboarding trust entry contract", () => {
     expect(welcome).toContain('aria-label="Learn about Scout"')
     expect(welcome).toContain('href="/how-scout-works"')
     expect(welcome).toContain('href="/trust"')
+    expect(welcome.match(/href="\/accessibility"/g)).toHaveLength(2)
     expect(welcome).toContain("Data, privacy, and limits")
     expect(welcome).toContain("min-h-11")
     expect(welcome).toContain("short Quick Check")
