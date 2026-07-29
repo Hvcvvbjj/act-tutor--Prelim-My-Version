@@ -9,6 +9,7 @@ import {
   PlayCircleIcon,
   PlusIcon,
 } from "lucide-react"
+import Link from "next/link"
 
 import { AccountAccess } from "@/components/tutor/account-access"
 import { defaultStudyAvailability } from "@/components/tutor/adaptive-plan-studio-client"
@@ -286,13 +287,22 @@ export function Onboarding({
                 SCOUT <span className="text-primary">ACT</span>
               </p>
             </div>
-            <nav className="hidden lg:block" aria-label="Welcome">
-              <a
+            <nav
+              className="hidden items-center gap-6 text-sm font-bold text-primary lg:flex"
+              aria-label="Welcome"
+            >
+              <Link
                 href="/how-scout-works"
-                className="transition-colors hover:text-foreground"
+                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
               >
                 How it works
-              </a>
+              </Link>
+              <Link
+                href="/trust"
+                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              >
+                Data &amp; privacy
+              </Link>
             </nav>
             <div className="flex items-center">
               <AccountAccess
@@ -332,6 +342,23 @@ export function Onboarding({
                   <ArrowRightIcon data-icon="inline-end" />
                 </Button>
               </div>
+              <nav
+                aria-label="Learn about Scout"
+                className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary lg:hidden"
+              >
+                <Link
+                  href="/how-scout-works"
+                  className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  How Scout works
+                </Link>
+                <Link
+                  href="/trust"
+                  className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  Data, privacy, and limits
+                </Link>
+              </nav>
             </div>
 
             <figure
