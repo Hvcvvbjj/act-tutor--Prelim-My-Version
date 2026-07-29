@@ -407,24 +407,32 @@ function ResultsView({
   onComplete: () => void
   canViewTechnicalDetails: boolean
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const hasStrengths = result.strengths.length > 0
   const hasFocusSkills = result.focusSkills.length > 0
   const primaryFocus = result.focusSkills[0]
   const rangeMargin = result.calibrationVersion === "rapid-v1" ? 2 : 6
   const isBaseline = purpose === "baseline"
 
+  useEffect(() => {
+    headingRef.current?.focus({ preventScroll: true })
+  }, [])
+
   return (
     <section>
       <p className="text-sm font-semibold text-primary">Diagnostic complete</p>
-      <h1 className="mt-2 text-4xl font-bold tracking-[-0.035em] sm:text-5xl">
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="mt-2 text-4xl font-bold tracking-[-0.035em] outline-none sm:text-5xl"
+      >
         {isBaseline ? "Your starting estimate" : "Your new estimate"} is{" "}
         {result.compositeRange.estimate}.
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         Your practice range is {result.compositeRange.low}–
         {result.compositeRange.high}. I&apos;ll use{" "}
-        {`${result.compositeRange.estimate} to build your plan.`} It isn&apos;t
-        an official ACT score or prediction.
+        {`${result.compositeRange.estimate} to build your plan. It isn't an official ACT score or prediction.`}
       </p>
 
       <div className="mt-9 border-y-2 border-foreground py-6">
