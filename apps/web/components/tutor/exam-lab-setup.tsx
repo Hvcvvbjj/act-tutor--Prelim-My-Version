@@ -6,6 +6,7 @@ import {
   BookOpenCheckIcon,
   GaugeIcon,
   Layers3Icon,
+  ShieldCheckIcon,
   TimerResetIcon,
 } from "lucide-react"
 
@@ -64,6 +65,7 @@ export function ExamLabSetup({
   onStart,
 }: ExamLabSetupProps) {
   const modeRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const isProgressCheck = assessmentLabel === "Progress check"
   const availableModes = modeLocked
     ? MODES.filter((option) => option.id === mode)
     : MODES
@@ -166,6 +168,50 @@ export function ExamLabSetup({
             )
           })}
         </div>
+
+        <section
+          aria-labelledby="timed-practice-boundaries-title"
+          className="mt-7 grid border-y-2 border-foreground sm:grid-cols-2 sm:divide-x-2 sm:divide-foreground"
+        >
+          <div className="flex gap-4 py-5 sm:pr-6">
+            <ShieldCheckIcon
+              className="mt-0.5 size-6 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="ink-label text-primary">During the timer</p>
+              <h2
+                id="timed-practice-boundaries-title"
+                className="mt-2 font-heading text-xl font-black"
+              >
+                Question help pauses.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Mr. Kim can still help with the timer, moving between questions,
+                and flags—but not answers, rules, hints, or explanations.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4 py-5 sm:pl-6">
+            <BookOpenCheckIcon
+              className="mt-0.5 size-6 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="ink-label text-primary">After the run</p>
+              <h2 className="mt-2 font-heading text-xl font-black">
+                {isProgressCheck
+                  ? "You choose whether to use it."
+                  : "Your plan stays put."}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {isProgressCheck
+                  ? "A sufficiently completed result changes the next round only after you choose “Start my next lesson round.”"
+                  : "Results are saved for review. They do not update Lessons or My Week."}
+              </p>
+            </div>
+          </div>
+        </section>
 
         {mode === "section" ? (
           <fieldset className="mt-7">

@@ -127,7 +127,7 @@ export function ExamLabRunner({
     ((sectionPosition + 1) / sectionQuestions.length) * 100
   )
   const timer = examLabTimerControls(timeLeft, session.sectionDeadlineAt)
-  const timeCritical = timeLeft <= 60
+  const timeCritical = timer.locked || timer.warningLabel !== null
   const sectionName =
     navigationSection === "mixed"
       ? "Mixed sprint"
@@ -176,6 +176,15 @@ export function ExamLabRunner({
               <p className="font-mono text-xl font-black tabular-nums">
                 {formatTime(timeLeft)}
               </p>
+              {timer.warningLabel ? (
+                <p
+                  className="mt-1 text-[0.65rem] leading-none font-black tracking-[0.08em] uppercase"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {timer.warningLabel}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="col-span-2 flex items-center justify-between gap-4 lg:col-span-1 lg:justify-self-end">
