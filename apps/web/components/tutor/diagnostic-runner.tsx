@@ -932,9 +932,11 @@ export function DiagnosticRunner({
                   ? "Saved"
                   : "Save failed"}
             </span>
-            <Button type="button" variant="ghost" onClick={saveAndExit}>
-              Save and exit
-            </Button>
+            {phase === "results" ? null : (
+              <Button type="button" variant="ghost" onClick={saveAndExit}>
+                Save and exit
+              </Button>
+            )}
           </div>
           {saveStatus === "error" ? (
             <p
