@@ -241,14 +241,14 @@ function AdaptiveProofReplay({
         >
           {proof.correct ? "Correct." : "Not quite."}
         </p>
-        <h2
+        <h1
           ref={headingRef}
           id="adaptive-proof-heading"
           tabIndex={-1}
           className="mt-3 scroll-mt-20 font-heading text-4xl leading-tight font-black tracking-[-0.03em] outline-none sm:text-5xl"
         >
           Scout updated your skill estimates.
-        </h2>
+        </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
           {proof.learning.skillLabel} was updated. Later-round priority:{" "}
           {laterPriority.label}.
@@ -281,14 +281,14 @@ function AdaptiveProofReplay({
               {proof.correct ? "Correct." : "Not quite."}
             </p>
           </div>
-          <h2
+          <h1
             ref={headingRef}
             id="adaptive-proof-heading"
             tabIndex={-1}
             className="mt-3 max-w-4xl scroll-mt-20 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
           >
             Scout updated your skill estimates.
-          </h2>
+          </h1>
         </div>
         <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
           {proof.correct
@@ -519,11 +519,29 @@ export function AdaptiveCalibrationLab({
   const [loadAttempt, setLoadAttempt] = useState(0)
   const initialLoad = useRef<Promise<AdaptiveCalibrationPayload> | null>(null)
   const questionHeadingRef = useRef<HTMLHeadingElement>(null)
+  const completionHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousQuestionIdRef = useRef<string | null>(null)
   const rapidAnswerCoach = useRapidAnswerCoach(
     payload?.sessionId ?? "quick-check-loading",
     payload?.answeredQuestionIds ?? []
   )
+  const showAdaptiveProofReplay =
+    payload?.status === "complete" &&
+    proof !== null &&
+    (canViewTechnicalDetails || payload.representativeDemo)
+
+  useEffect(() => {
+    if (payload?.status !== "complete" || showAdaptiveProofReplay) return
+
+    const frame = window.requestAnimationFrame(() => {
+      completionHeadingRef.current?.focus({ preventScroll: true })
+      completionHeadingRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [payload?.status, showAdaptiveProofReplay])
 
   useEffect(() => {
     let active = true
@@ -893,9 +911,7 @@ export function AdaptiveCalibrationLab({
           </div>
         ) : null}
 
-        {payload.status === "complete" &&
-        proof &&
-        (canViewTechnicalDetails || payload.representativeDemo) ? (
+        {showAdaptiveProofReplay && proof ? (
           <>
             <AdaptiveProofReplay
               proof={proof}
@@ -934,9 +950,13 @@ export function AdaptiveCalibrationLab({
               aria-hidden="true"
             />
             <p className="ink-label mt-4 text-primary">Quick Check complete</p>
-            <h2 className="mt-3 font-heading text-4xl font-black sm:text-5xl">
+            <h1
+              ref={completionHeadingRef}
+              tabIndex={-1}
+              className="mt-3 scroll-mt-20 font-heading text-4xl font-black outline-none sm:text-5xl"
+            >
               Starting point saved.
-            </h2>
+            </h1>
             <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
               Scout used {payload.responseCount} answers to build your starting
               skill profile.

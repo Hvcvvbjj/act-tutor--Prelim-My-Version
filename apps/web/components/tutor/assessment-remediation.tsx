@@ -90,7 +90,11 @@ export function AssessmentRemediation({
       <section className="mx-auto max-w-3xl py-10 text-center sm:py-16">
         <ScoutMark mood="correct" className="mx-auto size-16" />
         <p className="ink-label mt-5 text-primary">Mr. Kim</p>
-        <h1 className="mt-3 font-heading text-4xl leading-tight font-black tracking-[-0.035em] sm:text-5xl">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="mt-3 scroll-mt-6 font-heading text-4xl leading-tight font-black tracking-[-0.035em] outline-none sm:text-5xl"
+        >
           Every missed question is cleared.
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
@@ -121,7 +125,11 @@ export function AssessmentRemediation({
   if (!current) {
     return (
       <section className="mx-auto max-w-2xl py-12">
-        <h1 className="font-heading text-4xl font-black">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="scroll-mt-6 font-heading text-4xl font-black outline-none"
+        >
           This review item could not load.
         </h1>
         <p className="mt-4 text-muted-foreground">
