@@ -331,7 +331,7 @@ export function Onboarding({
                 full 66-question diagnostic. Mr. Kim turns the result into
                 lessons you can fit into an actual week.
               </p>
-              <div className="mt-9">
+              <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row">
                 <Button
                   type="button"
                   size="xl"
@@ -341,6 +341,18 @@ export function Onboarding({
                   Build my starting plan
                   <ArrowRightIcon data-icon="inline-end" />
                 </Button>
+                {viewer.technicalDetails ? (
+                  <Button
+                    type="button"
+                    size="xl"
+                    variant="outline"
+                    className="min-w-52"
+                    onClick={onJudgeDemo}
+                  >
+                    <PlayCircleIcon data-icon="inline-start" />
+                    Open the judge demo
+                  </Button>
+                ) : null}
               </div>
               <nav
                 aria-label="Learn about Scout"

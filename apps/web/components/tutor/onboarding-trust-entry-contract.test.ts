@@ -29,4 +29,27 @@ describe("onboarding trust entry contract", () => {
       welcome.indexOf("Build my starting plan")
     )
   })
+
+  it("puts the protected demo on the welcome screen for verified judges only", async () => {
+    const onboarding = await onboardingSource()
+    const welcomeStart = onboarding.indexOf("if (showWelcome)")
+    const setupStart = onboarding.indexOf(
+      'data-hide-global-footer\n      className="min-h-svh bg',
+      welcomeStart
+    )
+    const welcome = onboarding.slice(welcomeStart, setupStart)
+    const judgeCondition = welcome.indexOf("{viewer.technicalDetails ?")
+    const judgeConditionEnd = welcome.indexOf(": null}", judgeCondition)
+    const protectedJudgeAction = welcome.slice(
+      judgeCondition,
+      judgeConditionEnd
+    )
+
+    expect(judgeCondition).toBeGreaterThan(-1)
+    expect(protectedJudgeAction).toContain("Open the judge demo")
+    expect(protectedJudgeAction).toContain("onClick={onJudgeDemo}")
+    expect(welcome.indexOf("Open the judge demo")).toBeGreaterThan(
+      welcome.indexOf("Build my starting plan")
+    )
+  })
 })
