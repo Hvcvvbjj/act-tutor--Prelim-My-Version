@@ -12,7 +12,7 @@ async function compactSource(relativePath: string) {
 }
 
 describe("baseline entry copy", () => {
-  it("keeps prior scores optional and identifies the diagnostic as original practice", async () => {
+  it("keeps prior scores optional and identifies the diagnostic as original and unofficial", async () => {
     const onboarding = await compactSource("./onboarding.tsx")
     const diagnostic = await compactSource("./diagnostic-intro.tsx")
 
@@ -23,7 +23,7 @@ describe("baseline entry copy", () => {
       "Scout&apos;s full 66-question diagnostic builds the broadest baseline."
     )
     expect(diagnostic).toContain(
-      "66 original practice questions—not official ACT items—across English, Math, and Reading"
+      "66 original questions across English, Math, and Reading—not official ACT items."
     )
   })
 })

@@ -86,8 +86,8 @@ export function DiagnosticIntro({
               : "Find your starting point."}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            66 original practice questions—not official ACT items—across
-            English, Math, and Reading · about 63 minutes · autosaves as you go.
+            66 original questions across English, Math, and Reading—not official
+            ACT items. About 63 minutes · autosaves as you go.
           </p>
 
           <div className="mt-9 flex items-center gap-4 border-y-2 border-foreground py-7">
