@@ -42,6 +42,8 @@ interface OnboardingProps {
   savedPlan: SavedTutorPlan | null
   pendingSetup: PendingTutorSetup | null
   error: string | null
+  judgeDemoBusy: boolean
+  judgeDemoError: string | null
   step: number
   today: string
   onBack: () => void
@@ -237,6 +239,8 @@ export function Onboarding({
   savedPlan,
   pendingSetup,
   error,
+  judgeDemoBusy,
+  judgeDemoError,
   step,
   today,
   onBack,
@@ -347,13 +351,30 @@ export function Onboarding({
                     size="xl"
                     variant="outline"
                     className="min-w-52"
+                    aria-describedby={
+                      judgeDemoError ? "judge-demo-error" : undefined
+                    }
+                    disabled={judgeDemoBusy}
                     onClick={onJudgeDemo}
                   >
-                    <PlayCircleIcon data-icon="inline-start" />
-                    Open the judge demo
+                    {judgeDemoBusy ? null : (
+                      <PlayCircleIcon data-icon="inline-start" />
+                    )}
+                    {judgeDemoBusy
+                      ? "Opening judge demo…"
+                      : "Open the judge demo"}
                   </Button>
                 ) : null}
               </div>
+              {viewer.technicalDetails && judgeDemoError ? (
+                <p
+                  id="judge-demo-error"
+                  role="alert"
+                  className="mt-3 max-w-xl text-sm leading-6 font-semibold text-destructive"
+                >
+                  {judgeDemoError}
+                </p>
+              ) : null}
               <nav
                 aria-label="Learn about Scout"
                 className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary lg:hidden"
@@ -866,16 +887,33 @@ export function Onboarding({
             </div>
 
             {step === 1 && viewer.technicalDetails ? (
-              <div className="mx-auto mt-5 flex max-w-2xl justify-center border-t pt-4">
+              <div className="mx-auto mt-5 flex max-w-2xl flex-col items-center border-t pt-4">
                 <Button
                   type="button"
                   variant="link"
+                  aria-describedby={
+                    judgeDemoError ? "judge-demo-error" : undefined
+                  }
+                  disabled={judgeDemoBusy}
                   onClick={onJudgeDemo}
                   className="h-auto px-0 font-bold"
                 >
-                  <PlayCircleIcon data-icon="inline-start" />
-                  Open the judge demo
+                  {judgeDemoBusy ? null : (
+                    <PlayCircleIcon data-icon="inline-start" />
+                  )}
+                  {judgeDemoBusy
+                    ? "Opening judge demo…"
+                    : "Open the judge demo"}
                 </Button>
+                {judgeDemoError ? (
+                  <p
+                    id="judge-demo-error"
+                    role="alert"
+                    className="mt-2 text-center text-sm leading-6 font-semibold text-destructive"
+                  >
+                    {judgeDemoError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </section>

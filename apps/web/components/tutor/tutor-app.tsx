@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   buildPlanIntensity,
@@ -757,6 +757,9 @@ export function TutorApp({
   const [plan, setPlan] = useState<GeneratedPlan | null>(restoredAtLoad)
   const [viewer, setViewer] = useState<AuthViewer>(initialViewer)
   const [error, setError] = useState<string | null>(null)
+  const [judgeDemoBusy, setJudgeDemoBusy] = useState(false)
+  const [judgeDemoError, setJudgeDemoError] = useState<string | null>(null)
+  const judgeDemoBusyRef = useRef(false)
   const [storageReady, setStorageReady] = useState(false)
   const [welcomeComplete, setWelcomeComplete] = useState(
     Boolean(restoredAtLoad || pendingSetupAtLoad)
@@ -1656,6 +1659,10 @@ export function TutorApp({
   }
 
   async function launchJudgeDemo() {
+    if (judgeDemoBusyRef.current) return
+    judgeDemoBusyRef.current = true
+    setJudgeDemoBusy(true)
+    setJudgeDemoError(null)
     void loadDashboard()
     try {
       const [learningResponse, calibrationResponse] = await Promise.all([
@@ -1695,12 +1702,14 @@ export function TutorApp({
           journey: migratedTutorJourney(),
         }
       )
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not load the adaptive demo."
+      setWelcomeComplete(true)
+    } catch {
+      setJudgeDemoError(
+        "The judge demo did not open. Try again, or continue with normal setup."
       )
+    } finally {
+      judgeDemoBusyRef.current = false
+      setJudgeDemoBusy(false)
     }
   }
 
@@ -1900,6 +1909,8 @@ export function TutorApp({
       savedPlan={plan ? savedPlanFrom(plan) : null}
       pendingSetup={pendingOnboardingSetup}
       error={error}
+      judgeDemoBusy={judgeDemoBusy}
+      judgeDemoError={judgeDemoError}
       step={step}
       today={today}
       onBack={() => setStep((current) => Math.max(1, current - 1))}
@@ -1920,11 +1931,11 @@ export function TutorApp({
         void createPlan()
       }}
       showWelcome={!welcomeComplete}
-      onDismissWelcome={() => setWelcomeComplete(true)}
-      onJudgeDemo={() => {
+      onDismissWelcome={() => {
+        setJudgeDemoError(null)
         setWelcomeComplete(true)
-        void launchJudgeDemo()
       }}
+      onJudgeDemo={() => void launchJudgeDemo()}
       onViewerChange={handleViewerChange}
       onUpdate={updateDraft}
     />

@@ -48,6 +48,10 @@ describe("onboarding trust entry contract", () => {
     expect(judgeCondition).toBeGreaterThan(-1)
     expect(protectedJudgeAction).toContain("Open the judge demo")
     expect(protectedJudgeAction).toContain("onClick={onJudgeDemo}")
+    expect(protectedJudgeAction).toContain("disabled={judgeDemoBusy}")
+    expect(welcome).toContain("Opening judge demo…")
+    expect(welcome).toContain('role="alert"')
+    expect(welcome).toContain("{judgeDemoError}")
     expect(welcome.indexOf("Open the judge demo")).toBeGreaterThan(
       welcome.indexOf("Build my starting plan")
     )
