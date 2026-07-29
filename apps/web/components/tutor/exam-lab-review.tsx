@@ -5,7 +5,13 @@ import {
   examLabInterpretationReadiness,
   type ExamLabSessionPayload,
 } from "@act-tutor/core"
-import { ArrowLeftIcon, BookmarkIcon, SaveIcon, SendIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  BookmarkIcon,
+  ChevronRightIcon,
+  SaveIcon,
+  SendIcon,
+} from "lucide-react"
 
 import { examLabReviewCopy } from "@/components/tutor/exam-lab-review-copy"
 import { Button } from "@/components/ui/button"
@@ -118,7 +124,13 @@ export function ExamLabReview({
 
         <details className="group mt-8 border-y-2 border-foreground">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 font-bold focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-            <span>Review individual questions</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span>Review individual questions</span>
+              <ChevronRightIcon
+                className="size-4 shrink-0 transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              />
+            </span>
             <span className="text-sm text-muted-foreground">
               {session.questions.length} questions
             </span>
@@ -142,7 +154,7 @@ export function ExamLabReview({
                     {index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">
+                    <p className="leading-snug font-semibold">
                       {question.skillLabel}
                     </p>
                     <p className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground capitalize">

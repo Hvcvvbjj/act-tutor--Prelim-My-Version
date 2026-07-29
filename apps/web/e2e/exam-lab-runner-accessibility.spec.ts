@@ -50,11 +50,15 @@ test("timed practice keeps timer, navigation, and review controls accessible", a
   await page.setViewportSize({ width: 1280, height: 900 })
   await expectFingerSizedQuestionButtons(questionButtons)
 
+  await page.setViewportSize({ width: 320, height: 740 })
   await page.getByRole("button", { name: "Review and finish section" }).click()
   await expect(
     page.getByRole("heading", { name: "Review and save." })
   ).toBeVisible()
-  await page.locator("summary").click()
+  const reviewDisclosure = page.locator("details")
+  await expect(reviewDisclosure.locator("summary svg")).toHaveCount(1)
+  await reviewDisclosure.locator("summary").click()
+  await expect(reviewDisclosure).toHaveAttribute("open", "")
 
   const reopenButtons = page.getByRole("button", {
     name: /^Reopen question \d+: .+/,
@@ -64,4 +68,13 @@ test("timed practice keeps timer, navigation, and review controls accessible", a
     buttons.map((button) => button.getAttribute("aria-label"))
   )
   expect(new Set(labels).size).toBe(12)
+
+  const firstSkill = page.getByText("Sentence boundaries", { exact: true })
+  const textBounds = await firstSkill.evaluate((label) => ({
+    clientWidth: label.clientWidth,
+    scrollWidth: label.scrollWidth,
+    whiteSpace: getComputedStyle(label).whiteSpace,
+  }))
+  expect(textBounds.scrollWidth).toBeLessThanOrEqual(textBounds.clientWidth)
+  expect(textBounds.whiteSpace).not.toBe("nowrap")
 })
