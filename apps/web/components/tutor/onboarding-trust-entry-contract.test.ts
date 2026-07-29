@@ -25,6 +25,17 @@ describe("onboarding trust entry contract", () => {
     expect(welcome).toContain('href="/trust"')
     expect(welcome).toContain("Data, privacy, and limits")
     expect(welcome).toContain("min-h-11")
+    expect(welcome).toContain("short Quick Check")
+    expect(welcome).toContain("full 66-question")
+    expect(welcome).toContain("One scored answer can change")
+    expect(welcome).toContain('aria-label="What one scored answer can change"')
+    expect(welcome).toContain("WELCOME_PROOF.map")
+    expect(onboarding).toContain('copy: "Reviewed score"')
+    expect(onboarding).toContain('copy: "Visible skill update"')
+    expect(onboarding).toContain('copy: "Next lesson + week"')
+    expect(welcome.indexOf("One scored answer can change")).toBeLessThan(
+      welcome.indexOf("Build my starting plan")
+    )
     expect(welcome.indexOf('aria-label="Learn about Scout"')).toBeGreaterThan(
       welcome.indexOf("Build my starting plan")
     )

@@ -17,7 +17,10 @@ describe("baseline entry copy", () => {
     const diagnostic = await compactSource("./diagnostic-intro.tsx")
 
     expect(onboarding).toContain(
-      "Share a recent score if you have one, then take Scout&apos;s full 66-question diagnostic."
+      "Start with a recent score or a short Quick Check."
+    )
+    expect(onboarding).toContain(
+      "Scout&apos;s full 66-question diagnostic builds the broadest baseline."
     )
     expect(diagnostic).toContain(
       "66 original practice questions—not official ACT items—across English, Math, and Reading"

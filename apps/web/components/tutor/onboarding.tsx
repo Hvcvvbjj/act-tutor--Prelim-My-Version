@@ -58,6 +58,21 @@ interface OnboardingProps {
 
 const STEP_LABELS = ["Goal", "Scores", "Schedule"] as const
 
+const WELCOME_PROOF = [
+  {
+    label: "Answer",
+    copy: "Reviewed score",
+  },
+  {
+    label: "Evidence",
+    copy: "Visible skill update",
+  },
+  {
+    label: "Plan",
+    copy: "Next lesson + week",
+  },
+] as const
+
 const WEEKDAY_LABELS: Record<StudyWeekday, string> = {
   mon: "Monday",
   tue: "Tuesday",
@@ -331,40 +346,68 @@ export function Onboarding({
                 <span className="text-primary">real baseline.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Share a recent score if you have one, then take Scout&apos;s
-                full 66-question diagnostic. Mr. Kim turns the result into
-                lessons you can fit into an actual week.
+                Start with a recent score or a short Quick Check. Scout&apos;s
+                full 66-question diagnostic builds the broadest baseline. Mr.
+                Kim turns the result into lessons that fit your week.
               </p>
-              <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row">
-                <Button
-                  type="button"
-                  size="xl"
-                  className="min-w-52"
-                  onClick={onDismissWelcome}
-                >
-                  Build my starting plan
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Button>
-                {viewer.technicalDetails ? (
+              <div className="mt-6 flex flex-col">
+                <div className="order-2 mt-6 lg:order-1 lg:mt-0">
+                  <p className="font-mono text-[0.68rem] font-black tracking-[0.13em] text-primary uppercase">
+                    One scored answer can change
+                  </p>
+                  <ol
+                    aria-label="What one scored answer can change"
+                    className="mt-2 grid max-w-2xl grid-cols-3 overflow-hidden rounded-xl border border-border/80 bg-background/75 shadow-sm backdrop-blur-sm"
+                  >
+                    {WELCOME_PROOF.map((proof, index) => (
+                      <li
+                        key={proof.label}
+                        className={cn(
+                          "min-w-0 px-3 py-3 sm:px-4",
+                          index > 0 && "border-l border-border/80"
+                        )}
+                      >
+                        <span className="font-mono text-[0.62rem] font-black tracking-[0.1em] text-muted-foreground uppercase">
+                          0{index + 1} · {proof.label}
+                        </span>
+                        <strong className="mt-1 block text-xs leading-4 font-black text-foreground sm:text-sm sm:leading-5">
+                          {proof.copy}
+                        </strong>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="order-1 flex flex-col items-start gap-3 sm:flex-row lg:order-2 lg:mt-9">
                   <Button
                     type="button"
                     size="xl"
-                    variant="outline"
                     className="min-w-52"
-                    aria-describedby={
-                      judgeDemoError ? "judge-demo-error" : undefined
-                    }
-                    disabled={judgeDemoBusy}
-                    onClick={onJudgeDemo}
+                    onClick={onDismissWelcome}
                   >
-                    {judgeDemoBusy ? null : (
-                      <PlayCircleIcon data-icon="inline-start" />
-                    )}
-                    {judgeDemoBusy
-                      ? "Opening judge demo…"
-                      : "Open the judge demo"}
+                    Build my starting plan
+                    <ArrowRightIcon data-icon="inline-end" />
                   </Button>
-                ) : null}
+                  {viewer.technicalDetails ? (
+                    <Button
+                      type="button"
+                      size="xl"
+                      variant="outline"
+                      className="min-w-52"
+                      aria-describedby={
+                        judgeDemoError ? "judge-demo-error" : undefined
+                      }
+                      disabled={judgeDemoBusy}
+                      onClick={onJudgeDemo}
+                    >
+                      {judgeDemoBusy ? null : (
+                        <PlayCircleIcon data-icon="inline-start" />
+                      )}
+                      {judgeDemoBusy
+                        ? "Opening judge demo…"
+                        : "Open the judge demo"}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
               {viewer.technicalDetails && judgeDemoError ? (
                 <p
