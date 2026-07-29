@@ -17,9 +17,16 @@ describe("How Scout works", () => {
     expect(markup).toContain(
       "Quick Check and the full diagnostic do different jobs."
     )
+    expect(markup).toContain("Round 1 still teaches every question type.")
     expect(markup).toContain(
-      "Round 1 still teaches every question type."
+      "A demo should prove behavior—not promise an outcome."
     )
+    expect(markup).toContain("What this demo demonstrates")
+    expect(markup).toContain("What Scout does not claim")
+    expect(markup).toContain(
+      "Guaranteed score improvement or proof that a learner will reach a target."
+    )
+    expect(markup).toContain('href="/trust"')
     expect(markup).not.toContain("update the lesson order")
     expect(markup).toContain("What you can inspect")
     expect(markup).not.toContain("The product promise")

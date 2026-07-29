@@ -38,6 +38,20 @@ const PROOF_POINTS = [
   "Whether Scout used a generated explanation or its reviewed fallback.",
 ] as const
 
+const DEMONSTRATED_BOUNDARIES = [
+  "Reviewed answer keys—not generated prose—decide whether original practice is correct.",
+  "A scored answer updates the matching skill estimate, evidence count, and uncertainty.",
+  "Stored evidence, goals, test date, and study time shape later-round priorities.",
+  "Reviewed teaching remains available when an AI explanation is unavailable.",
+] as const
+
+const CLAIM_BOUNDARIES = [
+  "An official ACT score, ACT-equated prediction, or licensed ACT practice form.",
+  "Guaranteed score improvement or proof that a learner will reach a target.",
+  "Independent psychometric validation, fairness certification, or school approval.",
+  "A replacement for a teacher, counselor, or official ACT resources.",
+] as const
+
 export default function HowScoutWorksPage() {
   return (
     <main
@@ -123,6 +137,79 @@ export default function HowScoutWorksPage() {
             Neither is an official ACT form. Both create study evidence, not an
             official score report.
           </p>
+        </section>
+
+        <section
+          className="border-b-2 border-foreground py-9 sm:py-12"
+          aria-labelledby="proof-boundary-title"
+        >
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.55fr)] lg:items-end">
+            <div>
+              <p className="ink-label text-primary">Proof boundary</p>
+              <h2
+                id="proof-boundary-title"
+                className="mt-3 max-w-2xl font-heading text-3xl font-black tracking-[-0.025em] sm:text-4xl"
+              >
+                A demo should prove behavior—not promise an outcome.
+              </h2>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Each claim below maps to behavior a reviewer can reproduce.
+              Longer-term results need real learner studies, so Scout does not
+              present them as finished evidence.
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-5 md:grid-cols-2">
+            <article className="rounded-xl border-2 border-foreground bg-[#10243d] p-5 text-[#f7fbff] shadow-[5px_5px_0_var(--foreground)] sm:p-6">
+              <p className="font-mono text-xs font-black tracking-[0.12em] text-[var(--scout-sun)] uppercase">
+                Demonstrates
+              </p>
+              <h3 className="mt-3 font-heading text-2xl font-black">
+                What this demo demonstrates
+              </h3>
+              <ul className="mt-5 space-y-4 text-sm leading-6 text-white/75">
+                {DEMONSTRATED_BOUNDARIES.map((boundary) => (
+                  <li key={boundary} className="flex gap-3">
+                    <CheckCircle2Icon
+                      className="mt-0.5 size-5 shrink-0 text-[var(--scout-sun)]"
+                      aria-hidden="true"
+                    />
+                    <span>{boundary}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="rounded-xl border-2 border-foreground bg-[var(--info-surface)] p-5 sm:p-6">
+              <p className="font-mono text-xs font-black tracking-[0.12em] text-primary uppercase">
+                Does not claim
+              </p>
+              <h3 className="mt-3 font-heading text-2xl font-black">
+                What Scout does not claim
+              </h3>
+              <ul className="mt-5 space-y-4 text-sm leading-6 text-muted-foreground">
+                {CLAIM_BOUNDARIES.map((boundary) => (
+                  <li key={boundary} className="flex gap-3">
+                    <span
+                      className="font-mono text-sm font-black text-primary"
+                      aria-hidden="true"
+                    >
+                      —
+                    </span>
+                    <span>{boundary}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/trust"
+                className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-black text-primary underline underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+              >
+                Read data, AI, and product limits
+                <ArrowRightIcon className="size-4" aria-hidden="true" />
+              </Link>
+            </article>
+          </div>
         </section>
 
         <details className="group border-b-2 border-foreground py-2">
