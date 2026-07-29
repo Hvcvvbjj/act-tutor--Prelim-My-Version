@@ -317,9 +317,9 @@ export function Onboarding({
                 <span className="text-primary">real baseline.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Enter a recent score and take Scout&apos;s full 66-question
-                diagnostic. Mr. Kim turns the result into lessons you can fit
-                into an actual week.
+                Share a recent score if you have one, then take Scout&apos;s
+                full 66-question diagnostic. Mr. Kim turns the result into
+                lessons you can fit into an actual week.
               </p>
               <div className="mt-9">
                 <Button
