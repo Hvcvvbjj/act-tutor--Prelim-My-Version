@@ -33,6 +33,9 @@ const completeLongSummary =
 const overLimitCompleteSummary =
   `A comma cannot join two complete sentences by itself, ${"and the joining rule remains the same ".repeat(16).trim()}.`
 
+const numberedExampleSummary =
+  "Comma splice: The bell rang, class began. 1. Use a semicolon: The bell rang; class began. 2. Use a period: The bell rang. Class began."
+
 function localModel(output: string) {
   const destroy = vi.fn()
   return {
@@ -117,6 +120,20 @@ describe("free on-device Mr. Kim AI", () => {
     expect(completeLongSummary.length).toBeGreaterThan(180)
     expect(completeLongSummary.length).toBeLessThanOrEqual(600)
     expect(answer.summary).toBe(completeLongSummary)
+    expect(answer.receipt.checks).toContain(ON_DEVICE_AI_CHECK)
+  })
+
+  it("accepts numbered examples without mistaking list markers for score claims", async () => {
+    const model = localModel(
+      JSON.stringify({ summary: numberedExampleSummary })
+    )
+    const answer = await answerWithOnDeviceMrKimAI({
+      question: "Show me a comma splice and fix it two ways.",
+      answer: fallback,
+      languageModel: model.factory,
+    })
+
+    expect(answer.summary).toBe(numberedExampleSummary)
     expect(answer.receipt.checks).toContain(ON_DEVICE_AI_CHECK)
   })
 

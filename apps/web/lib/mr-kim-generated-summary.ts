@@ -30,12 +30,15 @@ export function generatedMrKimSummaryIsUsable(
   ) {
     return false
   }
-  if ((normalized.match(/[.!?]/g) ?? []).length > 5) return false
+  if ((normalized.match(/[.!?]/g) ?? []).length > 8) return false
 
   const reviewedText =
     `${reviewedAnswer.summary} ${reviewedAnswer.explanation}`.toLowerCase()
   const reviewedNumbers = new Set(reviewedText.match(/\d+(?:\.\d+)?/g) ?? [])
-  const generatedNumbers = normalized.match(/\d+(?:\.\d+)?/g) ?? []
+  const generatedNumbers =
+    normalized
+      .replace(/(?:^|\s)[1-4][.)](?=\s)/g, " ")
+      .match(/\d+(?:\.\d+)?/g) ?? []
   if (generatedNumbers.some((number) => !reviewedNumbers.has(number))) {
     return false
   }
