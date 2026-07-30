@@ -106,10 +106,10 @@ function runtimePuterWindow(): PuterWindow | undefined {
 }
 
 const loadBundledPuter: PuterModuleLoader = async () => {
-  const module = await import("@heyputer/puter.js")
+  const puterModule = await import("@heyputer/puter.js")
   return {
-    default: module.default as unknown as PuterClient,
-    puter: module.puter as unknown as PuterClient,
+    default: puterModule.default as unknown as PuterClient,
+    puter: puterModule.puter as unknown as PuterClient,
   }
 }
 
