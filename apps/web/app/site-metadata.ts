@@ -32,10 +32,10 @@ export const siteMetadata: Metadata = {
       "Meet Mr. Kim, your AI study coach for clear lessons, skill profiles, and an ACT plan that adapts after every round.",
     images: [
       {
-        url: "/scout-social-preview.png",
+        url: "/alexact-social-preview.png",
         width: 1200,
         height: 630,
-        alt: "Mr. Kim guides a student through AlexACT skill polygons and a lesson path.",
+        alt: "AlexACT social card showing Mr. Kim guiding a student through skill profiles and a personalized lesson path.",
       },
     ],
   },
@@ -44,7 +44,7 @@ export const siteMetadata: Metadata = {
     title: SITE_TITLE,
     description:
       "Clear ACT lessons, honest skill profiles, and a study cycle that adapts with you.",
-    images: ["/scout-social-preview.png"],
+    images: ["/alexact-social-preview.png"],
   },
 }
 

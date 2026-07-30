@@ -29,10 +29,19 @@ describe("public metadata routes", () => {
         url: "/",
         siteName: "AlexACT",
         title: "AlexACT — Adaptive ACT Study Coach",
+        images: [
+          {
+            url: "/alexact-social-preview.png",
+            width: 1200,
+            height: 630,
+            alt: "AlexACT social card showing Mr. Kim guiding a student through skill profiles and a personalized lesson path.",
+          },
+        ],
       },
       twitter: {
         card: "summary_large_image",
         title: "AlexACT — Adaptive ACT Study Coach",
+        images: ["/alexact-social-preview.png"],
       },
     })
     expect(siteViewport).toEqual({
