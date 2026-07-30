@@ -1,5 +1,6 @@
 # dependencies
 node_modules/
+apps/web/public/vendor/puter-v2.5.4.js
 
 # builds and test output
 .next/

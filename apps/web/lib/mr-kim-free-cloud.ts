@@ -6,6 +6,7 @@ import { generatedMrKimSummaryIsUsable } from "@/lib/mr-kim-generated-summary"
 import { canUseOnDeviceAI } from "@/lib/mr-kim-on-device"
 
 export const FREE_CLOUD_AI_CHECK = "puter-user-cloud-ai"
+export const FREE_CLOUD_AI_SCRIPT = "/vendor/puter-v2.5.4.js"
 
 type PuterChatResponse =
   | string
@@ -40,15 +41,14 @@ interface PuterClient {
 }
 
 const PUTER_MODEL = "gpt-5.4-nano"
+const PUTER_SCRIPT_ID = "alexact-free-ai"
+const PUTER_LOAD_TIMEOUT_MS = 8_000
 
 type PuterWindow = {
   puter?: PuterClient
+  setTimeout(handler: () => void, timeout: number): number
+  clearTimeout(timeout: number): void
 }
-
-type PuterModuleLoader = () => Promise<{
-  default?: PuterClient
-  puter?: PuterClient
-}>
 
 const FREE_CLOUD_INSTRUCTIONS = `
 You are Mr. Kim, AlexACT's calm and concise AI tutor. The app has already made
@@ -61,7 +61,7 @@ such as "you chose" or "correct answer." Return only a JSON object with one
 string field named "summary".
 `.trim()
 
-let bundledPuterPromise: Promise<PuterClient | null> | null = null
+let scriptPromise: Promise<boolean> | null = null
 
 function clipped(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength)
@@ -105,33 +105,55 @@ function runtimePuterWindow(): PuterWindow | undefined {
     : (window as unknown as PuterWindow)
 }
 
-const loadBundledPuter: PuterModuleLoader = async () => {
-  const puterModule = await import("@heyputer/puter.js")
-  return {
-    default: puterModule.default as unknown as PuterClient,
-    puter: puterModule.puter as unknown as PuterClient,
-  }
-}
-
 export function preloadFreeCloudMrKimAI(
-  windowObject: PuterWindow | undefined = runtimePuterWindow(),
-  loader: PuterModuleLoader = loadBundledPuter
+  documentObject: Document | undefined = typeof document === "undefined"
+    ? undefined
+    : document,
+  windowObject: PuterWindow | undefined = runtimePuterWindow()
 ) {
   if (windowObject?.puter) {
     return Promise.resolve(true)
   }
-  if (!windowObject) return Promise.resolve(false)
-  bundledPuterPromise ??= loader()
-    .then((module) => module.puter ?? module.default ?? null)
-    .catch(() => {
-      bundledPuterPromise = null
-      return null
-    })
-  return bundledPuterPromise.then((puter) => {
-    if (!puter) return false
-    windowObject.puter = puter
-    return true
+  if (!documentObject || !windowObject) return Promise.resolve(false)
+  if (scriptPromise) return scriptPromise
+  scriptPromise = new Promise<boolean>((resolve) => {
+    let existing = documentObject.getElementById(
+      PUTER_SCRIPT_ID
+    ) as HTMLScriptElement | null
+    if (existing?.dataset.alexactLoadState === "failed") {
+      existing.remove()
+      existing = null
+    }
+    const script = existing ?? documentObject.createElement("script")
+    let settled = false
+    let timeout = 0
+    const finish = (loaded: boolean) => {
+      if (settled) return
+      settled = true
+      windowObject.clearTimeout(timeout)
+      const ready = loaded && Boolean(windowObject.puter)
+      script.dataset.alexactLoadState = ready ? "loaded" : "failed"
+      if (!ready) {
+        script.remove()
+        scriptPromise = null
+      }
+      resolve(ready)
+    }
+    timeout = windowObject.setTimeout(
+      () => finish(false),
+      PUTER_LOAD_TIMEOUT_MS
+    )
+    script.addEventListener("load", () => finish(true), { once: true })
+    script.addEventListener("error", () => finish(false), { once: true })
+    if (!existing) {
+      script.id = PUTER_SCRIPT_ID
+      script.src = FREE_CLOUD_AI_SCRIPT
+      script.async = true
+      script.referrerPolicy = "same-origin"
+      documentObject.head.append(script)
+    }
   })
+  return scriptPromise
 }
 
 export function beginFreeCloudMrKimConnection(

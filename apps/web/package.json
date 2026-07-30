@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build --webpack",
-    "build:sites": "opennextjs-cloudflare build",
+    "dev": "node ../../scripts/stage-puter-client.mjs && next dev",
+    "build": "node ../../scripts/stage-puter-client.mjs && next build --webpack",
+    "build:sites": "node ../../scripts/stage-puter-client.mjs && opennextjs-cloudflare build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

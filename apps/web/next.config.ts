@@ -100,7 +100,6 @@ const nextConfig: NextConfig = {
     "@act-tutor/content",
     "@act-tutor/core",
     "@act-tutor/server",
-    "@heyputer/puter.js",
   ],
   async headers() {
     return [

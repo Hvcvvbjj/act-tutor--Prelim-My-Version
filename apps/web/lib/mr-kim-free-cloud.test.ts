@@ -5,7 +5,7 @@ import {
   answerWithFreeCloudMrKimAI,
   beginFreeCloudMrKimConnection,
   FREE_CLOUD_AI_CHECK,
-  preloadFreeCloudMrKimAI,
+  FREE_CLOUD_AI_SCRIPT,
 } from "./mr-kim-free-cloud"
 
 const fallback: ScoutAnswer = {
@@ -57,16 +57,9 @@ function client(input?: { signedIn?: boolean; output?: unknown }) {
 }
 
 describe("free cloud Mr. Kim AI", () => {
-  it("loads the official AI client from the first-party app bundle", async () => {
-    const puter = client()
-    const windowObject: { puter?: ReturnType<typeof client> } = {}
-    const loader = vi.fn().mockResolvedValue({ puter })
-
-    await expect(
-      preloadFreeCloudMrKimAI(windowObject, loader)
-    ).resolves.toBe(true)
-    expect(loader).toHaveBeenCalledTimes(1)
-    expect(windowObject.puter).toBe(puter)
+  it("serves the official AI client from AlexACT itself", () => {
+    expect(FREE_CLOUD_AI_SCRIPT).toBe("/vendor/puter-v2.5.4.js")
+    expect(FREE_CLOUD_AI_SCRIPT).not.toMatch(/^https?:/)
   })
 
   it("starts a temporary-user connection from the learner action", async () => {
