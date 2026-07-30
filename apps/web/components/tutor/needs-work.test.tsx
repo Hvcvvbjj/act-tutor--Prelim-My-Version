@@ -139,6 +139,9 @@ describe("needs work ranking", () => {
     expect(markup).toContain("Ask Mr. Kim")
     expect(markup).toContain("Find free videos")
     expect(markup).toContain("opens in a new tab")
+    expect(markup).toContain("<a ")
+    expect(markup).not.toContain('role="button"')
+    expect(markup).toContain("min-h-11")
     expect(markup.match(/id=\"needs-work-priority-title\"/g)).toHaveLength(1)
   })
 

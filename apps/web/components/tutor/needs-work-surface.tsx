@@ -14,7 +14,7 @@ import {
   type NeedsWorkMrKimRequest,
 } from "@/components/tutor/needs-work"
 import { ScoutCoach } from "@/components/tutor/scout"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const SECTION_LABEL = {
@@ -50,21 +50,19 @@ function VideoLink({
   prominent?: boolean
 }) {
   return (
-    <Button
-      render={
-        <a
-          href={item.video.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Find free ${item.label} explanations from ${item.video.channel} on YouTube (opens in a new tab)`}
-        />
-      }
-      variant="outline"
-      size={prominent ? "lg" : "sm"}
+    <a
+      className={buttonVariants({
+        variant: "outline",
+        size: prominent ? "lg" : "sm",
+      })}
+      href={item.video.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Find free ${item.label} explanations from ${item.video.channel} on YouTube (opens in a new tab)`}
     >
       Find free videos
       <ArrowUpRightIcon aria-hidden="true" />
-    </Button>
+    </a>
   )
 }
 

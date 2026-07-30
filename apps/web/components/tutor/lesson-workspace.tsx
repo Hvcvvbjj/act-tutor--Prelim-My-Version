@@ -39,7 +39,7 @@ import {
   type LessonRewardNarrationProvider,
 } from "@/components/tutor/learning-reward-summary"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Progress, ProgressLabel } from "@/components/ui/progress"
 import {
   RadioGroup,
@@ -284,21 +284,17 @@ function LessonSupportPanel({
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {guides.map((guide) => (
-              <Button
+              <a
                 key={guide.channel}
-                render={
-                  <a
-                    href={guide.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Search ${guide.channel} for ${guide.topic} videos (opens in a new tab)`}
-                  />
-                }
-                variant="outline"
+                className={buttonVariants({ variant: "outline" })}
+                href={guide.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Search ${guide.channel} for ${guide.topic} videos (opens in a new tab)`}
               >
                 {guide.channel}
                 <ArrowUpRightIcon aria-hidden="true" />
-              </Button>
+              </a>
             ))}
           </div>
         </section>
@@ -631,21 +627,17 @@ function RemediationStage({
         {belowLessonCheckTarget ? (
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             {videoGuides.map((guide) => (
-              <Button
+              <a
                 key={guide.channel}
-                render={
-                  <a
-                    href={guide.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Find free ${learning.mastery.label} explanations from ${guide.channel} on YouTube (opens in a new tab)`}
-                  />
-                }
-                variant="outline"
+                className={buttonVariants({ variant: "outline" })}
+                href={guide.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Find free ${learning.mastery.label} explanations from ${guide.channel} on YouTube (opens in a new tab)`}
               >
                 {guide.channel}
                 <ArrowUpRightIcon aria-hidden="true" />
-              </Button>
+              </a>
             ))}
           </div>
         ) : null}

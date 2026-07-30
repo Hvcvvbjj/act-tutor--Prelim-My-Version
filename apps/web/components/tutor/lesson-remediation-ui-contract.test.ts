@@ -58,5 +58,9 @@ describe("lesson remediation UI contract", () => {
     expect(workspace).toContain("@khanacademy")
     expect(workspace).toContain("@TheOrganicChemistryTutor")
     expect(workspace.match(/<LessonSupportPanel/g)).toHaveLength(2)
+    expect(workspace).not.toMatch(
+      /<Button[\s\S]{0,180}?render=\{\s*<a[\s\S]{0,180}?target="_blank"/
+    )
+    expect(workspace.match(/className=\{buttonVariants\(/g)).toHaveLength(2)
   })
 })
