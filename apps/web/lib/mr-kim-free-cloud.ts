@@ -39,16 +39,16 @@ interface PuterClient {
   }
 }
 
-declare global {
-  interface Window {
-    puter?: PuterClient
-  }
+const PUTER_MODEL = "gpt-5.4-nano"
+
+type PuterWindow = {
+  puter?: PuterClient
 }
 
-const PUTER_SCRIPT_ID = "alexact-free-ai"
-const PUTER_SCRIPT_URL = "https://js.puter.com/v2/"
-const PUTER_MODEL = "gpt-5.4-nano"
-const PUTER_LOAD_TIMEOUT_MS = 8_000
+type PuterModuleLoader = () => Promise<{
+  default?: PuterClient
+  puter?: PuterClient
+}>
 
 const FREE_CLOUD_INSTRUCTIONS = `
 You are Mr. Kim, AlexACT's calm and concise AI tutor. The app has already made
@@ -61,7 +61,7 @@ such as "you chose" or "correct answer." Return only a JSON object with one
 string field named "summary".
 `.trim()
 
-let scriptPromise: Promise<boolean> | null = null
+let bundledPuterPromise: Promise<PuterClient | null> | null = null
 
 function clipped(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength)
@@ -99,63 +99,43 @@ function parseSummary(response: PuterChatResponse) {
   return clipped(record.summary, 180) || null
 }
 
-export function preloadFreeCloudMrKimAI(
-  documentObject: Document | undefined = typeof document === "undefined"
+function runtimePuterWindow(): PuterWindow | undefined {
+  return typeof window === "undefined"
     ? undefined
-    : document,
-  windowObject:
-    | Pick<Window, "puter" | "setTimeout" | "clearTimeout">
-    | undefined = typeof window === "undefined" ? undefined : window
+    : (window as unknown as PuterWindow)
+}
+
+const loadBundledPuter: PuterModuleLoader = async () => {
+  const module = await import("@heyputer/puter.js")
+  return {
+    default: module.default as unknown as PuterClient,
+    puter: module.puter as unknown as PuterClient,
+  }
+}
+
+export function preloadFreeCloudMrKimAI(
+  windowObject: PuterWindow | undefined = runtimePuterWindow(),
+  loader: PuterModuleLoader = loadBundledPuter
 ) {
   if (windowObject?.puter) {
     return Promise.resolve(true)
   }
-  if (!documentObject || !windowObject) return Promise.resolve(false)
-  if (scriptPromise) return scriptPromise
-  scriptPromise = new Promise<boolean>((resolve) => {
-    let existing = documentObject.getElementById(
-      PUTER_SCRIPT_ID
-    ) as HTMLScriptElement | null
-    if (existing?.dataset.alexactLoadState === "failed") {
-      existing.remove()
-      existing = null
-    }
-    const script = existing ?? documentObject.createElement("script")
-    let settled = false
-    let timeout = 0
-    const finish = (loaded: boolean) => {
-      if (settled) return
-      settled = true
-      windowObject.clearTimeout(timeout)
-      const ready = loaded && Boolean(windowObject.puter)
-      script.dataset.alexactLoadState = ready ? "loaded" : "failed"
-      if (!ready) {
-        script.remove()
-        scriptPromise = null
-      }
-      resolve(ready)
-    }
-    timeout = windowObject.setTimeout(
-      () => finish(false),
-      PUTER_LOAD_TIMEOUT_MS
-    )
-    script.addEventListener("load", () => finish(true), { once: true })
-    script.addEventListener("error", () => finish(false), { once: true })
-    if (!existing) {
-      script.id = PUTER_SCRIPT_ID
-      script.src = PUTER_SCRIPT_URL
-      script.async = true
-      script.referrerPolicy = "strict-origin-when-cross-origin"
-      documentObject.head.append(script)
-    }
+  if (!windowObject) return Promise.resolve(false)
+  bundledPuterPromise ??= loader()
+    .then((module) => module.puter ?? module.default ?? null)
+    .catch(() => {
+      bundledPuterPromise = null
+      return null
+    })
+  return bundledPuterPromise.then((puter) => {
+    if (!puter) return false
+    windowObject.puter = puter
+    return true
   })
-  return scriptPromise
 }
 
 export function beginFreeCloudMrKimConnection(
-  puter: PuterClient | undefined = typeof window === "undefined"
-    ? undefined
-    : window.puter
+  puter: PuterClient | undefined = runtimePuterWindow()?.puter
 ) {
   if (!puter) return null
   if (puter.auth.isSignedIn()) return Promise.resolve(true)
@@ -172,8 +152,7 @@ export async function answerWithFreeCloudMrKimAI(input: {
   puter?: PuterClient
 }) {
   if (!canUseOnDeviceAI(input.answer)) return input.answer
-  const puter =
-    input.puter ?? (typeof window === "undefined" ? undefined : window.puter)
+  const puter = input.puter ?? runtimePuterWindow()?.puter
   if (!puter || !puter.auth.isSignedIn()) return input.answer
 
   const recentConversation = (input.history ?? []).slice(-3).map((message) => ({

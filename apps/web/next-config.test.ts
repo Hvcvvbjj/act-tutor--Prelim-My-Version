@@ -21,8 +21,9 @@ describe("public response security", () => {
     )
     expect(headers["Content-Security-Policy"]).toContain("object-src 'none'")
     expect(headers["Content-Security-Policy"]).toContain(
-      "script-src 'self' 'unsafe-inline' https://js.puter.com"
+      "script-src 'self' 'unsafe-inline'"
     )
+    expect(headers["Content-Security-Policy"]).not.toContain("js.puter.com")
     expect(headers["Content-Security-Policy"]).toContain(
       "connect-src 'self' https://api.puter.com https://*.puter.com"
     )

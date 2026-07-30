@@ -43,7 +43,7 @@ export const BUILD_COMMIT =
 
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://js.puter.com${isDevelopment ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",
@@ -100,6 +100,7 @@ const nextConfig: NextConfig = {
     "@act-tutor/content",
     "@act-tutor/core",
     "@act-tutor/server",
+    "@heyputer/puter.js",
   ],
   async headers() {
     return [
