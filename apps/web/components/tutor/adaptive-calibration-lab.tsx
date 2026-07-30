@@ -247,11 +247,11 @@ function AdaptiveProofReplay({
           tabIndex={-1}
           className="mt-3 scroll-mt-20 font-heading text-4xl leading-tight font-black tracking-[-0.03em] outline-none sm:text-5xl"
         >
-          AlexACT updated your skill estimates.
+          AlexACT updated one skill estimate.
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-          {proof.learning.skillLabel} was updated. Later-round priority:{" "}
-          {laterPriority.label}.
+          Only {proof.learning.skillLabel} changed. AlexACT rechecked your
+          later-round priority: {laterPriority.label}.
         </p>
         {!adaptiveBaselineRequired ? (
           <Button
@@ -287,13 +287,13 @@ function AdaptiveProofReplay({
             tabIndex={-1}
             className="mt-3 max-w-4xl scroll-mt-20 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
           >
-            AlexACT updated your skill estimates.
+            AlexACT updated one skill estimate.
           </h1>
         </div>
         <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
           {proof.correct
-            ? `Your answer strengthened AlexACT’s estimate for ${proof.learning.skillLabel}. AlexACT then updated your later-round priorities.`
-            : `Your answer gave AlexACT more information about ${proof.learning.skillLabel}. AlexACT then updated your later-round priorities.`}
+            ? `Your answer strengthened AlexACT’s estimate for ${proof.learning.skillLabel}. AlexACT then rechecked your later-round priorities.`
+            : `Your answer gave AlexACT more information about ${proof.learning.skillLabel}. AlexACT then rechecked your later-round priorities.`}
         </p>
       </div>
 
@@ -313,8 +313,8 @@ function AdaptiveProofReplay({
               after={`${proof.readinessAfter}/100`}
             />
             <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-              This internal index helps AlexACT choose a question that is neither
-              too easy nor too hard. It is not an ACT score.
+              This internal index helps AlexACT choose a question that is
+              neither too easy nor too hard. It is not an ACT score.
             </p>
           </article>
         ) : null}
@@ -369,7 +369,7 @@ function AdaptiveProofReplay({
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {representativeDemo
-              ? "The sample My schedule calendar stays fixed so you can compare what changed: the skill estimate and later-round priority."
+              ? "The sample My schedule calendar stays fixed so you can compare the skill estimate with AlexACT’s later-round priority check."
               : adaptiveBaselineRequired
                 ? "This was your starting check. Use “Build my study plan” below to turn these answers into a dated calendar."
                 : "Your dated My schedule calendar stays as it is. AlexACT will use this update when setting later-round priorities."}
@@ -958,8 +958,8 @@ export function AdaptiveCalibrationLab({
               Starting point saved.
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-              AlexACT used {payload.responseCount} answers to build your starting
-              skill profile.
+              AlexACT used {payload.responseCount} answers to build your
+              starting skill profile.
             </p>
             {canViewTechnicalDetails ? (
               <p className="mt-4 text-sm text-muted-foreground">

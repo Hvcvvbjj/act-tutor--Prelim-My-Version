@@ -4,8 +4,7 @@ async function signInAsJudge(page: Page) {
   const judgeUsername =
     process.env.SCOUT_DEV_USERNAME ?? process.env.SCOUT_JUDGE_USERNAME
   const judgePassword =
-    process.env.SCOUT_E2E_DEV_PASSWORD ??
-    process.env.SCOUT_E2E_JUDGE_PASSWORD
+    process.env.SCOUT_E2E_DEV_PASSWORD ?? process.env.SCOUT_E2E_JUDGE_PASSWORD
   expect(
     judgeUsername,
     "Set SCOUT_DEV_USERNAME for the developer flow."
@@ -50,6 +49,31 @@ test("a verified developer can open the demo directly from the welcome screen", 
   await expect(
     page.getByText("How AlexACT chose this question", { exact: false })
   ).toBeVisible()
+
+  const answerChoices = page.getByRole("radiogroup", {
+    name: "Answer choices for Quick Check question 8",
+  })
+  await answerChoices.getByRole("radio").first().press("Space")
+  await page.getByRole("button", { name: "Check my answer" }).click()
+
+  await expect(
+    page.getByRole("heading", {
+      name: "AlexACT updated one skill estimate.",
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByText("AlexACT then rechecked your later-round priorities.", {
+      exact: false,
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByText("Priority unchanged", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      name: "AlexACT updated your skill estimates.",
+    })
+  ).toHaveCount(0)
 })
 
 test("a failed developer demo stays on the welcome screen with a retry path", async ({

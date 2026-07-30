@@ -360,7 +360,11 @@ describe("learner-facing model language", () => {
     expect(quickCheck).toContain(
       'latestEvent.correct ? "Correct." : "Not quite."'
     )
-    expect(quickCheck).toContain("AlexACT updated your skill estimates.")
+    expect(quickCheck).toContain("AlexACT updated one skill estimate.")
+    expect(quickCheck).toContain("Only {proof.learning.skillLabel} changed.")
+    expect(quickCheck).toContain("rechecked your later-round priorities")
+    expect(quickCheck).not.toContain("AlexACT updated your skill estimates.")
+    expect(quickCheck).not.toContain("then updated your later-round priorities")
     expect(quickCheck).toMatch(
       /Round 1 still teaches all 12\s+question types\./
     )
@@ -369,6 +373,7 @@ describe("learner-facing model language", () => {
     expect(quickCheck).toContain("1 · Question match")
     expect(quickCheck).toContain("Priority unchanged")
     expect(quickCheck).toContain("later-round priority")
+    expect(quickCheck).toContain("later-round priority check")
     expect(quickCheck).not.toContain("next lesson")
     expect(quickCheck).not.toContain("order AlexACT recommends practice")
     expect(quickCheck).toContain(
