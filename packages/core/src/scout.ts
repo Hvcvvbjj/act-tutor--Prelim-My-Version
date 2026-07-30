@@ -1,8 +1,10 @@
 export const SCOUT_SCREENS = [
   "today",
+  "needs-work",
   "plan",
   "calibrate",
   "progress",
+  "history",
   "badges",
   "lab",
   "diagnostic-review",

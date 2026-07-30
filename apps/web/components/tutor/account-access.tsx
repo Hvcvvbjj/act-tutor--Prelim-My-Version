@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react"
 import {
+  BellRingIcon,
   CheckCircle2Icon,
   KeyRoundIcon,
   LogInIcon,
@@ -11,10 +12,15 @@ import {
   XIcon,
 } from "lucide-react"
 
+import {
+  LessonReminderFields,
+  lessonReminderDraftFromPreferences,
+} from "@/components/tutor/lesson-reminder-fields"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type {
   AuthViewer,
+  LessonReminderDraft,
   PendingTutorSetup,
   SavedTutorPlan,
 } from "@/lib/auth-types"
@@ -37,16 +43,37 @@ interface AuthResponse {
 }
 
 async function accountRequest(body: Record<string, unknown>) {
-  const response = await fetch("/api/auth", {
-    method: "POST",
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
-  const payload = (await response.json().catch(() => ({}))) as AuthResponse
+  let response: Response
+  try {
+    response = await fetch("/api/auth", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new Error(
+      "AlexACT could not reach the account service. Your work is still saved on this device; check your connection and try again."
+    )
+  }
+
+  const responseText = await response.text()
+  let payload: AuthResponse = {}
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText) as AuthResponse
+    } catch {
+      payload = {}
+    }
+  }
   if (!response.ok || !payload.viewer) {
-    throw new Error(payload.error ?? "The account request did not finish.")
+    throw new Error(
+      payload.error ??
+        (response.status >= 500
+          ? "The account service is temporarily unavailable. Your work is still saved on this device; try again in a moment."
+          : "The account request did not finish. Check the fields and try again.")
+    )
   }
   return payload.viewer
 }
@@ -65,7 +92,12 @@ export function AccountAccess({
   const [displayName, setDisplayName] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [reminderStatus, setReminderStatus] = useState<string | null>(null)
+  const [lessonReminders, setLessonReminders] = useState<LessonReminderDraft>(
+    () => lessonReminderDraftFromPreferences(viewer.lessonReminders)
+  )
   const [busy, setBusy] = useState(false)
+  const operationInFlightRef = useRef(false)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const titleId = useId()
@@ -121,12 +153,15 @@ export function AccountAccess({
   function show(nextMode: Mode) {
     setMode(nextMode)
     setError(null)
+    setReminderStatus(null)
     setPassword("")
     setOpen(true)
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (operationInFlightRef.current) return
+    operationInFlightRef.current = true
     setBusy(true)
     setError(null)
     try {
@@ -139,6 +174,7 @@ export function AccountAccess({
               password,
               savedPlan,
               pendingSetup,
+              lessonReminders,
             }
           : {
               action: "login",
@@ -147,6 +183,9 @@ export function AccountAccess({
               pendingSetup,
             }
       )
+      setLessonReminders(
+        lessonReminderDraftFromPreferences(nextViewer.lessonReminders)
+      )
       onViewerChange(nextViewer)
       setOpen(false)
       setPassword("")
@@ -154,9 +193,43 @@ export function AccountAccess({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The account request did not finish."
+          : "AlexACT could not save the account. Your work is still on this device; try again."
       )
     } finally {
+      operationInFlightRef.current = false
+      setBusy(false)
+    }
+  }
+
+  async function saveReminders(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (operationInFlightRef.current) return
+    operationInFlightRef.current = true
+    setBusy(true)
+    setError(null)
+    setReminderStatus(null)
+    try {
+      const nextViewer = await accountRequest({
+        action: "save_reminders",
+        lessonReminders,
+      })
+      setLessonReminders(
+        lessonReminderDraftFromPreferences(nextViewer.lessonReminders)
+      )
+      onViewerChange(nextViewer)
+      setReminderStatus(
+        lessonReminders.enabled
+          ? "Preferences saved. Reminders will begin when AlexACT's delivery service is enabled."
+          : "Lesson reminders are off. Saved email and phone reminder contacts were removed."
+      )
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Lesson reminder preferences could not be saved."
+      )
+    } finally {
+      operationInFlightRef.current = false
       setBusy(false)
     }
   }
@@ -184,7 +257,7 @@ export function AccountAccess({
 
   const buttonLabel =
     viewer.role === "judge"
-      ? "Judge view"
+      ? "Developer mode"
       : viewer.role === "learner"
         ? viewer.displayName || viewer.username || "My account"
         : (guestLabel ?? "Sign in / save progress")
@@ -235,11 +308,11 @@ export function AccountAccess({
                 >
                   {viewer.authenticated
                     ? viewer.role === "judge"
-                      ? "Judge review is on."
+                      ? "Developer mode is on."
                       : "Your progress is saved."
                     : mode === "login"
                       ? "Welcome back."
-                      : "Keep your Scout progress."}
+                      : "Keep your AlexACT progress."}
                 </h2>
               </div>
               <Button
@@ -277,8 +350,8 @@ export function AccountAccess({
                   </div>
                   <p id={descriptionId} className="mt-4 text-sm leading-6">
                     {viewer.role === "judge"
-                      ? "Technical evidence and judge-only demo controls are visible in this session."
-                      : "Your latest Scout plan is saved to this account."}
+                      ? "Live learner-model evidence, assessment details, and protected demo controls are visible in this session."
+                      : "Your latest AlexACT plan is saved to this account."}
                   </p>
                 </div>
                 {error ? (
@@ -289,6 +362,61 @@ export function AccountAccess({
                     {error}
                   </p>
                 ) : null}
+                {viewer.role === "learner" ? (
+                  <form
+                    className="mt-6 border-t-2 border-foreground pt-6"
+                    onSubmit={saveReminders}
+                  >
+                    <div className="flex items-start gap-3">
+                      <BellRingIcon
+                        className="mt-0.5 size-5 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      <div>
+                        <h3 className="font-heading text-xl font-black">
+                          Lesson reminders
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                          Choose if and when AlexACT may contact you about your
+                          schedule. These settings are optional.
+                        </p>
+                      </div>
+                    </div>
+                    <LessonReminderFields
+                      value={lessonReminders}
+                      onChange={setLessonReminders}
+                      idPrefix="account-reminders"
+                      className="mt-5"
+                    />
+                    {reminderStatus ? (
+                      <p
+                        className="mt-4 text-sm font-semibold text-primary"
+                        role="status"
+                      >
+                        {reminderStatus}
+                      </p>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="lg"
+                      className="mt-5 w-full"
+                      disabled={busy}
+                    >
+                      <BellRingIcon />
+                      {busy ? "Saving…" : "Save reminder settings"}
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="mt-6 border-t-2 border-foreground pt-6">
+                    <p className="ink-label text-primary">Unlocked tools</p>
+                    <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+                      <li>Live diagnostic and learner-model evidence</li>
+                      <li>Adaptive-plan reasoning and model confidence</li>
+                      <li>Protected seeded demos and recovery controls</li>
+                    </ul>
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -397,10 +525,17 @@ export function AccountAccess({
                     />
                   </label>
                   {mode === "signup" ? (
-                    <p className="-mt-1 text-xs leading-5 text-muted-foreground">
-                      Use at least 12 characters with a letter, number, and
-                      symbol. Your password is never stored in readable form.
-                    </p>
+                    <>
+                      <p className="-mt-1 text-xs leading-5 text-muted-foreground">
+                        Use at least 12 characters with a letter, number, and
+                        symbol. Your password is never stored in readable form.
+                      </p>
+                      <LessonReminderFields
+                        value={lessonReminders}
+                        onChange={setLessonReminders}
+                        idPrefix="signup-reminders"
+                      />
+                    </>
                   ) : null}
                   {error ? (
                     <p

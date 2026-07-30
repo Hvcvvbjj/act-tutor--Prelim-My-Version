@@ -5,6 +5,12 @@ import { join } from "node:path"
 import { NextRequest } from "next/server"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
+import {
+  claimLessonReminderDelivery,
+  completeLessonReminderDelivery,
+  listLessonReminderSubscriptions,
+} from "@/lib/auth.server"
+
 import { POST as calibrationPost } from "../calibration/route"
 import { POST } from "./route"
 
@@ -98,20 +104,20 @@ const pendingOnboardingSetup = {
   onboardingStep: 2,
 }
 
-describe.sequential("optional learner and judge accounts", () => {
+describe.sequential("optional learner accounts and developer mode", () => {
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "scout-auth-test-"))
     authStorePath = join(directory, "accounts.json")
     process.env.SCOUT_AUTH_STORE_PATH = authStorePath
-    process.env.SCOUT_JUDGE_USERNAME = "scout-judge-test"
-    process.env.SCOUT_JUDGE_PASSWORD_HASH =
+    process.env.SCOUT_DEV_USERNAME = "alexact-dev-test"
+    process.env.SCOUT_DEV_PASSWORD_HASH =
       "pbkdf2-sha256:310000:A28OWvHb6t7LhElS4iF4UA3M:NwpwGKJc86nkDDWOLhzYmFkdGuQv33OAt8zEYJQiHD4"
   })
 
   afterAll(async () => {
     delete process.env.SCOUT_AUTH_STORE_PATH
-    delete process.env.SCOUT_JUDGE_USERNAME
-    delete process.env.SCOUT_JUDGE_PASSWORD_HASH
+    delete process.env.SCOUT_DEV_USERNAME
+    delete process.env.SCOUT_DEV_PASSWORD_HASH
     await rm(directory, { recursive: true, force: true })
   })
 
@@ -152,8 +158,195 @@ describe.sequential("optional learner and judge accounts", () => {
       accounts: Record<string, { password: { iterations: number } }>
     }
     expect(Object.values(parsedStore.accounts)[0]?.password.iterations).toBe(
-      310_000
+      100_000
     )
+  })
+
+  it("keeps every account when several learners sign up at the same time", async () => {
+    const usernames = Array.from(
+      { length: 6 },
+      (_, index) => `parallel-learner-${index + 1}`
+    )
+    const responses = await Promise.all(
+      usernames.map((username, index) =>
+        POST(
+          authRequest({
+            action: "signup",
+            username,
+            displayName: `Parallel Learner ${index + 1}`,
+            password: `ParallelStrong!2026-${index + 1}`,
+          })
+        )
+      )
+    )
+    expect(responses.map((response) => response.status)).toEqual([
+      201, 201, 201, 201, 201, 201,
+    ])
+
+    const restored = await Promise.all(
+      usernames.map((username, index) =>
+        POST(
+          authRequest({
+            action: "login",
+            username,
+            password: `ParallelStrong!2026-${index + 1}`,
+          })
+        )
+      )
+    )
+    expect(restored.every((response) => response.status === 200)).toBe(true)
+  })
+
+  it("turns a simultaneous duplicate signup into a clear username conflict", async () => {
+    const [first, second] = await Promise.all([
+      POST(
+        authRequest({
+          action: "signup",
+          username: "one-race-winner",
+          displayName: "First Attempt",
+          password: "RaceWinnerStrong!2026",
+        })
+      ),
+      POST(
+        authRequest({
+          action: "signup",
+          username: "one-race-winner",
+          displayName: "Second Attempt",
+          password: "RaceWinnerStrong!2026",
+        })
+      ),
+    ])
+    expect([first.status, second.status].toSorted()).toEqual([201, 409])
+    const conflict = first.status === 409 ? first : second
+    await expect(conflict.json()).resolves.toEqual({
+      error: "That username is already in use. Try another.",
+    })
+  })
+
+  it("saves granular reminder consent and scrubs contacts when reminders are disabled", async () => {
+    const signup = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-reminders",
+        displayName: "Reminder Learner",
+        password: "ReminderStrong!2026",
+        lessonReminders: {
+          enabled: true,
+          emailEnabled: true,
+          emailAddress: "STUDENT@Example.com ",
+          smsEnabled: true,
+          phoneNumber: "+1 (312) 555-0198",
+          upcomingTiming: "two-days-before",
+          overdueTiming: "three-days-after",
+        },
+      })
+    )
+    expect(signup.status).toBe(201)
+    const signupPayload = (await signup.json()) as {
+      viewer: { lessonReminders: { consentedAt: string } }
+    }
+    expect(signupPayload.viewer.lessonReminders).toMatchObject({
+      enabled: true,
+      emailEnabled: true,
+      emailAddress: "student@example.com",
+      smsEnabled: true,
+      phoneNumber: "+13125550198",
+      upcomingTiming: "two-days-before",
+      overdueTiming: "three-days-after",
+    })
+    expect(
+      Date.parse(signupPayload.viewer.lessonReminders.consentedAt)
+    ).not.toBeNaN()
+
+    const subscription = (await listLessonReminderSubscriptions()).find(
+      (candidate) => candidate.displayName === "Reminder Learner"
+    )
+    expect(subscription).toBeTruthy()
+    const deliveryKey = "reminder:v1:upcoming:2026-07-30:email"
+    const claim = await claimLessonReminderDelivery(
+      subscription!.accountId,
+      deliveryKey,
+      "2026-07-29T12:00:00.000Z"
+    )
+    expect(claim).toMatchObject({
+      accountId: subscription!.accountId,
+      deliveryKey,
+    })
+    await expect(
+      claimLessonReminderDelivery(
+        subscription!.accountId,
+        deliveryKey,
+        "2026-07-29T12:01:00.000Z"
+      )
+    ).resolves.toBeNull()
+    await expect(
+      completeLessonReminderDelivery(claim!, "2026-07-29T12:02:00.000Z")
+    ).resolves.toBe(true)
+    await expect(
+      claimLessonReminderDelivery(
+        subscription!.accountId,
+        deliveryKey,
+        "2026-07-30T13:00:00.000Z"
+      )
+    ).resolves.toBeNull()
+
+    const token = signup.cookies.get("scout_auth_session")?.value
+    expect(token).toBeTruthy()
+    const disabled = await POST(
+      authRequest(
+        {
+          action: "save_reminders",
+          lessonReminders: {
+            enabled: false,
+            emailEnabled: true,
+            emailAddress: "student@example.com",
+            smsEnabled: true,
+            phoneNumber: "+13125550198",
+            upcomingTiming: "two-days-before",
+            overdueTiming: "three-days-after",
+          },
+        },
+        `scout_auth_session=${token}`
+      )
+    )
+    expect(disabled.status).toBe(200)
+    await expect(disabled.json()).resolves.toMatchObject({
+      viewer: {
+        lessonReminders: {
+          enabled: false,
+          emailEnabled: false,
+          emailAddress: null,
+          smsEnabled: false,
+          phoneNumber: null,
+          consentedAt: null,
+        },
+      },
+    })
+    expect(await readFile(authStorePath, "utf8")).not.toContain(deliveryKey)
+  })
+
+  it("rejects reminder opt-ins that have no delivery channel", async () => {
+    const response = await POST(
+      authRequest({
+        action: "signup",
+        username: "learner-invalid-reminders",
+        displayName: "Invalid Reminder Learner",
+        password: "ReminderStrong!2026",
+        lessonReminders: {
+          enabled: true,
+          emailEnabled: false,
+          emailAddress: null,
+          smsEnabled: false,
+          phoneNumber: null,
+          upcomingTiming: "one-day-before",
+          overdueTiming: "one-day-after",
+        },
+      })
+    )
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: "Choose email, text message, or both for lesson reminders.",
+    })
   })
 
   it("persists pending score follow-ups and the onboarding official baseline", async () => {
@@ -578,11 +771,11 @@ describe.sequential("optional learner and judge accounts", () => {
     })
   })
 
-  it("reveals technical access only after the server verifies the judge login", async () => {
+  it("reveals technical access only after the server verifies developer credentials", async () => {
     const response = await POST(
       authRequest({
         action: "login",
-        username: "scout-judge-test",
+        username: "alexact-dev-test",
         password: "JudgePassword!2026",
       })
     )
@@ -592,7 +785,8 @@ describe.sequential("optional learner and judge accounts", () => {
       viewer: {
         authenticated: true,
         role: "judge",
-        username: "scout-judge-test",
+        username: "alexact-dev-test",
+        displayName: "AlexACT developer",
         technicalDetails: true,
         savedPlan: null,
       },
@@ -609,7 +803,7 @@ describe.sequential("optional learner and judge accounts", () => {
     )
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({
-      error: "Judge access is required for this demo control.",
+      error: "Developer mode is required for this demo control.",
     })
   })
 

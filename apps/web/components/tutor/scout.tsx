@@ -31,7 +31,7 @@ export function ScoutMark({
         className
       )}
       role="img"
-      aria-label={`Mr. Kim, Scout's AI tutor, is ${mood}`}
+      aria-label={`Mr. Kim, AlexACT's AI tutor, is ${mood}`}
     >
       <svg
         viewBox="0 0 120 120"

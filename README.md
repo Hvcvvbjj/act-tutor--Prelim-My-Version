@@ -1,8 +1,8 @@
-# Scout ACT — AI ACT Tutor
+# AlexACT — AI ACT Tutor
 
 An adaptive, Duolingo-style ACT study product that turns a student's score history and every practice answer into the next best learning action.
 
-> Product promise: **Every answer becomes evidence. Scout changes the plan only when that evidence is strong enough.**
+> Product promise: **Every answer becomes evidence. AlexACT changes the plan only when that evidence is strong enough.**
 
 ## Repository status
 
@@ -29,26 +29,26 @@ Working in the current slice:
 - an 8–12 item adaptive **Quick Check** using a Bayesian 2PL IRT ability estimate, Fisher-information item selection, explicit coverage constraints, and a precision-based stop rule;
 - a visible IRT → BKT → adaptive-plan handoff: the calibration model decides which evidence is most useful, then the skill model decides what to teach;
 - an interpretable model inspector with feature contributions, public evidence history, and counterfactual planning projections;
-- a server-verified judge demo for quickly reviewing the complete learning cycle without weakening the real learner gate;
+- a server-verified developer demo for reviewing the complete learning cycle without weakening the real learner gate;
 - keyboard answer shortcuts for Quick Check and an adjustable weekly schedule that spreads work across the learner's available days;
-- complete Timed Practice with 12-skill sprints, half-length section simulations, and a 66-question core rehearsal;
+- complete Timed Practice with 12-skill sprints, full-section simulations, and a 131-question full-length core test;
 - timed section clocks, passage-aware navigation, flags, autosave/resume, omission review, and server-owned scoring;
 - score-range, section, skill, and pacing reports plus an aggregate-only AI debrief with a reviewed fallback.
-- an interactive Scout tutor mascot with teaching, thinking, repair, and celebration states.
-- a product-wide Ask Scout layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
+- an interactive AlexACT tutor mascot with teaching, thinking, repair, and celebration states.
+- a product-wide Ask Mr. Kim layer with screen context, conversation history, highlighted-text explanation, assistance permissions, timed-test guardrails, grounded response receipts, and saved explanation preferences;
 - exact two-question retention checks, fresh-item mistake replay, three-minute study, mastery challenges, recovery sessions, alternate teaching styles, and question-exposure protection;
 - a Learning data workspace for bounded learner-model corrections, ACT pacing advice and manual score scenarios, model-choice explanations, an honest imported group-metric viewer, single-learner question history, read-only Coach Briefs, truthful data deletion, and versioned weak-connection answer sync.
 
-Still placeholders or future milestones:
+Still future milestones:
 
 - empirical score calibration, independent psychometric/content review, database-backed multi-instance submission, and broader skill coverage;
-- Supabase authentication/persistence, CI, deployment, and production monitoring.
+- multi-instance database persistence, CI, and production monitoring.
 
-The half-length diagnostic is original and proportioned to the enhanced ACT core, but it still reports an estimated practice range rather than claiming official ACT precision.
+The full 66-question diagnostic is original and proportioned across the enhanced ACT core sections. It reports an estimated practice range rather than claiming official ACT precision.
 
 ## Run locally
 
-Scout runs completely locally. The base app does **not** require a database, an API key, or Ollama. Without a live model, it uses its reviewed personalized lesson fallback. Local diagnostic, calibration, learning, exam, and study-plan state is stored in ignored JSON files under `apps/web/.data/`.
+AlexACT runs completely locally. The base app does **not** require a database, an API key, or Ollama. Without a live model, it uses its reviewed personalized lesson fallback. Local diagnostic, calibration, learning, exam, and study-plan state is stored in ignored JSON files under `apps/web/.data/`.
 
 The repository uses:
 
@@ -115,7 +115,7 @@ pnpm --version
 
 Expected results are Node.js `v22.13.1` and pnpm `11.7.0`. pnpm 11 requires Node.js `22.13` or newer. Install pnpm **after** `nvm use`, because each nvm-managed Node.js version has its own global packages.
 
-#### 5. Install dependencies and start Scout
+#### 5. Install dependencies and start AlexACT
 
 ```bash
 pnpm install --frozen-lockfile
@@ -128,11 +128,11 @@ Leave that Terminal window running. Open a second Terminal window and run:
 open http://localhost:3000
 ```
 
-Scout should open in your browser. Press `Control + C` in the first Terminal window to stop it.
+AlexACT should open in your browser. Press `Control + C` in the first Terminal window to stop it.
 
 #### 6. Add free local AI lesson generation on macOS (optional)
 
-Scout already works without this step. To generate lessons with Qwen locally, install [Ollama for macOS](https://ollama.com/download/mac). Ollama currently requires macOS Sonoma 14 or newer. Open the downloaded app once and allow it to add its command-line tool when prompted.
+AlexACT already works without this step. To generate lessons with Qwen locally, install [Ollama for macOS](https://ollama.com/download/mac). Ollama currently requires macOS Sonoma 14 or newer. Open the downloaded app once and allow it to add its command-line tool when prompted.
 
 Then run:
 
@@ -215,7 +215,7 @@ Set-Location .\act-tutor--Prelim-My-Version
 
 If the repository is already cloned, use `Set-Location` with the full path to your existing copy instead.
 
-#### 4. Install dependencies and start Scout
+#### 4. Install dependencies and start AlexACT
 
 ```powershell
 pnpm.cmd install --frozen-lockfile
@@ -228,11 +228,11 @@ Leave that PowerShell window running. Open a second PowerShell window and run:
 Start-Process "http://localhost:3000"
 ```
 
-Scout should open in your browser. Press `Ctrl + C` in the first PowerShell window to stop it.
+AlexACT should open in your browser. Press `Ctrl + C` in the first PowerShell window to stop it.
 
 #### 5. Add free local AI lesson generation on Windows (optional)
 
-Scout already works without this step. For live local generation, open the [Ollama Windows download](https://ollama.com/download/windows), run the installer, and then open a new PowerShell window. Ollama currently requires Windows 10 22H2 or newer and normally starts its local API in the background.
+AlexACT already works without this step. For live local generation, open the [Ollama Windows download](https://ollama.com/download/windows), run the installer, and then open a new PowerShell window. Ollama currently requires Windows 10 22H2 or newer and normally starts its local API in the background.
 
 ```powershell
 ollama --version
@@ -281,7 +281,7 @@ Never prefix the key with `NEXT_PUBLIC_` or commit it to the repository. Restart
 the local development server, or redeploy the hosted site, after changing these
 values.
 
-For local-only development, Scout can instead use Ollama's OpenAI-compatible
+For local-only development, AlexACT can instead use Ollama's OpenAI-compatible
 endpoint for Mr. Kim chat, generated lessons, and debriefs. This path does not
 need a paid API key:
 
@@ -295,7 +295,7 @@ On supported desktop Chrome installations, Mr. Kim can also use Chrome's
 built-in on-device language model without a server key. The chat header says
 which AI path answered. A successful generated lesson is labeled
 **AI-personalized lesson**. If every model path is unavailable or returns
-invalid output, Scout safely uses reviewed guidance instead. No model can
+invalid output, AlexACT safely uses reviewed guidance instead. No model can
 change scoring or the learner's saved results.
 
 ### Optional session-storage locations
@@ -326,7 +326,7 @@ pnpm.cmd dev
 
 ### Reset all local demo progress
 
-Stop Scout before deleting the local files.
+Stop AlexACT before deleting the local files.
 
 macOS:
 
@@ -369,7 +369,7 @@ pnpm.cmd --filter web start
 - **The Node.js version is wrong:** on macOS, run `nvm install` and `nvm use` from the repository root. On Windows, run `winget upgrade --id OpenJS.NodeJS.LTS -e --source winget`, reopen PowerShell, and check `node --version`.
 - **Port 3000 is busy:** use `pnpm --filter web exec next dev -p 3001` on macOS or `pnpm.cmd --filter web exec next dev -p 3001` in PowerShell, then open [http://localhost:3001](http://localhost:3001).
 - **Ollama cannot connect:** make sure the Ollama app is open, run `ollama serve` in its own terminal if necessary, and retry the API health command from the appropriate setup section.
-- **The browser shows old learner progress:** reset the JSON files, clear cookies for `localhost:3000`, and restart Scout.
+- **The browser shows old learner progress:** reset the JSON files, clear cookies for `localhost:3000`, and restart AlexACT.
 
 ## Core experience
 
@@ -393,7 +393,7 @@ The current enhanced ACT uses English, Math, and Reading for the Composite. Scie
 ## MVP stack
 
 - Implemented now: Next.js App Router and Route Handlers, TypeScript, Tailwind CSS, shadcn components built on Base UI, pure TypeScript core/content/server packages, Zod content validation, durable anonymous local sessions, and Vitest.
-- Implemented verification: Vitest unit/route contracts plus Playwright release journeys for Quick Check rebasing and mobile Scout behavior.
+- Implemented verification: Vitest unit/route contracts plus Playwright release journeys for Quick Check rebasing and mobile AlexACT behavior.
 - Planned next: Supabase Postgres with anonymous auth and Row Level Security, Vercel previews, and broader browser coverage.
 - Implemented AI boundary: OpenAI-compatible live lesson/debrief composition, including local Qwen through Ollama, with schema and grounding checks plus reviewed fallbacks.
 - Implemented evidence-acquisition model: a Bayesian 2PL IRT Quick Check selects the unanswered item with the highest Fisher information plus section/skill coverage bonuses, estimates ability and uncertainty, and stops after 8–12 items.

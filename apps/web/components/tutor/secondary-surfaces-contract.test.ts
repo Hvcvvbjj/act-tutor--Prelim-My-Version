@@ -16,11 +16,11 @@ describe("desktop secondary-surface hierarchy", () => {
     )
 
     expect(operations).toContain("Data &amp; privacy")
-    expect(operations).toContain("See and control what Scout saves")
+    expect(operations).toContain("See and control what AlexACT saves")
     expect(operations).toContain('label: "Your data"')
     expect(operations).toContain('label: "ACT timing"')
-    expect(learnerModel).toContain("What Scout saves")
-    expect(learnerModel.indexOf("What Scout saves")).toBeLessThan(
+    expect(learnerModel).toContain("What AlexACT saves")
+    expect(learnerModel.indexOf("What AlexACT saves")).toBeLessThan(
       learnerModel.indexOf("Current skill estimate")
     )
     expect(learnerModel).toContain("Correct a skill estimate")
@@ -42,7 +42,7 @@ describe("desktop secondary-surface hierarchy", () => {
     expect(actTiming).not.toContain("Parallel forms and exposure protection")
   })
 
-  it("centers the latest Scout answer and demotes older answers", async () => {
+  it("centers the latest AlexACT answer and demotes older answers", async () => {
     const assistant = await source("components/tutor/scout-assistant.tsx")
 
     expect(assistant).toContain("screenMessages.length === 0")
@@ -60,7 +60,7 @@ describe("desktop secondary-surface hierarchy", () => {
     expect(progress).toContain("adaptive priority may")
     expect(profile).toContain("Adaptive priority")
     expect(profile).toContain("Your current lesson may still come first.")
-    expect(profile).toContain("Why Scout prioritizes this")
+    expect(profile).toContain("Why AlexACT prioritizes this")
     expect(profile).not.toContain("Study next")
     expect(profile).not.toContain("Why this is next")
   })

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Scout ACT — Adaptive Study Coach",
-    short_name: "Scout ACT",
+    name: "AlexACT — Adaptive Study Coach",
+    short_name: "AlexACT",
     description:
       "An adaptive ACT coach that turns every scored answer into the next lesson.",
     start_url: "/",

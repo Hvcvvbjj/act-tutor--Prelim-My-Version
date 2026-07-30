@@ -207,7 +207,7 @@ export function ExamLabSetup({
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {isProgressCheck
                   ? "A sufficiently completed result changes the next round only after you choose “Start my next lesson round.”"
-                  : "Results are saved for review. They do not update Lessons or My Week."}
+                  : "Results are saved for review. They do not update Lessons or My Schedule."}
               </p>
             </div>
           </div>

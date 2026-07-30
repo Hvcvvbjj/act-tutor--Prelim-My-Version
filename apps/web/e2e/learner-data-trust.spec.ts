@@ -17,7 +17,7 @@ test("learner data labels estimate strength and makes deletion cancelable", asyn
 
   await expect(
     page.getByRole("heading", {
-      name: "See and control what Scout saves.",
+      name: "See and control what AlexACT saves.",
     })
   ).toBeVisible()
   await expect(page.getByTestId("skill-evidence-status")).toHaveText(
@@ -32,7 +32,7 @@ test("learner data labels estimate strength and makes deletion cancelable", asyn
     page.getByText(/not an ACT score or percent correct/)
   ).toBeVisible()
 
-  await page.getByRole("button", { name: "Delete Scout study data" }).click()
+  await page.getByRole("button", { name: "Delete AlexACT study data" }).click()
   await expect(
     page.getByText(/Delete saved study sessions and the current plan/)
   ).toBeVisible()
@@ -41,7 +41,7 @@ test("learner data labels estimate strength and makes deletion cancelable", asyn
   ).toBeVisible()
   await page.getByRole("button", { name: "Cancel deletion" }).click()
   await expect(
-    page.getByRole("button", { name: "Delete Scout study data" })
+    page.getByRole("button", { name: "Delete AlexACT study data" })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: "Confirm study-data deletion" })

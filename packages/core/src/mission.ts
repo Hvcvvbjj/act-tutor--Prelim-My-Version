@@ -184,8 +184,8 @@ export function buildDueReviews(
                 ) === 1
                   ? ""
                   : "s"
-              } ago. Scout scheduled a two-question review near its forgetting window.`
-            : `Scout scheduled a short review before this skill fades.`,
+              } ago. AlexACT scheduled a two-question review near its forgetting window.`
+            : `AlexACT scheduled a short review before this skill fades.`,
         },
       ];
     })

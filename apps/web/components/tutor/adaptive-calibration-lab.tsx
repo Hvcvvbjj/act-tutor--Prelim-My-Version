@@ -247,7 +247,7 @@ function AdaptiveProofReplay({
           tabIndex={-1}
           className="mt-3 scroll-mt-20 font-heading text-4xl leading-tight font-black tracking-[-0.03em] outline-none sm:text-5xl"
         >
-          Scout updated your skill estimates.
+          AlexACT updated your skill estimates.
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
           {proof.learning.skillLabel} was updated. Later-round priority:{" "}
@@ -287,13 +287,13 @@ function AdaptiveProofReplay({
             tabIndex={-1}
             className="mt-3 max-w-4xl scroll-mt-20 font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] outline-none sm:text-5xl"
           >
-            Scout updated your skill estimates.
+            AlexACT updated your skill estimates.
           </h1>
         </div>
         <p className="border-l-2 border-primary pl-5 text-lg leading-7 text-muted-foreground">
           {proof.correct
-            ? `Your answer strengthened Scout’s estimate for ${proof.learning.skillLabel}. Scout then updated your later-round priorities.`
-            : `Your answer gave Scout more information about ${proof.learning.skillLabel}. Scout then updated your later-round priorities.`}
+            ? `Your answer strengthened AlexACT’s estimate for ${proof.learning.skillLabel}. AlexACT then updated your later-round priorities.`
+            : `Your answer gave AlexACT more information about ${proof.learning.skillLabel}. AlexACT then updated your later-round priorities.`}
         </p>
       </div>
 
@@ -313,7 +313,7 @@ function AdaptiveProofReplay({
               after={`${proof.readinessAfter}/100`}
             />
             <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-              This internal index helps Scout choose a question that is neither
+              This internal index helps AlexACT choose a question that is neither
               too easy nor too hard. It is not an ACT score.
             </p>
           </article>
@@ -364,15 +364,15 @@ function AdaptiveProofReplay({
         <div>
           <p className="font-heading text-2xl font-black">
             {representativeDemo
-              ? "Scout updated the sample learner from one answer."
-              : "Scout updated this check and the skill you just practiced."}
+              ? "AlexACT updated the sample learner from one answer."
+              : "AlexACT updated this check and the skill you just practiced."}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {representativeDemo
-              ? "The sample My week calendar stays fixed so you can compare what changed: the skill estimate and later-round priority."
+              ? "The sample My schedule calendar stays fixed so you can compare what changed: the skill estimate and later-round priority."
               : adaptiveBaselineRequired
                 ? "This was your starting check. Use “Build my study plan” below to turn these answers into a dated calendar."
-                : "Your dated My week calendar stays as it is. Scout will use this update when setting later-round priorities."}
+                : "Your dated My schedule calendar stays as it is. AlexACT will use this update when setting later-round priorities."}
           </p>
         </div>
         {!adaptiveBaselineRequired ? (
@@ -701,7 +701,7 @@ export function AdaptiveCalibrationLab({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Scout could not check that answer."
+          : "AlexACT could not check that answer."
       )
     } finally {
       setBusy(false)
@@ -717,7 +717,7 @@ export function AdaptiveCalibrationLab({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Scout could not save the Quick Check plan."
+          : "AlexACT could not save the Quick Check plan."
       )
     } finally {
       setBusy(false)
@@ -735,8 +735,8 @@ export function AdaptiveCalibrationLab({
           mood={error ? "repair" : "thinking"}
           message={
             error
-              ? "Scout could not load your quick check."
-              : "Scout is choosing your next question…"
+              ? "AlexACT could not load your quick check."
+              : "AlexACT is choosing your next question…"
           }
         />
         {error ? (
@@ -828,7 +828,7 @@ export function AdaptiveCalibrationLab({
                   Quick Check
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
-                  Answer 8–12 questions. Scout may stop after eight once
+                  Answer 8–12 questions. AlexACT may stop after eight once
                   English, Math, and Reading are covered. The answers refine
                   your starting skill estimates. Round 1 still teaches all 12
                   question types.
@@ -878,7 +878,7 @@ export function AdaptiveCalibrationLab({
             <ScanSearchIcon />
             <AlertTitle>Seven sample answers are loaded</AlertTitle>
             <AlertDescription>
-              Answer once to watch Scout react.
+              Answer once to watch AlexACT react.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -904,7 +904,7 @@ export function AdaptiveCalibrationLab({
               </p>
               <p className="text-sm text-muted-foreground">
                 {payload.learningTwinUpdated
-                  ? "Scout adjusted the next question."
+                  ? "AlexACT adjusted the next question."
                   : "The answer saved, but the skill update will retry."}
               </p>
             </div>
@@ -930,7 +930,7 @@ export function AdaptiveCalibrationLab({
                   <p className="mt-1 text-sm text-muted-foreground">
                     {preserveReportedScore
                       ? "Your reported ACT score stays as the planning baseline. These answers refine your question-type estimates for later rounds; Round 1 still covers all 12 types."
-                      : "Scout will turn these answers into a temporary planning baseline for your schedule."}
+                      : "AlexACT will turn these answers into a temporary planning baseline for your schedule."}
                   </p>
                 </div>
                 <Button
@@ -958,7 +958,7 @@ export function AdaptiveCalibrationLab({
               Starting point saved.
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
-              Scout used {payload.responseCount} answers to build your starting
+              AlexACT used {payload.responseCount} answers to build your starting
               skill profile.
             </p>
             {canViewTechnicalDetails ? (
@@ -1093,7 +1093,7 @@ export function AdaptiveCalibrationLab({
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-5 font-bold text-foreground marker:content-none sm:px-6">
               <span className="flex items-center gap-3">
                 <GaugeIcon className="size-5 text-primary" aria-hidden="true" />
-                How Scout chose this question
+                How AlexACT chose this question
                 <span className="font-normal text-muted-foreground">
                   (technical details)
                 </span>
@@ -1107,7 +1107,7 @@ export function AdaptiveCalibrationLab({
             </summary>
             <div className="border-t-2 border-foreground bg-background px-4 py-7 sm:px-6">
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Scout uses a two-parameter Item Response Theory-shaped model
+                AlexACT uses a two-parameter Item Response Theory-shaped model
                 (2PL IRT). Easy, medium, and hard questions use preset
                 difficulty and discrimination constants assigned in this app;
                 they are not calibrated from a national sample. Unanswered items

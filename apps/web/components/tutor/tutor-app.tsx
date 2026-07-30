@@ -10,6 +10,7 @@ import {
   selectTargetVector,
   type CoreSection,
   type CoreSectionScores,
+  type DiagnosticFormPublic,
   type DiagnosticResult,
   type DiagnosticSkillResult,
   type ExamLabSessionPayload,
@@ -25,6 +26,11 @@ import {
 import type { TestDayCheckInResult } from "@/components/tutor/test-day-check-in"
 import { DASHBOARD_TOUR_STORAGE_KEY } from "@/components/tutor/dashboard-tour"
 import {
+  addAssessmentHistoryEntry,
+  buildDiagnosticHistoryEntry,
+  buildFullTestHistoryEntry,
+} from "@/components/tutor/assessment-history"
+import {
   hasCompletedRoundZeroDiagnostic,
   hasResumableRoundZeroDiagnostic,
 } from "@/components/tutor/round-zero-gate"
@@ -34,6 +40,7 @@ import {
   baselineStateForDraft,
 } from "@/components/tutor/tutor-journey"
 import type {
+  AssessmentHistoryEntry,
   GeneratedPlan,
   PlacementDraft,
   ProfileEvidenceSource,
@@ -45,6 +52,11 @@ import {
   type PendingTutorSetup,
   type SavedTutorPlan,
 } from "@/lib/auth-types"
+import {
+  isNationalActTestDate,
+  nextNationalActTestDate,
+  upcomingNationalActTestDateOrNext,
+} from "@/lib/act-test-dates"
 import { addCalendarDaysFrom } from "@/lib/dates"
 import {
   diagnosticPurposeForStorage,
@@ -84,7 +96,7 @@ function TutorSurfaceLoading({ message }: { message: string }) {
       aria-live="polite"
     >
       <div className="w-full max-w-xl border-y-2 border-foreground py-10">
-        <p className="ink-label text-primary">Scout is getting ready</p>
+        <p className="ink-label text-primary">AlexACT is getting ready</p>
         <p className="mt-3 font-heading text-4xl leading-none font-black sm:text-5xl">
           {message}
         </p>
@@ -143,7 +155,11 @@ function CoachedDiagnosticRunner({
   viewer: AuthViewer
   purpose: DiagnosticPurpose
   onBack: () => void
-  onComplete: (result: DiagnosticResult) => void
+  onComplete: (
+    result: DiagnosticResult,
+    attemptId: string,
+    form: DiagnosticFormPublic
+  ) => void
 }) {
   const { openScout } = useScoutContext()
   return (
@@ -184,6 +200,16 @@ function initialDraft(initialTestDate: string): PlacementDraft {
     studyDaysPerWeek: 3,
     minutesPerSession: 30,
     preferredSection: "balanced",
+  }
+}
+
+function draftWithOfficialTestDate(
+  draft: PlacementDraft,
+  today: string
+): PlacementDraft {
+  return {
+    ...draft,
+    testDate: upcomingNationalActTestDateOrNext(draft.testDate, today),
   }
 }
 
@@ -350,6 +376,50 @@ function isDiagnosticSkillResults(
   )
 }
 
+function isAssessmentHistory(
+  value: unknown
+): value is AssessmentHistoryEntry[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 64 &&
+    value.every((entry) => {
+      if (!entry || typeof entry !== "object") return false
+      const item = entry as Partial<AssessmentHistoryEntry>
+      return (
+        typeof item.id === "string" &&
+        (item.kind === "diagnostic" || item.kind === "full-test") &&
+        typeof item.title === "string" &&
+        typeof item.completedAt === "string" &&
+        !Number.isNaN(Date.parse(item.completedAt)) &&
+        Number.isInteger(item.correct) &&
+        Number.isInteger(item.total) &&
+        Number(item.correct) >= 0 &&
+        Number(item.total) >= Number(item.correct) &&
+        Number.isInteger(item.compositeScore) &&
+        Number(item.compositeScore) >= 1 &&
+        Number(item.compositeScore) <= 36 &&
+        isCoreSectionScores(item.sectionScores) &&
+        Array.isArray(item.mistakes) &&
+        item.mistakes.every(
+          (mistake) =>
+            Boolean(mistake) &&
+            typeof mistake.id === "string" &&
+            typeof mistake.questionId === "string" &&
+            (mistake.section === "english" ||
+              mistake.section === "math" ||
+              mistake.section === "reading") &&
+            typeof mistake.skill === "string" &&
+            typeof mistake.skillLabel === "string" &&
+            typeof mistake.prompt === "string" &&
+            typeof mistake.selectedChoiceText === "string" &&
+            typeof mistake.correctChoiceText === "string" &&
+            typeof mistake.rationale === "string"
+        )
+      )
+    })
+  )
+}
+
 function isTutorJourney(value: unknown): value is TutorJourney {
   if (!value || typeof value !== "object") return false
   const journey = value as Partial<TutorJourney>
@@ -402,6 +472,7 @@ function makeGeneratedPlan(input: {
   diagnosticResult?: DiagnosticResult
   profileSkillResults?: DiagnosticSkillResult[]
   profileSource?: ProfileEvidenceSource
+  assessmentHistory?: AssessmentHistoryEntry[]
   journey?: TutorJourney
   adaptiveBaselineRequired?: boolean
   baselineSkipped?: boolean
@@ -452,6 +523,7 @@ function makeGeneratedPlan(input: {
         []),
     ],
     ...(input.profileSource ? { profileSource: input.profileSource } : {}),
+    assessmentHistory: [...(input.assessmentHistory ?? [])],
     journey: input.journey ?? newTutorJourney(),
     testDatePassed: input.draft.testDate < input.today,
     ...(input.adaptiveBaselineRequired
@@ -470,6 +542,7 @@ function savedPlanFrom(plan: GeneratedPlan): SavedTutorPlan {
     currentComposite: plan.currentComposite,
     profileSkillResults: plan.profileSkillResults,
     ...(plan.profileSource ? { profileSource: plan.profileSource } : {}),
+    assessmentHistory: plan.assessmentHistory ?? [],
     journey: plan.journey,
     adaptiveBaselineRequired: plan.adaptiveBaselineRequired === true,
     baselineSkipped: plan.baselineSkipped === true,
@@ -486,6 +559,7 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
       currentComposite?: unknown
       profileSkillResults?: unknown
       profileSource?: unknown
+      assessmentHistory?: unknown
       journey?: unknown
       adaptiveBaselineRequired?: unknown
       baselineSkipped?: unknown
@@ -512,10 +586,13 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
     ) {
       return null
     }
-    const normalizedDraft: PlacementDraft = {
-      ...savedPlan.draft,
-      scoreSource: savedPlan.draft.scoreSource ?? "practice",
-    }
+    const normalizedDraft = draftWithOfficialTestDate(
+      {
+        ...savedPlan.draft,
+        scoreSource: savedPlan.draft.scoreSource ?? "practice",
+      },
+      today
+    )
     const restoredJourney =
       savedPlan.version === 2 && isTutorJourney(savedPlan.journey)
         ? savedPlan.journey
@@ -534,6 +611,9 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
       ...(savedPlan.profileSource
         ? { profileSource: savedPlan.profileSource }
         : {}),
+      assessmentHistory: isAssessmentHistory(savedPlan.assessmentHistory)
+        ? savedPlan.assessmentHistory
+        : [],
       journey: applyReportedScoreSource(restoredJourney, normalizedDraft),
       adaptiveBaselineRequired: savedPlan.adaptiveBaselineRequired,
       baselineSkipped: savedPlan.baselineSkipped,
@@ -727,8 +807,16 @@ export function TutorApp({
   const [restoredAtLoad] = useState(() =>
     restoredPlanFrom(today, initialViewer.savedPlan)
   )
-  const [pendingSetupAtLoad] = useState(
-    () => initialViewer.pendingSetup ?? null
+  const [pendingSetupAtLoad] = useState(() =>
+    initialViewer.pendingSetup
+      ? {
+          ...initialViewer.pendingSetup,
+          draft: draftWithOfficialTestDate(
+            initialViewer.pendingSetup.draft,
+            today
+          ),
+        }
+      : null
   )
   const [draft, setDraft] = useState<PlacementDraft>(
     () =>
@@ -880,7 +968,12 @@ export function TutorApp({
                 parsed.version === 6
                   ? parsed.draft
                   : clearLegacyDefaultScoreAssumptions(parsed.draft)
-              setDraft({ ...initialDraft(initialTestDate), ...restoredDraft })
+              setDraft(
+                draftWithOfficialTestDate(
+                  { ...initialDraft(initialTestDate), ...restoredDraft },
+                  today
+                )
+              )
               resumableSetupAvailable = true
             }
           }
@@ -966,6 +1059,7 @@ export function TutorApp({
       baselineSkipped?: boolean
       profileSkillResults?: DiagnosticSkillResult[]
       profileSource?: ProfileEvidenceSource
+      assessmentHistory?: AssessmentHistoryEntry[]
       journey?: TutorJourney
       save?: boolean
     } = {}
@@ -979,6 +1073,8 @@ export function TutorApp({
       diagnosticResult,
       profileSkillResults: options.profileSkillResults,
       profileSource: options.profileSource,
+      assessmentHistory:
+        options.assessmentHistory ?? plan?.assessmentHistory ?? [],
       journey: options.journey,
       adaptiveBaselineRequired: options.adaptiveBaselineRequired,
       baselineSkipped: options.baselineSkipped,
@@ -1029,7 +1125,7 @@ export function TutorApp({
       return true
     } catch {
       setError(
-        "Your plan is open, but Scout could not sync it to your account yet."
+        "Your plan is open, but AlexACT could not sync it to your account yet."
       )
       return false
     }
@@ -1076,7 +1172,7 @@ export function TutorApp({
     setViewer(nextViewer)
     const restored = restoredPlanFrom(today, nextViewer.savedPlan)
     if (nextViewer.pendingSetup) {
-      setDraft(nextViewer.pendingSetup.draft)
+      setDraft(draftWithOfficialTestDate(nextViewer.pendingSetup.draft, today))
       setPlan(restored)
       setDiagnosticPurpose("baseline")
       if (nextViewer.pendingSetup.resumeSurface === "onboarding") {
@@ -1102,9 +1198,12 @@ export function TutorApp({
 
   async function createPlan() {
     try {
+      if (!isNationalActTestDate(draft.testDate)) {
+        throw new RangeError("Choose an upcoming national ACT test date.")
+      }
       const daysUntilTest = calendarDaysUntil(today, draft.testDate)
       if (!Number.isInteger(daysUntilTest) || daysUntilTest <= 0) {
-        throw new RangeError("Choose a test date after today.")
+        throw new RangeError("Choose an upcoming national ACT test date.")
       }
 
       if (draft.priorScoreChoice === "undecided") {
@@ -1144,7 +1243,7 @@ export function TutorApp({
         setError(
           setupSaved
             ? null
-            : "Your diagnostic is ready, but Scout could not sync this setup to your account yet."
+            : "Your diagnostic is ready, but AlexACT could not sync this setup to your account yet."
         )
         void loadDiagnosticIntro()
         setEditingPlan(false)
@@ -1267,7 +1366,11 @@ export function TutorApp({
     setError(null)
   }
 
-  async function completeDiagnostic(result: DiagnosticResult) {
+  async function completeDiagnostic(
+    result: DiagnosticResult,
+    attemptId: string,
+    form: DiagnosticFormPublic
+  ) {
     try {
       const evidence = diagnosticResultToEvidence(result)
       if (diagnosticPurpose === "round") {
@@ -1378,6 +1481,14 @@ export function TutorApp({
         {
           profileSkillResults: [...result.skillResults],
           profileSource: "diagnostic",
+          assessmentHistory: addAssessmentHistoryEntry(
+            plan?.assessmentHistory ?? [],
+            buildDiagnosticHistoryEntry({
+              result,
+              form,
+              attemptId,
+            })
+          ),
           journey:
             plan?.journey ?? applyReportedScoreSource(newTutorJourney(), draft),
           adaptiveBaselineRequired: false,
@@ -1387,7 +1498,7 @@ export function TutorApp({
       )
       if (!(await persistPlan(nextPlan))) {
         throw new Error(
-          "Scout scored the diagnostic, but could not save your starting point yet. Try again before leaving this page."
+          "AlexACT scored the diagnostic, but could not save your starting point yet. Try again before leaving this page."
         )
       }
     } catch (caught) {
@@ -1442,6 +1553,13 @@ export function TutorApp({
 
   async function useFullTestAssessment(session: ExamLabSessionPayload) {
     if (!plan || !session.result || session.result.mode !== "core") return
+    const historyEntry = buildFullTestHistoryEntry({ session })
+    if (
+      historyEntry &&
+      plan.assessmentHistory?.some((entry) => entry.id === historyEntry.id)
+    ) {
+      return
+    }
     const sectionScores = Object.fromEntries(
       session.result.sections.map((section) => [
         section.section,
@@ -1490,13 +1608,18 @@ export function TutorApp({
       diagnosticResult: plan.diagnosticResult,
       profileSkillResults: skillResults,
       profileSource: "full-test",
+      assessmentHistory: (() => {
+        return historyEntry
+          ? addAssessmentHistoryEntry(plan.assessmentHistory ?? [], historyEntry)
+          : (plan.assessmentHistory ?? [])
+      })(),
       journey: plan.journey,
       adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
       baselineSkipped: plan.baselineSkipped,
     })
     if (!(await persistPlan(nextPlan))) {
       throw new Error(
-        "Scout kept the full-test result open, but could not save the updated plan yet. Try again before leaving this page."
+        "AlexACT kept the full-test result open, but could not save the updated plan yet. Try again before leaving this page."
       )
     }
     setPlan(nextPlan)
@@ -1614,6 +1737,7 @@ export function TutorApp({
         currentOfficialScore?.composite ?? plan.currentComposite,
       profileSkillResults: plan.profileSkillResults,
       profileSource: plan.profileSource,
+      assessmentHistory: plan.assessmentHistory ?? [],
       journey,
       adaptiveBaselineRequired: plan.adaptiveBaselineRequired,
       baselineSkipped: plan.baselineSkipped,
@@ -1683,7 +1807,7 @@ export function TutorApp({
         reading: 24,
         scienceEnabled: false,
         science: 24,
-        testDate: addCalendarDaysFrom(today, 36),
+        testDate: nextNationalActTestDate(today),
         studyDaysPerWeek: 3,
         minutesPerSession: 30,
         preferredSection: "english",
@@ -1705,7 +1829,7 @@ export function TutorApp({
       setWelcomeComplete(true)
     } catch {
       setJudgeDemoError(
-        "The judge demo did not open. Try again, or continue with normal setup."
+        "The developer demo did not open. Try again, or continue with normal setup."
       )
     } finally {
       judgeDemoBusyRef.current = false
@@ -1882,8 +2006,8 @@ export function TutorApp({
           viewer={viewer}
           onBack={() => setSurface("diagnostic")}
           purpose={diagnosticPurpose}
-          onComplete={(result) => {
-            void completeDiagnostic(result)
+          onComplete={(result, attemptId, form) => {
+            void completeDiagnostic(result, attemptId, form)
           }}
         />
       </ScoutProvider>

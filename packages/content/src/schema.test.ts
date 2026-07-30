@@ -7,7 +7,7 @@ function mutableFixture() {
   return structuredClone(RAPID_DIAGNOSTIC_FORM);
 }
 
-describe("half-length diagnostic content", () => {
+describe("full 66-question diagnostic content", () => {
   it("publishes 66 validated ACT-proportioned items across 3 sections and 12 skills", () => {
     const form = validateRapidDiagnosticForm(RAPID_DIAGNOSTIC_FORM);
     const skills = new Set(
@@ -15,6 +15,7 @@ describe("half-length diagnostic content", () => {
     );
 
     expect(form.questions).toHaveLength(66);
+    expect(form.title).toBe("AlexACT full 66-question diagnostic");
     expect(form.questions.filter((item) => item.section === "english")).toHaveLength(25);
     expect(form.questions.filter((item) => item.section === "math")).toHaveLength(23);
     expect(form.questions.filter((item) => item.section === "reading")).toHaveLength(18);

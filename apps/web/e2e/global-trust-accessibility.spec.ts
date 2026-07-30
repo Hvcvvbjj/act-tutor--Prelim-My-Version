@@ -107,7 +107,7 @@ test("the public trust center explains storage, control, and AI limits", async (
 
   await expect(
     page.getByRole("heading", {
-      name: "What Scout saves—and what it does not.",
+      name: "What AlexACT saves—and what it does not.",
     })
   ).toBeVisible()
   await expect(
@@ -123,6 +123,10 @@ test("the public trust center explains storage, control, and AI limits", async (
     })
   ).toBeVisible()
   await expect(page.getByText(/not an official score report/)).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Optional free cloud enhancement" })
+  ).toBeVisible()
+  await expect(page.getByText(/sign in to Puter/)).toBeVisible()
 
   await expect
     .poll(() =>
@@ -133,13 +137,13 @@ test("the public trust center explains storage, control, and AI limits", async (
     )
     .toEqual({ pageWidth: 320, viewportWidth: 320 })
 
-  await page.getByRole("link", { name: "Back to Scout" }).click()
+  await page.getByRole("link", { name: "Back to AlexACT" }).click()
   await expect(
     page.getByRole("button", { name: "Build my starting plan" })
   ).toBeVisible()
 })
 
-test("the public explainer makes Scout's adaptive loop inspectable", async ({
+test("the public explainer makes AlexACT's adaptive loop inspectable", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 760 })
@@ -147,7 +151,7 @@ test("the public explainer makes Scout's adaptive loop inspectable", async ({
 
   await expect(
     page.getByRole("heading", {
-      name: "Scout uses scored answers to guide what comes after Round 1.",
+      name: "AlexACT uses scored answers to guide what comes after Round 1.",
     })
   ).toBeVisible()
   await expect(
@@ -183,7 +187,7 @@ test("the public explainer makes Scout's adaptive loop inspectable", async ({
     .click()
   await expect(
     page.getByRole("heading", {
-      name: "What Scout saves—and what it does not.",
+      name: "What AlexACT saves—and what it does not.",
     })
   ).toBeVisible()
 })
@@ -221,7 +225,7 @@ test("the skip link is first and follows the active study surface", async ({
   })
   await expect(page.locator("#main-content")).toHaveCount(1)
   await expectSkipLinkToFocusMain(page)
-  for (const destination of ["Week", "Progress", "Badges"]) {
+  for (const destination of ["Schedule", "Progress", "Badges"]) {
     const destinationTab = navigation.getByRole("tab", { name: destination })
     await destinationTab.click()
     await expect(destinationTab).toHaveAttribute("aria-selected", "true")
@@ -239,10 +243,10 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   const header = page.locator("header")
   const targets = [
     header.getByRole("tab", { name: "Lessons" }),
-    header.getByRole("tab", { name: "My Week" }),
-    header.getByRole("button", { name: "Full Diagnostic" }),
+    header.getByRole("tab", { name: "My Schedule" }),
     header.getByRole("button", { name: "Timed Practice" }),
     header.getByRole("tab", { name: "Progress" }),
+    header.getByRole("tab", { name: "History" }),
     header.getByRole("tab", { name: "Badges" }),
     header.getByRole("button", { name: "Ask Mr. Kim" }),
     header.getByRole("button", { name: "Open settings" }),
@@ -257,14 +261,25 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   }
 
   await expect(header.getByRole("button", { name: "More" })).toHaveCount(0)
-  await expect(page.getByRole("menu", { name: "More from Scout" })).toHaveCount(
+  await expect(page.getByRole("menu", { name: "More from AlexACT" })).toHaveCount(
     0
   )
 
-  for (const destination of ["Lessons", "My Week", "Progress", "Badges"]) {
+  await expect(
+    header.getByRole("button", { name: "Full Diagnostic" })
+  ).toHaveCount(0)
+
+  for (const destination of [
+    "Lessons",
+    "My Schedule",
+    "Progress",
+    "History",
+    "Badges",
+  ]) {
     await page.getByRole("tab", { name: destination }).click()
     await expectNoHorizontalOverflow(page)
   }
+  await expect(header.getByRole("tab", { name: "Needs Work" })).toHaveCount(0)
 
   await header.getByRole("button", { name: "Open settings" }).click()
   const settings = page.getByRole("dialog", { name: "Settings" })
@@ -303,13 +318,13 @@ test("the desktop tour scrolls to and precisely spotlights the real lesson actio
     .click()
 
   const tour = page.getByRole("dialog", {
-    name: "Scout dashboard tour, step 1 of 9",
+    name: "AlexACT dashboard tour, step 1 of 9",
   })
   await expect(tour).toBeVisible()
   await tour.getByRole("button", { name: "Next" }).click()
   await expect(
     page.getByRole("dialog", {
-      name: "Scout dashboard tour, step 2 of 9",
+      name: "AlexACT dashboard tour, step 2 of 9",
     })
   ).toBeVisible()
 
@@ -357,9 +372,9 @@ test("learner actions stay comfortably targetable across the core study surfaces
   ).toBeVisible()
   await expectActionTargetsAtLeast44(lessons)
 
-  await page.getByRole("tab", { name: "My week" }).click()
+  await page.getByRole("tab", { name: "My Schedule" }).click()
   await expectActionTargetsAtLeast44(
-    page.getByRole("tabpanel", { name: "Week" })
+    page.getByRole("tabpanel", { name: "My Schedule" })
   )
 
   await page.getByRole("tab", { name: "Progress" }).click()
@@ -377,9 +392,9 @@ test("learner actions stay comfortably targetable across the core study surfaces
   ).toBeVisible()
   await expectActionTargetsAtLeast44(mobileLessons)
 
-  await page.getByRole("tab", { name: "Week" }).click()
+  await page.getByRole("tab", { name: "Schedule" }).click()
   await expectActionTargetsAtLeast44(
-    page.getByRole("tabpanel", { name: "Week" })
+    page.getByRole("tabpanel", { name: "Schedule" })
   )
 
   await page.getByRole("tab", { name: "Progress" }).click()

@@ -19,7 +19,7 @@ export default function GlobalError({
             "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
-        <title>Scout ACT — Recovery</title>
+        <title>AlexACT — Recovery</title>
         <main
           id="main-content"
           style={{
@@ -64,7 +64,7 @@ export default function GlobalError({
                 lineHeight: 1.02,
               }}
             >
-              Scout needs a fresh start.
+              AlexACT needs a fresh start.
             </h1>
             <p
               id="global-recovery-copy"
@@ -121,7 +121,7 @@ export default function GlobalError({
                   textDecoration: "none",
                 }}
               >
-                Return to Scout home
+                Return to AlexACT home
               </Link>
             </div>
           </section>

@@ -166,7 +166,7 @@ export function TrustView({
       setGroupMetricError(
         error instanceof Error
           ? error.message
-          : "Scout could not read the group-metric file."
+          : "AlexACT could not read the group-metric file."
       )
     }
   }
@@ -179,7 +179,7 @@ export function TrustView({
           <h2 className="mt-2 font-heading text-3xl font-black">
             {learning.trustReport.modelComparison.agrees
               ? "Two policies agree."
-              : "The policies disagree—and Scout shows why."}
+              : "The policies disagree—and AlexACT shows why."}
           </h2>
           <dl className="mt-5 grid grid-cols-2 gap-5 border-t-2 border-foreground pt-4">
             <div>
@@ -277,7 +277,7 @@ export function TrustView({
           </div>
         ) : (
           <p className="mt-4 border-y py-5 text-sm text-muted-foreground">
-            No scored decision exists yet. Scout will store both policy choices
+            No scored decision exists yet. AlexACT will store both policy choices
             with the next answer instead of inventing a historical replay.
           </p>
         )}
@@ -340,7 +340,7 @@ export function TrustView({
             </p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               JSON fields: group, questionSelectionRate (0–1), predictionError,
-              and stoppingQuestions. Scout averages the supplied rows for
+              and stoppingQuestions. AlexACT averages the supplied rows for
               display; it does not derive or verify those metrics from raw
               assessment events. Files stay in this browser.
             </p>
@@ -397,7 +397,7 @@ export function TrustView({
                   </tbody>
                 </table>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  These are imported summary values, not a Scout-run fairness
+                  These are imported summary values, not a AlexACT-run fairness
                   audit. Review any material group gap with a qualified human;
                   this table does not infer a cause.
                 </p>
@@ -406,7 +406,7 @@ export function TrustView({
               <div className="mt-4 border-l-4 border-[var(--scout-sun)] bg-[var(--coach-surface)] p-4">
                 <p className="font-bold">No group metrics loaded</p>
                 <p className="mt-2 text-sm leading-6">
-                  Scout has not run a fairness audit. Uploaded JSON is only
+                  AlexACT has not run a fairness audit. Uploaded JSON is only
                   averaged for display; without it, this panel makes no claim
                   about group performance. {learning.trustReport.abstentions[0]}
                 </p>
@@ -418,7 +418,7 @@ export function TrustView({
           <p className="ink-label text-muted-foreground">Model abstention</p>
           <div className="mt-4 border-l-4 border-primary bg-[var(--info-surface)] p-5">
             <p className="font-bold">
-              Scout says “not enough evidence” on purpose.
+              AlexACT says “not enough evidence” on purpose.
             </p>
             <p className="mt-2 text-sm leading-6">
               {learning.trustReport.abstentions[1]}
@@ -454,7 +454,7 @@ export function TrustView({
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             This device uses private session cookies and local preferences.
-            Export a readable copy or delete Scout&apos;s study sessions and
+            Export a readable copy or delete AlexACT&apos;s study sessions and
             saved plan whenever you want. If you created an account, its sign-in
             stays available.
           </p>
@@ -468,7 +468,7 @@ export function TrustView({
                 variant="ghost"
                 onClick={() => setDeleteArmed(true)}
               >
-                <Trash2Icon /> Delete Scout study data
+                <Trash2Icon /> Delete AlexACT study data
               </Button>
             ) : (
               <Button

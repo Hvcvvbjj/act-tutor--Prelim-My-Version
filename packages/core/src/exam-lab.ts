@@ -417,10 +417,10 @@ export function buildAuthoredExamDebrief(
   if (!readiness.sufficient) {
     return {
       headline: "Finish more questions before changing your plan.",
-      summary: `You answered ${readiness.answered} of ${result.total} questions. Scout needs at least ${readiness.minimumAnswered} answered questions from this run before it suggests a skill or interprets your pacing.`,
+      summary: `You answered ${readiness.answered} of ${result.total} questions. AlexACT needs at least ${readiness.minimumAnswered} answered questions from this run before it suggests a skill or interprets your pacing.`,
       wins: [
         "Your completed answers are available in the question review.",
-        "Scout did not treat blank answers as proof of a skill weakness.",
+        "AlexACT did not treat blank answers as proof of a skill weakness.",
       ],
       priorities: [
         `Start another run and answer at least ${readiness.minimumAnswered} questions before using the result to choose a lesson.`,
@@ -446,7 +446,7 @@ export function buildAuthoredExamDebrief(
         ? "You spent too long on several questions."
         : result.pacing.diagnosis === "balanced"
           ? "Your overall pace was close to the target."
-          : "Answer more questions before Scout judges your pacing.";
+          : "Answer more questions before AlexACT judges your pacing.";
   return {
     headline: focus
       ? `Work on ${focus.label.toLowerCase()} next.`
@@ -461,7 +461,7 @@ export function buildAuthoredExamDebrief(
     priorities: [
       focus
         ? `${focus.label}: ${focus.correct} of ${focus.total} right, with about ${Math.round(focus.averageSeconds)} seconds per question.`
-        : "Take a longer practice test so Scout can find the exact skills to work on.",
+        : "Take a longer practice test so AlexACT can find the exact skills to work on.",
       result.pacing.diagnosis === "overinvesting"
         ? "Use two passes: answer the easier questions first, then return to the slow ones."
         : result.pacing.diagnosis === "rushing"

@@ -77,9 +77,16 @@ describe("lesson composition", () => {
     );
     expect(lesson.strategyChecklist).toEqual(input.baseLesson.steps);
     expect(lesson.generation.mode).toBe("authored-fallback");
+    const concept = lesson.sections.find(
+      (section) => section.id === "mental-model",
+    )?.explanation;
+    expect(concept?.match(/[^.!?]+[.!?]+/g)).toHaveLength(3);
+    expect(
+      concept?.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g)?.length,
+    ).toBeGreaterThanOrEqual(24);
   });
 
-  it("accepts structured output from an OpenAI-compatible model", async () => {
+  it("accepts a deep three-sentence concept from an OpenAI-compatible model", async () => {
     const generated = {
       minutes: 15,
       whyAssigned:
@@ -96,7 +103,7 @@ describe("lesson composition", () => {
         [
           "mental-model",
           "Shrink the claim",
-          "Treat an inference as the smallest conclusion made likely by the cited lines. Start from what the text proves, then add only one cautious step beyond it.",
+          "Treat an inference as the smallest conclusion made likely by the cited lines. Start from what the text proves, then add only one cautious step beyond it. That limit keeps a plausible but unsupported choice from slipping through.",
           "Keep the prediction cautious rather than absolute.",
         ],
         [
@@ -148,9 +155,40 @@ describe("lesson composition", () => {
     expect(lesson.generation.model).toBe("qwen-test");
     expect(lesson.sections).toHaveLength(5);
     expect(lesson.sections[0].id).toBe("question-type");
+    expect(lesson.sections[1].explanation.match(/[^.!?]+[.!?]+/g)).toHaveLength(
+      3,
+    );
     expect(JSON.stringify(lesson)).not.toMatch(
       /in your own words|say the rule|name the rule|rewrite the rule|restate the method|summarize the rule|teach it back/i,
     );
+
+    const shallowGenerated = {
+      ...generated,
+      sections: generated.sections.map((section) =>
+        section.id === "mental-model"
+          ? {
+              ...section,
+              explanation:
+                "Use the smallest conclusion supported by the text. Stay cautious when you compare the choices.",
+            }
+          : section,
+      ),
+    };
+    const shallowComposer = new OpenAICompatibleLessonComposer({
+      baseUrl: "http://model.test/v1",
+      model: "shallow-model",
+      fetchImplementation: (async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              { message: { content: JSON.stringify(shallowGenerated) } },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )) as typeof fetch,
+    });
+    const shallowLesson = await shallowComposer.compose(input);
+    expect(shallowLesson.generation.mode).toBe("authored-fallback");
   });
 
   it("falls back safely when model output is malformed", async () => {

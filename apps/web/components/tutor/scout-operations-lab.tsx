@@ -44,7 +44,7 @@ export function ScoutOperationsLab(props: ScoutOperationsLabProps) {
       <header className="border-b-2 border-foreground pb-7">
         <p className="ink-label text-primary">Data &amp; privacy</p>
         <h1 className="mt-3 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.03em] sm:text-5xl">
-          See and control what Scout saves.
+          See and control what AlexACT saves.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
           Export or delete your study data, then inspect optional details if you

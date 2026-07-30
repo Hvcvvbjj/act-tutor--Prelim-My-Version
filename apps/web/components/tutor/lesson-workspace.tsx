@@ -3,15 +3,20 @@
 import { useEffect, useRef, useState } from "react"
 import type {
   AnswerConfidence,
+  CoreSection,
   LearningSessionPayload,
+  LessonContent,
   LessonCheckResult,
 } from "@act-tutor/core"
 import {
   ArrowLeftIcon,
+  ArrowUpRightIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
   CircleAlertIcon,
   LightbulbIcon,
+  MessageCircleQuestionIcon,
+  PlayCircleIcon,
   Volume2Icon,
 } from "lucide-react"
 
@@ -25,8 +30,14 @@ import {
   buildPracticeExplanation,
   lessonSegmentMinutes,
   lessonSectionsForDisplay,
+  lessonWorkedExamplesForDisplay,
   shouldHoldPracticeFeedback,
 } from "@/components/tutor/lesson-workspace-logic"
+import { needsWorkVideoGuide } from "@/components/tutor/needs-work"
+import {
+  LessonRewardSummaryCard,
+  type LessonRewardNarrationProvider,
+} from "@/components/tutor/learning-reward-summary"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress, ProgressLabel } from "@/components/ui/progress"
@@ -50,16 +61,284 @@ interface LessonWorkspaceProps {
     responseSeconds: number
   }) => void
   onSubmitRemediation: (questionId: string, choiceId: string) => void
+  loadRewardNarration?: LessonRewardNarrationProvider
   onClose: () => void
 }
 
 const SECTION_SHORT_LABELS = [
   "Type",
   "Idea",
-  "Example",
+  "Examples",
   "Method",
   "Need to know",
+  "Still confused?",
 ] as const
+
+const SUPPORT_SECTION = {
+  id: "support",
+  title: "Still confused?",
+  explanation:
+    "Get a different explanation from Mr. Kim or open a free video on this exact skill.",
+  coachPrompt: "Pick the kind of help that works best for you.",
+} as const
+
+function sectionsWithSupport(
+  sections: LearningSessionPayload["lesson"]["sections"]
+) {
+  return [...lessonSectionsForDisplay(sections), SUPPORT_SECTION]
+}
+
+function sectionForSkill(skill: string): CoreSection {
+  if (
+    [
+      "linear-equations",
+      "functions-and-modeling",
+      "ratios-and-percent",
+      "geometry-and-measurement",
+    ].includes(skill)
+  ) {
+    return "math"
+  }
+  if (
+    [
+      "sentence-boundaries",
+      "concision-and-redundancy",
+      "punctuation-and-commas",
+      "logical-transitions",
+    ].includes(skill)
+  ) {
+    return "english"
+  }
+  return "reading"
+}
+
+function lessonVideoGuides(skill: string, section: CoreSection) {
+  const primary = needsWorkVideoGuide(skill, section)
+  const alternate =
+    primary.channel === "Khan Academy"
+      ? {
+          channel: "The Organic Chemistry Tutor" as const,
+          channelPath: "@TheOrganicChemistryTutor",
+        }
+      : {
+          channel: "Khan Academy" as const,
+          channelPath: "@khanacademy",
+        }
+  const query = new URLSearchParams({ query: primary.topic })
+  return [
+    primary,
+    {
+      channel: alternate.channel,
+      topic: primary.topic,
+      href: `https://www.youtube.com/${alternate.channelPath}/search?${query.toString()}`,
+    },
+  ]
+}
+
+function WorkedExamples({ lesson }: { lesson: LessonContent }) {
+  const examples = lessonWorkedExamplesForDisplay(lesson)
+  const [exampleIndex, setExampleIndex] = useState(0)
+  const example = examples[Math.min(exampleIndex, examples.length - 1)]!
+
+  return (
+    <div className="mt-8 border-y border-border py-6">
+      <div className="flex items-center justify-between gap-4">
+        <p className="ink-label text-muted-foreground">Worked example</p>
+        <p className="font-mono text-xs font-bold text-primary">
+          {exampleIndex + 1} / {examples.length}
+        </p>
+      </div>
+      <p className="mt-3 text-lg leading-7 font-semibold">{example.prompt}</p>
+
+      {example.choices.length ? (
+        <ol className="mt-5 grid gap-2 sm:grid-cols-2">
+          {example.choices.map((choice, index) => {
+            const correct = choice === example.answer
+            return (
+              <li
+                key={`${choice}-${index}`}
+                className={cn(
+                  "grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-2.5 text-sm leading-6",
+                  correct
+                    ? "border-primary bg-secondary"
+                    : "border-border bg-background"
+                )}
+              >
+                <span className="font-mono font-bold text-primary">
+                  {String.fromCharCode(65 + index)}
+                </span>
+                <span>{choice}</span>
+                {correct ? (
+                  <CheckCircle2Icon
+                    className="size-4 text-primary"
+                    aria-label="Correct answer"
+                  />
+                ) : null}
+              </li>
+            )
+          })}
+        </ol>
+      ) : null}
+
+      <div className="mt-5 border-l-4 border-[var(--scout-sun)] pl-4">
+        <p className="font-bold">Why the answer is right</p>
+        {example.explanation.map((line) => (
+          <p
+            key={line}
+            className="mt-2 leading-7 text-foreground/80 first-of-type:mt-2"
+          >
+            {line}
+          </p>
+        ))}
+      </div>
+
+      {example.wrongAnswerNotes.length ? (
+        <div className="mt-5">
+          <p className="font-bold">Why the other choices are wrong</p>
+          <ul className="mt-2 grid gap-2">
+            {example.wrongAnswerNotes.map((note) => (
+              <li
+                key={note}
+                className="border-l-2 border-border pl-3 text-sm leading-6 text-muted-foreground"
+              >
+                {note}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {examples.length > 1 ? (
+        <div className="mt-6 flex items-center justify-between gap-3 border-t pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={exampleIndex === 0}
+            onClick={() => setExampleIndex((index) => Math.max(0, index - 1))}
+          >
+            <ArrowLeftIcon data-icon="inline-start" />
+            Previous example
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={exampleIndex === examples.length - 1}
+            onClick={() =>
+              setExampleIndex((index) =>
+                Math.min(examples.length - 1, index + 1)
+              )
+            }
+          >
+            Next example
+            <ArrowRightIcon data-icon="inline-end" />
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function LessonSupportPanel({
+  skill,
+  skillLabel,
+  section,
+}: {
+  skill: string
+  skillLabel: string
+  section: CoreSection
+}) {
+  const { openScout } = useScoutContext()
+  const guides = lessonVideoGuides(skill, section)
+
+  return (
+    <div className="mt-8">
+      <p className="ink-label text-primary">Still confused?</p>
+      <h3 className="mt-2 font-heading text-2xl leading-tight font-black">
+        Try another way.
+      </h3>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+        Choose one useful next step for {skillLabel.toLowerCase()}.
+      </p>
+
+      <div className="mt-6 grid gap-4">
+        <section
+          className="rounded-2xl border-2 border-foreground bg-[var(--info-surface)] p-5 sm:p-6"
+          aria-labelledby="lesson-videos-title"
+        >
+          <div className="flex items-center gap-3">
+            <PlayCircleIcon
+              className="size-6 text-primary"
+              aria-hidden="true"
+            />
+            <h4
+              id="lesson-videos-title"
+              className="font-heading text-xl font-black"
+            >
+              Relevant videos
+            </h4>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Free explanations matched to this exact question type.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {guides.map((guide) => (
+              <Button
+                key={guide.channel}
+                render={
+                  <a
+                    href={guide.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Search ${guide.channel} for ${guide.topic} videos (opens in a new tab)`}
+                  />
+                }
+                variant="outline"
+              >
+                {guide.channel}
+                <ArrowUpRightIcon aria-hidden="true" />
+              </Button>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className="rounded-2xl border-2 border-foreground bg-secondary p-5 sm:p-6"
+          aria-labelledby="lesson-ask-title"
+        >
+          <div className="flex items-center gap-3">
+            <MessageCircleQuestionIcon
+              className="size-6 text-primary"
+              aria-hidden="true"
+            />
+            <h4
+              id="lesson-ask-title"
+              className="font-heading text-xl font-black"
+            >
+              Ask Mr. Kim
+            </h4>
+          </div>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+            Open a lesson-scoped conversation and ask for a shorter explanation
+            or a different example.
+          </p>
+          <Button
+            type="button"
+            className="mt-4"
+            onClick={() =>
+              openScout(
+                `I am still confused about ${skillLabel}. Explain it again with a different short example, then explain why every answer choice is right or wrong.`
+              )
+            }
+          >
+            Start this conversation
+          </Button>
+        </section>
+      </div>
+    </div>
+  )
+}
 
 function LessonStage({
   learning,
@@ -75,7 +354,7 @@ function LessonStage({
   | "onSectionChange"
   | "onCompleteLesson"
 >) {
-  const lessonSections = lessonSectionsForDisplay(learning.lesson.sections)
+  const lessonSections = sectionsWithSupport(learning.lesson.sections)
   const visibleSectionIndex = Math.min(
     activeSection,
     Math.max(0, lessonSections.length - 1)
@@ -86,15 +365,18 @@ function LessonStage({
   const sectionHeadingRef = useRef<HTMLHeadingElement>(null)
   const { accommodations, explanationPreferences } = useScoutContext()
   const useShortExplanation =
-    accommodations.simplified ||
-    explanationPreferences.depth === "quick" ||
-    explanationPreferences.readingLevel === "plain"
+    accommodations.simplified || explanationPreferences.depth === "quick"
   const displayExplanation = useShortExplanation
     ? (section.explanation.split(/(?<=[.!?])\s+/)[0] ?? section.explanation)
     : section.explanation
   const spokenContent =
     section.id === "guided-example"
-      ? `${learning.lesson.workedExample.prompt} ${learning.lesson.workedExample.explanation.join(" ")} Answer: ${learning.lesson.workedExample.answer}.`
+      ? lessonWorkedExamplesForDisplay(learning.lesson)
+          .map(
+            (example) =>
+              `${example.prompt} ${example.explanation.join(" ")} Answer: ${example.answer}.`
+          )
+          .join(" ")
       : section.id === "decision-rule"
         ? learning.lesson.strategyChecklist.join(" ")
         : displayExplanation
@@ -113,25 +395,16 @@ function LessonStage({
         >
           {section.title}
         </h2>
-        {section.id !== "guided-example" && section.id !== "decision-rule" ? (
+        {section.id !== "guided-example" &&
+        section.id !== "decision-rule" &&
+        section.id !== "support" ? (
           <p className="mt-5 max-w-2xl text-lg leading-8 text-foreground/85 sm:text-xl sm:leading-9">
             {displayExplanation}
           </p>
         ) : null}
 
         {section.id === "guided-example" ? (
-          <div className="mt-8 border-y border-border py-6">
-            <p className="ink-label text-muted-foreground">Worked example</p>
-            <p className="mt-3 text-lg leading-7 font-semibold">
-              {learning.lesson.workedExample.prompt}
-            </p>
-            <p className="mt-4 border-l-4 border-[var(--scout-sun)] pl-4 leading-7 text-muted-foreground">
-              {learning.lesson.workedExample.explanation.join(" ")}
-            </p>
-            <p className="mt-4 font-semibold">
-              Answer: {learning.lesson.workedExample.answer}
-            </p>
-          </div>
+          <WorkedExamples lesson={learning.lesson} />
         ) : null}
 
         {section.id === "decision-rule" ? (
@@ -148,6 +421,14 @@ function LessonStage({
               </li>
             ))}
           </ol>
+        ) : null}
+
+        {section.id === "support" ? (
+          <LessonSupportPanel
+            skill={learning.todaySkill}
+            skillLabel={learning.mastery.label}
+            section={learning.mastery.section}
+          />
         ) : null}
 
         {accommodations.readAloud ? (
@@ -190,7 +471,7 @@ function LessonStage({
               ? "Saving…"
               : learning.mode === "micro"
                 ? "Start practice"
-                : "Start focused practice"}
+                : "Start lesson check"}
             <ArrowRightIcon data-icon="inline-end" />
           </Button>
         ) : (
@@ -214,6 +495,7 @@ function RemediationStage({
   submitting,
   onChoiceChange,
   onSubmitRemediation,
+  loadRewardNarration,
   onClose,
 }: Pick<
   LessonWorkspaceProps,
@@ -222,6 +504,7 @@ function RemediationStage({
   | "submitting"
   | "onChoiceChange"
   | "onSubmitRemediation"
+  | "loadRewardNarration"
   | "onClose"
 >) {
   const remediation = learning.remediation
@@ -245,8 +528,24 @@ function RemediationStage({
   const currentResponse = currentQuestionId
     ? remediation.progress.responses[currentQuestionId]
     : undefined
+  const videoGuides = lessonVideoGuides(
+    learning.mastery.skill,
+    learning.mastery.section
+  )
+  const belowLessonCheckTarget =
+    remediation.correct < remediation.requiredCorrect
 
   if (remediation.progress.status === "complete") {
+    if (learning.lessonReward) {
+      return (
+        <LessonRewardSummaryCard
+          reward={learning.lessonReward}
+          roundComplete={learning.cycle.status === "assessment-choice"}
+          onContinue={onClose}
+          loadNarration={loadRewardNarration}
+        />
+      )
+    }
     return (
       <section className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col justify-center px-5 py-12 text-center sm:px-8">
         <ScoutMark className="mx-auto size-20 border-2 border-primary" />
@@ -298,26 +597,58 @@ function RemediationStage({
       <div className="flex items-center gap-4 border-b pb-5">
         <ScoutMark className="size-14 shrink-0 border-2 border-primary" />
         <div>
-          <p className="ink-label text-primary">Mr. Kim · Required review</p>
+          <p className="ink-label text-primary">
+            Mr. Kim ·{" "}
+            {belowLessonCheckTarget
+              ? "Relearn recommended"
+              : "Correction review"}
+          </p>
           <h2 className="mt-1 font-heading text-3xl leading-tight font-black">
             Let&apos;s fix each missed question.
           </h2>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 rounded-xl border bg-secondary p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div
+        className={cn(
+          "mt-6 grid gap-3 rounded-xl border p-5 sm:grid-cols-[1fr_auto] sm:items-center",
+          belowLessonCheckTarget ? "bg-[var(--coach-surface)]" : "bg-secondary"
+        )}
+      >
         <div>
           <p className="font-bold">
             Lesson check: {remediation.correct} of {remediation.total}
           </p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Your goal requires {remediation.requiredCorrect} of 5. Correct every
-            missed item below before the next lesson opens.
+            {belowLessonCheckTarget
+              ? `Your goal requires ${remediation.requiredCorrect} of 5. Review the lesson or a free video, then correct every missed item below.`
+              : `You met your ${remediation.requiredCorrect}-of-5 target. Correct every missed item below before the next lesson opens.`}
           </p>
         </div>
         <p className="font-mono text-sm font-bold text-primary">
           {correctedCount} / {requiredQuestionIds.length} fixed
         </p>
+        {belowLessonCheckTarget ? (
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            {videoGuides.map((guide) => (
+              <Button
+                key={guide.channel}
+                render={
+                  <a
+                    href={guide.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Find free ${learning.mastery.label} explanations from ${guide.channel} on YouTube (opens in a new tab)`}
+                  />
+                }
+                variant="outline"
+              >
+                {guide.channel}
+                <ArrowUpRightIcon aria-hidden="true" />
+              </Button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <Progress
@@ -429,6 +760,7 @@ function PracticeStage({
   submitting,
   onChoiceChange,
   onSubmitAnswer,
+  loadRewardNarration,
   onClose,
 }: Pick<
   LessonWorkspaceProps,
@@ -437,6 +769,7 @@ function PracticeStage({
   | "submitting"
   | "onChoiceChange"
   | "onSubmitAnswer"
+  | "loadRewardNarration"
   | "onClose"
 >) {
   const answered = learning.answeredQuestionIds.length
@@ -505,6 +838,19 @@ function PracticeStage({
   }, [feedbackIdentity, showingFeedback])
 
   if (learning.status === "complete" && !showingFeedback) {
+    if (
+      learning.lessonReward &&
+      (learning.mode === "foundation" || learning.mode === "focus")
+    ) {
+      return (
+        <LessonRewardSummaryCard
+          reward={learning.lessonReward}
+          roundComplete={roundComplete}
+          onContinue={onClose}
+          loadNarration={loadRewardNarration}
+        />
+      )
+    }
     const completedIncorrectly = feedback?.correct === false
     const needsAnotherTry = completedIncorrectly && learning.mode === "repair"
     return (
@@ -696,6 +1042,13 @@ function PracticeStage({
           onClick={() => {
             if (showingFeedback && visibleFeedback) {
               if (learning.status === "complete") {
+                if (
+                  learning.lessonReward &&
+                  (learning.mode === "foundation" || learning.mode === "focus")
+                ) {
+                  setDismissedFeedbackIdentity(feedbackIdentity ?? null)
+                  return
+                }
                 onClose()
                 return
               }
@@ -722,8 +1075,12 @@ function PracticeStage({
           {showingFeedback
             ? learning.status === "complete"
               ? roundComplete
-                ? "Choose next assessment"
-                : "Back to Lessons"
+                ? learning.lessonReward
+                  ? "See lesson rewards"
+                  : "Choose next assessment"
+                : learning.lessonReward
+                  ? "See lesson rewards"
+                  : "Back to Lessons"
               : "Next question"
             : submitting
               ? "Checking…"
@@ -736,9 +1093,7 @@ function PracticeStage({
 }
 
 export function LessonWorkspace(props: LessonWorkspaceProps) {
-  const lessonSections = lessonSectionsForDisplay(
-    props.learning.lesson.sections
-  )
+  const lessonSections = sectionsWithSupport(props.learning.lesson.sections)
   const workspaceTitle = props.learning.remediation
     ? "Review with Mr. Kim"
     : props.learning.mode === "checkpoint"
@@ -792,7 +1147,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
 
       {!props.learning.lessonComplete && !props.learning.remediation ? (
         <nav
-          className="mx-auto grid w-full max-w-5xl grid-cols-5 px-3 pt-4 sm:px-7"
+          className="mx-auto grid w-full max-w-5xl grid-cols-6 px-3 pt-4 sm:px-7"
           aria-label="Lesson stages"
         >
           {SECTION_SHORT_LABELS.slice(0, lessonSections.length).map(
@@ -845,7 +1200,7 @@ export function LessonReviewWorkspace({
   onSectionChange: (index: number) => void
   onClose: () => void
 }) {
-  const lessonSections = lessonSectionsForDisplay(review.lesson.sections)
+  const lessonSections = sectionsWithSupport(review.lesson.sections)
   const visibleSectionIndex = Math.min(
     activeSection,
     Math.max(0, lessonSections.length - 1)
@@ -883,7 +1238,7 @@ export function LessonReviewWorkspace({
       </header>
 
       <nav
-        className="mx-auto grid w-full max-w-5xl grid-cols-5 px-3 pt-4 sm:px-7"
+        className="mx-auto grid w-full max-w-5xl grid-cols-6 px-3 pt-4 sm:px-7"
         aria-label="Completed lesson stages"
       >
         {SECTION_SHORT_LABELS.slice(0, lessonSections.length).map(
@@ -918,25 +1273,16 @@ export function LessonReviewWorkspace({
           >
             {section.title}
           </h2>
-          {section.id !== "guided-example" && section.id !== "decision-rule" ? (
+          {section.id !== "guided-example" &&
+          section.id !== "decision-rule" &&
+          section.id !== "support" ? (
             <p className="mt-5 max-w-2xl text-lg leading-8 text-foreground/85 sm:text-xl sm:leading-9">
               {section.explanation}
             </p>
           ) : null}
 
           {section.id === "guided-example" ? (
-            <div className="mt-8 border-y border-border py-6">
-              <p className="ink-label text-muted-foreground">Worked example</p>
-              <p className="mt-3 text-lg leading-7 font-semibold">
-                {review.lesson.workedExample.prompt}
-              </p>
-              <p className="mt-4 border-l-4 border-[var(--scout-sun)] pl-4 leading-7 text-muted-foreground">
-                {review.lesson.workedExample.explanation.join(" ")}
-              </p>
-              <p className="mt-4 font-semibold">
-                Answer: {review.lesson.workedExample.answer}
-              </p>
-            </div>
+            <WorkedExamples lesson={review.lesson} />
           ) : null}
 
           {section.id === "decision-rule" ? (
@@ -953,6 +1299,14 @@ export function LessonReviewWorkspace({
                 </li>
               ))}
             </ol>
+          ) : null}
+
+          {section.id === "support" ? (
+            <LessonSupportPanel
+              skill={review.skill}
+              skillLabel={review.lesson.title}
+              section={sectionForSkill(review.skill)}
+            />
           ) : null}
         </div>
 

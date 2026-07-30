@@ -116,9 +116,10 @@ describe("learning mastery", () => {
     expect(normalizeAnswerConfidence("confident")).toBe("unreported");
   });
 
-  it("raises the five-question lesson-check bar at a goal score of 30", () => {
+  it("raises the five-question lesson-check bar only above a goal score of 30", () => {
     expect(requiredCorrectForLessonCheck(29)).toBe(3);
-    expect(requiredCorrectForLessonCheck(30)).toBe(4);
+    expect(requiredCorrectForLessonCheck(30)).toBe(3);
+    expect(requiredCorrectForLessonCheck(31)).toBe(4);
     expect(requiredCorrectForLessonCheck(36)).toBe(4);
     expect(() => requiredCorrectForLessonCheck(0)).toThrow(
       "Goal score must be an ACT score",

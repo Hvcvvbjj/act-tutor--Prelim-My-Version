@@ -9,10 +9,16 @@ import { sha256 as sha256Hash } from "@noble/hashes/sha256"
 import { cookies } from "next/headers"
 import type { NextRequest, NextResponse } from "next/server"
 
-import type { PlacementDraft, TutorJourney } from "@/components/tutor/types"
+import type {
+  AssessmentHistoryEntry,
+  PlacementDraft,
+  TutorJourney,
+} from "@/components/tutor/types"
 import {
+  DEFAULT_LESSON_REMINDER_PREFERENCES,
   GUEST_VIEWER,
   type AuthViewer,
+  type LessonReminderPreferences,
   type PendingTutorSetup,
   type SavedTutorPlan,
 } from "@/lib/auth-types"
@@ -40,6 +46,13 @@ interface PasswordRecord {
   digest: string
 }
 
+interface StoredReminderDelivery {
+  status: "claimed" | "sent"
+  claimToken: string
+  claimedAt: string
+  sentAt: string | null
+}
+
 interface StoredAccount {
   id: string
   username: string
@@ -49,6 +62,8 @@ interface StoredAccount {
   linkedSessions: LinkedSessions
   savedPlan: SavedTutorPlan | null
   pendingSetup?: PendingTutorSetup | null
+  lessonReminders?: LessonReminderPreferences
+  reminderDeliveries?: Record<string, StoredReminderDelivery>
   createdAt: string
   updatedAt: string
 }
@@ -83,6 +98,19 @@ interface AuthSuccess {
   linkedSessions: LinkedSessions
 }
 
+export interface LessonReminderSubscription {
+  accountId: string
+  displayName: string
+  studyPlanSessionId: string | null
+  preferences: LessonReminderPreferences
+}
+
+export interface LessonReminderDeliveryClaim {
+  accountId: string
+  deliveryKey: string
+  claimToken: string
+}
+
 const EMPTY_STORE: AuthStoreFile = {
   version: 1,
   accounts: {},
@@ -91,11 +119,20 @@ const EMPTY_STORE: AuthStoreFile = {
   attempts: {},
 }
 
-const PASSWORD_ITERATIONS = 310_000
+// Cloudflare Workers support up to 100,000 PBKDF2 rounds in native WebCrypto.
+// New password records use that fast native path; older 310,000-round records
+// remain readable through the portable fallback below.
+const PASSWORD_ITERATIONS = 100_000
 const LEARNER_SESSION_SECONDS = 60 * 60 * 24 * 30
 const JUDGE_SESSION_SECONDS = 60 * 60 * 12
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
 const ATTEMPT_LIMIT = 5
+// A crashed provider request keeps its claim for the rest of the daily cron
+// window. This favors not sending a duplicate reminder over an immediate retry.
+const REMINDER_CLAIM_TTL_MS = 24 * 60 * 60 * 1000
+const MAX_REMINDER_DELIVERY_RECORDS = 256
+const REMINDER_DELIVERY_KEY_PATTERN =
+  /^reminder:v1:(upcoming|overdue):\d{4}-\d{2}-\d{2}:(email|sms)$/
 const queues = new Map<string, Promise<void>>()
 const encoder = new TextEncoder()
 
@@ -125,7 +162,10 @@ export class AuthRequestError extends Error {
 }
 
 function cloneGuestViewer(): AuthViewer {
-  return { ...GUEST_VIEWER }
+  return {
+    ...GUEST_VIEWER,
+    lessonReminders: { ...GUEST_VIEWER.lessonReminders },
+  }
 }
 
 function encodeBase64Url(value: Uint8Array) {
@@ -159,9 +199,33 @@ async function derivePassword(
   salt: Uint8Array,
   iterations: number
 ) {
-  // Cloudflare Workers cap their built-in PBKDF2 implementation at 100,000
-  // rounds. This implementation keeps our existing 310,000-round hashes
-  // portable across the local Node runtime and the deployed Worker.
+  if (iterations <= 100_000) {
+    const saltBuffer = salt.buffer.slice(
+      salt.byteOffset,
+      salt.byteOffset + salt.byteLength
+    ) as ArrayBuffer
+    const key = await globalThis.crypto.subtle.importKey(
+      "raw",
+      encoder.encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    )
+    const bits = await globalThis.crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        salt: saltBuffer,
+        iterations,
+      },
+      key,
+      256
+    )
+    return new Uint8Array(bits)
+  }
+
+  // Preserve compatibility with password records created before the Worker
+  // limit was accounted for.
   return pbkdf2(sha256Hash, encoder.encode(password), salt, {
     c: iterations,
     dkLen: 32,
@@ -231,6 +295,98 @@ function parseDisplayName(value: unknown) {
     throw new AuthRequestError("Enter a name from 1–60 characters.", 400)
   }
   return displayName
+}
+
+function parseEmailAddress(value: unknown) {
+  const email = typeof value === "string" ? value.trim().toLowerCase() : ""
+  if (
+    email.length < 3 ||
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    throw new AuthRequestError("Enter a valid reminder email address.", 400)
+  }
+  return email
+}
+
+function parsePhoneNumber(value: unknown) {
+  const input = typeof value === "string" ? value.trim() : ""
+  const phoneNumber = input.replace(/[\s().-]/g, "")
+  if (!/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+    throw new AuthRequestError(
+      "Enter a phone number with country code, such as +1 312 555 0198.",
+      400
+    )
+  }
+  return phoneNumber
+}
+
+function parseLessonReminderPreferences(
+  value: unknown,
+  previous: LessonReminderPreferences | null = null
+): LessonReminderPreferences {
+  if (value === undefined || value === null) {
+    return { ...DEFAULT_LESSON_REMINDER_PREFERENCES }
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new AuthRequestError("The lesson reminder choices are invalid.", 400)
+  }
+  const input = value as Record<string, unknown>
+  if (typeof input.enabled !== "boolean") {
+    throw new AuthRequestError("Choose whether to use lesson reminders.", 400)
+  }
+  const now = new Date().toISOString()
+  if (!input.enabled) {
+    return {
+      ...DEFAULT_LESSON_REMINDER_PREFERENCES,
+      updatedAt: now,
+    }
+  }
+  if (
+    typeof input.emailEnabled !== "boolean" ||
+    typeof input.smsEnabled !== "boolean" ||
+    (!input.emailEnabled && !input.smsEnabled)
+  ) {
+    throw new AuthRequestError(
+      "Choose email, text message, or both for lesson reminders.",
+      400
+    )
+  }
+  if (
+    input.upcomingTiming !== "same-day" &&
+    input.upcomingTiming !== "one-day-before" &&
+    input.upcomingTiming !== "two-days-before"
+  ) {
+    throw new AuthRequestError(
+      "Choose when upcoming lesson reminders should arrive.",
+      400
+    )
+  }
+  if (
+    input.overdueTiming !== "same-day" &&
+    input.overdueTiming !== "one-day-after" &&
+    input.overdueTiming !== "three-days-after"
+  ) {
+    throw new AuthRequestError(
+      "Choose when overdue lesson reminders should arrive.",
+      400
+    )
+  }
+  const emailEnabled = input.emailEnabled
+  const smsEnabled = input.smsEnabled
+  return {
+    version: 1,
+    enabled: true,
+    emailEnabled,
+    emailAddress: emailEnabled ? parseEmailAddress(input.emailAddress) : null,
+    smsEnabled,
+    phoneNumber: smsEnabled ? parsePhoneNumber(input.phoneNumber) : null,
+    upcomingTiming: input.upcomingTiming,
+    overdueTiming: input.overdueTiming,
+    consentedAt:
+      previous?.enabled && previous.consentedAt ? previous.consentedAt : now,
+    updatedAt: now,
+  }
 }
 
 function parsePassword(value: unknown, enforceStrength: boolean) {
@@ -327,6 +483,105 @@ function diagnosticSkillResults(value: unknown): DiagnosticSkillResult[] {
       total: Number(result.total),
       accuracy: Number(result.accuracy),
       signal: result.signal,
+    }
+  })
+}
+
+function assessmentHistory(value: unknown): AssessmentHistoryEntry[] {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > 64) {
+    throw new AuthRequestError("The saved assessment history is invalid.", 400)
+  }
+  return value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new AuthRequestError(
+        "The saved assessment history is invalid.",
+        400
+      )
+    }
+    const entry = item as Record<string, unknown>
+    if (
+      typeof entry.id !== "string" ||
+      entry.id.length < 4 ||
+      entry.id.length > 180 ||
+      (entry.kind !== "diagnostic" && entry.kind !== "full-test") ||
+      typeof entry.title !== "string" ||
+      entry.title.length < 2 ||
+      entry.title.length > 120 ||
+      typeof entry.completedAt !== "string" ||
+      Number.isNaN(Date.parse(entry.completedAt)) ||
+      !Number.isInteger(entry.correct) ||
+      !Number.isInteger(entry.total) ||
+      Number(entry.correct) < 0 ||
+      Number(entry.total) < 1 ||
+      Number(entry.correct) > Number(entry.total) ||
+      !Array.isArray(entry.mistakes) ||
+      entry.mistakes.length > 80
+    ) {
+      throw new AuthRequestError(
+        "The saved assessment history is invalid.",
+        400
+      )
+    }
+    const mistakes = entry.mistakes.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw new AuthRequestError(
+          "A saved assessment mistake is invalid.",
+          400
+        )
+      }
+      const mistake = item as Record<string, unknown>
+      const textFields = [
+        ["id", 180],
+        ["questionId", 180],
+        ["skill", 120],
+        ["skillLabel", 160],
+        ["prompt", 4_000],
+        ["selectedChoiceText", 2_000],
+        ["correctChoiceText", 2_000],
+        ["rationale", 6_000],
+      ] as const
+      if (
+        (mistake.section !== "english" &&
+          mistake.section !== "math" &&
+          mistake.section !== "reading") ||
+        textFields.some(
+          ([field, max]) =>
+            typeof mistake[field] !== "string" ||
+            String(mistake[field]).length < 1 ||
+            String(mistake[field]).length > max
+        )
+      ) {
+        throw new AuthRequestError(
+          "A saved assessment mistake is invalid.",
+          400
+        )
+      }
+      return {
+        id: String(mistake.id),
+        questionId: String(mistake.questionId),
+        section: mistake.section as "english" | "math" | "reading",
+        skill: String(mistake.skill),
+        skillLabel: String(mistake.skillLabel),
+        prompt: String(mistake.prompt),
+        selectedChoiceText: String(mistake.selectedChoiceText),
+        correctChoiceText: String(mistake.correctChoiceText),
+        rationale: String(mistake.rationale),
+      }
+    })
+    return {
+      id: entry.id,
+      kind: entry.kind,
+      title: entry.title,
+      completedAt: entry.completedAt,
+      correct: Number(entry.correct),
+      total: Number(entry.total),
+      compositeScore: score(entry.compositeScore, "Assessment Composite"),
+      sectionScores: sectionScores(
+        entry.sectionScores,
+        "Assessment section scores"
+      ),
+      mistakes,
     }
   })
 }
@@ -599,6 +854,8 @@ export function parseSavedTutorPlan(value: unknown): SavedTutorPlan {
         ? diagnosticSkillResults(input.profileSkillResults)
         : [],
     ...(typeof profileSource === "string" ? { profileSource } : {}),
+    assessmentHistory:
+      input.version === 2 ? assessmentHistory(input.assessmentHistory) : [],
     journey:
       input.version === 2
         ? parseTutorJourney(input.journey)
@@ -685,7 +942,15 @@ async function transact<T>(
   queues.set(store.key, tail)
   await previous
   try {
-    return await operation(await readStore(store))
+    const coordinatedStore = store as JsonDocumentStore & {
+      runExclusive?: <Result>(
+        coordinatedOperation: () => Promise<Result>
+      ) => Promise<Result>
+    }
+    const execute = async () => operation(await readStore(store))
+    return coordinatedStore.runExclusive
+      ? await coordinatedStore.runExclusive(execute)
+      : await execute()
   } finally {
     release()
     if (queues.get(store.key) === tail) queues.delete(store.key)
@@ -720,6 +985,9 @@ function viewerFor(
     technicalDetails: session.role === "judge",
     savedPlan: account?.savedPlan ?? null,
     pendingSetup: account?.pendingSetup ?? null,
+    lessonReminders: account?.lessonReminders
+      ? { ...account.lessonReminders }
+      : { ...DEFAULT_LESSON_REMINDER_PREFERENCES },
   }
 }
 
@@ -734,10 +1002,26 @@ function linkedSessionsFromRequest(request: NextRequest): LinkedSessions {
   return output
 }
 
-function judgeCredentials() {
-  const username = process.env.SCOUT_JUDGE_USERNAME?.trim() ?? ""
-  const password = process.env.SCOUT_JUDGE_PASSWORD ?? ""
-  const passwordHash = process.env.SCOUT_JUDGE_PASSWORD_HASH?.trim() ?? ""
+function developerCredentials() {
+  const usingDeveloperAliases = Boolean(
+    process.env.SCOUT_DEV_USERNAME ||
+    process.env.SCOUT_DEV_PASSWORD ||
+    process.env.SCOUT_DEV_PASSWORD_HASH
+  )
+  const username =
+    (usingDeveloperAliases
+      ? process.env.SCOUT_DEV_USERNAME
+      : process.env.SCOUT_JUDGE_USERNAME
+    )?.trim() ?? ""
+  const password =
+    (usingDeveloperAliases
+      ? process.env.SCOUT_DEV_PASSWORD
+      : process.env.SCOUT_JUDGE_PASSWORD) ?? ""
+  const passwordHash =
+    (usingDeveloperAliases
+      ? process.env.SCOUT_DEV_PASSWORD_HASH
+      : process.env.SCOUT_JUDGE_PASSWORD_HASH
+    )?.trim() ?? ""
   return {
     username,
     normalizedUsername: normalizedUsername(username),
@@ -772,16 +1056,16 @@ function parsePasswordRecord(value: string): PasswordRecord | null {
   }
 }
 
-async function judgePasswordMatches(password: string) {
-  const judge = judgeCredentials()
-  if (!judge.configured) return false
-  if (judge.passwordHash) {
-    const record = parsePasswordRecord(judge.passwordHash)
+async function developerPasswordMatches(password: string) {
+  const developer = developerCredentials()
+  if (!developer.configured) return false
+  if (developer.passwordHash) {
+    const record = parsePasswordRecord(developer.passwordHash)
     return record ? verifyPassword(password, record) : false
   }
   return constantTimeEqual(
     encoder.encode(password),
-    encoder.encode(judge.password)
+    encoder.encode(developer.password)
   )
 }
 
@@ -838,6 +1122,7 @@ export async function registerLearner(
     password: unknown
     savedPlan?: unknown
     pendingSetup?: unknown
+    lessonReminders?: unknown
   }
 ): Promise<AuthSuccess> {
   const username = parseUsername(input.username)
@@ -852,6 +1137,7 @@ export async function registerLearner(
     input.pendingSetup === undefined || input.pendingSetup === null
       ? null
       : parsePendingTutorSetup(input.pendingSetup)
+  const lessonReminders = parseLessonReminderPreferences(input.lessonReminders)
   if (savedPlan && pendingSetup) {
     throw new AuthRequestError(
       "Save either a completed plan or a pending diagnostic setup.",
@@ -859,12 +1145,12 @@ export async function registerLearner(
     )
   }
   const linkedSessions = linkedSessionsFromRequest(request)
-  const judge = judgeCredentials()
+  const developer = developerCredentials()
   const documentStore = getAuthStore()
   const currentStore = await readStore(documentStore)
   if (
     currentStore.usernames[normalized] ||
-    (judge.username && normalized === judge.normalizedUsername)
+    (developer.username && normalized === developer.normalizedUsername)
   ) {
     throw new AuthRequestError(
       "That username is already in use. Try another.",
@@ -877,7 +1163,7 @@ export async function registerLearner(
     removeExpired(store, Date.now())
     if (
       store.usernames[normalized] ||
-      (judge.username && normalized === judge.normalizedUsername)
+      (developer.username && normalized === developer.normalizedUsername)
     ) {
       throw new AuthRequestError(
         "That username is already in use. Try another.",
@@ -895,6 +1181,7 @@ export async function registerLearner(
       linkedSessions,
       savedPlan,
       pendingSetup,
+      lessonReminders,
       createdAt: now,
       updatedAt: now,
     }
@@ -926,7 +1213,7 @@ export async function signIn(
   const username = parseUsername(input.username)
   const normalized = normalizedUsername(username)
   const password = parsePassword(input.password, false)
-  const judge = judgeCredentials()
+  const developer = developerCredentials()
 
   const documentStore = getAuthStore()
   return transact(documentStore, async (store) => {
@@ -935,16 +1222,16 @@ export async function signIn(
     assertNotLocked(store, normalized, now)
 
     if (
-      judge.configured &&
-      normalized === judge.normalizedUsername &&
-      (await judgePasswordMatches(password))
+      developer.configured &&
+      normalized === developer.normalizedUsername &&
+      (await developerPasswordMatches(password))
     ) {
       delete store.attempts[normalized]
       const token = await createSession(store, {
         accountId: null,
         role: "judge",
-        username: judge.username,
-        displayName: "Hackathon judges",
+        username: developer.username,
+        displayName: "AlexACT developer",
       })
       await documentStore.write(store)
       return {
@@ -953,11 +1240,12 @@ export async function signIn(
         viewer: {
           authenticated: true,
           role: "judge",
-          username: judge.username,
-          displayName: "Hackathon judges",
+          username: developer.username,
+          displayName: "AlexACT developer",
           technicalDetails: true,
           savedPlan: null,
           pendingSetup: null,
+          lessonReminders: { ...DEFAULT_LESSON_REMINDER_PREFERENCES },
         },
       }
     }
@@ -1100,6 +1388,197 @@ export async function savePendingTutorSetup(
   })
 }
 
+export async function saveLessonReminderPreferences(
+  request: NextRequest,
+  value: unknown
+): Promise<AuthViewer> {
+  const token = request.cookies.get(AUTH_COOKIE)?.value
+  if (!token) {
+    throw new AuthRequestError(
+      "Sign in to change lesson reminder preferences.",
+      401
+    )
+  }
+  const tokenHash = await sha256(token)
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    removeExpired(store, Date.now())
+    const session = store.sessions[tokenHash]
+    const account =
+      session?.role === "learner" && session.accountId
+        ? store.accounts[session.accountId]
+        : undefined
+    if (!session || !account) {
+      throw new AuthRequestError(
+        "Sign in to change lesson reminder preferences.",
+        401
+      )
+    }
+    account.lessonReminders = parseLessonReminderPreferences(
+      value,
+      account.lessonReminders ?? null
+    )
+    if (!account.lessonReminders.enabled) {
+      account.reminderDeliveries = {}
+    }
+    account.updatedAt = new Date().toISOString()
+    await documentStore.write(store)
+    return viewerFor(session, account)
+  })
+}
+
+function parsedReminderDeliveryKey(deliveryKey: string) {
+  const match = REMINDER_DELIVERY_KEY_PATTERN.exec(deliveryKey)
+  if (!match) {
+    throw new AuthRequestError("The reminder delivery key is invalid.", 400)
+  }
+  return {
+    kind: match[1] as "upcoming" | "overdue",
+    channel: match[2] as "email" | "sms",
+  }
+}
+
+function prunedReminderDeliveries(
+  deliveries: Record<string, StoredReminderDelivery>,
+  reserve: number
+) {
+  return Object.fromEntries(
+    Object.entries(deliveries)
+      .toSorted(([, left], [, right]) =>
+        (right.sentAt ?? right.claimedAt).localeCompare(
+          left.sentAt ?? left.claimedAt
+        )
+      )
+      .slice(0, Math.max(0, MAX_REMINDER_DELIVERY_RECORDS - reserve))
+  )
+}
+
+export async function listLessonReminderSubscriptions(): Promise<
+  LessonReminderSubscription[]
+> {
+  const documentStore = getAuthStore()
+  return transact(documentStore, (store) =>
+    Object.values(store.accounts)
+      .filter((account) => account.lessonReminders?.enabled === true)
+      .map((account) => ({
+        accountId: account.id,
+        displayName: account.displayName,
+        studyPlanSessionId: account.linkedSessions.studyPlan ?? null,
+        preferences: {
+          ...(account.lessonReminders ?? DEFAULT_LESSON_REMINDER_PREFERENCES),
+        },
+      }))
+      .toSorted((left, right) => left.accountId.localeCompare(right.accountId))
+  )
+}
+
+export async function claimLessonReminderDelivery(
+  accountId: string,
+  deliveryKey: string,
+  now = new Date().toISOString()
+): Promise<LessonReminderDeliveryClaim | null> {
+  const { channel } = parsedReminderDeliveryKey(deliveryKey)
+  const nowMs = Date.parse(now)
+  if (!accountId || Number.isNaN(nowMs)) {
+    throw new AuthRequestError("The reminder delivery claim is invalid.", 400)
+  }
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    const account = store.accounts[accountId]
+    const preferences = account?.lessonReminders
+    const channelEnabled =
+      channel === "email"
+        ? preferences?.emailEnabled === true
+        : preferences?.smsEnabled === true
+    if (!account || !preferences?.enabled || !channelEnabled) return null
+
+    const existing = account.reminderDeliveries?.[deliveryKey]
+    if (existing?.status === "sent") return null
+    if (
+      existing?.status === "claimed" &&
+      nowMs - Date.parse(existing.claimedAt) < REMINDER_CLAIM_TTL_MS
+    ) {
+      return null
+    }
+
+    const claimToken = randomId()
+    account.reminderDeliveries = {
+      ...prunedReminderDeliveries(account.reminderDeliveries ?? {}, 1),
+      [deliveryKey]: {
+        status: "claimed",
+        claimToken,
+        claimedAt: now,
+        sentAt: null,
+      },
+    }
+    account.updatedAt = now
+    await documentStore.write(store)
+    return { accountId, deliveryKey, claimToken }
+  })
+}
+
+export async function completeLessonReminderDelivery(
+  claim: LessonReminderDeliveryClaim,
+  sentAt = new Date().toISOString()
+) {
+  parsedReminderDeliveryKey(claim.deliveryKey)
+  if (
+    !claim.accountId ||
+    !claim.claimToken ||
+    Number.isNaN(Date.parse(sentAt))
+  ) {
+    throw new AuthRequestError("The reminder delivery receipt is invalid.", 400)
+  }
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    const account = store.accounts[claim.accountId]
+    const existing = account?.reminderDeliveries?.[claim.deliveryKey]
+    if (
+      !account ||
+      existing?.status !== "claimed" ||
+      existing.claimToken !== claim.claimToken
+    ) {
+      return false
+    }
+    account.reminderDeliveries = {
+      ...account.reminderDeliveries,
+      [claim.deliveryKey]: {
+        ...existing,
+        status: "sent",
+        sentAt,
+      },
+    }
+    account.updatedAt = sentAt
+    await documentStore.write(store)
+    return true
+  })
+}
+
+export async function releaseLessonReminderDelivery(
+  claim: LessonReminderDeliveryClaim
+) {
+  parsedReminderDeliveryKey(claim.deliveryKey)
+  if (!claim.accountId || !claim.claimToken) {
+    throw new AuthRequestError("The reminder delivery claim is invalid.", 400)
+  }
+  const documentStore = getAuthStore()
+  return transact(documentStore, async (store) => {
+    const account = store.accounts[claim.accountId]
+    const existing = account?.reminderDeliveries?.[claim.deliveryKey]
+    if (
+      !account ||
+      existing?.status !== "claimed" ||
+      existing.claimToken !== claim.claimToken
+    ) {
+      return false
+    }
+    delete account.reminderDeliveries?.[claim.deliveryKey]
+    account.updatedAt = new Date().toISOString()
+    await documentStore.write(store)
+    return true
+  })
+}
+
 export async function deleteAccountSavedPlan(
   request: NextRequest
 ): Promise<AuthViewer> {
@@ -1186,7 +1665,7 @@ export async function requireJudge(request: NextRequest) {
   const viewer = await viewerForRequest(request)
   if (viewer.role !== "judge") {
     throw new AuthRequestError(
-      "Judge access is required for this demo control.",
+      "Developer mode is required for this demo control.",
       403
     )
   }

@@ -16,6 +16,11 @@ import {
   buildLessonPathItems,
   type LessonPathItem,
 } from "@/components/tutor/lesson-path"
+import {
+  currentRoundLessonCheck,
+  historicalLessonRounds,
+} from "@/components/tutor/lesson-history"
+import { LearningRoundRewardSummary } from "@/components/tutor/learning-reward-summary"
 import { LessonTimeline } from "@/components/tutor/lesson-timeline"
 import { Button } from "@/components/ui/button"
 import { formatCalendarDate } from "@/lib/dates"
@@ -26,7 +31,7 @@ interface LessonsCommandCenterProps {
   testDate: string
   busy: boolean
   onOpenWorkspace: () => void
-  onReviewLesson: (skill: string) => void
+  onReviewLesson: (lessonCheckId: string) => void
   onStartNext: () => void
   onStartSkill: (skill: string) => void
   onStartRepair: (mistakeId: string) => void
@@ -35,6 +40,7 @@ interface LessonsCommandCenterProps {
   onStartMicro: (skill?: string) => void
   onStartRecovery: () => void
   onStartProgressCheck: () => void
+  onContinueRoundAssessment: () => void
   onOpenBadges: () => void
   onOpenWeek: () => void
 }
@@ -43,9 +49,22 @@ function primaryAction(
   learning: LearningSessionPayload,
   actions: Pick<
     LessonsCommandCenterProps,
-    "onOpenWorkspace" | "onStartNext" | "onStartRepair" | "onStartProgressCheck"
+    | "onOpenWorkspace"
+    | "onStartNext"
+    | "onStartRepair"
+    | "onStartProgressCheck"
+    | "onContinueRoundAssessment"
   >
 ) {
+  if (learning.cycle.status === "assessment-choice") {
+    return {
+      label: "Choose the next assessment",
+      detail: "Your completed lessons stay open for review.",
+      action: actions.onContinueRoundAssessment,
+      icon: ArrowRightIcon,
+    }
+  }
+
   if (learning.status === "remediation") {
     return {
       label: "Review missed questions",
@@ -104,6 +123,7 @@ function primaryAction(
 export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
   const { learning } = props
   const progress = learning.mission.progress
+  const lessonHistory = learning.lessonHistory ?? []
   const lessonPath = buildLessonPathItems({
     requiredSkills: learning.cycle.requiredSkills,
     completedSkills: learning.cycle.completedSkills,
@@ -116,6 +136,10 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
     })),
     currentLessonMinutes: learning.lesson.minutes,
   })
+  const previousRounds = historicalLessonRounds(
+    lessonHistory,
+    learning.cycle.roundNumber
+  )
   const action = primaryAction(learning, props)
   const ActionIcon = action.icon
   const nextReview = learning.mission.dueReviews[0]
@@ -127,7 +151,12 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
   function selectLesson(lesson: LessonPathItem) {
     if (props.busy) return
     if (lesson.status === "completed") {
-      props.onReviewLesson(lesson.id)
+      const check = currentRoundLessonCheck(
+        lessonHistory,
+        learning.cycle.roundNumber,
+        lesson.id
+      )
+      if (check) props.onReviewLesson(check.id)
       return
     }
     if (
@@ -188,11 +217,15 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
         </dl>
       </header>
 
+      {learning.roundReward?.nextRoundNumber === learning.cycle.roundNumber ? (
+        <LearningRoundRewardSummary
+          reward={learning.roundReward}
+          className="mt-6"
+        />
+      ) : null}
+
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <div
-          data-tour-id="lesson-path"
-          className="overflow-hidden rounded-2xl border bg-background"
-        >
+        <div className="overflow-hidden rounded-2xl border bg-background">
           <LessonTimeline
             lessons={lessonPath}
             roundNumber={learning.cycle.roundNumber}
@@ -362,6 +395,73 @@ export function LessonsCommandCenter(props: LessonsCommandCenterProps) {
           </div>
         </aside>
       </div>
+
+      {previousRounds.length ? (
+        <section
+          className="mt-7 border-t pt-6"
+          aria-labelledby="completed-lesson-library-title"
+          data-testid="completed-lesson-library"
+        >
+          <p className="ink-label text-primary">Read-only review</p>
+          <h2
+            id="completed-lesson-library-title"
+            className="mt-1.5 font-heading text-2xl font-black tracking-[-0.025em]"
+          >
+            Earlier lesson rounds
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Reopen any completed lesson. Reviewing an older lesson never changes
+            your current round.
+          </p>
+          <div className="mt-4 grid gap-3">
+            {previousRounds.map((round) => (
+              <details
+                key={round.roundNumber}
+                className="group overflow-hidden rounded-xl border bg-background"
+              >
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
+                  <span>
+                    Round {round.roundNumber} ·{" "}
+                    {round.cycleKind === "foundation"
+                      ? "Foundation"
+                      : "Adaptive"}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {round.lessons.length}{" "}
+                    {round.lessons.length === 1 ? "lesson" : "lessons"}
+                  </span>
+                </summary>
+                <div className="grid gap-2 border-t p-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {round.lessons.map((check) => (
+                    <Button
+                      key={check.id}
+                      type="button"
+                      variant="outline"
+                      className="h-auto min-h-14 justify-between gap-4 px-4 py-3 text-left"
+                      disabled={props.busy}
+                      onClick={() => props.onReviewLesson(check.id)}
+                      aria-label={`Review ${check.lesson.title} from round ${check.roundNumber}`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold">
+                          {check.lesson.title}
+                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                          Check score {check.correct}/{check.total}
+                        </span>
+                      </span>
+                      <BookOpenCheckIcon
+                        className="size-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }

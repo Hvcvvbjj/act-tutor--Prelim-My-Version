@@ -18,12 +18,26 @@ test("goal and schedule setup are keyboard-editable and preview the real commitm
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
   await page.getByRole("button", { name: "Set my schedule" }).click()
 
+  const officialDates = page.getByRole("radiogroup", {
+    name: "Next national ACT date",
+  })
+  await expect(
+    officialDates.getByRole("radio", { name: "September 19, 2026" })
+  ).toBeChecked()
+  await expect(
+    officialDates.getByRole("radio", { name: "October 17, 2026" })
+  ).toBeVisible()
+  await expect(
+    officialDates.getByRole("radio", { name: "December 12, 2026" })
+  ).toBeVisible()
+  await expect(page.getByText("September 3, 2026")).toHaveCount(0)
+
   const dateHelp = page.locator("#test-date-help")
   await expect(dateHelp).toContainText("days away")
 
   const preview = page.getByTestId("schedule-preview")
   await expect(preview).toContainText("3 × 30-minute sessions")
-  await expect(preview).toContainText("Change the days later in My Week")
+  await expect(preview).toContainText("Change the days later in My Schedule")
 
   await page.getByRole("button", { name: "5 days" }).click()
   await page.getByRole("button", { name: "45 min" }).click()
@@ -118,7 +132,7 @@ test("account signup saves and restores an in-progress starting diagnostic", asy
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
   await page.getByRole("tab", { name: "Create account" }).click()
   const signup = page.getByRole("dialog", {
-    name: "Keep your Scout progress.",
+    name: "Keep your AlexACT progress.",
   })
   await signup.getByLabel("Your name").fill("Baseline Learner")
   await signup.getByLabel("Username").fill(username)
@@ -179,7 +193,7 @@ test("account signup from score setup restores the unfinished draft after reload
   await page.getByRole("button", { name: "Sign in / save progress" }).click()
   await page.getByRole("tab", { name: "Create account" }).click()
   const signup = page.getByRole("dialog", {
-    name: "Keep your Scout progress.",
+    name: "Keep your AlexACT progress.",
   })
   await signup.getByLabel("Your name").fill("Draft Signup")
   await signup.getByLabel("Username").fill(username)
@@ -214,7 +228,7 @@ test("signing into an empty account from setup attaches the local draft", async 
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
   await page.getByRole("tab", { name: "Create account" }).click()
   const signup = page.getByRole("dialog", {
-    name: "Keep your Scout progress.",
+    name: "Keep your AlexACT progress.",
   })
   await signup.getByLabel("Your name").fill("Draft Login")
   await signup.getByLabel("Username").fill(username)
@@ -272,7 +286,7 @@ test("score setup waits for the learner instead of inventing evidence", async ({
   await expect(page.locator('input[type="number"]')).toHaveCount(0)
   await expect(
     page.getByText(
-      "Choose one to continue. Scout will not invent a score for you."
+      "Choose one to continue. AlexACT will not invent a score for you."
     )
   ).toBeVisible()
 
@@ -407,7 +421,7 @@ test("legacy prefilled defaults do not return as learner evidence", async ({
   await expect(page.locator('input[type="number"]')).toHaveCount(0)
   await expect(
     page.getByText(
-      "Choose one to continue. Scout will not invent a score for you."
+      "Choose one to continue. AlexACT will not invent a score for you."
     )
   ).toBeVisible()
 })

@@ -15,6 +15,10 @@ export const PRACTICE_DIFFICULTY_STYLES: Record<DiagnosticDifficulty, string> =
     hard: "border-rose-700/30 bg-rose-500/10 text-rose-900 dark:text-rose-100",
   }
 
+export function shouldShowExamLabDifficulty(assessmentLabel: string) {
+  return assessmentLabel === "Progress check"
+}
+
 export function formatAssessmentTime(seconds: number) {
   const safeSeconds = Math.max(0, Math.floor(seconds))
   const hours = Math.floor(safeSeconds / 3600)

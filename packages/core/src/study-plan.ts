@@ -367,8 +367,9 @@ function taskCopy(
 ) {
   if (kind === "checkpoint") {
     return {
-      title: "3-skill progress check",
-      reason: "A short progress check is due before the next lesson block.",
+      title: "Timed full-section progress check",
+      reason:
+        "A timed, official-length section checks your progress before the next lesson block.",
     };
   }
   if (kind === "rehearsal") {
@@ -694,7 +695,7 @@ export function generateStudyPlan(
     forecast: {} as StudyPlanForecast,
     revision: 1,
     revisionReason:
-      "Scout built this plan from your starting scores, goal scores, study time, and skill results.",
+      "AlexACT built this plan from your starting scores, goal scores, study time, and skill results.",
     generatedAt,
     updatedAt: generatedAt,
   };
@@ -784,8 +785,8 @@ export function rebalanceStudyPlan(
     revisionReason:
       input.reason ??
       (startsNewTestCycle
-        ? "Scout started a fresh calendar for your newly scheduled test. Your skill evidence and score history stayed intact."
-        : "Scout updated your future work from your new schedule and recent answers. Today’s work and finished tasks did not change."),
+        ? "AlexACT started a fresh calendar for your newly scheduled test. Your skill evidence and score history stayed intact."
+        : "AlexACT updated your future work from your new schedule and recent answers. Today’s work and finished tasks did not change."),
     updatedAt,
   };
   return { ...plan, forecast: buildForecast(plan) };
@@ -818,8 +819,8 @@ export function setStudyPlanTaskStatus(
     revision: existing.revision + 1,
     revisionReason:
       status === "complete"
-        ? "Scout marked this task complete without moving the rest of today’s work."
-        : "You changed a task. Scout can still move future work if needed.",
+        ? "AlexACT marked this task complete without moving the rest of today’s work."
+        : "You changed a task. AlexACT can still move future work if needed.",
     updatedAt,
   };
   return { ...plan, forecast: buildForecast(plan) };
@@ -842,7 +843,7 @@ export function catchUpStudyPlan(
     today,
     updatedAt,
     reason:
-      "Scout marked the missed work and moved it into future study sessions.",
+      "AlexACT marked the missed work and moved it into future study sessions.",
   });
 }
 

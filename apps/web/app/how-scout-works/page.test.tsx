@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest"
 
 import HowScoutWorksPage, { metadata } from "./page"
 
-describe("How Scout works", () => {
+describe("How AlexACT works", () => {
   it("explains the learner loop and model boundaries in plain English", () => {
     const markup = renderToStaticMarkup(<HowScoutWorksPage />)
 
     expect(markup).toContain(
-      "Scout uses scored answers to guide what comes after Round 1."
+      "AlexACT uses scored answers to guide what comes after Round 1."
     )
     expect(markup).toContain("One answer, three steps.")
     expect(markup).toContain("IRT · question picker")
@@ -22,7 +22,7 @@ describe("How Scout works", () => {
       "A demo should prove behavior—not promise an outcome."
     )
     expect(markup).toContain("What this demo demonstrates")
-    expect(markup).toContain("What Scout does not claim")
+    expect(markup).toContain("What AlexACT does not claim")
     expect(markup).toContain(
       "Guaranteed score improvement or proof that a learner will reach a target."
     )
@@ -35,7 +35,7 @@ describe("How Scout works", () => {
 
   it("publishes route-specific metadata", () => {
     expect(metadata).toMatchObject({
-      title: "How Scout Works",
+      title: "How AlexACT Works",
       alternates: {
         canonical: "/how-scout-works",
       },

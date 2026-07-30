@@ -199,4 +199,49 @@ describe("FULL_LENGTH_PRACTICE_FORM", () => {
       "protecting the fragile original",
     );
   });
+
+  it("keeps all 650 audited question records structurally and typographically clean", () => {
+    const questions = [
+      ...RAPID_DIAGNOSTIC_FORM.questions,
+      ...ACT_PRACTICE_QUESTIONS,
+      ...EXAM_LAB_FORMS.flatMap((form) => form.questions),
+    ];
+
+    expect(questions).toHaveLength(650);
+    for (const question of questions) {
+      expect(question.prompt).toBe(question.prompt.trim());
+      expect(question.rationale).toMatch(/[.!?]$/);
+      expect(new Set(question.choices.map((choice) => choice.id)).size).toBe(4);
+      expect(
+        new Set(question.choices.map((choice) => choice.text.toLowerCase()))
+          .size,
+      ).toBe(4);
+      expect(
+        question.choices.some(
+          (choice) => choice.id === question.correctChoiceId,
+        ),
+      ).toBe(true);
+
+      const serialized = JSON.stringify(question);
+      expect(serialized).not.toMatch(
+        /probability both|how many blue\?|negative 1|\b[0-9]pi\b|\ba (?:8|11)-/,
+      );
+      if (
+        question.section === "english" &&
+        /-english-(?:38|39|4[0-9]|50)$/.test(question.id)
+      ) {
+        expect(question.stimulus).not.toMatch(
+          /^(?:During|In the)[^.!?]+, [A-Z][a-z]+/,
+        );
+      }
+      if (
+        question.section === "english" &&
+        /-english-(?:01|05|09|13)$/.test(question.id)
+      ) {
+        expect(question.prompt).toContain(
+          "without changing their logical relationship",
+        );
+      }
+    }
+  });
 });

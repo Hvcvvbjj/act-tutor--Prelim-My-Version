@@ -1,6 +1,6 @@
-# Enhanced ACT blueprint used by Scout ACT
+# Enhanced ACT blueprint used by AlexACT
 
-Scout ACT targets the enhanced ACT structure in effect for current administrations. It does not use the legacy four-section Composite calculation.
+AlexACT targets the enhanced ACT structure in effect for current administrations. It does not use the legacy four-section Composite calculation.
 
 ## Official displayed structure
 
@@ -21,11 +21,11 @@ Primary sources:
 - [ACT score explanation and operational-item counts](https://www.act.org/content/act/en/products-and-services/the-act/scores/understanding-your-scores.html)
 - [ACT 2026 enhanced-test design framework](https://www.act.org/content/dam/act/unsecured/documents/R2519-Design-Framework-for-the-ACT-Enhancements-2026-02.pdf)
 
-## Scout ACT half-length baseline
+## AlexACT full 66-question diagnostic
 
-The no-score path uses half of each displayed core section, rounding the odd Math count upward:
+The required Round 0 diagnostic samples half of each displayed core section, rounding the odd Math count upward:
 
-| Section | Scout questions | Target time | Format |
+| Section | AlexACT questions | Target time | Format |
 | --- | ---: | ---: | --- |
 | English | 25 | 18 minutes | Five original revision passages with five questions each |
 | Math | 23 | 25 minutes | Original four-choice standalone and contextual problems |
@@ -42,7 +42,7 @@ The current 12-skill evidence layer sits beneath the official reporting categori
 - Math: linear equations; functions and modeling; ratios and percent; geometry and measurement.
 - Reading: central ideas and details; supported inference; textual evidence and details; author purpose and structure.
 
-Each skill receives four to seven questions in the half-length form. Reporting categories preserve the official section-level vocabulary, while skill labels drive lessons and practice selection.
+Each skill receives four to seven questions in the full 66-question diagnostic. Reporting categories preserve the official section-level vocabulary, while skill labels drive lessons and practice selection.
 
 ## Accuracy boundary
 

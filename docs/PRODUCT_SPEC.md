@@ -96,7 +96,7 @@ This preserves the user's requested fast path without pretending score reports c
 
 ### 5.2 No-score path
 
-The full product target is a half-length diagnostic based on half of the current displayed test:
+The product uses a full 66-question Round 0 diagnostic sampled proportionally from the current displayed core sections:
 
 | Section | Diagnostic questions | Target time | Notes |
 |---|---:|---:|---|
@@ -400,4 +400,4 @@ The MVP is complete when all of these are true:
 7. Science never changes the Composite calculation.
 8. The app works when the AI provider is disabled.
 9. No draft question or answer key is exposed to the browser.
-10. The full judge demo succeeds three consecutive times on the deployed site.
+10. The protected developer demo succeeds three consecutive times on the deployed site.

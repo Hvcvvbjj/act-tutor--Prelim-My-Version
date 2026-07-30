@@ -18,21 +18,29 @@ describe("mobile navigation contract", () => {
         dashboard.indexOf('aria-label="Primary study navigation"')
       )
     )
-    expect(mobileNav.match(/<DashboardTab/g)).toHaveLength(4)
+    expect(mobileNav.match(/<DashboardTab/g)).toHaveLength(6)
     expect(mobileNav).toContain('value="today"')
+    expect(mobileNav).toContain('value="needs-work"')
     expect(mobileNav).toContain('value="plan"')
     expect(mobileNav).toContain('value="progress"')
+    expect(mobileNav).toContain('value="history"')
     expect(mobileNav).toContain('value="badges"')
-    expect(dashboard).toContain("grid-cols-5")
+    expect(dashboard).toContain("grid-cols-7")
     expect(mobileNav).toContain("Lessons")
-    expect(mobileNav).toContain("Week")
+    expect(mobileNav).toContain("Needs")
+    expect(mobileNav).toContain("Schedule")
     expect(mobileNav).toContain("Practice")
     expect(mobileNav).toContain("Progress")
+    expect(mobileNav).toContain("History")
     expect(mobileNav).toContain("Badges")
     expect(mobileNav).not.toContain("More")
+    expect(dashboard).toContain('learning.cycle.status === "assessment-choice"')
+    expect(dashboard).toContain(
+      'needsWorkUnlocked ? "grid-cols-7" : "grid-cols-6"'
+    )
     expect(dashboard).toContain("function MrKimHeaderButton")
     expect(dashboard).toContain("function SettingsHeaderButton")
-    expect(dashboard).toContain('aria-label="Scout ACT, go to Lessons"')
+    expect(dashboard).toContain('aria-label="AlexACT, go to Lessons"')
     expect(dashboard).toContain("sticky top-0 z-50")
   })
 
@@ -52,16 +60,20 @@ describe("mobile navigation contract", () => {
         dashboard.indexOf('aria-label="Study navigation"')
       )
     )
-    expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(4)
+    expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(6)
     const labels = [
       "Lessons",
-      "My Week",
-      "Full Diagnostic",
+      "Needs Work",
+      "My Schedule",
       "Timed Practice",
       "Progress",
+      "History",
       "Badges",
     ]
     for (const label of labels) expect(desktopNav).toContain(label)
+    expect(desktopNav).not.toContain("Full Diagnostic")
+    expect(desktopNav).not.toContain('data-tour-id="nav-diagnostic"')
+    expect(desktopNav).toContain("{needsWorkUnlocked ? (")
     for (let index = 1; index < labels.length; index += 1) {
       expect(desktopNav.indexOf(labels[index - 1]!)).toBeLessThan(
         desktopNav.indexOf(labels[index]!)
@@ -69,9 +81,21 @@ describe("mobile navigation contract", () => {
     }
     expect(dashboard).not.toContain("function DesktopOverflow")
     expect(dashboard).not.toContain("function MobileOverflow")
-    expect(dashboard).not.toContain("More from Scout")
+    expect(dashboard).not.toContain("More from AlexACT")
     expect(assistant).toContain("Data &amp; privacy")
     expect(assistant).toContain('aria-label="Settings"')
+  })
+
+  it("feeds badges from measured skill readiness and the latest score change", async () => {
+    const dashboard = await source("components/tutor/dashboard.tsx")
+
+    expect(dashboard).toContain(
+      "skillProgress={learning.learningTwin.skills.map("
+    )
+    expect(dashboard).toContain("readiness: learnedProbability")
+    expect(dashboard).toContain(
+      "learning.roundReward?.estimatedActScoreDelta ?? 0"
+    )
   })
 })
 
@@ -83,10 +107,41 @@ describe("dashboard tour interaction contract", () => {
 
     expect(lessons).not.toMatch(/<div\s+data-tour-id="lesson-action"/)
     expect(lessons).toMatch(/<Button[\s\S]{0,240}data-tour-id="lesson-action"/)
+    expect(lessons).not.toContain('data-tour-id="lesson-path"')
     expect(tour).toContain("target.scrollIntoView")
+    expect(tour).toContain("tourDialogPlacement")
+    expect(tour).toContain("document.documentElement.clientWidth")
     expect(tour).toContain("data-tour-spotlight={step.target}")
+    expect(tour).toContain("visibleRect")
+    expect(tour).toContain('step.target !== "nav-needs-work"')
+    expect(await source("components/tutor/dashboard.tsx")).toContain(
+      "includeNeedsWork={includeNeedsWork}"
+    )
+    expect(tour).not.toMatch(
+      /data-tour-spotlight=\{step\.target\}[\s\S]{0,240}scout-coral/
+    )
+    expect(tour).not.toContain('className="h-full bg-[var(--scout-coral)]')
     expect(tour).toContain("(min-width: 1024px)")
     expect(tutorApp).toContain("(min-width: 1024px)")
+  })
+
+  it("shows the reviewed Mr. Kim answer before optional free AI enhancement finishes", async () => {
+    const assistant = await source("components/tutor/scout-assistant.tsx")
+    const provider = await source("lib/mr-kim-client-provider.ts")
+    const immediateAnswer = assistant.indexOf(
+      "if (serverMessage) {\n        setVisibleMessages"
+    )
+    const backgroundEnhancement = assistant.indexOf("void (async () =>")
+
+    expect(immediateAnswer).toBeGreaterThan(-1)
+    expect(backgroundEnhancement).toBeGreaterThan(immediateAnswer)
+    expect(assistant).toContain("NEEDS_WORK_MR_KIM_EVENT")
+    expect(assistant).toContain('>("loading")')
+    expect(assistant).toContain("disabled={askUnavailable}")
+    expect(provider).toContain("askBlocked: true")
+    expect(provider.indexOf('freeCloudStatus === "ready"')).toBeLessThan(
+      provider.indexOf('onDeviceStatus === "downloadable"')
+    )
   })
 
   it("keeps the welcome header focused and routes every first plan to the diagnostic", async () => {
@@ -169,7 +224,8 @@ describe("shared visual system contract", () => {
       "components/tutor/adaptive-calibration-lab.tsx"
     )
 
-    expect(layout).toContain("Archivo")
+    expect(layout).toContain("archivo-latin.woff2")
+    expect(layout).toContain('variable: "--font-archivo"')
     expect(layout).not.toContain("Barlow_Condensed")
     expect(styles).toContain("--font-brand: var(--font-archivo)")
     expect(styles).toContain("--font-heading: var(--font-geist)")
@@ -222,7 +278,7 @@ describe("learner-facing model language", () => {
       "components/tutor/scout-operations/learner-model-view.tsx"
     )
     expect(learnerModel).toContain("Export my data")
-    expect(learnerModel).toContain("Delete Scout study data")
+    expect(learnerModel).toContain("Delete AlexACT study data")
     expect(learnerModel).toContain("Confirm study-data deletion")
   })
 
@@ -263,7 +319,7 @@ describe("learner-facing model language", () => {
     expect(dashboard).not.toContain("temporary 18")
     expect(mission).not.toContain("Next: {nextLabel}")
     expect(mission).toContain("Continue the practice questions for this skill.")
-    expect(mission).not.toContain("Why Scout picked this")
+    expect(mission).not.toContain("Why AlexACT picked this")
     expect(mission).not.toContain("Later today")
     expect(mission).not.toContain("Planning baseline · not an ACT score")
     expect(mission).not.toContain("No streak yet")
@@ -273,13 +329,13 @@ describe("learner-facing model language", () => {
     expect(onboarding).not.toContain("See one answer change the plan")
     expect(onboarding).not.toContain("Type or use the buttons")
     expect(onboarding).toContain("Your week")
-    expect(onboarding).toContain("Change the days later in My Week")
+    expect(onboarding).toContain("Change the days later in My Schedule")
     expect(onboarding).toContain("full 66-question")
     expect(onboarding).not.toContain(
       "No invented score. No shortened baseline."
     )
     expect(onboarding).not.toContain("More → Data &amp; privacy")
-    expect(onboarding).toContain("Open the judge demo")
+    expect(onboarding).toContain("Open the developer demo")
     expect(onboarding).toContain("viewer.technicalDetails")
     expect(onboarding).not.toContain("Skip for now")
     expect(onboarding).toContain("Continue to full diagnostic")
@@ -287,19 +343,19 @@ describe("learner-facing model language", () => {
     expect(tutorApp).toContain('return "diagnostic"')
     expect(tutorApp).not.toContain("temporary 18")
     expect(onboarding).toContain(
-      "Add the scores Scout should use as your starting point."
+      "Add the scores AlexACT should use as your starting point."
     )
     expect(onboarding).not.toContain("choose your first lessons")
     expect(onboarding).not.toContain(
-      "After Round 1, what should Scout emphasize?"
+      "After Round 1, what should AlexACT emphasize?"
     )
-    expect(onboarding).not.toContain("What should Scout prioritize?")
-    expect(onboarding).not.toContain("Preview Scout with sample answers")
-    expect(quickCheck).toContain("Scout may")
+    expect(onboarding).not.toContain("What should AlexACT prioritize?")
+    expect(onboarding).not.toContain("Preview AlexACT with sample answers")
+    expect(quickCheck).toContain("AlexACT may")
     expect(quickCheck).toContain(
       'latestEvent.correct ? "Correct." : "Not quite."'
     )
-    expect(quickCheck).toContain("Scout updated your skill estimates.")
+    expect(quickCheck).toContain("AlexACT updated your skill estimates.")
     expect(quickCheck).toMatch(
       /Round 1 still teaches all 12\s+question types\./
     )
@@ -309,17 +365,17 @@ describe("learner-facing model language", () => {
     expect(quickCheck).toContain("Priority unchanged")
     expect(quickCheck).toContain("later-round priority")
     expect(quickCheck).not.toContain("next lesson")
-    expect(quickCheck).not.toContain("order Scout recommends practice")
+    expect(quickCheck).not.toContain("order AlexACT recommends practice")
     expect(quickCheck).toContain(
-      "Scout updated this check and the skill you just practiced."
+      "AlexACT updated this check and the skill you just practiced."
     )
     expect(studyPlan).toContain('label: "Add study time"')
     expect(studyPlan).toContain("Study schedule")
     expect(studyPlan).not.toContain("Calendar capacity")
     expect(learnerModel).not.toContain("This records two adjacent answers")
     expect(learningData).toContain("Data &amp; privacy")
-    expect(learningData).toContain("See and control what Scout saves")
-    expect(learnerModel).toContain("What Scout saves")
+    expect(learningData).toContain("See and control what AlexACT saves")
+    expect(learnerModel).toContain("What AlexACT saves")
     expect(learnerModel).toContain("Correct a skill estimate")
     expect(learnerModel).not.toContain("Practice options")
     expect(actTiming).toContain("ACT timing reference")
@@ -332,15 +388,16 @@ describe("learner-facing model language", () => {
     expect(lesson).toContain('"Check answer"')
     expect(lesson).not.toContain("How sure are you?")
     expect(lesson).not.toContain("Review answer")
-    expect(lesson).not.toContain("Why Scout picked this")
-    expect(lesson).not.toContain("Change how Scout explains this")
+    expect(lesson).not.toContain("Why AlexACT picked this")
+    expect(lesson).not.toContain("Change how AlexACT explains this")
     expect(lesson).not.toContain("section.coachPrompt")
     expect(lesson).not.toContain("practice-priority total")
     expect(lesson).toContain('confidence: "unreported"')
     expect(lesson).not.toContain('"Finish practice"')
     expect(lesson).toContain("lessonSegmentMinutes(")
-    expect(progress).toContain("See skill map")
-    expect(progress).toContain("How Scout chose this skill")
+    expect(progress).toContain("Skill map")
+    expect(progress).not.toContain("See skill map")
+    expect(progress).toContain("How AlexACT chose this skill")
     expect(timedPractice).not.toContain("Sure, Unsure, or Guessing")
     expect(timedPractice).not.toContain("self-reported confidence")
     expect(diagnosticIntro).toContain("Find your starting point")

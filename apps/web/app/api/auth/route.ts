@@ -8,6 +8,7 @@ import {
   deleteAccountSavedPlan,
   registerLearner,
   saveAccountPlan,
+  saveLessonReminderPreferences,
   savePendingTutorSetup,
   setAuthCookie,
   signIn,
@@ -39,7 +40,13 @@ function errorResponse(error: unknown, request: NextRequest) {
         ? { name: error.name, message: error.message }
         : { name: "UnknownError", message: "Non-error value thrown" },
   })
-  return json({ error: "The account request could not be completed." }, 500)
+  return json(
+    {
+      error:
+        "AlexACT's account service hit a temporary error. Your work is still saved on this device; try again in a moment.",
+    },
+    500
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -62,6 +69,7 @@ export async function POST(request: NextRequest) {
         password: body.password,
         savedPlan: body.savedPlan,
         pendingSetup: body.pendingSetup,
+        lessonReminders: body.lessonReminders,
       })
       const response = json({ viewer: result.viewer }, 201)
       setAuthCookie(response, result.token, "learner")
@@ -94,6 +102,15 @@ export async function POST(request: NextRequest) {
     if (body.action === "save_setup") {
       return json({
         viewer: await savePendingTutorSetup(request, body.pendingSetup),
+      })
+    }
+
+    if (body.action === "save_reminders") {
+      return json({
+        viewer: await saveLessonReminderPreferences(
+          request,
+          body.lessonReminders
+        ),
       })
     }
 

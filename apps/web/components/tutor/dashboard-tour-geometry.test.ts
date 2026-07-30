@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { spotlightRect } from "./dashboard-tour-geometry"
+import {
+  spotlightRect,
+  tourDialogPlacement,
+} from "./dashboard-tour-geometry"
 
 const viewport = { width: 1440, height: 900 }
 
@@ -19,12 +22,12 @@ describe("dashboard tour spotlight geometry", () => {
         viewport
       )
     ).toEqual({
-      top: 192,
-      left: 312,
-      right: 528,
-      bottom: 252,
-      width: 216,
-      height: 60,
+      top: 196,
+      left: 316,
+      right: 524,
+      bottom: 248,
+      width: 208,
+      height: 52,
     })
   })
 
@@ -76,5 +79,49 @@ describe("dashboard tour spotlight geometry", () => {
         viewport
       )
     ).toBeNull()
+  })
+
+  it("puts the dialog to the left of a right-rail action", () => {
+    expect(
+      tourDialogPlacement(
+        {
+          top: 412,
+          left: 934,
+          right: 1220,
+          bottom: 464,
+          width: 286,
+          height: 52,
+        },
+        { width: 1265, height: 720 },
+        { width: 420, height: 244 }
+      )
+    ).toEqual({
+      top: 316,
+      left: 496,
+      width: 420,
+      side: "left",
+    })
+  })
+
+  it("keeps top-navigation dialogs below their highlighted control", () => {
+    expect(
+      tourDialogPlacement(
+        {
+          top: 12,
+          left: 980,
+          right: 1024,
+          bottom: 56,
+          width: 44,
+          height: 44,
+        },
+        { width: 1265, height: 720 },
+        { width: 420, height: 244 }
+      )
+    ).toEqual({
+      top: 74,
+      left: 792,
+      width: 420,
+      side: "below",
+    })
   })
 })

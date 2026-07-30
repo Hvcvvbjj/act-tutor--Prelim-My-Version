@@ -1,4 +1,4 @@
-# Scout ACT technical architecture
+# AlexACT technical architecture
 
 ## Judge-level system view
 
@@ -25,13 +25,13 @@ The critical loop is **next-best probe → trusted response → skill-model upda
 
 ## Why 2PL Item Response Theory
 
-The optional Quick Check estimates a single practice-readiness ability parameter, `theta`, with a normal prior and maximum-a-posteriori updates. Each item has an explicit difficulty (`b`) and discrimination (`a`) parameter. At the current estimate, Scout ranks every unanswered item by Fisher information, then adds small section- and skill-coverage bonuses so a mathematically informative test does not become educationally narrow.
+The optional Quick Check estimates a single practice-readiness ability parameter, `theta`, with a normal prior and maximum-a-posteriori updates. Each item has an explicit difficulty (`b`) and discrimination (`a`) parameter. At the current estimate, AlexACT ranks every unanswered item by Fisher information, then adds small section- and skill-coverage bonuses so a mathematically informative test does not become educationally narrow.
 
 The check cannot stop before eight items. It stops when English, Math, and Reading each have at least two observations and standard error is at or below `0.56`, or when it reaches the twelve-item cap. The displayed 80% interval and readiness index are model diagnostics—not an official ACT score. Current item parameters are reviewed product priors by difficulty band and are explicitly not described as empirically equated ACT parameters.
 
 ## Why Bayesian Knowledge Tracing
 
-For each ACT skill, Scout stores the probability that the learner has acquired the skill. After a response, it uses the classic BKT observation update:
+For each ACT skill, AlexACT stores the probability that the learner has acquired the skill. After a response, it uses the classic BKT observation update:
 
 ```text
 Correct:
@@ -92,7 +92,7 @@ It may personalize lesson depth, opening, guided explanation, strategy checklist
 | `packages/core`    | scoring, 2PL IRT, diagnostics, planning, BKT, missions, study plans, exam analysis |
 | `packages/content` | original reviewed diagnostic, skill, lesson, and practice content         |
 | `packages/server`  | durable repositories, trusted scoring flow, lesson/debrief composition    |
-| `apps/web`         | Next.js routes, cookies, server wiring, and responsive Scout UI           |
+| `apps/web`         | Next.js routes, cookies, server wiring, and responsive AlexACT UI           |
 
 ## Persistence and production path
 

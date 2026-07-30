@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test"
 import { completeServerDiagnostic } from "./helpers"
 
 const PAST_TEST_DATE = "2026-07-20"
-const NEXT_TEST_DATE = "2026-09-12"
+const NEXT_TEST_DATE = "2026-09-19"
 
 async function seedPastTestPlan(page: Page) {
   await page.addInitScript(
@@ -116,7 +116,7 @@ test("a pending official score survives a new test date and prompts again", asyn
     page.getByRole("heading", { name: "No need to guess." })
   ).toBeVisible()
   await page.getByText("Yes—add my next date", { exact: true }).click()
-  await page.getByLabel("Next ACT date").fill(NEXT_TEST_DATE)
+  await page.getByRole("radio", { name: /September 19, 2026/ }).check()
   await page.getByRole("button", { name: "Save check-in" }).click()
 
   await expect

@@ -5,6 +5,8 @@ import {
   applyKnowledgeObservation,
   applyPracticeAttempt,
   answerEvidenceWeight,
+  buildLearningRoundRewardSummary,
+  buildLessonRewardSummary,
   buildLearningTwinSnapshot,
   buildDueReviews,
   calculateLearningStreak,
@@ -33,7 +35,9 @@ import {
   type LessonContent,
   type LessonCheckResult,
   type LessonPlanContext,
+  type LearningRoundRewardSummary,
   type LearningTwinEvent,
+  type LessonRewardSummary,
   type KnowledgeState,
   type MasteryState,
   type MistakeRecordPublic,
@@ -44,6 +48,7 @@ import {
   type SkillDefinition,
   type LearnerModelCorrection,
   type TeachBackResult,
+  type MotivationProgressInput,
 } from "@act-tutor/core";
 
 import { AuthoredLessonComposer, type LessonComposer } from "./lesson-composer";
@@ -161,6 +166,14 @@ interface StoredLearningSession {
   };
   lessonChecks?: StoredLessonCheck[];
   activeLessonCheckId?: string | null;
+  motivationBaseline?: MotivationProgressInput;
+  lastLessonReward?: LessonRewardSummary | null;
+  roundRewardBaseline?: {
+    roundNumber: number;
+    points: number;
+    estimatedActScore: number;
+  };
+  lastRoundReward?: LearningRoundRewardSummary | null;
   profile?: StoredLearnerProgress;
   planContext?: LessonPlanContext;
   repairMistakeId?: string | null;
@@ -472,10 +485,10 @@ async function composeLearningLesson(input: {
     ...lesson,
     depth: "foundation" as const,
     whyAssigned:
-      "Round 1 teaches every ACT question type in the curriculum before Scout specializes your later rounds.",
+      "Round 1 teaches every ACT question type in the curriculum before AlexACT specializes your later rounds.",
     evidenceSummary: input.diagnosticSkillResults.length
-      ? "Your starting check shaped Scout’s first estimates. It does not remove any Round 1 lesson."
-      : "Scout will teach every question type in Round 1, then use your measured results to specialize later rounds.",
+      ? "Your starting check shaped AlexACT’s first estimates. It does not remove any Round 1 lesson."
+      : "AlexACT will teach every question type in Round 1, then use your measured results to specialize later rounds.",
   };
 }
 
@@ -558,6 +571,17 @@ function assertSessionMatchesBank(
   const questions = getSessionQuestions(session, bank);
   ensureLearningTwin(session, bank);
   if (
+    !session.motivationBaseline &&
+    (session.mode === "foundation" || session.mode === "focus")
+  ) {
+    session.motivationBaseline = inferredMotivationBaseline(session, bank);
+  }
+  session.roundRewardBaseline ??= {
+    roundNumber: session.cycle?.roundNumber ?? 1,
+    points: ensureProfile(session).xp,
+    estimatedActScore: session.planContext?.currentScore ?? 1,
+  };
+  if (
     (session.mode === "foundation" || session.mode === "focus") &&
     (questions.length !== 5 ||
       questions.some((question) => question.skill !== session.todaySkill))
@@ -607,8 +631,8 @@ function fallbackLesson(
   return {
     ...baseLesson,
     depth: "foundation",
-    whyAssigned: `Scout picked ${baseLesson.title.toLowerCase()} as the best skill to work on next.`,
-    evidenceSummary: "Scout will use your answers to decide what comes next.",
+    whyAssigned: `AlexACT picked ${baseLesson.title.toLowerCase()} as the best skill to work on next.`,
+    evidenceSummary: "AlexACT will use your answers to decide what comes next.",
     tutorOpening: `Let’s make ${baseLesson.title.toLowerCase()} easier, one step at a time.`,
     sections: [
       {
@@ -696,8 +720,7 @@ function publicMistakes(
       if ((left.resolvedAt === null) !== (right.resolvedAt === null))
         return left.resolvedAt === null ? -1 : 1;
       return right.createdAt.localeCompare(left.createdAt);
-    })
-    .slice(0, 50);
+    });
 }
 
 function lessonHistory(session: StoredLearningSession): LessonCheckResult[] {
@@ -725,6 +748,151 @@ function lessonHistory(session: StoredLearningSession): LessonCheckResult[] {
         left.roundNumber - right.roundNumber ||
         left.completedAt.localeCompare(right.completedAt),
     );
+}
+
+function completedRoundCount(session: StoredLearningSession) {
+  const { cycle } = session;
+  if (!cycle) return 0;
+  return Math.max(
+    0,
+    cycle.roundNumber - 1 + (cycle.status === "assessment-choice" ? 1 : 0),
+  );
+}
+
+function motivationSnapshot(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+): MotivationProgressInput {
+  const profile = ensureProfile(session);
+  const now = new Date().toISOString();
+  const sectionProgress = (["english", "math", "reading"] as const).map(
+    (section) => {
+      const skills = Object.values(session.masteryBySkill).filter(
+        (skill) => skill.section === section,
+      );
+      const answered = lessonHistory(session)
+        .filter((check) => {
+          const skill = bank.skills.find(
+            (candidate) => candidate.slug === check.skill,
+          );
+          return skill?.section === section;
+        })
+        .reduce((total, check) => total + check.total, 0);
+      return {
+        section,
+        secureSkills: skills.filter((skill) => skill.band === "secure").length,
+        totalSkills: skills.length,
+        averageReadiness:
+          skills.length > 0
+            ? skills.reduce((total, skill) => total + skill.mastery, 0) /
+              skills.length
+            : 0,
+        answered,
+      };
+    },
+  );
+  const activeDaysByWeek = new Map<string, Set<string>>();
+  for (const activeDate of profile.activeDates) {
+    const day = new Date(activeDate);
+    if (Number.isNaN(day.getTime())) continue;
+    const utcDay = day.getUTCDay();
+    const mondayOffset = utcDay === 0 ? -6 : 1 - utcDay;
+    const monday = new Date(day);
+    monday.setUTCDate(day.getUTCDate() + mondayOffset);
+    const weekKey = monday.toISOString().slice(0, 10);
+    const days = activeDaysByWeek.get(weekKey) ?? new Set<string>();
+    days.add(day.toISOString().slice(0, 10));
+    activeDaysByWeek.set(weekKey, days);
+  }
+  const requiredStudyDays = Math.max(
+    1,
+    session.planContext?.studyDaysPerWeek ?? 3,
+  );
+  return {
+    points: profile.xp,
+    currentStreak: calculateLearningStreak(profile.activeDates, now),
+    longestStreak: profile.longestStreak,
+    completedLessons: lessonHistory(session).length,
+    completedRounds: completedRoundCount(session),
+    completedSets: profile.completedSets,
+    totalAnswered: profile.totalAnswered,
+    secureSkills: Object.values(session.masteryBySkill).filter(
+      (skill) => skill.band === "secure",
+    ).length,
+    totalSkills: bank.skills.length,
+    consistentWeeks: [...activeDaysByWeek.values()].filter(
+      (days) => days.size >= requiredStudyDays,
+    ).length,
+    skillProgress: Object.values(session.masteryBySkill).map((skill) => ({
+      skill: skill.skill,
+      label: skill.label,
+      section: skill.section,
+      readiness: skill.mastery,
+      evidenceCount: skill.evidence,
+    })),
+    sectionProgress,
+  };
+}
+
+function inferredMotivationBaseline(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+): MotivationProgressInput {
+  const current = motivationSnapshot(session, bank);
+  const profile = ensureProfile(session);
+  const currentQuestions = getSessionQuestions(session, bank);
+  const answerPoints = session.answers.reduce((total, answer) => {
+    const question = currentQuestions.find(
+      (candidate) => candidate.id === answer.questionId,
+    );
+    if (!question) return total;
+    return total + xpForPractice(answer.feedback.correct, question.difficulty);
+  }, 0);
+  const completionPoints = profile.completionXpAwarded
+    ? session.mode === "checkpoint"
+      ? 35
+      : 25
+    : 0;
+  const lessonPoints = profile.lessonXpAwarded ? 20 : 0;
+  return {
+    ...current,
+    points: Math.max(
+      0,
+      current.points - answerPoints - completionPoints - lessonPoints,
+    ),
+    completedSets: Math.max(
+      0,
+      current.completedSets - (profile.completionXpAwarded ? 1 : 0),
+    ),
+    totalAnswered: Math.max(0, current.totalAnswered - session.answers.length),
+  };
+}
+
+function captureMotivationBaseline(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+) {
+  session.motivationBaseline = motivationSnapshot(session, bank);
+  session.lastLessonReward = null;
+}
+
+function captureLessonReward(
+  session: StoredLearningSession,
+  bank: LearningBankInput,
+  check: StoredLessonCheck,
+) {
+  const before =
+    session.motivationBaseline ?? inferredMotivationBaseline(session, bank);
+  const after = motivationSnapshot(session, bank);
+  session.lastLessonReward = buildLessonRewardSummary({
+    id: `lesson-reward:${check.id}`,
+    lessonCheckId: check.id,
+    roundNumber: check.roundNumber,
+    skill: check.skill,
+    skillLabel: getSkill(bank, check.skill).label,
+    before,
+    after,
+  });
 }
 
 function lessonRemediation(
@@ -821,8 +989,8 @@ function planCounterfactual(
         ? `A missed answer would keep ${current.label} first.`
         : `A missed answer would likely move ${missedRecommendation.label} first.`,
     explanation: changed
-      ? `The evidence crossed Scout's change line, so the next mission changed.`
-      : `Scout is protecting the current mission until another useful answer gives it enough reason to switch.`,
+      ? `The evidence crossed AlexACT's change line, so the next mission changed.`
+      : `AlexACT is protecting the current mission until another useful answer gives it enough reason to switch.`,
   };
 }
 
@@ -907,7 +1075,7 @@ function coachBrief(
       : "Not enough evidence yet",
     priorityMisconception:
       mistake?.misconception ??
-      "Scout needs one more missed response to name a specific misconception.",
+      "AlexACT needs one more missed response to name a specific misconception.",
     confidenceLevel:
       priorityState?.confidence === "stable"
         ? "High"
@@ -920,8 +1088,8 @@ function coachBrief(
     offlineIntervention: `Ask the learner to explain the first decision they make in a ${priority.label.toLowerCase()} question, then ask why the other choice fails.`,
     unknowns:
       priorityState?.confidence === "stable"
-        ? `Scout still needs a later review to confirm that ${priority.label.toLowerCase()} lasts.`
-        : `Scout still needs more independent answers before treating ${priority.label.toLowerCase()} as a stable estimate.`,
+        ? `AlexACT still needs a later review to confirm that ${priority.label.toLowerCase()} lasts.`
+        : `AlexACT still needs more independent answers before treating ${priority.label.toLowerCase()} as a stable estimate.`,
   };
 }
 
@@ -1129,23 +1297,23 @@ function learnerModelReport(
       medianSeconds,
       interpretation:
         medianSeconds === null
-          ? "Scout has not timed enough independent answers yet."
-          : `Your middle response time is ${medianSeconds} seconds. Scout uses this for pacing advice, never as a mastery penalty.`,
+          ? "AlexACT has not timed enough independent answers yet."
+          : `Your middle response time is ${medianSeconds} seconds. AlexACT uses this for pacing advice, never as a mastery penalty.`,
       affectsMastery: false as const,
     },
     prerequisiteConfusion:
       prerequisiteState && prerequisiteState.learnedProbability < 0.55
-        ? `${getSkill(bank, prerequisite).label} may be causing trouble with ${getSkill(bank, session.nextSkill).label}. Scout will repair the prerequisite first, then return.`
+        ? `${getSkill(bank, prerequisite).label} may be causing trouble with ${getSkill(bank, session.nextSkill).label}. AlexACT will repair the prerequisite first, then return.`
         : null,
     transferSignal: transferPair
-      ? `Scout saw consecutive correct answers in ${transferPair.skillLabel} and a different skill. That is a cross-skill activity signal, not proof that learning transferred.`
-      : "Scout has not seen enough cross-skill activity to investigate whether a method holds up in a different setting.",
+      ? `AlexACT saw consecutive correct answers in ${transferPair.skillLabel} and a different skill. That is a cross-skill activity signal, not proof that learning transferred.`
+      : "AlexACT has not seen enough cross-skill activity to investigate whether a method holds up in a different setting.",
     decaySignal: due.length
       ? due[0].explanation
       : "No practiced skill is close enough to its forgetting window yet.",
     explorationQuestion: explore
-      ? `Scout’s next exploration question should check ${explore.label}, where the estimate is least certain.`
-      : "Scout needs another answer before choosing an exploration question.",
+      ? `AlexACT’s next exploration question should check ${explore.label}, where the estimate is least certain.`
+      : "AlexACT needs another answer before choosing an exploration question.",
     corrections: [...(profile.modelCorrections ?? [])].reverse().slice(0, 20),
   };
 }
@@ -1204,7 +1372,7 @@ function learningTrustReport(
     },
     policyBenchmarks: [
       {
-        policy: "Scout adaptive",
+        policy: "AlexACT adaptive",
         nextSkill: bkt.label,
         tradeoff:
           "Balances weakness, certainty, evidence count, and recent misses.",
@@ -1229,7 +1397,7 @@ function learningTrustReport(
     ],
     abstentions: [
       "Fairness by demographic group is not reported because this guest session does not collect demographic data or contain a large enough cohort.",
-      "Question quality is not judged here. Scout only shows this learner's exposure and repeated-miss history.",
+      "Question quality is not judged here. AlexACT only shows this learner's exposure and repeated-miss history.",
     ],
   };
 }
@@ -1318,6 +1486,8 @@ function toPayload(
       ensureProfile(session).teachBackBySkill?.[session.todaySkill] ?? null,
     lessonHistory: lessonHistory(session),
     remediation,
+    lessonReward: session.lastLessonReward ?? null,
+    roundReward: session.lastRoundReward ?? null,
   };
 }
 
@@ -1603,6 +1773,12 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         updatedAt: now,
       };
       captureLessonEvidence(created, lesson);
+      captureMotivationBaseline(created, bank);
+      created.roundRewardBaseline = {
+        roundNumber: 1,
+        points: 0,
+        estimatedActScore: input.plan.currentScore,
+      };
       store.sessions[created.id] = created;
       await this.writeStore(store);
       return { sessionId: created.id, payload: toPayload(created, bank) };
@@ -1716,6 +1892,13 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       };
       captureLessonEvidence(session, lesson);
       session.planContext = input.plan;
+      captureMotivationBaseline(session, bank);
+      session.roundRewardBaseline = {
+        roundNumber: cycle.roundNumber,
+        points: 0,
+        estimatedActScore: input.plan.currentScore,
+      };
+      session.lastRoundReward = null;
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       session.calibrationRebaseKey = input.calibrationKey;
@@ -1795,7 +1978,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         totalAssessmentQuestions += result.total;
         if (totalAssessmentQuestions > MAX_ROUND_ASSESSMENT_QUESTIONS) {
           throw new RangeError(
-            "The assessment contains more questions than Scout supports.",
+            "The assessment contains more questions than AlexACT supports.",
           );
         }
         const skill = bank.skills.find(
@@ -1857,6 +2040,27 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         lessonComposer,
         foundation: false,
       });
+      const assessmentKind = input.assessmentKey.startsWith("full-test:")
+        ? ("full-test" as const)
+        : ("diagnostic" as const);
+      const roundRewardBaseline =
+        session.roundRewardBaseline?.roundNumber === cycle.roundNumber
+          ? session.roundRewardBaseline
+          : {
+              roundNumber: cycle.roundNumber,
+              points: profile.xp,
+              estimatedActScore:
+                session.planContext?.currentScore ?? input.plan.currentScore,
+            };
+      const roundReward = buildLearningRoundRewardSummary({
+        id: `round-reward:${input.assessmentKey}`,
+        completedRoundNumber: cycle.roundNumber,
+        assessmentKind,
+        pointsBefore: roundRewardBaseline.points,
+        pointsAfter: profile.xp,
+        estimatedActScoreBefore: roundRewardBaseline.estimatedActScore,
+        estimatedActScoreAfter: input.plan.currentScore,
+      });
       const previousSkill = session.todaySkill;
       session.cycle = {
         roundNumber: cycle.roundNumber + 1,
@@ -1885,6 +2089,13 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         reason: `Round ${cycle.roundNumber + 1} starts with ${getSkill(bank, nextSkill).label}, based on the newest completed assessment.`,
       };
       session.planContext = input.plan;
+      session.lastRoundReward = roundReward;
+      captureMotivationBaseline(session, bank);
+      session.roundRewardBaseline = {
+        roundNumber: cycle.roundNumber + 1,
+        points: profile.xp,
+        estimatedActScore: input.plan.currentScore,
+      };
       session.repairMistakeId = null;
       session.returnSkillAfterPrerequisite = null;
       profile.lessonXpAwarded = false;
@@ -1984,6 +2195,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       session.planContext = input.plan;
       profile.lessonXpAwarded = false;
       profile.completionXpAwarded = false;
+      captureMotivationBaseline(session, bank);
       session.futureTask = {
         todaySkill: skillSlug,
         nextSkill: skillSlug,
@@ -2393,9 +2605,11 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       const lessonCheckRequired = completingLessonCheck
         ? requiredCorrectForLessonCheck(session.planContext!.goalScore)
         : null;
-      const requiresLessonRemediation =
+      const passedLessonCheck =
         lessonCheckRequired !== null &&
-        lessonCheckCorrect < lessonCheckRequired;
+        lessonCheckCorrect >= lessonCheckRequired;
+      const requiresLessonRemediation =
+        completingLessonCheck && lessonCheckCorrect < questions.length;
       let recommendation = rankedRecommendation;
       let recommendationReason = rankedRecommendation.reason;
       const { cycle } = ensureCycle(session, bank);
@@ -2407,7 +2621,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           );
         }
         recommendation = recommendKnowledgeState([currentState]);
-        recommendationReason = `Mr. Kim will review every missed item with you before ${getSkill(bank, session.todaySkill).label} is marked complete.`;
+        recommendationReason = passedLessonCheck
+          ? `You met the lesson-check target. Mr. Kim will still review every missed item with you before ${getSkill(bank, session.todaySkill).label} is marked complete.`
+          : `Mr. Kim recommends relearning ${getSkill(bank, session.todaySkill).label} with the free videos, then reviewing every missed item before it is marked complete.`;
       } else if (cycle.kind === "foundation") {
         if (session.mode === "foundation" && completingLessonCheck) {
           advanceFoundationCycle(session, bank);
@@ -2596,7 +2812,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           correct: lessonCheckCorrect,
           total: 5,
           requiredCorrect: lessonCheckRequired,
-          passedInitially: !requiresLessonRemediation,
+          passedInitially: passedLessonCheck,
           submittedAt: now,
           completedAt: requiresLessonRemediation ? null : now,
           remediation,
@@ -2615,6 +2831,12 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         profile.xp += session.mode === "checkpoint" ? 35 : 25;
         profile.completedSets += 1;
         profile.completionXpAwarded = true;
+      }
+      if (completingLessonCheck && !requiresLessonRemediation) {
+        const completedCheck = session.lessonChecks?.at(-1);
+        if (completedCheck?.completedAt) {
+          captureLessonReward(session, bank, completedCheck);
+        }
       }
       await this.writeStore(store);
       return toPayload(session, bank, feedback);
@@ -2728,9 +2950,12 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           reason:
             cycle.status === "assessment-choice"
               ? `Round ${cycle.roundNumber} is complete. Choose the next assessment with Mr. Kim.`
-              : `${getSkill(bank, check.skill).label} is complete. Continue with ${getSkill(bank, nextSkill).label}.`,
+              : cycle.kind === "foundation"
+                ? `${getSkill(bank, check.skill).label} is complete. Round 1 continues with ${getSkill(bank, nextSkill).label}.`
+                : `${getSkill(bank, check.skill).label} is complete. Continue with ${getSkill(bank, nextSkill).label}.`,
         };
         session.returnSkillAfterPrerequisite = null;
+        captureLessonReward(session, bank, check);
       } else {
         session.futureTask = {
           todaySkill: session.todaySkill,
@@ -2834,7 +3059,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
       );
       if (alreadyRecorded) {
         throw new RangeError(
-          "Scout already recorded a correction for this skill and model version. Answer a new question before correcting the estimate again.",
+          "AlexACT already recorded a correction for this skill and model version. Answer a new question before correcting the estimate again.",
         );
       }
       const before = states[skill.slug];
@@ -2847,7 +3072,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         skill: skill.slug,
         skillLabel: skill.label,
         kind: input.kind,
-        note: note || "Learner corrected Scout’s interpretation.",
+        note: note || "Learner corrected AlexACT’s interpretation.",
         before: before.learnedProbability,
         after: after.learnedProbability,
         modelVersion: LEARNING_TWIN_MODEL.version,
@@ -2882,9 +3107,9 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         reason:
           cycle.kind === "foundation"
             ? cycle.status === "assessment-choice"
-              ? "Scout included your correction. Round 1 is complete, so choose the next assessment with Mr. Kim."
-              : `Scout included your correction. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
-            : `Scout included your correction, then reran the next-mission decision: ${recommendation.reason}`,
+              ? "AlexACT included your correction. Round 1 is complete, so choose the next assessment with Mr. Kim."
+              : `AlexACT included your correction. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
+            : `AlexACT included your correction, then reran the next-mission decision: ${recommendation.reason}`,
       };
       session.updatedAt = record.occurredAt;
       await this.writeStore(store);
@@ -2991,7 +3216,7 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
           cycle.kind === "foundation"
             ? cycle.status === "assessment-choice"
               ? "Round 1 is complete. Choose the next assessment with Mr. Kim."
-              : `Calibration updated Scout’s estimates. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
+              : `Calibration updated AlexACT’s estimates. Round 1 still continues with ${getSkill(bank, routedSkill).label}.`
             : recommendation.reason,
       };
       const calibrationDecision: LearningDecisionEvent = {
@@ -3021,10 +3246,10 @@ export class FileLearningSessionRepository extends AtomicJsonRepository<Learning
         protectedCurrentMission: true,
         why:
           cycle.kind === "foundation"
-            ? "Calibration updated Scout’s estimates without skipping any Round 1 lesson."
+            ? "Calibration updated AlexACT’s estimates without skipping any Round 1 lesson."
             : recommendation.skill !== previousRecommendation
               ? `${recommendation.label} moved to the front after this high-value check.`
-              : `Scout kept the plan steady because one answer did not clear the change threshold.`,
+              : `AlexACT kept the plan steady because one answer did not clear the change threshold.`,
         misconception: null,
         modelVersion: "bkt-1.0",
         comparisonPlan: comparisonRecommendation.skill,

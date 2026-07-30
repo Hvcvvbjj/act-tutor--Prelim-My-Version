@@ -153,7 +153,10 @@ export function LessonTimeline({
       aria-labelledby="lesson-path-title"
       data-testid="lesson-timeline"
     >
-      <header className="grid gap-5 border-b pb-5 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-end">
+      <header
+        data-tour-id="lesson-path"
+        className="grid gap-5 border-b pb-5 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-end"
+      >
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-primary">
             <MapIcon className="size-4" aria-hidden="true" />

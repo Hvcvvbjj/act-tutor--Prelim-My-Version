@@ -1,19 +1,26 @@
-import { Archivo, Geist, Geist_Mono } from "next/font/google"
+import localFont from "next/font/local"
 import Link from "next/link"
 
 import "./globals.css"
 import { siteMetadata, siteViewport } from "./site-metadata"
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
-  preload: false,
+const geist = localFont({
+  src: "./fonts/geist-latin.woff2",
+  variable: "--font-geist",
+  weight: "100 900",
+  display: "swap",
 })
-const archivo = Archivo({
-  subsets: ["latin"],
+const geistMono = localFont({
+  src: "./fonts/geist-mono-latin.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  display: "swap",
+})
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
   variable: "--font-archivo",
-  axes: ["wdth"],
+  weight: "100 900",
+  display: "swap",
 })
 
 export const metadata = siteMetadata
@@ -44,17 +51,17 @@ export default function RootLayout({
                 <span className="font-bold text-foreground">
                   Independent hackathon project.
                 </span>{" "}
-                Scout ACT is not affiliated with or endorsed by ACT.
+                AlexACT is not affiliated with or endorsed by ACT.
               </p>
               <nav
-                aria-label="About Scout"
+                aria-label="About AlexACT"
                 className="mt-2 flex flex-wrap gap-x-5"
               >
                 <Link
                   href="/how-scout-works"
                   className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                 >
-                  How Scout works
+                  How AlexACT works
                 </Link>
                 <Link
                   href="/trust"

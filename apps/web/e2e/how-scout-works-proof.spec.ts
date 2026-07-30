@@ -15,7 +15,7 @@ test("the public explainer separates reproducible evidence from outcome claims",
     page.getByRole("heading", { name: "What this demo demonstrates" })
   ).toBeVisible()
   await expect(
-    page.getByRole("heading", { name: "What Scout does not claim" })
+    page.getByRole("heading", { name: "What AlexACT does not claim" })
   ).toBeVisible()
   await expect(
     page.getByText(
@@ -38,7 +38,7 @@ test("the public explainer separates reproducible evidence from outcome claims",
   await expect(page).toHaveURL(/\/trust$/)
   await expect(
     page.getByRole("heading", {
-      name: "What Scout saves—and what it does not.",
+      name: "What AlexACT saves—and what it does not.",
     })
   ).toBeVisible()
 })

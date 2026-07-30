@@ -321,6 +321,21 @@ async function completeFirstLessonCheck(
   return payload;
 }
 
+async function correctLessonCheckMisses(
+  repo: FileLearningSessionRepository,
+  sessionId: string,
+  questionIds: ReadonlyArray<string>,
+) {
+  let payload = await repo.get(sessionId, bank);
+  for (const questionId of questionIds) {
+    payload = await repo.answerLessonRemediation(sessionId, bank, {
+      questionId,
+      choiceId: "A",
+    });
+  }
+  return payload;
+}
+
 describe("FileLearningSessionRepository", () => {
   it("starts a public learning session without answer keys", async () => {
     await withRepository(async (repo) => {
@@ -380,42 +395,94 @@ describe("FileLearningSessionRepository", () => {
     });
   });
 
-  it("passes a goal-under-30 lesson check at three of five and saves it for review", async () => {
-    await withRepository(async (repo) => {
-      const started = await repo.getOrCreate(null, bank, {
-        skill: "sentence-boundaries",
-        plan: { ...plan, goalScore: 29 },
-      });
-      const completed = await completeFirstLessonCheck(
-        repo,
-        started.sessionId,
-        ["B", "B", "A", "A", "A"],
-      );
+  it.each([
+    {
+      goalScore: 29,
+      requiredCorrect: 3 as const,
+      choices: ["B", "B", "A", "A", "A"] as const,
+    },
+    {
+      goalScore: 30,
+      requiredCorrect: 3 as const,
+      choices: ["B", "B", "A", "A", "A"] as const,
+    },
+    {
+      goalScore: 31,
+      requiredCorrect: 4 as const,
+      choices: ["B", "A", "A", "A", "A"] as const,
+    },
+  ])(
+    "requires correction of every miss after a passing goal-$goalScore lesson check",
+    async ({ goalScore, requiredCorrect, choices }) => {
+      await withRepository(async (repo) => {
+        const started = await repo.getOrCreate(null, bank, {
+          skill: "sentence-boundaries",
+          plan: { ...plan, goalScore },
+        });
+        const held = await completeFirstLessonCheck(
+          repo,
+          started.sessionId,
+          choices,
+        );
 
-      expect(completed.status).toBe("complete");
-      expect(completed.remediation).toBeNull();
-      expect(completed.cycle.completedSkills).toEqual(["sentence-boundaries"]);
-      expect(completed.lessonHistory).toEqual([
-        expect.objectContaining({
+        expect(held.status).toBe("remediation");
+        expect(held.cycle.completedSkills).toEqual([]);
+        expect(held.remediation).toMatchObject({
+          correct: choices.filter((choice) => choice === "A").length,
+          total: 5,
+          requiredCorrect,
+          progress: {
+            status: "required",
+            requiredQuestionIds: choices.flatMap((choice, index) =>
+              choice === "B"
+                ? [`sentence-boundaries-practice-${index + 1}`]
+                : [],
+            ),
+          },
+        });
+        expect(held.futureTask.reason).toContain("met the lesson-check target");
+        expect(held.lessonHistory).toEqual([]);
+
+        const completed = await correctLessonCheckMisses(
+          repo,
+          started.sessionId,
+          held.remediation?.progress.requiredQuestionIds ?? [],
+        );
+        expect(completed.status).toBe("complete");
+        expect(completed.remediation?.progress.status).toBe("complete");
+        expect(completed.cycle.completedSkills).toEqual([
+          "sentence-boundaries",
+        ]);
+        expect(completed.lessonHistory).toEqual([
+          expect.objectContaining({
+            roundNumber: 1,
+            skill: "sentence-boundaries",
+            correct: choices.filter((choice) => choice === "A").length,
+            total: 5,
+            requiredCorrect,
+            passedInitially: true,
+          }),
+        ]);
+        expect(completed.lessonHistory?.[0]?.lesson.title).toBe(
+          "Sentence boundaries",
+        );
+        expect(completed.lessonReward).toMatchObject({
           roundNumber: 1,
           skill: "sentence-boundaries",
-          correct: 3,
-          total: 5,
-          requiredCorrect: 3,
-          passedInitially: true,
-        }),
-      ]);
-      expect(completed.lessonHistory?.[0]?.lesson.title).toBe(
-        "Sentence boundaries",
-      );
-    });
-  });
+          skillLabel: "Sentence boundaries",
+          pointsBefore: 0,
+          pointsAfter: held.mission.progress.xp,
+          pointsGained: held.mission.progress.xp,
+        });
+      });
+    },
+  );
 
-  it("holds a goal-30 lesson at three of five until every miss is corrected", async () => {
+  it("holds a goal-above-30 lesson at three of five until every miss is corrected", async () => {
     await withRepository(async (repo, filePath) => {
       const started = await repo.getOrCreate(null, bank, {
         skill: "sentence-boundaries",
-        plan: { ...plan, goalScore: 30 },
+        plan: { ...plan, goalScore: 31 },
       });
       const held = await completeFirstLessonCheck(repo, started.sessionId, [
         "B",
@@ -441,6 +508,7 @@ describe("FileLearningSessionRepository", () => {
           ],
         },
       });
+      expect(held.futureTask.reason).toContain("recommends relearning");
       expect(held.remediation?.items).toEqual([
         expect.objectContaining({
           questionId: "sentence-boundaries-practice-1",
@@ -453,7 +521,7 @@ describe("FileLearningSessionRepository", () => {
       ]);
       await expect(
         repo.beginFocus(started.sessionId, bank, {
-          plan: { ...plan, goalScore: 30 },
+          plan: { ...plan, goalScore: 31 },
         }),
       ).rejects.toThrow("Finish the current mission");
 
@@ -519,9 +587,15 @@ describe("FileLearningSessionRepository", () => {
           passedInitially: false,
         }),
       ]);
+      expect(allFixed.lessonReward).toMatchObject({
+        lessonCheckId: allFixed.lessonHistory?.[0]?.id,
+        pointsBefore: 0,
+        pointsAfter: 83,
+        pointsGained: 83,
+      });
 
       const next = await repo.beginFocus(started.sessionId, bank, {
-        plan: { ...plan, goalScore: 30 },
+        plan: { ...plan, goalScore: 31 },
       });
       expect(next.todaySkill).toBe("linear-equations");
       expect(next.remediation).toBeNull();
@@ -954,15 +1028,23 @@ describe("FileLearningSessionRepository", () => {
         skill: "sentence-boundaries",
         plan,
       });
-      await repo.completeLesson(started.sessionId, bank);
-      let payload = await repo.answerQuestion(started.sessionId, bank, {
-        questionId: "sentence-boundaries-practice-1",
-        choiceId: "B",
-      });
-      for (let index = 2; index <= 5; index += 1) {
+      await completeFirstLessonCheck(repo, started.sessionId, [
+        "A",
+        "A",
+        "A",
+        "A",
+        "A",
+      ]);
+      const challenge = await repo.beginChallenge(
+        started.sessionId,
+        bank,
+        "sentence-boundaries",
+      );
+      let payload = challenge;
+      for (const [index, question] of challenge.questions.entries()) {
         payload = await repo.answerQuestion(started.sessionId, bank, {
-          questionId: `sentence-boundaries-practice-${index}`,
-          choiceId: "A",
+          questionId: question.id,
+          choiceId: index === 0 ? "B" : "A",
         });
       }
 
@@ -1005,15 +1087,23 @@ describe("FileLearningSessionRepository", () => {
         skill: "sentence-boundaries",
         plan,
       });
-      await repo.completeLesson(started.sessionId, bank);
-      let payload = await repo.answerQuestion(started.sessionId, bank, {
-        questionId: "sentence-boundaries-practice-1",
-        choiceId: "B",
-      });
-      for (let index = 2; index <= 5; index += 1) {
+      await completeFirstLessonCheck(repo, started.sessionId, [
+        "A",
+        "A",
+        "A",
+        "A",
+        "A",
+      ]);
+      const challenge = await repo.beginChallenge(
+        started.sessionId,
+        bank,
+        "sentence-boundaries",
+      );
+      let payload = challenge;
+      for (const [index, question] of challenge.questions.entries()) {
         payload = await repo.answerQuestion(started.sessionId, bank, {
-          questionId: `sentence-boundaries-practice-${index}`,
-          choiceId: "A",
+          questionId: question.id,
+          choiceId: index === 0 ? "B" : "A",
         });
       }
       const original = payload.mission.mistakes[0];
@@ -1245,6 +1335,15 @@ describe("FileLearningSessionRepository", () => {
           },
         );
       }
+      expect(target.status).toBe("remediation");
+      target = await repo.answerLessonRemediation(
+        started.sessionId,
+        prerequisiteBank,
+        {
+          questionId: "linear-equations-practice-1",
+          choiceId: "A",
+        },
+      );
       expect(target.nextSkill).toBe("ratios-and-percent");
       expect(target.cycle.completedSkills).toEqual(["linear-equations"]);
       expect(target.futureTask.reason).toContain("Round 1 continues");
@@ -1791,6 +1890,25 @@ describe("FileLearningSessionRepository", () => {
       );
       expect(adaptive.todaySkill).toBe(adaptive.cycle.nextSkill);
       expect(adaptive.mode).toBe("focus");
+      expect(adaptive.roundReward).toMatchObject({
+        id: `round-reward:${assessmentKey}`,
+        completedRoundNumber: 1,
+        nextRoundNumber: 2,
+        assessmentKind: "diagnostic",
+        pointsBefore: 0,
+        pointsAfter: 88,
+        pointsGained: 88,
+        studyPointActEquivalent: 0.088,
+        estimatedActScoreBefore: 24,
+        estimatedActScoreAfter: 26,
+        estimatedActScoreDelta: 2,
+      });
+      expect(
+        adaptive.roundReward?.badgeEvents.map((event) => event.badge.id),
+      ).toEqual(
+        expect.arrayContaining(["score-improvement-2", "milestone-round"]),
+      );
+      expect(adaptive.roundReward?.growth).toHaveLength(4);
       expect(adaptive.mission.progress).toEqual(progressBeforeAssessment);
       expect(adaptive.mission.unresolvedMistakes).toBe(1);
       expect(adaptive.decisionHistory).toEqual(decisionHistoryBeforeAssessment);

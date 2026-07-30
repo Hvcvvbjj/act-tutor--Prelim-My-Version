@@ -11,7 +11,7 @@ import {
 const fallback: ScoutAnswer = {
   summary: "Use the sentence-boundary rule.",
   explanation: "A comma alone cannot join two complete sentences.",
-  example: null,
+  example: "The bell rang; class began.",
   technical: "Reviewed lesson guidance.",
   nextAction: "Try the next item.",
   source: "Reviewed lesson sentence-boundaries",
@@ -54,10 +54,7 @@ describe("free on-device Mr. Kim AI", () => {
         receipt: {
           ...fallback.receipt,
           questionId: "question-1",
-          permissions: [
-            "CAN_HINT",
-            "DIRECT_ANSWER_REQUIRES_ATTEMPT",
-          ],
+          permissions: ["CAN_HINT", "DIRECT_ANSWER_REQUIRES_ATTEMPT"],
         },
       })
     ).toBe(false)
@@ -89,6 +86,9 @@ describe("free on-device Mr. Kim AI", () => {
     })
 
     expect(answer.summary).toContain("comma")
+    expect(answer.explanation).toBe(fallback.explanation)
+    expect(answer.example).toBe(fallback.example)
+    expect(answer.nextAction).toBe(fallback.nextAction)
     expect(answer.receipt.checks).toContain(ON_DEVICE_AI_CHECK)
     expect(answer.receipt.permissions).toEqual(fallback.receipt.permissions)
     expect(answer.source).toContain("Free on-device Mr. Kim AI")

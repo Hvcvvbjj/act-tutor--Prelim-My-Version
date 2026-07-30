@@ -20,14 +20,14 @@ describe("onboarding trust entry contract", () => {
     const welcome = onboarding.slice(welcomeStart, setupStart)
 
     expect(welcome).toContain('aria-label="Welcome"')
-    expect(welcome).toContain('aria-label="Learn about Scout"')
+    expect(welcome).toContain('aria-label="Learn about AlexACT"')
     expect(welcome).toContain('href="/how-scout-works"')
     expect(welcome).toContain('href="/trust"')
     expect(welcome.match(/href="\/accessibility"/g)).toHaveLength(2)
     expect(welcome).toContain("Data, privacy, and limits")
     expect(welcome).toContain("min-h-11")
-    expect(welcome).toContain("short Quick Check")
-    expect(welcome).toContain("full 66-question")
+    expect(welcome).toContain("Everyone then takes")
+    expect(welcome).toContain("full 66-question diagnostic")
     expect(welcome).toContain("One scored answer can change")
     expect(welcome).toContain('aria-label="What one scored answer can change"')
     expect(welcome).toContain("WELCOME_PROOF.map")
@@ -37,12 +37,12 @@ describe("onboarding trust entry contract", () => {
     expect(welcome.indexOf("One scored answer can change")).toBeLessThan(
       welcome.indexOf("Build my starting plan")
     )
-    expect(welcome.indexOf('aria-label="Learn about Scout"')).toBeGreaterThan(
+    expect(welcome.indexOf('aria-label="Learn about AlexACT"')).toBeGreaterThan(
       welcome.indexOf("Build my starting plan")
     )
   })
 
-  it("puts the protected demo on the welcome screen for verified judges only", async () => {
+  it("puts the protected demo on the welcome screen for verified developers only", async () => {
     const onboarding = await onboardingSource()
     const welcomeStart = onboarding.indexOf("if (showWelcome)")
     const setupStart = onboarding.indexOf(
@@ -58,13 +58,13 @@ describe("onboarding trust entry contract", () => {
     )
 
     expect(judgeCondition).toBeGreaterThan(-1)
-    expect(protectedJudgeAction).toContain("Open the judge demo")
+    expect(protectedJudgeAction).toContain("Open the developer demo")
     expect(protectedJudgeAction).toContain("onClick={onJudgeDemo}")
     expect(protectedJudgeAction).toContain("disabled={judgeDemoBusy}")
-    expect(welcome).toContain("Opening judge demo…")
+    expect(welcome).toContain("Opening developer demo…")
     expect(welcome).toContain('role="alert"')
     expect(welcome).toContain("{judgeDemoError}")
-    expect(welcome.indexOf("Open the judge demo")).toBeGreaterThan(
+    expect(welcome.indexOf("Open the developer demo")).toBeGreaterThan(
       welcome.indexOf("Build my starting plan")
     )
   })

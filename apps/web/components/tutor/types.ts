@@ -1,4 +1,5 @@
 import type {
+  CoreSection,
   CoreSectionScores,
   DiagnosticSkillResult,
   DiagnosticResult,
@@ -32,6 +33,35 @@ export interface PlacementDraft {
 
 export type LessonEntryChoice = "explain-types" | "start-lessons"
 export type ProfileEvidenceSource = "quick-check" | "diagnostic" | "full-test"
+
+export type AssessmentHistoryKind =
+  | "diagnostic"
+  | "full-test"
+  | "lesson-check"
+
+export interface AssessmentHistoryMistake {
+  id: string
+  questionId: string
+  section: CoreSection
+  skill: string
+  skillLabel: string
+  prompt: string
+  selectedChoiceText: string
+  correctChoiceText: string
+  rationale: string
+}
+
+export interface AssessmentHistoryEntry {
+  id: string
+  kind: Exclude<AssessmentHistoryKind, "lesson-check">
+  title: string
+  completedAt: string
+  correct: number
+  total: number
+  compositeScore: number
+  sectionScores: CoreSectionScores
+  mistakes: AssessmentHistoryMistake[]
+}
 
 export interface ReportedOfficialScore {
   id: string
@@ -70,6 +100,7 @@ export interface GeneratedPlan {
   diagnosticResult?: DiagnosticResult
   profileSkillResults: DiagnosticSkillResult[]
   profileSource?: ProfileEvidenceSource
+  assessmentHistory?: AssessmentHistoryEntry[]
   journey: TutorJourney
   testDatePassed: boolean
   adaptiveBaselineRequired?: boolean

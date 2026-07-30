@@ -1,6 +1,6 @@
-# Scout ACT web app
+# AlexACT web app
 
-This is the Next.js frontend for Scout ACT. It contains the three-gate onboarding flow, a required 66-question Round 0 diagnostic, an optional later 8–12 question Quick Check, AI-assisted teaching loops, the product-wide Mr. Kim layer, Timed Practice, evidence/data controls, and a durable adaptive learning loop.
+This is the Next.js frontend for AlexACT. It contains the three-gate onboarding flow, a required 66-question Round 0 diagnostic, an optional later 8–12 question Quick Check, AI-assisted teaching loops, the product-wide Mr. Kim layer, Timed Practice, evidence/data controls, and a durable adaptive learning loop.
 
 Run it from the repository root so the local `@act-tutor/core` workspace package resolves correctly.
 
@@ -19,6 +19,23 @@ No environment variables are required for the local slice. These optional variab
 DIAGNOSTIC_SESSION_STORE_PATH=/absolute/path/diagnostic-sessions.json
 LEARNING_SESSION_STORE_PATH=/absolute/path/learning-sessions.json
 ```
+
+The optional account panel also contains lesson-reminder consent and timing
+controls. Preferences are stored even when delivery is not configured. To
+activate the provider boundary, set both SendGrid values for email and all three
+Twilio values for text messages in `.env.local` or the hosting environment; a
+partial configuration never sends. Hidden developer mode uses
+`SCOUT_DEV_USERNAME` plus a server-side `SCOUT_DEV_PASSWORD_HASH` in production.
+See `.env.example` for the complete list.
+
+Once provider credentials are present, configure a daily cron to send a `POST`
+request to `/api/reminders/dispatch` with
+`Authorization: Bearer <SCOUT_REMINDER_CRON_SECRET>`. The secret must be at
+least 24 characters. The route reads opted-in accounts and their linked study
+plans, claims each date/channel reminder before sending, records successful
+delivery, and returns aggregate counts only. Repeated or overlapping cron calls
+do not resend a recorded reminder. Set `ALEXACT_PUBLIC_URL` to an HTTPS address
+to include a direct app link.
 
 Use the root verification command before handing off changes:
 

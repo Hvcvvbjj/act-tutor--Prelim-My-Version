@@ -48,7 +48,7 @@ The team should avoid claiming measured score improvement without a longitudinal
 - The recommendation changing or remaining stable for an inspectable reason.
 - The AI-personalized or reviewed-fallback generation stamp.
 - Architecture diagram separating trusted scoring, BKT, planner, and generative teaching.
-- Public “How Scout works” page for the same explanation outside the live demo.
+- Public “How AlexACT works” page for the same explanation outside the live demo.
 
 ### Remaining submission risk
 
@@ -63,7 +63,7 @@ Do not spend the video explaining implementation jargon before showing the model
 - Durable, atomic file repositories and duplicate-answer protection for the hackathon build.
 - Resumable diagnostics, learning sessions, adaptive plans, and exam rehearsals.
 - Test coverage across scoring, IRT estimation/selection/stopping, diagnostics, learning, BKT, missions, study plans, repositories, lesson composition, and exam debriefs.
-- Distinctive Scout field-notebook interface rather than a generic chatbot or card-grid dashboard.
+- Distinctive AlexACT field-notebook interface rather than a generic chatbot or card-grid dashboard.
 - Desktop and mobile flows, keyboard-visible focus, reduced motion, loading, empty, error, and disabled states.
 
 ### Proof to show judges

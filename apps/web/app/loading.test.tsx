@@ -11,7 +11,7 @@ describe("route loading state", () => {
     expect(markup).toContain('aria-busy="true"')
     expect(markup).toContain("Getting your study space ready.")
     expect(markup).toContain(
-      "Scout is checking for a saved plan and preparing the right starting screen."
+      "AlexACT is checking for a saved plan and preparing the right starting screen."
     )
     expect(markup).toContain(
       "Your results stay labeled as official, practice, or planning estimates."

@@ -14,8 +14,8 @@ export default function ErrorPage({
   return (
     <RecoveryShell
       eyebrow="Temporary detour"
-      title="Scout hit a snag."
-      body="Scout couldn’t finish loading this screen. Try once more, or return to the study home without submitting anything new."
+      title="AlexACT hit a snag."
+      body="AlexACT couldn’t finish loading this screen. Try once more, or return to the study home without submitting anything new."
       reference={error.digest}
       actions={
         <>
@@ -30,7 +30,7 @@ export default function ErrorPage({
             href="/"
             className="inline-flex min-h-12 items-center justify-center rounded-xl border border-border bg-background px-5 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:ring-4 focus-visible:ring-ring/30 focus-visible:outline-none motion-reduce:transition-none"
           >
-            Return to Scout home
+            Return to AlexACT home
           </Link>
         </>
       }

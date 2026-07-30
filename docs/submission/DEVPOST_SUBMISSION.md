@@ -1,8 +1,8 @@
-# Scout ACT — every question earns its place
+# AlexACT — every question earns its place
 
 ## One-line pitch
 
-Scout ACT uses IRT to choose what to ask, BKT to choose what to teach, and a bounded LLM to choose how to explain it—while showing the learner every decision.
+AlexACT uses IRT to choose what to ask, BKT to choose what to teach, and a bounded LLM to choose how to explain it—while showing the learner every decision.
 
 ## Inspiration
 
@@ -10,9 +10,9 @@ ACT preparation usually fails in one of two directions: a static calendar treats
 
 ## What it does
 
-Scout begins with three inputs: goal score, current score or section scores, and test date. A learner without prior scores takes an original 66-question half-length diagnostic across English, Math, and Reading. That baseline becomes a skill-level route rather than a single opaque score. An 8–12 item adaptive Quick Check can then refine uncertainty by selecting the unanswered ACT-shaped item with the most Fisher information while preserving section coverage.
+AlexACT begins with three inputs: goal score, current score or section scores, and test date. A learner without prior scores takes an original 66-question half-length diagnostic across English, Math, and Reading. That baseline becomes a skill-level route rather than a single opaque score. An 8–12 item adaptive Quick Check can then refine uncertainty by selecting the unanswered ACT-shaped item with the most Fisher information while preserving section coverage.
 
-From there Scout builds a dated study plan that learners can copy as a plain-text weekly agenda, assigns an individualized lesson, serves ACT-shaped practice with optional keyboard shortcuts, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and Timed Practice rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
+From there AlexACT builds a dated study plan that learners can copy as a plain-text weekly agenda, assigns an individualized lesson, serves ACT-shaped practice with optional keyboard shortcuts, schedules spaced reviews, preserves a mistake notebook, and runs mixed checkpoints and Timed Practice rehearsals. Every trusted response updates a separate Bayesian Knowledge Tracing model for each of twelve ACT skills.
 
 Quick Check, Progress, and Learning data make both adaptive decisions visible. Students can inspect:
 
@@ -22,7 +22,7 @@ Quick Check, Progress, and Learning data make both adaptive decisions visible. S
 
 - P(Learned): the latent probability that the skill has been acquired;
 - P(Correct next): expected correctness on a fresh item;
-- uncertainty: where Scout needs more evidence;
+- uncertainty: where AlexACT needs more evidence;
 - the exact contribution of knowledge gap, uncertainty, evidence scarcity, and a recent lapse to the next-skill priority;
 - a public evidence ledger showing how each response changed the model; and
 - counterfactual readiness projections for additional evidence-rich sessions.
@@ -44,7 +44,7 @@ The core adaptation pipeline is:
 7. the lesson composer combines the selected skill with reviewed instructional content and learner evidence;
 8. the UI exposes both model states and the audit trail instead of hiding them behind a chatbot.
 
-Security and educational trust were product requirements. Correct choices and rationales stay on the server. Client payloads contain only public questions and post-answer feedback. XP, mastery, the Learning Twin, and scheduling are all controlled by server-verified evidence, not by LLM output. Before setup, Scout explains that guest progress resumes in the same browser and points learners to the export/delete controls available after setup.
+Security and educational trust were product requirements. Correct choices and rationales stay on the server. Client payloads contain only public questions and post-answer feedback. XP, mastery, the Learning Twin, and scheduling are all controlled by server-verified evidence, not by LLM output. Before setup, AlexACT explains that guest progress resumes in the same browser and points learners to the export/delete controls available after setup.
 
 ## Creative use of AI/ML
 
@@ -56,7 +56,7 @@ This hybrid design is intentional. A generative model is strong at explanation a
 
 The hardest problem was making adaptation both useful and credible from sparse evidence. Short diagnostics can create false certainty, so Quick Check exposes standard error, will not stop before eight items, requires coverage across every core section, and caps itself at twelve. The Learning Twin uses smoothed priors, exposes uncertainty, and actively prioritizes evidence scarcity. We also had to keep ACT-shaped content and answer keys protected while still showing judges a transparent evidence trail.
 
-Another challenge was fitting a serious learning workflow into a product that feels encouraging rather than clinical. Scout’s field-notebook design, interactive mascot, daily mission, mistake repair, and evidence language turn the model into a coach rather than a black-box analytics page.
+Another challenge was fitting a serious learning workflow into a product that feels encouraging rather than clinical. AlexACT’s field-notebook design, interactive mascot, daily mission, mistake repair, and evidence language turn the model into a coach rather than a black-box analytics page.
 
 ## Accomplishments
 
@@ -77,7 +77,7 @@ Personalization is not just generating different words for each student. It requ
 
 ## What is next
 
-Next we would calibrate IRT item and BKT transition parameters on consented longitudinal response data; test differential item functioning and calibration error by subgroup; add teacher and parent views; expand original reviewed item banks; and run outcome studies comparing Scout’s adaptive route with a fixed study plan.
+Next we would calibrate IRT item and BKT transition parameters on consented longitudinal response data; test differential item functioning and calibration error by subgroup; add teacher and parent views; expand original reviewed item banks; and run outcome studies comparing AlexACT’s adaptive route with a fixed study plan.
 
 ## Built with
 

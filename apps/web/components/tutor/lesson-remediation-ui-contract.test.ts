@@ -9,15 +9,18 @@ async function source(path: string) {
 }
 
 describe("lesson remediation UI contract", () => {
-  it("keeps failed lesson checks in a required Mr. Kim correction flow", async () => {
+  it("corrects every miss while emphasizing relearning only below the goal threshold", async () => {
     const [workspace, dashboard, route] = await Promise.all([
       source("components/tutor/lesson-workspace.tsx"),
       source("components/tutor/dashboard.tsx"),
       source("app/api/learning/route.ts"),
     ])
 
-    expect(workspace).toContain("Mr. Kim · Required review")
-    expect(workspace).toContain("Correct every")
+    expect(workspace).toContain('"Relearn recommended"')
+    expect(workspace).toContain('"Correction review"')
+    expect(workspace).toContain("belowLessonCheckTarget")
+    expect(workspace).toContain("You met your")
+    expect(workspace).toContain("Review the lesson or a free video")
     expect(workspace).toContain("Ask Mr. Kim about this question")
     expect(workspace).toContain("onSubmitRemediation")
     expect(workspace).not.toMatch(/rewrite the rule|teach it back/i)
@@ -25,7 +28,7 @@ describe("lesson remediation UI contract", () => {
     expect(route).toContain('action === "answer_lesson_remediation"')
   })
 
-  it("opens completed lessons as read-only reviews instead of restarting them", async () => {
+  it("opens current and previous-round lessons as exact read-only snapshots", async () => {
     const [timeline, commandCenter, dashboard, workspace] = await Promise.all([
       source("components/tutor/lesson-timeline.tsx"),
       source("components/tutor/lessons-command-center.tsx"),
@@ -35,10 +38,25 @@ describe("lesson remediation UI contract", () => {
 
     expect(timeline).not.toContain('lesson.status !== "completed"')
     expect(commandCenter).toContain('lesson.status === "completed"')
-    expect(commandCenter).toContain("props.onReviewLesson(lesson.id)")
-    expect(dashboard).toContain("learning.lessonHistory ?? []")
+    expect(commandCenter).toContain("currentRoundLessonCheck")
+    expect(commandCenter).toContain("historicalLessonRounds")
+    expect(commandCenter).toContain("completed-lesson-library")
+    expect(commandCenter).toContain("props.onReviewLesson(check.id)")
+    expect(commandCenter).toContain("never changes")
+    expect(dashboard).toContain("lessonReviewById")
     expect(dashboard).toContain("<LessonReviewWorkspace")
     expect(workspace).toContain("export function LessonReviewWorkspace")
     expect(workspace).toContain("Completed lesson")
+  })
+
+  it("keeps a no-busywork help tab in active and completed lessons", async () => {
+    const workspace = await source("components/tutor/lesson-workspace.tsx")
+
+    expect(workspace).toContain('"Still confused?"')
+    expect(workspace).toContain("Choose one useful next step")
+    expect(workspace).toContain("Ask Mr. Kim")
+    expect(workspace).toContain("@khanacademy")
+    expect(workspace).toContain("@TheOrganicChemistryTutor")
+    expect(workspace.match(/<LessonSupportPanel/g)).toHaveLength(2)
   })
 })

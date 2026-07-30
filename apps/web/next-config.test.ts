@@ -21,6 +21,12 @@ describe("public response security", () => {
     )
     expect(headers["Content-Security-Policy"]).toContain("object-src 'none'")
     expect(headers["Content-Security-Policy"]).toContain(
+      "script-src 'self' 'unsafe-inline' https://js.puter.com"
+    )
+    expect(headers["Content-Security-Policy"]).toContain(
+      "connect-src 'self' https://api.puter.com https://*.puter.com"
+    )
+    expect(headers["Content-Security-Policy"]).toContain(
       "upgrade-insecure-requests"
     )
     expect(headers["Permissions-Policy"]).toContain("camera=()")
@@ -28,7 +34,7 @@ describe("public response security", () => {
     expect(headers["Strict-Transport-Security"]).toContain("max-age=31536000")
     expect(headers["X-Content-Type-Options"]).toBe("nosniff")
     expect(headers["X-Frame-Options"]).toBe("DENY")
-    expect(headers["X-Scout-Release"]).toBe(BUILD_COMMIT)
+    expect(headers["X-AlexACT-Release"]).toBe(BUILD_COMMIT)
   })
 
   it("does not advertise the framework", () => {

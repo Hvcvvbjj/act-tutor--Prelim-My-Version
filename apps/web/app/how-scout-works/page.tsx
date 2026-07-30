@@ -8,9 +8,9 @@ import {
 } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "How Scout Works",
+  title: "How AlexACT Works",
   description:
-    "See how Scout turns a scored answer into learning evidence and the next ACT study action.",
+    "See how AlexACT turns a scored answer into learning evidence and the next ACT study action.",
   alternates: {
     canonical: "/how-scout-works",
   },
@@ -19,15 +19,15 @@ export const metadata: Metadata = {
 const STEPS = [
   {
     label: "Score the answer",
-    copy: "Scout checks original practice against a reviewed answer key. The AI tutor cannot change the score.",
+    copy: "AlexACT checks original practice against a reviewed answer key. The AI tutor cannot change the score.",
   },
   {
     label: "Update one skill",
-    copy: "The result updates the matching skill estimate. Scout keeps limited evidence and uncertainty visible.",
+    copy: "The result updates the matching skill estimate. AlexACT keeps limited evidence and uncertainty visible.",
   },
   {
     label: "Guide later rounds",
-    copy: "Scout weighs that evidence with your goal, test date, and study time before setting later-round priorities.",
+    copy: "AlexACT weighs that evidence with your goal, test date, and study time before setting later-round priorities.",
   },
 ] as const
 
@@ -35,7 +35,7 @@ const PROOF_POINTS = [
   "The estimate before and after a scored answer.",
   "How many answers support the estimate.",
   "Why the next skill changed—or why it stayed the same.",
-  "Whether Scout used a generated explanation or its reviewed fallback.",
+  "Whether AlexACT used a generated explanation or its reviewed fallback.",
 ] as const
 
 const DEMONSTRATED_BOUNDARIES = [
@@ -65,13 +65,13 @@ export default function HowScoutWorksPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
         >
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Scout
+          Back to AlexACT
         </Link>
 
         <header className="mt-8 border-b-2 border-foreground pb-9 sm:mt-10 sm:pb-12">
-          <p className="ink-label text-primary">How Scout works</p>
+          <p className="ink-label text-primary">How AlexACT works</p>
           <h1 className="mt-4 max-w-4xl font-heading text-4xl leading-[1.03] font-black tracking-[-0.035em] sm:text-6xl">
-            Scout uses scored answers to guide what comes after Round 1.
+            AlexACT uses scored answers to guide what comes after Round 1.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
             Scoring, learning estimates, planning, and AI explanations are
@@ -155,7 +155,7 @@ export default function HowScoutWorksPage() {
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
               Each claim below maps to behavior a reviewer can reproduce.
-              Longer-term results need real learner studies, so Scout does not
+              Longer-term results need real learner studies, so AlexACT does not
               present them as finished evidence.
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function HowScoutWorksPage() {
                 Does not claim
               </p>
               <h3 className="mt-3 font-heading text-2xl font-black">
-                What Scout does not claim
+                What AlexACT does not claim
               </h3>
               <ul className="mt-5 space-y-4 text-sm leading-6 text-muted-foreground">
                 {CLAIM_BOUNDARIES.map((boundary) => (
@@ -276,7 +276,7 @@ export default function HowScoutWorksPage() {
           href="/"
           className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-primary-foreground focus-visible:ring-4 focus-visible:ring-ring/40 focus-visible:outline-none"
         >
-          Open Scout
+          Open AlexACT
           <ArrowRightIcon className="size-4" aria-hidden="true" />
         </Link>
       </div>

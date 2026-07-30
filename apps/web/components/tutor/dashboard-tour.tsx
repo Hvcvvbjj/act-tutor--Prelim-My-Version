@@ -5,12 +5,13 @@ import { ArrowLeftIcon, ArrowRightIcon, XIcon } from "lucide-react"
 
 import {
   spotlightRect,
+  tourDialogPlacement,
   type TourSpotlightRect,
 } from "@/components/tutor/dashboard-tour-geometry"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 
-export const DASHBOARD_TOUR_STORAGE_KEY = "scout-dashboard-tour-v2"
+export const DASHBOARD_TOUR_STORAGE_KEY = "scout-dashboard-tour-v3"
 
 const TOUR_STEPS = [
   {
@@ -27,15 +28,9 @@ const TOUR_STEPS = [
   },
   {
     target: "nav-week",
-    eyebrow: "My Week",
+    eyebrow: "My Schedule",
     title: "See when the work fits.",
     copy: "See your spaced study plan and change its days or minutes.",
-  },
-  {
-    target: "nav-diagnostic",
-    eyebrow: "Full Diagnostic",
-    title: "Build a new baseline.",
-    copy: "Take the timed 66-question diagnostic now or use it to shape a later round.",
   },
   {
     target: "nav-practice",
@@ -47,7 +42,19 @@ const TOUR_STEPS = [
     target: "nav-progress",
     eyebrow: "Progress",
     title: "See what your answers changed.",
-    copy: "Review skill estimates, scored evidence, and the priorities Scout sees next.",
+    copy: "Review skill estimates, scored evidence, and the priorities AlexACT sees next.",
+  },
+  {
+    target: "nav-history",
+    eyebrow: "History",
+    title: "Return to every missed question.",
+    copy: "See your exact answer, the correct answer, reviewed reasoning, and an Ask Mr. Kim action in one place.",
+  },
+  {
+    target: "nav-needs-work",
+    eyebrow: "Needs Work",
+    title: "Turn weak skills into actions.",
+    copy: "See the question types below your goal threshold, ask Mr. Kim for a worked example, or open a free video explanation.",
   },
   {
     target: "nav-badges",
@@ -64,10 +71,18 @@ const TOUR_STEPS = [
   {
     target: "settings",
     eyebrow: "Settings",
-    title: "Make Scout fit how you learn.",
+    title: "Make AlexACT fit how you learn.",
     copy: "Change explanation style, accessibility, goal and schedule, or open Data & privacy. You can replay this tour here too.",
   },
 ] as const
+
+type DashboardTourStep = (typeof TOUR_STEPS)[number]
+
+function availableTourSteps(includeNeedsWork: boolean) {
+  return TOUR_STEPS.filter(
+    (step) => includeNeedsWork || step.target !== "nav-needs-work"
+  ) as ReadonlyArray<DashboardTourStep>
+}
 
 interface TourRect extends TourSpotlightRect {
   radius: number
@@ -77,12 +92,16 @@ function tourTarget(target: string) {
   return document.querySelector<HTMLElement>(`[data-tour-id="${target}"]`)
 }
 
+function viewportSize() {
+  return {
+    width: document.documentElement.clientWidth || window.innerWidth,
+    height: document.documentElement.clientHeight || window.innerHeight,
+  }
+}
+
 function boundedRect(element: HTMLElement): TourRect | null {
   const targetRect = element.getBoundingClientRect()
-  const rect = spotlightRect(targetRect, {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  })
+  const rect = spotlightRect(targetRect, viewportSize())
   if (!rect) return null
   const targetRadius = Number.parseFloat(
     window.getComputedStyle(element).borderTopLeftRadius
@@ -90,8 +109,8 @@ function boundedRect(element: HTMLElement): TourRect | null {
   return {
     ...rect,
     radius: Math.max(
-      12,
-      Math.min(28, (Number.isFinite(targetRadius) ? targetRadius : 4) + 8)
+      10,
+      Math.min(24, (Number.isFinite(targetRadius) ? targetRadius : 4) + 4)
     ),
   }
 }
@@ -101,12 +120,21 @@ export function replayDashboardTour() {
   window.dispatchEvent(new Event("scout:replay-tour"))
 }
 
-export function DashboardTour() {
+export function DashboardTour({
+  includeNeedsWork = false,
+}: {
+  includeNeedsWork?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [index, setIndex] = useState(0)
   const [rect, setRect] = useState<TourRect | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
-  const step = TOUR_STEPS[index]
+  const steps = useMemo(
+    () => availableTourSteps(includeNeedsWork),
+    [includeNeedsWork]
+  )
+  const activeIndex = Math.min(index, steps.length - 1)
+  const step = steps[activeIndex]!
 
   const measure = useCallback(() => {
     const target = tourTarget(step.target)
@@ -120,18 +148,20 @@ export function DashboardTour() {
       return
     }
     const targetBounds = target.getBoundingClientRect()
+    const viewport = viewportSize()
+    const targetIsInHeader = Boolean(target.closest("header"))
     const fullyVisible =
-      targetBounds.top >= 6 &&
-      targetBounds.left >= 6 &&
-      targetBounds.bottom <= window.innerHeight - 6 &&
-      targetBounds.right <= window.innerWidth - 6
+      targetBounds.top >= (targetIsInHeader ? 6 : 72) &&
+      targetBounds.left >= 16 &&
+      targetBounds.bottom <= viewport.height - 40 &&
+      targetBounds.right <= viewport.width - 16
     if (!fullyVisible) {
       target.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
           : "smooth",
         block:
-          targetBounds.height > window.innerHeight - 48 ? "start" : "center",
+          targetBounds.height > viewport.height - 48 ? "start" : "center",
         inline: "center",
       })
     }
@@ -192,7 +222,7 @@ export function DashboardTour() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close()
       if (event.key === "ArrowRight") {
-        setIndex((current) => Math.min(TOUR_STEPS.length - 1, current + 1))
+        setIndex((current) => Math.min(steps.length - 1, current + 1))
       }
       if (event.key === "ArrowLeft") {
         setIndex((current) => Math.max(0, current - 1))
@@ -200,65 +230,82 @@ export function DashboardTour() {
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
-  }, [close, open])
+  }, [close, open, steps.length])
 
   const dialogStyle = useMemo(() => {
-    if (!rect) {
+    const currentRect =
+      rect ??
+      (open && typeof document !== "undefined"
+        ? (() => {
+            const target = tourTarget(step.target)
+            return target ? boundedRect(target) : null
+          })()
+        : null)
+    if (!currentRect) {
       return {
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
       }
     }
-    const width = Math.min(420, window.innerWidth - 32)
-    const below = window.innerHeight - rect.bottom
-    const top = below >= 310 ? rect.bottom + 18 : Math.max(16, rect.top - 286)
-    const left = Math.min(
-      window.innerWidth - width - 16,
-      Math.max(16, rect.left + rect.width / 2 - width / 2)
+    const placement = tourDialogPlacement(
+      currentRect,
+      viewportSize(),
+      { width: 420, height: 252 }
     )
-    return { top, left, width, transform: "none" }
-  }, [rect])
+    return {
+      top: placement.top,
+      left: placement.left,
+      width: placement.width,
+      transform: "none",
+    }
+  }, [open, rect, step.target])
 
   if (!open) return null
+  const visibleRect =
+    rect ??
+    (() => {
+      const target = tourTarget(step.target)
+      return target ? boundedRect(target) : null
+    })()
 
   return (
     <div className="fixed inset-0 z-[90]" aria-live="polite">
-      {rect ? (
+      {visibleRect ? (
         <>
           <div
             className="absolute inset-x-0 top-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[height] duration-300 ease-out motion-reduce:transition-none"
-            style={{ height: rect.top }}
+            style={{ height: visibleRect.top }}
           />
           <div
             className="absolute left-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top,width,height] duration-300 ease-out motion-reduce:transition-none"
             style={{
-              top: rect.top,
-              width: rect.left,
-              height: rect.height,
+              top: visibleRect.top,
+              width: visibleRect.left,
+              height: visibleRect.height,
             }}
           />
           <div
             className="absolute right-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top,width,height] duration-300 ease-out motion-reduce:transition-none"
             style={{
-              top: rect.top,
-              width: window.innerWidth - rect.right,
-              height: rect.height,
+              top: visibleRect.top,
+              width: viewportSize().width - visibleRect.right,
+              height: visibleRect.height,
             }}
           />
           <div
             className="absolute inset-x-0 bottom-0 bg-[#020918]/78 backdrop-blur-[2px] transition-[top] duration-300 ease-out motion-reduce:transition-none"
-            style={{ top: rect.bottom }}
+            style={{ top: visibleRect.bottom }}
           />
           <div
             data-tour-spotlight={step.target}
-            className="pointer-events-auto absolute border-2 border-[var(--scout-coral)] shadow-[0_0_0_6px_rgb(242_138_59_/_0.2),0_0_42px_rgb(242_138_59_/_0.42)] ring-2 ring-background transition-[top,left,width,height,border-radius] duration-300 ease-out motion-reduce:transition-none"
+            className="pointer-events-auto absolute shadow-[0_0_0_2px_rgb(255_255_255_/_0.92),0_0_0_6px_rgb(26_148_136_/_0.28),0_0_34px_rgb(26_148_136_/_0.34)] transition-[top,left,width,height,border-radius] duration-300 ease-out motion-reduce:transition-none"
             style={{
-              top: rect.top,
-              left: rect.left,
-              width: rect.width,
-              height: rect.height,
-              borderRadius: rect.radius,
+              top: visibleRect.top,
+              left: visibleRect.left,
+              width: visibleRect.width,
+              height: visibleRect.height,
+              borderRadius: visibleRect.radius,
             }}
           />
         </>
@@ -270,15 +317,15 @@ export function DashboardTour() {
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Scout dashboard tour, step ${index + 1} of ${TOUR_STEPS.length}`}
+        aria-label={`AlexACT dashboard tour, step ${activeIndex + 1} of ${steps.length}`}
         tabIndex={-1}
         className="fixed max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-foreground/25 bg-background text-foreground shadow-[0_26px_80px_rgb(0_0_0_/_0.38)] transition-[top,left] duration-300 ease-out outline-none motion-reduce:transition-none"
         style={dialogStyle}
       >
         <div className="h-1 bg-border" aria-hidden="true">
           <div
-            className="h-full bg-[var(--scout-coral)] transition-[width] duration-300 ease-out motion-reduce:transition-none"
-            style={{ width: `${((index + 1) / TOUR_STEPS.length) * 100}%` }}
+            className="h-full bg-primary transition-[width] duration-300 ease-out motion-reduce:transition-none"
+            style={{ width: `${((activeIndex + 1) / steps.length) * 100}%` }}
           />
         </div>
         <div className="p-5">
@@ -290,7 +337,7 @@ export function DashboardTour() {
                   {step.eyebrow}
                 </p>
                 <span className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6rem] font-black tracking-[0.08em] text-muted-foreground uppercase">
-                  Step {index + 1} of {TOUR_STEPS.length}
+                  Step {activeIndex + 1} of {steps.length}
                 </span>
               </div>
               <h2 className="mt-2 font-heading text-2xl leading-tight font-black">
@@ -316,8 +363,8 @@ export function DashboardTour() {
           <Button
             type="button"
             variant="ghost"
-            disabled={index === 0}
-            onClick={() => setIndex((current) => Math.max(0, current - 1))}
+            disabled={activeIndex === 0}
+            onClick={() => setIndex(Math.max(0, activeIndex - 1))}
           >
             <ArrowLeftIcon data-icon="inline-start" />
             Back
@@ -325,15 +372,15 @@ export function DashboardTour() {
           <Button
             type="button"
             onClick={() => {
-              if (index === TOUR_STEPS.length - 1) {
+              if (activeIndex === steps.length - 1) {
                 close()
                 return
               }
-              setIndex((current) => current + 1)
+              setIndex(activeIndex + 1)
             }}
           >
-            {index === TOUR_STEPS.length - 1 ? "Finish tour" : "Next"}
-            {index < TOUR_STEPS.length - 1 ? (
+            {activeIndex === steps.length - 1 ? "Finish tour" : "Next"}
+            {activeIndex < steps.length - 1 ? (
               <ArrowRightIcon data-icon="inline-end" />
             ) : null}
           </Button>

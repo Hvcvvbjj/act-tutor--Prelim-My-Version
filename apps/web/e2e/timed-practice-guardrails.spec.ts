@@ -21,7 +21,9 @@ test("timed practice explains its boundaries before starting", async ({
     page.getByRole("heading", { name: "Your plan stays put." })
   ).toBeVisible()
   await expect(
-    page.getByText("They do not update Lessons or My Week.", { exact: false })
+    page.getByText("They do not update Lessons or My Schedule.", {
+      exact: false,
+    })
   ).toBeVisible()
 
   await expect

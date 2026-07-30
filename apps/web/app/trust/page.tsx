@@ -13,7 +13,7 @@ import {
 export const metadata: Metadata = {
   title: "Data, Privacy, and Limits",
   description:
-    "A plain-language explanation of what Scout ACT saves, how learners control it, and where AI is—and is not—allowed to act.",
+    "A plain-language explanation of what AlexACT saves, how learners control it, and where AI is—and is not—allowed to act.",
   alternates: {
     canonical: "/trust",
   },
@@ -23,6 +23,7 @@ const STUDY_DATA = [
   "Your goal, score source, test date, and study schedule.",
   "Diagnostic, Quick Check, lesson, practice, and timed-practice responses.",
   "Skill estimates, dated assignments, saved corrections, and resume point.",
+  "Optional reminder contact, channels, timing, and consent date when you turn lesson reminders on.",
 ]
 
 const AI_CAN = [
@@ -50,19 +51,19 @@ export default function TrustPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
         >
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Scout
+          Back to AlexACT
         </Link>
 
         <header className="mt-8 border-b-2 border-foreground pb-8 sm:mt-10 sm:pb-10">
           <div className="flex items-center gap-3 text-primary">
             <ShieldCheckIcon className="size-6" aria-hidden="true" />
-            <p className="ink-label">Scout trust center</p>
+            <p className="ink-label">AlexACT trust center</p>
           </div>
           <h1 className="mt-4 max-w-4xl font-heading text-4xl leading-[1.02] font-black tracking-[-0.035em] sm:text-6xl">
-            What Scout saves—and what it does not.
+            What AlexACT saves—and what it does not.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Scout needs study evidence to resume your work and adapt the next
+            AlexACT needs study evidence to resume your work and adapt the next
             lesson. This page explains that data in regular English, including
             what changes when you create an account.
           </p>
@@ -70,7 +71,7 @@ export default function TrustPage() {
 
         <section
           className="grid gap-8 border-b-2 border-foreground py-9 lg:grid-cols-3"
-          aria-label="How Scout saves progress"
+          aria-label="How AlexACT saves progress"
         >
           <article>
             <LaptopIcon className="size-6 text-primary" aria-hidden="true" />
@@ -91,9 +92,10 @@ export default function TrustPage() {
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               An optional account stores a display name, username, protected
-              password record, latest plan, and linked Scout session. It lets
-              another device restore the latest saved plan; signing in does not
-              change how Scout chooses questions or lessons.
+              password record, latest plan, and linked AlexACT session. If you
+              opt into lesson reminders, it also stores only the email address
+              or phone number you choose. Signing in does not change how AlexACT
+              chooses questions or lessons.
             </p>
           </article>
 
@@ -107,9 +109,9 @@ export default function TrustPage() {
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               After setup, open <strong>Settings → Data &amp; privacy</strong>{" "}
-              to export a readable copy or delete Scout study sessions and the
-              saved plan. Study-data deletion does not delete an account’s
-              sign-in.
+              to export a readable copy or delete AlexACT study sessions and the
+              saved plan. Open your account to change reminder timing or turn
+              reminders off; doing so removes saved reminder contacts.
             </p>
           </article>
         </section>
@@ -118,7 +120,7 @@ export default function TrustPage() {
           <div>
             <p className="ink-label text-primary">Study data</p>
             <h2 className="mt-3 font-heading text-3xl font-black">
-              Evidence Scout may save
+              Evidence AlexACT may save
             </h2>
             <ul className="mt-5 space-y-3 text-sm leading-6 text-muted-foreground">
               {STUDY_DATA.map((item) => (
@@ -132,8 +134,11 @@ export default function TrustPage() {
               ))}
             </ul>
             <p className="mt-5 border-l-4 border-primary bg-[var(--info-surface)] px-4 py-3 text-sm leading-6">
-              This hackathon build does not ask for an email address, school,
-              demographic profile, or payment information.
+              AlexACT does not ask for a school, demographic profile, or payment
+              information. Email and phone details are optional, are used only
+              for the lesson reminders you request, and are removed when you
+              turn reminders off. Reminder delivery stays inactive until its
+              provider is configured.
             </p>
           </div>
 
@@ -163,6 +168,25 @@ export default function TrustPage() {
                 </ul>
               </div>
             </div>
+            <div className="mt-6 rounded-xl border border-primary/35 bg-[var(--info-surface)] p-4 text-sm leading-6 text-muted-foreground">
+              <h3 className="font-bold text-foreground">
+                Optional free cloud enhancement
+              </h3>
+              <p className="mt-2">
+                Mr. Kim first shows reviewed AlexACT guidance. The optional free
+                cloud enhancement can run after you ask for help or finish a
+                lesson reward, and only after you accept a Puter sign-in. Puter
+                then receives your question or reward prompt, that reviewed
+                answer, and a short recent Mr. Kim conversation history so it
+                can rewrite—not score or decide—your guidance.
+              </p>
+              <p className="mt-2">
+                The on-device option stays on your device. Server AI, when it is
+                available, runs through a separate server path; reviewed
+                guidance remains available if either optional enhancement is
+                unavailable.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -171,7 +195,7 @@ export default function TrustPage() {
             Product limits
           </p>
           <h2 className="mt-3 font-heading text-3xl font-black">
-            Scout is a study coach, not an official score report.
+            AlexACT is a study coach, not an official score report.
           </h2>
           <div className="mt-5 grid gap-4 text-sm leading-6 text-white/75 md:grid-cols-2">
             <p>
@@ -180,23 +204,23 @@ export default function TrustPage() {
               official ACT results or promises that a target score is reachable.
             </p>
             <p>
-              Scout ACT is an independent hackathon project and is not
-              affiliated with or endorsed by ACT. Mr. Kim is a fictional AI
-              tutor, not a teacher, counselor, or ACT representative.
+              AlexACT is an independent hackathon project and is not affiliated
+              with or endorsed by ACT. Mr. Kim is a fictional AI tutor, not a
+              teacher, counselor, or ACT representative.
             </p>
           </div>
         </section>
 
         <div className="mt-10 flex flex-col items-start gap-3 border-t pt-7 sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Ready to study? Returning to Scout preserves this browser’s guest
+            Ready to study? Returning to AlexACT preserves this browser’s guest
             progress.
           </p>
           <Link
             href="/"
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground transition-colors hover:bg-[var(--primary-hover)] focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none"
           >
-            Return to Scout
+            Return to AlexACT
           </Link>
         </div>
       </div>

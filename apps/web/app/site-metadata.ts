@@ -3,16 +3,16 @@ import type { Metadata, Viewport } from "next"
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
   "https://scout-act-tutor.u1231294912.chatgpt.site"
-const SITE_TITLE = "Scout ACT — Adaptive ACT Study Coach"
+const SITE_TITLE = "AlexACT — Adaptive ACT Study Coach"
 const SITE_DESCRIPTION =
   "An adaptive ACT coach that turns every answer into the next lesson."
 
 export const siteMetadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  applicationName: "Scout ACT",
+  applicationName: "AlexACT",
   title: {
     default: SITE_TITLE,
-    template: "%s | Scout ACT",
+    template: "%s | AlexACT",
   },
   description: SITE_DESCRIPTION,
   alternates: {
@@ -20,13 +20,13 @@ export const siteMetadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Scout ACT",
+    title: "AlexACT",
     statusBarStyle: "default",
   },
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "Scout ACT",
+    siteName: "AlexACT",
     title: SITE_TITLE,
     description:
       "Meet Mr. Kim, your AI study coach for clear lessons, skill profiles, and an ACT plan that adapts after every round.",
@@ -35,7 +35,7 @@ export const siteMetadata: Metadata = {
         url: "/scout-social-preview.png",
         width: 1200,
         height: 630,
-        alt: "Mr. Kim guides a student through Scout ACT skill polygons and a lesson path.",
+        alt: "Mr. Kim guides a student through AlexACT skill polygons and a lesson path.",
       },
     ],
   },

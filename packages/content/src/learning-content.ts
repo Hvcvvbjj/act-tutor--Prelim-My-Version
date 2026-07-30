@@ -114,7 +114,7 @@ const LESSON_CONFIG = {
     title: "Sentence boundaries without guessing",
     objective: "Separate complete sentences from fragments and run-ons.",
     concept:
-      "A complete ACT sentence needs a subject, a working verb, and a complete thought. Before choosing punctuation, identify whether each side can stand alone.",
+      "A complete sentence needs a subject, a working verb, and a complete thought. Check both sides of the punctuation to see whether each side can stand alone. Then choose the mark that joins those ideas correctly.",
     steps: [
       "Find the subject and verb on the left side of the punctuation.",
       "Find the subject and verb on the right side of the punctuation.",
@@ -134,7 +134,7 @@ const LESSON_CONFIG = {
     objective:
       "Choose the shortest grammatically complete option that preserves meaning.",
     concept:
-      "ACT concision questions reward exact meaning, not fancy wording. If two words say the same thing, keep the cleaner one unless tone or logic changes.",
+      "Concision means saying the full idea with no wasted words. If two words do the same job, keep the cleaner one. Never cut a word that changes the meaning or breaks the sentence.",
     steps: [
       "State the sentence's needed meaning in plain language.",
       "Cross out repeated ideas, filler intensifiers, and double modifiers.",
@@ -152,7 +152,7 @@ const LESSON_CONFIG = {
     title: "Commas by sentence role",
     objective: "Use commas for structure, not for pauses.",
     concept:
-      "ACT comma questions usually test whether a phrase is removable, introductory, or joining two complete clauses with a coordinator.",
+      "A comma shows how parts of a sentence fit together. It can set off an opening phrase or a detail that can be removed. It can also join two complete sentences when it comes before a word such as and, but, or so.",
     steps: [
       "Bracket nonessential information that could be removed.",
       "Check whether an opening phrase needs a comma before the main clause.",
@@ -171,7 +171,7 @@ const LESSON_CONFIG = {
     objective:
       "Pick transitions by relationship: continue, contrast, cause, or result.",
     concept:
-      "A transition is a tiny logic label. Read the sentence before and after the blank, then name the relationship before looking at choices.",
+      "A transition is a small sign that tells how two ideas connect. Read the sentence before and after the blank first. Decide whether the ideas add, contrast, show a cause, or show a result before looking at the choices.",
     steps: [
       "Summarize the previous sentence in a few words.",
       "Summarize the new sentence in a few words.",
@@ -190,7 +190,7 @@ const LESSON_CONFIG = {
     title: "Linear equations in reverse order",
     objective: "Solve one-variable linear equations without losing signs.",
     concept:
-      "Solving a linear equation means undoing operations in reverse order while keeping both sides balanced.",
+      "An equation says that two amounts are equal. To find the missing number, undo the operations in reverse order. Whatever you do to one side, you must also do to the other side.",
     steps: [
       "Clear parentheses or combine like terms if needed.",
       "Move variable terms to one side and constants to the other.",
@@ -208,7 +208,7 @@ const LESSON_CONFIG = {
     title: "Functions as input-output rules",
     objective: "Evaluate and interpret functions from formulas and context.",
     concept:
-      "A function takes an input and returns exactly one output. In ACT modeling, the letters usually represent real quantities with units.",
+      "A function is a rule that turns an input into one output. Replace the input letter with the number you are given, then follow the operations. In a story problem, say what the output means and include its unit.",
     steps: [
       "Identify what the input represents before substituting.",
       "Replace the variable with the given value using parentheses.",
@@ -223,7 +223,7 @@ const LESSON_CONFIG = {
     title: "Ratios and percent from the whole",
     objective: "Translate percent, part, and whole relationships accurately.",
     concept:
-      "Percent means per 100. Most ACT percent errors happen because the wrong number is treated as the whole.",
+      "Percent means out of 100. First decide which number is the whole amount. Then turn the percent into a decimal or fraction and check that your answer makes sense.",
     steps: [
       "Name the whole before calculating.",
       "Convert percent to a decimal or fraction.",
@@ -238,7 +238,7 @@ const LESSON_CONFIG = {
     title: "Geometry formulas with units",
     objective: "Choose the right measurement formula and track units.",
     concept:
-      "Geometry questions often hide whether they want length, area, volume, or angle measure. The units tell you which formula family is needed.",
+      "Geometry questions ask for a length, area, volume, or angle. The question and its units tell you which kind of formula to use. Label the picture before you put numbers into the formula.",
     steps: [
       "Sketch or label the given measurements.",
       "Decide whether the answer is one-dimensional, square units, or cubic units.",
@@ -257,7 +257,7 @@ const LESSON_CONFIG = {
     objective:
       "Find the central idea by tracking what the passage keeps doing.",
     concept:
-      "The central idea is the passage's controlling point, not one interesting detail. Look for the claim supported across multiple sentences or paragraphs.",
+      "The central idea is the main point of the whole passage. It is not one interesting detail from a single line. Look for an idea that several sentences or paragraphs support.",
     steps: [
       "Write a short label for each paragraph's job.",
       "Ignore details that appear only once unless they support a larger pattern.",
@@ -276,7 +276,7 @@ const LESSON_CONFIG = {
     title: "Inference with proof attached",
     objective: "Make only the inference the text can actually support.",
     concept:
-      "A supported inference is a small step beyond the words, not a guess about motives or future events without evidence.",
+      "An inference is a small idea you can figure out from clues in the text. Point to the exact words that support it. Do not add a feeling, cause, or future event that the passage never gives you.",
     steps: [
       "Underline the exact sentence that points toward the answer.",
       "Ask what must be true if that sentence is true.",
@@ -294,7 +294,7 @@ const LESSON_CONFIG = {
     title: "Evidence before answer choice",
     objective: "Use precise lines and details to answer reading questions.",
     concept:
-      "Detail questions are won before reading choices. Find the reference in the passage and predict the answer in plain words.",
+      "A detail question has an answer stated in the passage. Find the matching name, date, or idea before reading every choice. Say the answer in your own plain words, then choose the closest match.",
     steps: [
       "Use names, dates, or repeated nouns from the question to locate the evidence.",
       "Read one sentence before and after the target detail.",
@@ -312,7 +312,7 @@ const LESSON_CONFIG = {
     title: "Author purpose by paragraph job",
     objective: "Identify why a sentence or paragraph is included.",
     concept:
-      "Purpose questions ask what a part does for the passage. Answer with a job, such as contrast, example, cause, background, or qualification.",
+      "A purpose question asks why the author included one part. Give that part a job, such as example, contrast, cause, background, or limit. Check how it connects the idea before it to the idea after it.",
     steps: [
       "Name the point immediately before the referenced part.",
       "Name the point immediately after it.",
@@ -327,26 +327,6 @@ const LESSON_CONFIG = {
     trap: "Do not choose a purpose because it sounds important; tie it to the paragraph's actual job.",
   },
 } as const;
-
-export const ACT_LESSONS = ACT_SKILLS.map((skill) => {
-  const config = LESSON_CONFIG[skill.slug];
-  return {
-    id: `${skill.slug}-lesson-v1`,
-    skill: skill.slug,
-    title: config.title,
-    minutes: 7,
-    objective: config.objective,
-    concept: config.concept,
-    steps: config.steps,
-    workedExample: {
-      prompt: config.prompt,
-      answer: config.answer,
-      explanation: config.explanation,
-    },
-    trap: config.trap,
-    content: CONTENT_META,
-  };
-}) satisfies ReadonlyArray<LessonRecord>;
 
 const PRACTICE_CONFIG = {
   "sentence-boundaries": [
@@ -412,16 +392,16 @@ const PRACTICE_CONFIG = {
     [
       "The clouds darkened, and the hikers turned back.",
       "Keep the comma",
-      "Comma plus and correctly joins two complete sentences.",
+      "A comma plus the coordinating conjunction “and” correctly joins two complete sentences.",
     ],
     [
       "The clouds darkened, the hikers turned back.",
-      "Replace comma with semicolon",
+      "Replace the comma with a semicolon",
       "A comma alone cannot join two complete sentences.",
     ],
     [
       "After the lecture ended students asked questions.",
-      "Add comma after ended",
+      "Add a comma after ended",
       "A longer introductory phrase should be followed by a comma.",
     ],
     [
@@ -503,7 +483,7 @@ const PRACTICE_CONFIG = {
       "The increase is 10, and 10/40 = 25%.",
     ],
     [
-      "The ratio of red to blue tiles is 3:5. If there are 24 red tiles, how many blue?",
+      "The ratio of red to blue tiles is 3:5. If there are 24 red tiles, how many blue tiles are there?",
       "40",
       "Scale 3 to 24 by 8, then 5 times 8 is 40.",
     ],
@@ -518,12 +498,12 @@ const PRACTICE_CONFIG = {
     [
       "A triangle has base 10 and height 6. What is its area?",
       "30",
-      "Triangle area is one half base times height.",
+      "The area of a triangle is one-half the base times the height.",
     ],
     [
       "A circle has radius 3. What is its circumference?",
-      "6pi",
-      "Circumference is 2pi r, so 2pi times 3 is 6pi.",
+      "6π",
+      "Circumference is 2πr, so 2π times 3 is 6π.",
     ],
     [
       "A rectangle is 8 by 5. What is its perimeter?",
@@ -598,7 +578,7 @@ const PRACTICE_CONFIG = {
   "textual-evidence-and-details": [
     [
       "The passage says the bridge opened in 1920. Which answer is supported?",
-      "The bridge was open by 1920",
+      "The bridge opened in 1920",
       "This restates the explicit date detail.",
     ],
     [
@@ -906,6 +886,80 @@ function actStyleChoices(
       : { misconception: MISCONCEPTION_BY_SKILL[skill.slug] }),
   }));
 }
+
+const CORRECT_REASON_BY_SKILL: Record<string, string> = {
+  "sentence-boundaries":
+    "It correctly identifies whether the words contain a full subject, verb, and thought.",
+  "concision-and-redundancy":
+    "It keeps the complete meaning while removing words that repeat the same job.",
+  "punctuation-and-commas":
+    "It matches the actual job of the phrase or clause instead of adding punctuation by sound.",
+  "logical-transitions":
+    "It names the exact relationship between the idea before the blank and the idea after it.",
+  "linear-equations":
+    "Putting the value back into the original equation makes the two sides equal.",
+  "functions-and-modeling":
+    "It uses the given input and keeps the starting value, rate, and units in the right roles.",
+  "ratios-and-percent":
+    "It uses the correct whole amount and the correct scale or percent relationship.",
+  "geometry-and-measurement":
+    "It uses the formula for the measurement being asked for and keeps the units correct.",
+  "central-ideas-and-details":
+    "It covers the repeated point of the full passage instead of just one small detail.",
+  "supported-inference":
+    "It makes only the small step that the stated clues can support.",
+  "textual-evidence-and-details":
+    "It matches the exact fact stated in the passage without adding a new claim.",
+  "author-purpose-and-structure":
+    "It describes the job this part does between the ideas around it.",
+};
+
+function lessonWorkedExamples(skill: (typeof ACT_SKILLS)[number]) {
+  return PRACTICE_CONFIG[skill.slug]
+    .slice(0, 3)
+    .map(([source, answer, rationale], index) => {
+      const choices = actStyleChoices(skill, index, answer);
+      const prompt =
+        skill.section === "english"
+          ? `${source} ${practicePrompt(skill, source)}`
+          : source;
+      return {
+        prompt,
+        choices: choices.map((choice) => choice.text),
+        answer,
+        explanation: [rationale, CORRECT_REASON_BY_SKILL[skill.slug]],
+        wrongAnswerNotes: choices
+          .filter((choice) => choice.text !== answer)
+          .map(
+            (choice) =>
+              `“${choice.text}” is wrong. ${choice.misconception ?? MISCONCEPTION_BY_SKILL[skill.slug]}`,
+          ),
+      };
+    });
+}
+
+export const ACT_LESSONS = ACT_SKILLS.map((skill) => {
+  const config = LESSON_CONFIG[skill.slug];
+  const workedExamples = lessonWorkedExamples(skill);
+  const firstExample = workedExamples[0]!;
+  return {
+    id: `${skill.slug}-lesson-v2`,
+    skill: skill.slug,
+    title: config.title,
+    minutes: 12,
+    objective: config.objective,
+    concept: config.concept,
+    steps: config.steps,
+    workedExample: {
+      prompt: firstExample.prompt,
+      answer: firstExample.answer,
+      explanation: firstExample.explanation,
+    },
+    workedExamples,
+    trap: config.trap,
+    content: CONTENT_META,
+  };
+}) satisfies ReadonlyArray<LessonRecord>;
 
 export const ACT_PRACTICE_QUESTIONS = ACT_SKILLS.flatMap((skill) =>
   PRACTICE_CONFIG[skill.slug].map(([prompt, answer, rationale], index) => {

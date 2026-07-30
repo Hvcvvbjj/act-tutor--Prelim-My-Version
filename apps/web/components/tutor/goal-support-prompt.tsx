@@ -67,7 +67,7 @@ export function GoalSupportPrompt({
     )
       return
     const show = () => setOpen(true)
-    if (window.localStorage.getItem("scout-dashboard-tour-v2") === "done") {
+    if (window.localStorage.getItem("scout-dashboard-tour-v3") === "done") {
       const timer = window.setTimeout(show, 1_200)
       return () => window.clearTimeout(timer)
     }

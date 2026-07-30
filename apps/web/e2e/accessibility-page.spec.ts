@@ -37,7 +37,7 @@ test("the public accessibility guide explains real controls and current limits",
   await page.getByRole("link", { name: "Read data and privacy limits" }).click()
   await expect(
     page.getByRole("heading", {
-      name: "What Scout saves—and what it does not.",
+      name: "What AlexACT saves—and what it does not.",
     })
   ).toBeVisible()
 })

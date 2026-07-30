@@ -111,6 +111,24 @@ describe("adaptive study plans", () => {
     );
   });
 
+  it("describes scheduled checkpoints as timed, full-section checks", () => {
+    const checkpoints = plan().tasks.filter(
+      (task) => task.kind === "checkpoint",
+    );
+
+    expect(checkpoints.length).toBeGreaterThan(0);
+    expect(
+      checkpoints.every(
+        (task) => task.title === "Timed full-section progress check",
+      ),
+    ).toBe(true);
+    expect(
+      checkpoints.every((task) =>
+        task.reason.includes("timed, official-length section"),
+      ),
+    ).toBe(true);
+  });
+
   it("keeps the live Daily Mission aligned when evidence is otherwise tied", () => {
     const aligned = generateStudyPlan({
       today: "2026-07-13",

@@ -9,7 +9,7 @@ import { validateRapidDiagnosticForm } from "./schema";
 const REVIEW = {
   status: "published",
   license: "original",
-  reviewer: "Scout ACT content review",
+  reviewer: "AlexACT content review",
   reviewedAt: "2026-07-12",
 } as const;
 
@@ -276,7 +276,7 @@ const englishItems: ItemSpec[][] = [
       ],
       correct: 2,
       rationale:
-        "Comma plus the coordinating conjunction and correctly joins the two independent clauses.",
+        "A comma plus the coordinating conjunction “and” correctly joins the two independent clauses.",
     },
     {
       id: "eng-bus-3",
@@ -670,7 +670,7 @@ const mathItems: ItemSpec[] = [
     choices: ["−3", "0", "2", "3"],
     correct: 3,
     rationale:
-      "Distinct parallel lines have equal slopes and different intercepts. Therefore k must equal 3.",
+      "Distinct parallel lines have equal slopes and different intercepts. Therefore, k must equal 3.",
   },
   {
     id: "math-06",
@@ -737,7 +737,8 @@ const mathItems: ItemSpec[] = [
     prompt: "A linear function g has g(2) = 11 and g(6) = 27. What is g(0)?",
     choices: ["1", "3", "4", "7"],
     correct: 1,
-    rationale: "The slope is (27−11)/(6−2)=4. Since 11=4(2)+b, b=3, so g(0)=3.",
+    rationale:
+      "The slope is (27 − 11)/(6 − 2) = 4. Since 11 = 4(2) + b, b = 3, so g(0) = 3.",
   },
   {
     id: "math-11",
@@ -763,7 +764,7 @@ const mathItems: ItemSpec[] = [
     choices: ["120", "240", "300", "750"],
     correct: 2,
     rationale:
-      "The linear scale factor is 15/6 = 2.5, so the area scale factor is 2.5² = 6.25. Then 48(6.25)=300.",
+      "The linear scale factor is 15/6 = 2.5, so the area scale factor is 2.5² = 6.25. Then 48(6.25) = 300.",
   },
   {
     id: "math-13",
@@ -774,7 +775,7 @@ const mathItems: ItemSpec[] = [
     prompt: "If |2x − 7| = 9, what is the sum of all possible values of x?",
     choices: ["−7", "2", "7", "9"],
     correct: 2,
-    rationale: "The two equations give x=8 and x=−1. Their sum is 7.",
+    rationale: "The two equations give x = 8 and x = −1. Their sum is 7.",
   },
   {
     id: "math-14",
@@ -798,7 +799,7 @@ const mathItems: ItemSpec[] = [
     choices: ["15", "18", "22", "25"],
     correct: 0,
     rationale:
-      "The total must be 5(18)=90. The four known numbers total 75, leaving 15.",
+      "The total must be 5(18) = 90. The four known numbers total 75, leaving 15.",
   },
   {
     id: "math-16",
@@ -834,7 +835,7 @@ const mathItems: ItemSpec[] = [
     choices: ["−5 and −4", "−5 and 4", "4 and 5", "5 and 9"],
     correct: 2,
     rationale:
-      "The polynomial factors as (x−4)(x−5), so its zeros are 4 and 5.",
+      "The polynomial factors as (x − 4)(x − 5), so its zeros are 4 and 5.",
   },
   {
     id: "math-19",
@@ -847,7 +848,7 @@ const mathItems: ItemSpec[] = [
     choices: ["17", "21", "23", "24"],
     correct: 2,
     rationale:
-      "A positive linear transformation changes the median the same way: 1.5(14)+2=23.",
+      "A positive linear transformation changes the median the same way: 1.5(14) + 2 = 23.",
   },
   {
     id: "math-20",
@@ -859,7 +860,8 @@ const mathItems: ItemSpec[] = [
       "A rectangular prism has dimensions 3, 4, and 8. What is its surface area?",
     choices: ["48", "72", "96", "136"],
     correct: 3,
-    rationale: "Surface area is 2(3·4 + 3·8 + 4·8)=2(12+24+32)=136.",
+    rationale:
+      "Surface area is 2(3 · 4 + 3 · 8 + 4 · 8) = 2(12 + 24 + 32) = 136.",
   },
   {
     id: "math-21",
@@ -872,7 +874,7 @@ const mathItems: ItemSpec[] = [
     choices: ["54", "60", "66", "72"],
     correct: 2,
     rationale:
-      "Let s be student tickets: 9s + 14(120−s)=1350. Solving gives −5s=−330, so s=66.",
+      "Let s be student tickets: 9s + 14(120 − s) = 1350. Solving gives −5s = −330, so s = 66.",
   },
   {
     id: "math-22",
@@ -888,7 +890,7 @@ const mathItems: ItemSpec[] = [
       "f⁻¹(x) = 1/(3x − 4)",
     ],
     correct: 0,
-    rationale: "Swap x and y and solve: x=(y−4)/3 gives y=3x+4.",
+    rationale: "Swap x and y and solve: x = (y − 4)/3 gives y = 3x + 4.",
   },
   {
     id: "math-23",
@@ -897,10 +899,10 @@ const mathItems: ItemSpec[] = [
     skillLabel: M.ratios[1],
     difficulty: "hard",
     prompt:
-      "A bag contains 4 red, 5 blue, and 3 green tiles. Two tiles are drawn without replacement. What is the probability both are blue?",
+      "A bag contains 4 red, 5 blue, and 3 green tiles. Two tiles are drawn without replacement. What is the probability that both are blue?",
     choices: ["5/33", "5/22", "25/144", "10/33"],
     correct: 0,
-    rationale: "The probability is (5/12)(4/11)=20/132=5/33.",
+    rationale: "The probability is (5/12)(4/11) = 20/132 = 5/33.",
   },
 ];
 
@@ -1270,7 +1272,7 @@ export const RAPID_DIAGNOSTIC_FORM = validateRapidDiagnosticForm({
   id: "enhanced-act-half-length",
   version: "enhanced-half-v2",
   mode: "rapid",
-  title: "Enhanced ACT half-length baseline",
+  title: "AlexACT full 66-question diagnostic",
   estimatedMinutes: 63,
   blueprint: BLUEPRINT,
   questions: [...englishQuestions, ...mathQuestions, ...readingQuestions],

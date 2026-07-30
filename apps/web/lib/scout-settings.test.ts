@@ -31,7 +31,7 @@ beforeEach(() => {
   })
 })
 
-describe("versioned Scout settings", () => {
+describe("versioned AlexACT settings", () => {
   it("migrates both legacy preference keys without dropping either side", () => {
     window.localStorage.setItem(
       "scout-explanation-preferences-v1",

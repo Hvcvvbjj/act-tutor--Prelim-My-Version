@@ -57,7 +57,7 @@ export class FileScoutSessionRepository {
     if (value === null) return structuredClone(EMPTY_STORE);
     const parsed = value as ScoutStoreFile;
     if (parsed.version !== 1 || !parsed.sessions) {
-      throw new Error("Unsupported Scout session store format.");
+      throw new Error("Unsupported AlexACT session store format.");
     }
     return parsed;
   }
@@ -112,7 +112,7 @@ export class FileScoutSessionRepository {
   ) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Scout session not found.");
+      if (!session) throw new RangeError("AlexACT session not found.");
       const currentUpdatedAt =
         session.preferencesUpdatedAt ?? session.createdAt;
       const nextUpdatedAt =
@@ -133,7 +133,7 @@ export class FileScoutSessionRepository {
   async appendMessage(sessionId: string, message: ScoutMessage) {
     return this.transact(async (store) => {
       const session = store.sessions[sessionId];
-      if (!session) throw new RangeError("Scout session not found.");
+      if (!session) throw new RangeError("AlexACT session not found.");
       session.messages = [...session.messages, message].slice(-50);
       session.updatedAt = message.askedAt;
       await this.writeStore(store);

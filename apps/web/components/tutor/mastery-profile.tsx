@@ -477,89 +477,93 @@ export function MasteryProfile({
   }
 
   return (
-    <div className="mt-8">
-      <details className="group border-y border-border/80">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-1 text-sm font-semibold text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
-          <span>See skill map</span>
-          <span className="text-xs font-semibold group-open:hidden">
-            Optional
-          </span>
-          <span className="hidden text-xs font-semibold group-open:inline">
-            Hide map
-          </span>
-        </summary>
-        <div className="border-t border-white/15 bg-[#10243d] text-[#f7fbff]">
-          <h2 id="mastery-profile-title" className="sr-only">
+    <div className="mt-6">
+      <section
+        className="overflow-hidden rounded-2xl bg-[#10243d] text-[#f7fbff] shadow-[0_18px_50px_rgb(16_36_61_/_0.18)]"
+        aria-labelledby="mastery-profile-title"
+        aria-describedby="mastery-profile-description"
+      >
+        <div className="border-b border-white/15 px-6 py-5 lg:px-8">
+          <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
+            Live profile
+          </p>
+          <h2
+            id="mastery-profile-title"
+            className="mt-1 font-heading text-3xl font-black"
+          >
             Skill map
           </h2>
-          <p id="mastery-profile-description" className="sr-only">
+          <p
+            id="mastery-profile-description"
+            className="mt-1 max-w-2xl text-sm leading-6 text-white/70"
+          >
             Higher shapes mean stronger current estimates. Choose a skill below
             for its exact value.
           </p>
-
-          <div className="grid items-center gap-2 px-3 py-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:px-7">
-            <MobileSectionOverview
-              skills={skills}
-              selectedSkill={selected.skill}
-            />
-            <MasteryRadar skills={skills} selectedSkill={selected.skill} />
-            <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
-              <div className="mb-5 border-y border-white/20 py-3">
-                <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                  Study momentum
-                </p>
-                <p className="mt-1 font-heading text-3xl font-black tabular-nums">
-                  Level {pointProgress.completedLevels}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-white/65">
-                  {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")} /
-                  1,000 points toward level {pointProgress.completedLevels + 1}.
-                  Points reward study momentum; only scored answers shape the
-                  skill map and ACT estimates.
-                </p>
-              </div>
-              <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
-                Highest current estimates
-              </p>
-              {strongest.length >= 2 ? (
-                <ol className="mt-3 divide-y divide-white/15 border-y border-white/20">
-                  {strongest.map((skill, index) => (
-                    <li
-                      key={skill.skill}
-                      className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
-                    >
-                      <span className="font-mono text-xs text-white/50">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span className="text-sm font-bold">{skill.label}</span>
-                      <span className="font-heading text-2xl font-black tabular-nums">
-                        {percent(skill.learnedProbability)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="mt-3 border-y border-white/20 py-4 text-sm leading-6 text-white/75">
-                  Your profile is still forming. Answer scored questions in at
-                  least two skills before Scout lists current strengths.
-                </p>
-              )}
-              <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
-                <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
-                  Adaptive priority
-                </p>
-                <p className="mt-2 font-heading text-2xl font-black">
-                  {recommendation.label}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-white/70">
-                  This skill has Scout&apos;s highest evidence-based practice
-                  priority. Your current lesson may still come first.
-                </p>
-              </div>
-            </aside>
-          </div>
         </div>
-      </details>
+
+        <div className="grid items-center gap-2 px-3 py-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)] lg:px-7">
+          <MobileSectionOverview
+            skills={skills}
+            selectedSkill={selected.skill}
+          />
+          <MasteryRadar skills={skills} selectedSkill={selected.skill} />
+          <aside className="px-3 pb-5 lg:px-0 lg:pb-0">
+            <div className="mb-5 border-y border-white/20 py-3">
+              <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
+                Study momentum
+              </p>
+              <p className="mt-1 font-heading text-3xl font-black tabular-nums">
+                Level {pointProgress.completedLevels}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-white/65">
+                {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")} /
+                1,000 points toward level {pointProgress.completedLevels + 1}.
+                Points reward study momentum; only scored answers shape the
+                skill map and ACT estimates.
+              </p>
+            </div>
+            <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">
+              Highest current estimates
+            </p>
+            {strongest.length >= 2 ? (
+              <ol className="mt-3 divide-y divide-white/15 border-y border-white/20">
+                {strongest.map((skill, index) => (
+                  <li
+                    key={skill.skill}
+                    className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
+                  >
+                    <span className="font-mono text-xs text-white/50">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-sm font-bold">{skill.label}</span>
+                    <span className="font-heading text-2xl font-black tabular-nums">
+                      {percent(skill.learnedProbability)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-3 border-y border-white/20 py-4 text-sm leading-6 text-white/75">
+                Your profile is still forming. Answer scored questions in at
+                least two skills before AlexACT lists current strengths.
+              </p>
+            )}
+            <div className="mt-5 border-l-4 border-[var(--scout-coral)] bg-white/7 p-4">
+              <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
+                Adaptive priority
+              </p>
+              <p className="mt-2 font-heading text-2xl font-black">
+                {recommendation.label}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/70">
+                This skill has AlexACT&apos;s highest evidence-based practice
+                priority. Your current lesson may still come first.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
 
       <section className="mt-8" aria-label="All skills">
         <SkillRows
@@ -644,13 +648,13 @@ export function MasteryProfile({
             <details>
               <summary className="cursor-pointer font-heading text-xl font-black outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                 {selectedIsRecommendation
-                  ? "How Scout chose this skill (technical details)"
+                  ? "How AlexACT chose this skill (technical details)"
                   : "How this skill compares (technical details)"}
               </summary>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
                 {selectedIsRecommendation
                   ? `Ranking score: ${priority}/100.`
-                  : `This skill’s current ranking score is ${priority}/100; Scout currently gives ${recommendation.label} the highest adaptive priority.`}{" "}
+                  : `This skill’s current ranking score is ${priority}/100; AlexACT currently gives ${recommendation.label} the highest adaptive priority.`}{" "}
                 This is not an ACT score or a probability.
               </p>
               <ol className="mt-3 divide-y border-y">
@@ -676,13 +680,13 @@ export function MasteryProfile({
             <div>
               <h3 className="font-heading text-xl font-black">
                 {selectedIsRecommendation
-                  ? "Why Scout prioritizes this"
+                  ? "Why AlexACT prioritizes this"
                   : "Current adaptive priority"}
               </h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {selectedIsRecommendation
-                  ? `${recommendation.label} has Scout’s highest evidence-based practice priority.`
-                  : `Scout currently gives ${recommendation.label} the highest adaptive priority.`}
+                  ? `${recommendation.label} has AlexACT’s highest evidence-based practice priority.`
+                  : `AlexACT currently gives ${recommendation.label} the highest adaptive priority.`}
               </p>
             </div>
           )}

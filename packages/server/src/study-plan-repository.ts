@@ -155,8 +155,8 @@ export class FileStudyPlanRepository {
           ...(skillsChanged ? { skills: input.skills } : {}),
           updatedAt: now,
           reason: startsNewTestCycle
-            ? "You scheduled a new test, so Scout built a fresh calendar for this cycle. Your skill evidence and score history stayed intact."
-            : "Your plan settings or skill evidence changed, so Scout rebuilt future dates. Past work, today’s work, and completed tasks were kept.",
+            ? "You scheduled a new test, so AlexACT built a fresh calendar for this cycle. Your skill evidence and score history stayed intact."
+            : "Your plan settings or skill evidence changed, so AlexACT rebuilt future dates. Past work, today’s work, and completed tasks were kept.",
         });
         existing.updatedAt = now;
         await this.writeStore(store);
@@ -188,7 +188,7 @@ export class FileStudyPlanRepository {
         availability,
         updatedAt: now,
         reason:
-          "Your schedule changed, so Scout moved future work. Today’s work and finished tasks did not change.",
+          "Your schedule changed, so AlexACT moved future work. Today’s work and finished tasks did not change.",
       });
       session.updatedAt = now;
       await this.writeStore(store);

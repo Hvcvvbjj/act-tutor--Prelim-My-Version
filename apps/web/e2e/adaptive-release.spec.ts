@@ -375,7 +375,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
     lessons.getByRole("complementary").getByText("Up next", { exact: true })
   ).toBeVisible()
   await expect(lessons.getByText("More ways to study")).toHaveCount(0)
-  await expect(page.getByText("Why Scout picked this")).toHaveCount(0)
+  await expect(page.getByText("Why AlexACT picked this")).toHaveCount(0)
   await expect(page.getByText("Later today")).toHaveCount(0)
 
   for (const width of [320, 375, 390]) {
@@ -391,7 +391,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   }
 
   await page.setViewportSize({ width: 320, height: 760 })
-  const brand = page.getByText("SCOUT ACT", { exact: true }).first()
+  const brand = page.getByText("AlexACT", { exact: true }).first()
   await expect(brand).toBeVisible()
   const brandStyle = await brand.evaluate((element) => ({
     height: element.getBoundingClientRect().height,
@@ -422,7 +422,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   await expect(selectedSkillHeading).toBeFocused()
   await expect(
     selectedSkillDetail.getByRole("heading", {
-      name: /^(Why Scout prioritizes this|Current adaptive priority)$/,
+      name: /^(Why AlexACT prioritizes this|Current adaptive priority)$/,
     })
   ).toBeVisible()
   await expect(selectedSkillDetail).toContainText(
@@ -920,7 +920,7 @@ test("a calendar review cannot masquerade as the current lesson", async ({
   page,
 }) => {
   await openStarterPlan(page)
-  await page.getByRole("tab", { name: "My week" }).click()
+  await page.getByRole("tab", { name: "My Schedule" }).click()
 
   const calendarReview = page.getByRole("button", {
     name: /Review · \d+m .+ review/,
@@ -946,7 +946,7 @@ test("the weekly calendar keeps day cards readable at laptop and phone widths", 
 }) => {
   await page.setViewportSize({ width: 1024, height: 800 })
   await openStarterPlan(page)
-  await page.getByRole("tab", { name: "My week" }).click()
+  await page.getByRole("tab", { name: "My Schedule" }).click()
 
   const dayCards = page.getByTestId("week-day")
   await expect(dayCards).toHaveCount(7)
@@ -1079,10 +1079,9 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
   ).toBeVisible()
   await expect(accuracy).not.toContainText("%")
   await expect(
-    page.getByText(
-      `${result.total - result.unanswered}/${result.total}`,
-      { exact: true }
-    )
+    page.getByText(`${result.total - result.unanswered}/${result.total}`, {
+      exact: true,
+    })
   ).toBeVisible()
 
   const answeredSection = result.review.find(
@@ -1109,7 +1108,7 @@ test("a learner can save a reported-score plan and restore it after sign-in", as
   })
   await account.getByRole("tab", { name: "Create account" }).click()
   const createAccount = page.getByRole("dialog", {
-    name: "Keep your Scout progress.",
+    name: "Keep your AlexACT progress.",
   })
   await createAccount.getByLabel("Your name").fill("E2E Learner")
   await createAccount.getByLabel("Username").fill(username)
@@ -1158,22 +1157,25 @@ test("a learner can save a reported-score plan and restore it after sign-in", as
   ).toHaveCount(0)
 })
 
-test("the server-verified judge account reveals the technical review layer", async ({
+test("server-verified developer mode reveals the technical review layer", async ({
   page,
 }) => {
-  const judgeUsername = process.env.SCOUT_JUDGE_USERNAME
-  const judgePassword = process.env.SCOUT_E2E_JUDGE_PASSWORD
+  const judgeUsername =
+    process.env.SCOUT_DEV_USERNAME ?? process.env.SCOUT_JUDGE_USERNAME
+  const judgePassword =
+    process.env.SCOUT_E2E_DEV_PASSWORD ??
+    process.env.SCOUT_E2E_JUDGE_PASSWORD
   expect(
     judgeUsername,
-    "Set SCOUT_JUDGE_USERNAME for the judge flow."
+    "Set SCOUT_DEV_USERNAME for the developer flow."
   ).toBeTruthy()
   expect(
     judgePassword,
-    "Set SCOUT_E2E_JUDGE_PASSWORD for the judge flow."
+    "Set SCOUT_E2E_DEV_PASSWORD for the developer flow."
   ).toBeTruthy()
 
   await page.addInitScript(() => {
-    window.localStorage.setItem("scout-dashboard-tour-v2", "done")
+    window.localStorage.setItem("scout-dashboard-tour-v3", "done")
   })
   await page.goto("/")
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
@@ -1182,14 +1184,16 @@ test("the server-verified judge account reveals the technical review layer", asy
   await signIn.getByLabel("Password").fill(judgePassword!)
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
 
-  await expect(page.getByRole("button", { name: "Judge view" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Developer mode" })
+  ).toBeVisible()
   await page.getByRole("button", { name: "Build my starting plan" }).click()
-  await page.getByRole("button", { name: "Open the judge demo" }).click()
+  await page.getByRole("button", { name: "Open the developer demo" }).click()
   await expect(page.getByRole("heading", { name: "Quick Check" })).toBeVisible({
     timeout: 20_000,
   })
   await expect(
-    page.getByText("How Scout chose this question", { exact: false })
+    page.getByText("How AlexACT chose this question", { exact: false })
   ).toBeVisible()
 
   await page.getByRole("button", { name: "Open settings" }).click()

@@ -22,6 +22,11 @@ import {
   RadioGroup,
   VisuallyHiddenRadioGroupItem,
 } from "@/components/ui/radio-group"
+import {
+  PRACTICE_DIFFICULTY_LABELS,
+  PRACTICE_DIFFICULTY_STYLES,
+  shouldShowExamLabDifficulty,
+} from "@/components/tutor/assessment-display"
 import { examLabTimerControls } from "@/components/tutor/exam-lab-timer"
 import { cn } from "@/lib/utils"
 
@@ -249,10 +254,25 @@ export function ExamLabRunner({
 
         <section className="min-w-0 bg-background px-5 py-7 sm:px-8 sm:py-9">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="ink-label text-primary">
-              Question {session.progress.currentIndex + 1} of{" "}
-              {session.questions.length}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="ink-label text-primary">
+                Question {session.progress.currentIndex + 1} of{" "}
+                {session.questions.length}
+              </p>
+              {shouldShowExamLabDifficulty(assessmentLabel) ? (
+                <span
+                  data-testid="progress-check-difficulty"
+                  data-difficulty={question.difficulty}
+                  className={cn(
+                    "inline-flex min-h-7 items-center rounded-full border px-3 font-mono text-[0.68rem] font-bold tracking-wide uppercase",
+                    PRACTICE_DIFFICULTY_STYLES[question.difficulty]
+                  )}
+                  aria-label={`Difficulty: ${PRACTICE_DIFFICULTY_LABELS[question.difficulty]}`}
+                >
+                  {PRACTICE_DIFFICULTY_LABELS[question.difficulty]}
+                </span>
+              ) : null}
+            </div>
             <Button
               type="button"
               variant={response?.flagged ? "default" : "outline"}
@@ -391,7 +411,7 @@ export function ExamLabRunner({
               No correctness during the run.
             </p>
             <p className="mt-1">
-              Scout waits until you submit before showing the answers.
+              AlexACT waits until you submit before showing the answers.
             </p>
           </div>
         </aside>

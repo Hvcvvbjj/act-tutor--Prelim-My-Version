@@ -40,6 +40,17 @@ export const lessonSchema = z.object({
     answer: z.string().min(1),
     explanation: z.array(z.string().min(12)).min(2).max(4),
   }),
+  workedExamples: z
+    .array(
+      z.object({
+        prompt: z.string().min(12),
+        choices: z.array(z.string().min(1)).length(4),
+        answer: z.string().min(1),
+        explanation: z.array(z.string().min(12)).min(2).max(4),
+        wrongAnswerNotes: z.array(z.string().min(20)).length(3),
+      }),
+    )
+    .length(3),
   trap: z.string().min(20),
   content: contentMetaSchema,
 });
@@ -103,7 +114,9 @@ export const learningBankSchema = z
           message: `Missing lesson for ${skill}.`,
         });
       }
-      const count = bank.practice.filter((question) => question.skill === skill).length;
+      const count = bank.practice.filter(
+        (question) => question.skill === skill,
+      ).length;
       if (count !== 5) {
         context.addIssue({
           code: "custom",

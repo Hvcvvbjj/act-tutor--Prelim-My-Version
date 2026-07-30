@@ -41,9 +41,7 @@ export function DiagnosticIntro({
     >
       <header className="flex h-20 items-center gap-3 border-b-2 border-foreground px-5 sm:px-8 lg:px-12">
         <ScoutMark className="size-11" />
-        <p className="font-brand text-2xl font-black tracking-tight">
-          SCOUT ACT
-        </p>
+        <p className="font-brand text-2xl font-black tracking-tight">AlexACT</p>
       </header>
       <main
         id="main-content"

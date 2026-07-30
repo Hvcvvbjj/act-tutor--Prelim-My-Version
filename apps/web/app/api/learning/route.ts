@@ -2,12 +2,13 @@ import {
   buildCalibrationLearningBaseline,
   examLabInterpretationReadiness,
   normalizeAnswerConfidence,
-  type AssessmentRemediationProgress,
   type DiagnosticSkillResult,
   type LearningAnswerCommand,
   type LessonPlanContext,
 } from "@act-tutor/core"
 import { type NextRequest, NextResponse } from "next/server"
+
+import { assertRoundRemediationComplete } from "./round-remediation"
 
 import { CALIBRATION_BANK, calibrationSessions } from "@/lib/calibration.server"
 import { syncLinkedSession, viewerForRequest } from "@/lib/auth.server"
@@ -28,19 +29,7 @@ const EXAM_LAB_COOKIE = "scout_exam_lab_session"
 const MAX_SKILL_RESULTS = 24
 const MAX_ASSESSMENT_QUESTIONS = 200
 const ROUND_ZERO_REQUIRED_MESSAGE =
-  "Complete Scout's full 66-question diagnostic before opening Lessons."
-
-export function assertRoundRemediationComplete(
-  source: "diagnostic" | "full-test",
-  remediation: AssessmentRemediationProgress | null
-) {
-  if (remediation?.status === "complete") return
-  throw new RangeError(
-    source === "diagnostic"
-      ? "Correct every missed diagnostic question with Mr. Kim before starting the next lesson round."
-      : "Correct every missed full-test question with Mr. Kim before starting the next lesson round."
-  )
-}
+  "Complete AlexACT's full 66-question diagnostic before opening Lessons."
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
   response.cookies.set(SESSION_COOKIE, sessionId, {
@@ -184,7 +173,7 @@ async function resolveRoundAssessment(
       !examLabInterpretationReadiness(result).sufficient
     ) {
       throw new RangeError(
-        "Complete enough of the current full-length test for Scout to interpret it before starting the next lesson round."
+        "Complete enough of the current full-length test for AlexACT to interpret it before starting the next lesson round."
       )
     }
     assertRoundRemediationComplete("full-test", session.remediation)

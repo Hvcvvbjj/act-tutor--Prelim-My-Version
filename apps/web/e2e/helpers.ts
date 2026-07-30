@@ -39,7 +39,7 @@ export async function completeLearnerOrientation(page: Page) {
     name: /^(Your question-type map\.|Your score is set\. The skill map starts empty\.)$/,
   })
   const tourDialog = page.getByRole("dialog", {
-    name: /Scout dashboard tour/,
+    name: /AlexACT dashboard tour/,
   })
   await expect(profileHeading.or(tourDialog)).toBeVisible({ timeout: 25_000 })
   if (await tourDialog.isVisible()) {
@@ -66,7 +66,7 @@ export async function completeLearnerOrientation(page: Page) {
 export async function openReportedScorePlan(page: Page, composite = 24) {
   await page.addInitScript(
     ({ startingScore }) => {
-      window.localStorage.setItem("scout-dashboard-tour-v2", "done")
+      window.localStorage.setItem("scout-dashboard-tour-v3", "done")
       for (const section of ["english", "math", "reading"]) {
         window.localStorage.setItem(
           `scout-goal-support-${startingScore}-30-${section}`,

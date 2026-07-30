@@ -8,7 +8,7 @@ import type {
 const REVIEW = {
   status: "published",
   license: "original",
-  reviewer: "Scout ACT content review",
+  reviewer: "AlexACT content review",
   reviewedAt: "2026-07-28",
 } as const;
 
@@ -165,7 +165,8 @@ function englishBoundaryQuestions(variant: AssessmentVariant) {
         category: "Conventions of Standard English",
         difficulty: "medium",
         stimulus: `${first} ${modifier}, ${second}.`,
-        prompt: "Which revision correctly joins the two complete thoughts?",
+        prompt:
+          "Which revision correctly joins the two complete thoughts without changing their logical relationship?",
         choices: rotatedChoices(
           correct,
           [
@@ -546,6 +547,8 @@ function englishTransitionQuestions(variant: AssessmentVariant) {
         "In the autumn review,",
         "During the winter trial,",
       ][variant];
+      const firstAfterIntro =
+        `${first[0]?.toLowerCase() ?? ""}${first.slice(1)}`;
       const correctIndex = (index * 2 + variant) % 4;
       const distractorsByRelationship = {
         contrast: ["For example,", "Therefore,", "Similarly,"],
@@ -560,7 +563,7 @@ function englishTransitionQuestions(variant: AssessmentVariant) {
         skillLabel: "Logical transitions",
         category: "Knowledge of Language",
         difficulty: "medium",
-        stimulus: `${modifier} ${first} ______ ${second}`,
+        stimulus: `${modifier} ${firstAfterIntro} ______ ${second}`,
         prompt:
           "Which transition most precisely expresses the relationship between the ideas?",
         choices: rotatedChoices(
@@ -723,7 +726,7 @@ function buildLinearMath(
     ),
     correct: correctIndex as 0 | 1 | 2 | 3,
     rationale:
-      "Perpendicular nonvertical lines have slopes whose product is negative 1.",
+      "Perpendicular nonvertical lines have slopes whose product is −1.",
   };
 }
 
@@ -1082,7 +1085,7 @@ function buildGeometryMath(
           correctIndex,
         ),
         correct: correctIndex as 0 | 1 | 2 | 3,
-        rationale: `The side lengths form a ${o}-${a}-${h} right triangle; cosine is adjacent over hypotenuse, ${a}/${h}.`,
+        rationale: `The side lengths form ${o === 8 || o === 11 ? "an" : "a"} ${o}-${a}-${h} right triangle; cosine is adjacent over hypotenuse, ${a}/${h}.`,
       };
     }
   }
@@ -1835,7 +1838,7 @@ const READING_SCENARIOS: readonly (readonly ReadingScenario[])[] = [
         "Broad maps are more detailed than doorway monitors.",
       ],
       purposeAnswer:
-        "It contrasts a targeted improvement with the mostly unchanged broad metric.",
+        "It summarizes how fine-grained data revealed a specific cause hidden by the broad average.",
       purposeDistractors: [
         "It proves the repair made the street continuously silent.",
         "It introduces a different source of noise.",

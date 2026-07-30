@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { answerFor, parseScreen } from "./route"
+import {
+  answerFor,
+  parseHistoryReviewContext,
+  parseScreen,
+} from "./route-logic"
 
 const preferences = {
   depth: "normal",
@@ -48,7 +52,67 @@ const learning = {
   },
 } as never
 
-describe("Scout server policy", () => {
+describe("AlexACT server policy", () => {
+  it("grounds History review in the saved mistake instead of the current lesson", () => {
+    const selectedText = JSON.stringify({
+      k: "saved-mistake",
+      g: "linear-equations",
+      s: "Linear equations",
+      i: "math-1",
+      p: "Solve 3x = 12.",
+      a: "x = 3",
+      c: "x = 4",
+      r: "Divide both sides by 3.",
+      x: "math",
+    })
+    expect(parseHistoryReviewContext(selectedText)).toMatchObject({
+      skill: "linear-equations",
+      correctChoiceText: "x = 4",
+    })
+
+    const answer = answerFor({
+      request: {
+        question: "Explain this saved mistake.",
+        screen: "history",
+        questionId: null,
+        selectedText,
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+
+    expect(answer.summary).toContain("Linear equations")
+    expect(answer.explanation).toContain("Divide both sides by 3")
+    expect(answer.example).toContain("Your answer: x = 3")
+    expect(answer.example).toContain("Correct answer: x = 4")
+    expect(answer.source).toBe("Saved AlexACT mistake history")
+    expect(answer.receipt.questionId).toBeNull()
+    expect(answer.receipt.skillId).toBe("linear-equations")
+  })
+
+  it("keeps long saved answer choices distinct through the server boundary", () => {
+    const sharedPrefix =
+      "Its original tracking motor, however, turns unevenly after decades of use"
+    const selected = `${sharedPrefix}, the staff therefore guides the telescope by hand during long exposures.`
+    const correct = `${sharedPrefix}; therefore, the staff guides the telescope by hand during long exposures.`
+    const context = parseHistoryReviewContext(
+      JSON.stringify({
+        k: "saved-mistake",
+        g: "sentence-boundaries",
+        s: "Sentence boundaries",
+        p: "Which revision correctly joins the clauses?",
+        a: selected,
+        c: correct,
+        r: "The clauses are complete, so a semicolon joins them.",
+        x: "english",
+      })
+    )
+
+    expect(context?.selectedChoiceText).toBe(selected)
+    expect(context?.correctChoiceText).toBe(correct)
+  })
+
   it("keeps badges in the route allowlist and grounds answers in badge progress", () => {
     expect(parseScreen("badges")).toBe("badges")
     const answer = answerFor({
@@ -79,7 +143,10 @@ describe("Scout server policy", () => {
     expect(answer.summary).toBe("Full-week streak is your closest badge.")
     expect(answer.explanation).toContain("1,250 points")
     expect(answer.explanation).toContain("4-day streak")
-    expect(answer.example).toContain("one momentum level")
+    expect(answer.example).toContain(
+      "equal one motivational estimated ACT composite point"
+    )
+    expect(answer.example).toContain("points do not alter a scored result")
     expect(answer.example).not.toContain("one ACT point")
     expect(answer.source).toBe("Server learning progress and fixed badge rules")
     expect(answer.receipt.questionId).toBeNull()
@@ -360,7 +427,7 @@ describe("Scout server policy", () => {
     })
     const results = answerFor({
       request: {
-        question: "What will Scout do with my results?",
+        question: "What will AlexACT do with my results?",
         screen: "lab",
       },
       preferences,
@@ -371,7 +438,7 @@ describe("Scout server policy", () => {
     expect(choose.explanation).toContain("36–50 questions")
     expect(choose.explanation).toContain("Full-length contains 131")
     expect(results.explanation).toContain(
-      "does not update Lessons, My Week, or the skill web"
+      "does not update Lessons, My Schedule, or the skill web"
     )
   })
 })

@@ -14,10 +14,11 @@ test("Progress keeps its skill comparison readable at mobile and desktop sizes",
 
   const overview = page.getByTestId("mobile-mastery-overview")
   const radar = page.getByTestId("mastery-radar")
-  await expect(overview).toBeHidden()
-  await expect(radar).toBeHidden()
-  await page.getByText("See skill map", { exact: true }).click()
+  await expect(
+    page.getByRole("heading", { name: "Skill map", exact: true })
+  ).toBeVisible()
   await expect(overview).toBeVisible()
+  await expect(radar).toBeHidden()
   await expect(overview.getByRole("listitem")).toHaveCount(3)
   await expect(overview).toContainText(
     "Each bar averages four skill practice estimates. It is not an ACT section score."

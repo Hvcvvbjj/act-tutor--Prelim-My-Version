@@ -4,6 +4,7 @@ import {
   buildPracticeExplanation,
   lessonSegmentMinutes,
   lessonSectionsForDisplay,
+  lessonWorkedExamplesForDisplay,
   shouldHoldPracticeFeedback,
   shouldShowRoundTransition,
 } from "@/components/tutor/lesson-workspace-logic"
@@ -32,6 +33,56 @@ describe("lesson workspace learner flow", () => {
     expect(shortLesson).toEqual([2, 2, 2, 2, 2])
     expect(shortLesson.reduce((sum, minutes) => sum + minutes, 0)).toBe(10)
     expect(lessonSegmentMinutes(3, 1, 0)).toBe(3)
+  })
+
+  it("shows all authored examples and safely opens older saved lessons", () => {
+    const authored = [
+      {
+        prompt: "Example one prompt.",
+        choices: ["A", "B", "C", "D"],
+        answer: "A",
+        explanation: ["A is correct."],
+        wrongAnswerNotes: ["B is wrong.", "C is wrong.", "D is wrong."],
+      },
+      {
+        prompt: "Example two prompt.",
+        choices: ["A", "B", "C", "D"],
+        answer: "B",
+        explanation: ["B is correct."],
+        wrongAnswerNotes: ["A is wrong.", "C is wrong.", "D is wrong."],
+      },
+      {
+        prompt: "Example three prompt.",
+        choices: ["A", "B", "C", "D"],
+        answer: "C",
+        explanation: ["C is correct."],
+        wrongAnswerNotes: ["A is wrong.", "B is wrong.", "D is wrong."],
+      },
+    ] as const
+    expect(
+      lessonWorkedExamplesForDisplay({
+        workedExample: authored[0],
+        workedExamples: authored,
+      })
+    ).toEqual(authored)
+
+    expect(
+      lessonWorkedExamplesForDisplay({
+        workedExample: {
+          prompt: "A saved lesson example.",
+          answer: "The saved answer",
+          explanation: ["The saved explanation."],
+        },
+      })
+    ).toEqual([
+      {
+        prompt: "A saved lesson example.",
+        answer: "The saved answer",
+        explanation: ["The saved explanation."],
+        choices: [],
+        wrongAnswerNotes: [],
+      },
+    ])
   })
 
   it("holds a scored nonfinal question until its feedback is dismissed", () => {

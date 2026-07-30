@@ -20,6 +20,7 @@ import {
   type LearningSessionPayload,
   type LessonCheckResult,
   type LessonPlanContext,
+  type ScoutAskResponse,
   type StudyPlanTask,
 } from "@act-tutor/core"
 import {
@@ -34,12 +35,15 @@ import { BadgesSurface } from "@/components/tutor/badges-surface"
 import { DashboardTour } from "@/components/tutor/dashboard-tour"
 import { GoalSupportPrompt } from "@/components/tutor/goal-support-prompt"
 import { learningBaselineSkillResults } from "@/components/tutor/learning-baseline-evidence"
+import { lessonReviewById } from "@/components/tutor/lesson-history"
 import { LessonsCommandCenter } from "@/components/tutor/lessons-command-center"
 import { shouldShowRoundTransition } from "@/components/tutor/lesson-workspace-logic"
+import type { LessonRewardNarrationProvider } from "@/components/tutor/learning-reward-summary"
 import {
   RapidAnswerCoachDialog,
   useRapidAnswerCoach,
 } from "@/components/tutor/rapid-answer-coach"
+import { shouldResumeRoundFullTest } from "@/components/tutor/round-full-test"
 import { ScoutCoach, ScoutMark } from "@/components/tutor/scout"
 import {
   ScoutProvider,
@@ -59,6 +63,11 @@ import {
   loadLearningSession,
   readCachedLearningSession,
 } from "@/lib/learning-client"
+import {
+  answerWithFreeCloudMrKimAI,
+  beginFreeCloudMrKimConnection,
+  preloadFreeCloudMrKimAI,
+} from "@/lib/mr-kim-free-cloud"
 import { readScoutSettings } from "@/lib/scout-settings"
 import { studyTaskLaunchDecision } from "@/lib/study-task-routing"
 
@@ -94,6 +103,14 @@ const loadLearningTwinLab = () =>
   import("@/components/tutor/learning-twin-lab").then(
     (module) => module.LearningTwinLab
   )
+const loadNeedsWorkSurface = () =>
+  import("@/components/tutor/needs-work-surface").then(
+    (module) => module.NeedsWorkSurface
+  )
+const loadHistorySurface = () =>
+  import("@/components/tutor/history-surface").then(
+    (module) => module.HistorySurface
+  )
 const loadTestDayLab = () =>
   import("@/components/tutor/test-day-lab").then((module) => module.TestDayLab)
 const loadScoutOperationsLab = () =>
@@ -120,6 +137,16 @@ const LessonReviewWorkspace = dynamic(loadLessonReviewWorkspace, {
 const LearningTwinLab = dynamic(loadLearningTwinLab, {
   loading: () => <DashboardSurfaceLoading message="Opening your progress…" />,
 })
+const NeedsWorkSurface = dynamic(loadNeedsWorkSurface, {
+  loading: () => (
+    <DashboardSurfaceLoading message="Finding the skills that need work…" />
+  ),
+})
+const HistorySurface = dynamic(loadHistorySurface, {
+  loading: () => (
+    <DashboardSurfaceLoading message="Opening your answer history…" />
+  ),
+})
 const TestDayLab = dynamic(loadTestDayLab, {
   loading: () => <DashboardSurfaceLoading message="Opening timed practice…" />,
 })
@@ -142,6 +169,12 @@ function preloadDashboardSurface(value: string) {
       break
     case "progress":
       void loadLearningTwinLab()
+      break
+    case "needs-work":
+      void loadNeedsWorkSurface()
+      break
+    case "history":
+      void loadHistorySurface()
       break
     case "lab":
       void loadTestDayLab()
@@ -196,9 +229,11 @@ interface DashboardProps {
 
 const DASHBOARD_DESTINATIONS = [
   "today",
+  "needs-work",
   "plan",
   "calibrate",
   "progress",
+  "history",
   "badges",
   "lab",
   "control",
@@ -238,7 +273,7 @@ function assertFullTestReady(session: ExamLabSessionPayload) {
     !examLabInterpretationReadiness(result).sufficient
   ) {
     throw new Error(
-      "Complete enough of the full-length core test for Scout to interpret it before starting the next lesson round."
+      "Complete enough of the full-length core test for AlexACT to interpret it before starting the next lesson round."
     )
   }
 }
@@ -268,7 +303,7 @@ function Brand({ onHome }: { onHome?: () => void }) {
     <>
       <ScoutMark className="size-8 shrink-0" />
       <span className="min-w-0 truncate font-brand text-base leading-none font-black tracking-[-0.02em] whitespace-nowrap sm:text-lg">
-        SCOUT <span className="text-primary">ACT</span>
+        Alex<span className="text-primary">ACT</span>
       </span>
     </>
   )
@@ -280,7 +315,7 @@ function Brand({ onHome }: { onHome?: () => void }) {
       type="button"
       data-testid="app-brand"
       className={`${className} min-h-11 px-1 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none`}
-      aria-label="Scout ACT, go to Lessons"
+      aria-label="AlexACT, go to Lessons"
       onClick={onHome}
     >
       {content}
@@ -297,6 +332,7 @@ function AccessibleTestDayLab({
   initialSection,
   canViewTechnicalDetails,
   onUseForNextRound,
+  onFullTestCompleted,
   lockToInitialMode = false,
   assessmentLabel,
 }: {
@@ -304,6 +340,7 @@ function AccessibleTestDayLab({
   initialSection: CoreSection
   canViewTechnicalDetails: boolean
   onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
+  onFullTestCompleted?: (session: ExamLabSessionPayload) => Promise<void> | void
   lockToInitialMode?: boolean
   assessmentLabel?: string
 }) {
@@ -315,6 +352,7 @@ function AccessibleTestDayLab({
       initialSection={initialSection}
       canViewTechnicalDetails={canViewTechnicalDetails}
       onUseForNextRound={onUseForNextRound}
+      onFullTestCompleted={onFullTestCompleted}
       lockToInitialMode={lockToInitialMode}
       assessmentLabel={assessmentLabel}
     />
@@ -359,15 +397,17 @@ function DashboardOverlays({
   plan,
   focusSkill,
   assessmentRound,
+  includeNeedsWork,
 }: {
   plan: GeneratedPlan
   focusSkill?: string
   assessmentRound: number
+  includeNeedsWork: boolean
 }) {
   const { openScout } = useScoutContext()
   return (
     <>
-      <DashboardTour />
+      <DashboardTour includeNeedsWork={includeNeedsWork} />
       <GoalSupportPrompt
         currentScore={plan.currentComposite}
         goalScore={plan.draft.goal}
@@ -421,13 +461,12 @@ export function Dashboard({
   const [selectedChoice, setSelectedChoice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [roundAssessmentView, setRoundAssessmentView] = useState<
-    "choice" | "full-test"
-  >(() =>
-    typeof window !== "undefined" &&
-    window.sessionStorage.getItem("scout-round-assessment-view") === "full-test"
-      ? "full-test"
-      : "choice"
-  )
+    "choice" | "full-test" | "lessons"
+  >(() => {
+    if (typeof window === "undefined") return "choice"
+    const stored = window.sessionStorage.getItem("scout-round-assessment-view")
+    return stored === "full-test" || stored === "lessons" ? stored : "choice"
+  })
   const [activeTab, setActiveTab] = useState<DashboardDestination>(
     initialTab ??
       (representativeDemo || plan.adaptiveBaselineRequired
@@ -444,6 +483,40 @@ export function Dashboard({
   const rapidAnswerCoach = useRapidAnswerCoach(
     learning?.sessionId ?? "learning-session-loading",
     learning?.answeredQuestionIds ?? []
+  )
+  const loadRewardNarration = useCallback<LessonRewardNarrationProvider>(
+    async ({ prompt }) => {
+      const response = await fetch("/api/scout/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: prompt,
+          screen: "today",
+          questionId: null,
+          selectedText: null,
+        }),
+      })
+      const payload = (await response.json()) as
+        ScoutAskResponse | { error: string }
+      if (!response.ok || "error" in payload) return null
+      const alreadyGenerated = payload.answer.receipt.checks.some((check) =>
+        ["openai-responses-api", "openai-compatible-chat"].includes(check)
+      )
+      if (alreadyGenerated) {
+        return `${payload.answer.summary} ${payload.answer.explanation}`.trim()
+      }
+      const loaded = await preloadFreeCloudMrKimAI()
+      const connected = loaded ? await beginFreeCloudMrKimConnection() : false
+      if (!connected) return null
+      const enhanced = await answerWithFreeCloudMrKimAI({
+        question: prompt,
+        answer: payload.answer,
+        history: payload.messages,
+      })
+      if (enhanced === payload.answer) return null
+      return `${enhanced.summary} ${enhanced.explanation}`.trim()
+    },
+    []
   )
 
   useEffect(() => {
@@ -471,7 +544,7 @@ export function Dashboard({
       if (cached) setLearning(cached)
       setLearningError(
         cached
-          ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
+          ? "You are offline. AlexACT opened the last saved lesson; new grading will sync when you reconnect."
           : error instanceof Error
             ? error.message
             : "Your latest skill results could not load."
@@ -489,7 +562,7 @@ export function Dashboard({
         )
       } else if (result.lastTransientReason) {
         setLearningError(
-          `Scout's server is temporarily busy. Your saved answer is still waiting on this device and will be tried again; it was not discarded.`
+          `AlexACT's server is temporarily busy. Your saved answer is still waiting on this device and will be tried again; it was not discarded.`
         )
       }
       if (result.applied > 0) await refreshLearningSession()
@@ -531,7 +604,7 @@ export function Dashboard({
         if (cached) setLearning(cached)
         setLearningError(
           cached
-            ? "You are offline. Scout opened the last saved lesson; new grading will sync when you reconnect."
+            ? "You are offline. AlexACT opened the last saved lesson; new grading will sync when you reconnect."
             : error instanceof Error
               ? error.message
               : "The learning session could not load."
@@ -853,9 +926,10 @@ export function Dashboard({
       } | null
       const canResume =
         currentResponse.ok &&
-        currentPayload?.session?.mode === "core" &&
-        (currentPayload.session.status === "in_progress" ||
-          currentPayload.session.status === "completed")
+        shouldResumeRoundFullTest(
+          currentPayload?.session,
+          learning?.roundReward?.id
+        )
       if (!canResume) {
         const response = await fetch("/api/exam-lab", {
           method: "POST",
@@ -918,6 +992,7 @@ export function Dashboard({
 
   if (
     learning &&
+    roundAssessmentView !== "lessons" &&
     shouldShowRoundTransition({
       cycleStatus: learning.cycle.status,
       workspaceOpen,
@@ -949,6 +1024,7 @@ export function Dashboard({
             initialSection="english"
             canViewTechnicalDetails={viewer.technicalDetails}
             onUseForNextRound={applyFullTestToNextRound}
+            onFullTestCompleted={onUseFullTestAssessment}
             lockToInitialMode
           />
         </ScoutProvider>
@@ -972,6 +1048,15 @@ export function Dashboard({
           busy={submitting}
           onDiagnostic={() => void startRoundDiagnostic()}
           onFullTest={() => void startRoundFullTest()}
+          onReviewLessons={() => {
+            setRoundAssessmentView("lessons")
+            setWorkspaceOpen(false)
+            setActiveTab("today")
+            window.sessionStorage.setItem(
+              "scout-round-assessment-view",
+              "lessons"
+            )
+          }}
         />
         <RapidAnswerCoachDialog
           open={rapidAnswerCoach.open}
@@ -1024,7 +1109,7 @@ export function Dashboard({
             <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
               <Alert className="bg-background" role="alert">
                 <InfoIcon />
-                <AlertTitle>Scout could not finish that change</AlertTitle>
+                <AlertTitle>AlexACT could not finish that change</AlertTitle>
                 <AlertDescription>{visibleLearningError}</AlertDescription>
               </Alert>
             </div>
@@ -1051,7 +1136,7 @@ export function Dashboard({
             >
               <ScoutCoach
                 mood="thinking"
-                message="Scout is loading your 8–12 question starting check."
+                message="AlexACT is loading your 8–12 question starting check."
                 detail={
                   preserveReportedScore
                     ? "Your reported score remains the planning baseline. This check measures question types before the orientation tour."
@@ -1069,6 +1154,12 @@ export function Dashboard({
     learning?.learningTwin.skills.filter(
       (skill) => skill.learnedProbability >= 0.82 && skill.evidenceCount >= 6
     ).length ?? 0
+  const needsWorkUnlocked = Boolean(
+    learning &&
+    (learning.cycle.roundNumber > 1 ||
+      (learning.cycle.roundNumber === 1 &&
+        learning.cycle.status === "assessment-choice"))
+  )
 
   return (
     <ScoutProvider
@@ -1109,33 +1200,34 @@ export function Dashboard({
                   >
                     Lessons
                   </DashboardTab>
+                  {needsWorkUnlocked ? (
+                    <DashboardTab
+                      value="needs-work"
+                      className="min-h-11 px-3"
+                      tourId="nav-needs-work"
+                    >
+                      Needs Work
+                    </DashboardTab>
+                  ) : null}
                   <DashboardTab
                     value="plan"
                     className="min-h-11 px-3"
                     tourId="nav-week"
                   >
-                    My Week
+                    My Schedule
                   </DashboardTab>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-11 px-3"
-                    data-tour-id="nav-diagnostic"
-                    onClick={onStartFullDiagnostic}
-                  >
-                    Full Diagnostic
-                  </Button>
                   <Button
                     type="button"
                     variant={activeTab === "lab" ? "secondary" : "ghost"}
                     className="min-h-11 px-3"
                     data-tour-id="nav-practice"
+                    aria-label="Timed Practice"
                     aria-current={activeTab === "lab" ? "page" : undefined}
                     onPointerEnter={() => preloadDashboardSurface("lab")}
                     onFocus={() => preloadDashboardSurface("lab")}
                     onClick={openTimedPractice}
                   >
-                    Timed Practice
+                    Practice
                   </Button>
                   <DashboardTab
                     value="progress"
@@ -1143,6 +1235,13 @@ export function Dashboard({
                     tourId="nav-progress"
                   >
                     Progress
+                  </DashboardTab>
+                  <DashboardTab
+                    value="history"
+                    className="min-h-11 px-3"
+                    tourId="nav-history"
+                  >
+                    History
                   </DashboardTab>
                   <DashboardTab
                     value="badges"
@@ -1173,7 +1272,7 @@ export function Dashboard({
           <div className="mx-auto w-full max-w-[96rem] px-4 pt-4 sm:px-7">
             <Alert className="bg-background" role="alert">
               <InfoIcon />
-              <AlertTitle>Scout could not finish that change</AlertTitle>
+              <AlertTitle>AlexACT could not finish that change</AlertTitle>
               <AlertDescription>{visibleLearningError}</AlertDescription>
             </Alert>
           </div>
@@ -1206,6 +1305,7 @@ export function Dashboard({
                 onCompleteLesson={completeLesson}
                 onSubmitAnswer={submitAnswer}
                 onSubmitRemediation={submitLessonRemediation}
+                loadRewardNarration={loadRewardNarration}
                 onClose={() => {
                   setLessonReview(null)
                   setWorkspaceOpen(false)
@@ -1222,14 +1322,11 @@ export function Dashboard({
                   setLessonReview(null)
                   setWorkspaceOpen(true)
                 }}
-                onReviewLesson={(skill) => {
-                  const review = [...(learning.lessonHistory ?? [])]
-                    .reverse()
-                    .find(
-                      (item) =>
-                        item.roundNumber === learning.cycle.roundNumber &&
-                        item.skill === skill
-                    )
+                onReviewLesson={(lessonCheckId) => {
+                  const review = lessonReviewById(
+                    learning.lessonHistory ?? [],
+                    lessonCheckId
+                  )
                   if (!review) {
                     setLearningError(
                       "That completed lesson review is not available yet."
@@ -1268,6 +1365,12 @@ export function Dashboard({
                   startMissionAction({ action: "start_recovery" }, true)
                 }
                 onStartProgressCheck={() => startProgressCheck()}
+                onContinueRoundAssessment={() => {
+                  setRoundAssessmentView("choice")
+                  window.sessionStorage.removeItem(
+                    "scout-round-assessment-view"
+                  )
+                }}
                 onOpenBadges={() => setActiveTab("badges")}
                 onOpenWeek={() => setActiveTab("plan")}
               />
@@ -1275,7 +1378,7 @@ export function Dashboard({
               <div className="mx-auto max-w-2xl py-20">
                 <ScoutCoach
                   mood="thinking"
-                  message="Scout is loading today’s lesson…"
+                  message="AlexACT is loading today’s lesson…"
                 />
                 {visibleLearningError ? (
                   <Alert className="mt-7 bg-background">
@@ -1306,7 +1409,7 @@ export function Dashboard({
             >
               <ScoutCoach
                 mood="thinking"
-                message="Scout is loading your study week."
+                message="AlexACT is loading your study week."
               />
             </main>
           )}
@@ -1334,10 +1437,25 @@ export function Dashboard({
             >
               <ScoutCoach
                 mood="thinking"
-                message="Scout is loading your starting-point check."
+                message="AlexACT is loading your starting-point check."
               />
             </main>
           )}
+        </TabsContent>
+        <TabsContent value="needs-work">
+          {activeTab === "needs-work" && learning && needsWorkUnlocked ? (
+            <NeedsWorkSurface
+              diagnosticSkillResults={baselineSkillResults}
+              knowledgeStates={learning.learningTwin.skills}
+              mistakes={[
+                ...learning.mission.mistakes,
+                ...(plan.assessmentHistory ?? []).flatMap(
+                  (assessment) => assessment.mistakes
+                ),
+              ]}
+              goalScore={plan.draft.goal}
+            />
+          ) : null}
         </TabsContent>
         <TabsContent value="progress">
           {activeTab === "progress" ? (
@@ -1349,6 +1467,14 @@ export function Dashboard({
                 setActiveTab("today")
               }}
               canViewTechnicalDetails={viewer.technicalDetails}
+            />
+          ) : null}
+        </TabsContent>
+        <TabsContent value="history">
+          {activeTab === "history" && learning ? (
+            <HistorySurface
+              assessments={plan.assessmentHistory ?? []}
+              lessonMistakes={learning.mission.mistakes}
             />
           ) : null}
         </TabsContent>
@@ -1364,6 +1490,25 @@ export function Dashboard({
               totalAnswered={learning.mission.progress.totalAnswered}
               secureSkills={secureSkillCount}
               totalSkills={learning.learningTwin.skills.length}
+              skillProgress={learning.learningTwin.skills.map(
+                ({
+                  skill,
+                  label,
+                  section,
+                  learnedProbability,
+                  evidenceCount,
+                }) => ({
+                  skill,
+                  label,
+                  section,
+                  readiness: learnedProbability,
+                  evidenceCount,
+                })
+              )}
+              estimatedActImprovement={Math.max(
+                0,
+                learning.roundReward?.estimatedActScoreDelta ?? 0
+              )}
               onContinueStudying={() => setActiveTab("today")}
             />
           ) : null}
@@ -1375,6 +1520,7 @@ export function Dashboard({
               initialMode={labLaunch.mode}
               initialSection={labLaunch.section}
               canViewTechnicalDetails={viewer.technicalDetails}
+              onFullTestCompleted={onUseFullTestAssessment}
               lockToInitialMode={labLaunch.lockToInitialMode}
               assessmentLabel={labLaunch.assessmentLabel}
             />
@@ -1413,25 +1559,55 @@ export function Dashboard({
             className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/98 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(16_33_63_/_0.08)] backdrop-blur-xl lg:hidden"
             aria-label="Primary study navigation"
           >
-            <TabsList className="grid h-auto w-full grid-cols-5 rounded-none bg-transparent p-0">
-              <DashboardTab value="today" className="min-h-14 px-1 text-xs">
+            <TabsList
+              className={`grid h-auto w-full rounded-none bg-transparent p-0 ${
+                needsWorkUnlocked ? "grid-cols-7" : "grid-cols-6"
+              }`}
+            >
+              <DashboardTab
+                value="today"
+                className="min-h-14 px-0.5 text-[0.65rem]"
+              >
                 Lessons
               </DashboardTab>
-              <DashboardTab value="plan" className="min-h-14 px-1 text-xs">
-                Week
+              {needsWorkUnlocked ? (
+                <DashboardTab
+                  value="needs-work"
+                  className="min-h-14 px-0.5 text-[0.65rem]"
+                >
+                  Needs
+                </DashboardTab>
+              ) : null}
+              <DashboardTab
+                value="plan"
+                className="min-h-14 px-0.5 text-[0.65rem]"
+              >
+                Schedule
               </DashboardTab>
               <Button
                 type="button"
                 variant="ghost"
-                className="min-h-14 rounded-none px-1 text-xs"
+                className="min-h-14 rounded-none px-0.5 text-[0.65rem]"
                 onClick={openTimedPractice}
               >
                 Practice
               </Button>
-              <DashboardTab value="progress" className="min-h-14 px-1 text-xs">
+              <DashboardTab
+                value="progress"
+                className="min-h-14 px-0.5 text-[0.65rem]"
+              >
                 Progress
               </DashboardTab>
-              <DashboardTab value="badges" className="min-h-14 px-1 text-xs">
+              <DashboardTab
+                value="history"
+                className="min-h-14 px-0.5 text-[0.65rem]"
+              >
+                History
+              </DashboardTab>
+              <DashboardTab
+                value="badges"
+                className="min-h-14 px-0.5 text-[0.65rem]"
+              >
                 Badges
               </DashboardTab>
             </TabsList>
@@ -1442,6 +1618,7 @@ export function Dashboard({
             plan={plan}
             focusSkill={diagnostic?.focusSkills[0]?.label}
             assessmentRound={learning.cycle.roundNumber}
+            includeNeedsWork={needsWorkUnlocked}
           />
         ) : null}
       </Tabs>

@@ -11,6 +11,7 @@ import {
 } from "@act-tutor/core"
 import { CircleAlertIcon, LoaderCircleIcon } from "lucide-react"
 
+import { AlexActTransition } from "@/components/tutor/alexact-transition"
 import { ExamLabReport } from "@/components/tutor/exam-lab-report"
 import { ExamLabReview } from "@/components/tutor/exam-lab-review"
 import { ExamLabRunner } from "@/components/tutor/exam-lab-runner"
@@ -28,7 +29,14 @@ import { useScoutContext } from "@/components/tutor/scout-assistant"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type LabScreen =
-  "loading" | "setup" | "runner" | "review" | "results" | "remediation"
+  | "loading"
+  | "setup"
+  | "preparing"
+  | "runner"
+  | "review"
+  | "scoring"
+  | "results"
+  | "remediation"
 type SaveStatus = "saved" | "saving" | "error"
 
 interface SessionResponse {
@@ -72,6 +80,7 @@ export function TestDayLab({
   assessmentLabel = "Timed Practice",
   canViewTechnicalDetails = false,
   onUseForNextRound,
+  onFullTestCompleted,
   lockToInitialMode = false,
 }: {
   extendedTime?: boolean
@@ -80,6 +89,9 @@ export function TestDayLab({
   assessmentLabel?: string
   canViewTechnicalDetails?: boolean
   onUseForNextRound?: (session: ExamLabSessionPayload) => Promise<void> | void
+  onFullTestCompleted?: (
+    session: ExamLabSessionPayload
+  ) => Promise<void> | void
   lockToInitialMode?: boolean
 }) {
   const { openScout } = useScoutContext()
@@ -91,10 +103,12 @@ export function TestDayLab({
   const [applyingToPlan, setApplyingToPlan] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved")
+  const [transitionReady, setTransitionReady] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
   const openedAt = useRef(0)
+  const reportedCompletions = useRef(new Set<string>())
   const requireRoundRemediation = Boolean(onUseForNextRound)
   const activeQuestionIndex = session?.progress.currentIndex
   const activeSection = session?.progress.currentSection
@@ -135,6 +149,30 @@ export function TestDayLab({
       })
     return () => controller.abort()
   }, [initialMode, lockToInitialMode, requireRoundRemediation])
+
+  useEffect(() => {
+    if (
+      !session ||
+      session.mode !== "core" ||
+      session.status !== "completed" ||
+      !session.result ||
+      !onFullTestCompleted ||
+      reportedCompletions.current.has(session.id)
+    ) {
+      return
+    }
+    reportedCompletions.current.add(session.id)
+    void Promise.resolve(onFullTestCompleted(session)).catch(
+      (caught) => {
+        reportedCompletions.current.delete(session.id)
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The full-test result could not be added to History."
+        )
+      }
+    )
+  }, [onFullTestCompleted, session])
 
   useEffect(() => {
     if (!session || screen !== "runner") return
@@ -249,6 +287,8 @@ export function TestDayLab({
   async function start() {
     setBusy(true)
     setError(null)
+    setTransitionReady(false)
+    setScreen("preparing")
     try {
       const started = await labRequest("POST", {
         action: "start",
@@ -262,15 +302,16 @@ export function TestDayLab({
       })
       if (!started) throw new Error("The timed-practice session is missing.")
       setSession(started)
-      setScreen("runner")
       setSaveStatus("saved")
       openedAt.current = Date.now()
+      setTransitionReady(true)
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "Could not start timed practice."
       )
+      setScreen("setup")
     } finally {
       setBusy(false)
     }
@@ -356,19 +397,22 @@ export function TestDayLab({
   async function finalize() {
     setBusy(true)
     setError(null)
+    setTransitionReady(false)
+    setScreen("scoring")
     try {
       await saveQueue.current
       const completed = await labRequest("POST", { action: "finalize" })
       if (!completed?.result)
         throw new Error("The timed-practice report is missing.")
       setSession(completed)
-      setScreen("results")
+      setTransitionReady(true)
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
           : "Could not score this simulation."
       )
+      setScreen("review")
     } finally {
       setBusy(false)
     }
@@ -450,6 +494,19 @@ export function TestDayLab({
           <p className="mt-4 font-semibold">Loading timed practice…</p>
         </div>
       </main>
+    )
+  }
+
+  if (screen === "preparing" || screen === "scoring") {
+    return (
+      <AlexActTransition
+        kind={screen === "preparing" ? "preparing" : "scoring"}
+        ready={transitionReady}
+        onComplete={() => {
+          setScreen(screen === "preparing" ? "runner" : "results")
+          setTransitionReady(false)
+        }}
+      />
     )
   }
 

@@ -51,6 +51,70 @@ function evidenceSummary(input: LessonCompositionInput) {
   return `You got ${evidence.correct} of ${evidence.total} ${input.skill.label.toLowerCase()} questions right on your latest check.`;
 }
 
+const CONCEPT_SENTENCE_COUNT = 3;
+const CONCEPT_MIN_WORDS = 24;
+const CONCEPT_MIN_CHARACTERS = 140;
+
+function sentenceParts(value: string) {
+  return (
+    value
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/[^.!?]+(?:[.!?]+|$)/g) ?? []
+  )
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function sentenceWordCount(value: string) {
+  return value.match(/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g)?.length ?? 0;
+}
+
+function hasMeaningfulConceptDepth(value: string) {
+  const sentences = sentenceParts(value);
+  return (
+    sentences.length === CONCEPT_SENTENCE_COUNT &&
+    value.length >= CONCEPT_MIN_CHARACTERS &&
+    sentenceWordCount(value) >= CONCEPT_MIN_WORDS &&
+    sentences.every((sentence) => sentenceWordCount(sentence) >= 4)
+  );
+}
+
+function asCompleteSentence(value: string) {
+  const normalized = value
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.!?]+$/, "");
+  return normalized ? `${normalized}.` : "";
+}
+
+function authoredConceptExplanation(input: LessonCompositionInput) {
+  const reviewedSentences = sentenceParts(input.baseLesson.concept).map(
+    asCompleteSentence,
+  );
+  const supplements = [
+    asCompleteSentence(`Here is the goal: ${input.baseLesson.objective}`),
+    asCompleteSentence(
+      `Begin with the first step: ${input.baseLesson.steps[0] ?? input.baseLesson.objective}`,
+    ),
+    asCompleteSentence(`Watch for this trap: ${input.baseLesson.trap}`),
+  ];
+  const candidate = [...reviewedSentences, ...supplements]
+    .filter(Boolean)
+    .slice(0, CONCEPT_SENTENCE_COUNT)
+    .join(" ");
+  if (hasMeaningfulConceptDepth(candidate)) return candidate;
+
+  const compactReviewedIdea = reviewedSentences
+    .map((sentence) => sentence.replace(/[.!?]+$/, ""))
+    .join("; ");
+  return [
+    asCompleteSentence(`The main idea is this: ${compactReviewedIdea}`),
+    supplements[0],
+    supplements[1],
+  ].join(" ");
+}
+
 export function buildAuthoredPersonalizedLesson(
   input: LessonCompositionInput,
   generatedAt = new Date().toISOString(),
@@ -87,7 +151,7 @@ export function buildAuthoredPersonalizedLesson(
       {
         id: "mental-model",
         title: "Build the main idea",
-        explanation: input.baseLesson.concept,
+        explanation: authoredConceptExplanation(input),
         coachPrompt: `Start by noticing the key clue in the ${input.skill.label.toLowerCase()} question.`,
       },
       {
@@ -200,15 +264,24 @@ function validateGeneratedLesson(
         `AI lesson section ${index} must use id ${expectedId}.`,
       );
     }
+    const explanation = asBoundedString(
+      record.explanation,
+      `sections[${index}].explanation`,
+      24,
+      260,
+    );
+    if (
+      expectedId === "mental-model" &&
+      !hasMeaningfulConceptDepth(explanation)
+    ) {
+      throw new TypeError(
+        "AI lesson concept must use exactly three meaningful short sentences.",
+      );
+    }
     return {
       id: expectedId,
       title: asBoundedString(record.title, `sections[${index}].title`, 4, 72),
-      explanation: asBoundedString(
-        record.explanation,
-        `sections[${index}].explanation`,
-        24,
-        260,
-      ),
+      explanation,
       coachPrompt: asBoundedString(
         record.coachPrompt,
         `sections[${index}].coachPrompt`,
@@ -339,7 +412,7 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
               {
                 role: "system",
                 content:
-                  "You are Mr. Kim, Scout ACT’s friendly AI tutor, speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Never ask the student to rewrite, restate, name, summarize, or teach back a rule or method. Do not use the words evidence, model, latent, calibrated, probe, optimize, route, decision rule, transfer, mastery, readiness, priority, or confidence unless one is a necessary subject term in the reviewed lesson. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or facts beyond the supplied reviewed lesson. Return only valid JSON.",
+                  "You are Mr. Kim, AlexACT’s friendly AI tutor, speaking to a 13- to 18-year-old. Use short, concrete sentences and everyday words. Sound like a real teacher, not a report. Never ask the student to rewrite, restate, name, summarize, or teach back a rule or method. Do not use the words evidence, model, latent, calibrated, probe, optimize, route, decision rule, transfer, mastery, readiness, priority, or confidence unless one is a necessary subject term in the reviewed lesson. Personalize instruction, but never invent score guarantees, copyrighted ACT items, answer keys, or facts beyond the supplied reviewed lesson. Return only valid JSON.",
               },
               {
                 role: "user",
@@ -354,12 +427,14 @@ export class OpenAICompatibleLessonComposer implements LessonComposer {
                     whyAssigned:
                       "one short sentence saying what the student got right or wrong and why this skill is next",
                     tutorOpening:
-                      "a warm, direct opening from Scout using everyday words",
+                      "a warm, direct opening from AlexACT using everyday words",
                     sections: SECTION_IDS.map((id) => ({
                       id,
                       title: "a short student-friendly title",
                       explanation:
-                        "one or two concrete sentences, no more than 260 characters",
+                        id === "mental-model"
+                          ? "exactly three short, concrete sentences with at least 24 words total and no more than 260 characters"
+                          : "one or two concrete sentences, no more than 260 characters",
                       coachPrompt:
                         "one short coaching sentence, no more than 140 characters",
                     })),

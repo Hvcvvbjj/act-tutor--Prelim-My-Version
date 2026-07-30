@@ -2,13 +2,11 @@
 
 import type { ScoutAnswer, ScoutMessage } from "@act-tutor/core"
 
+import { generatedMrKimSummaryIsUsable } from "@/lib/mr-kim-generated-summary"
+
 export const ON_DEVICE_AI_CHECK = "chrome-on-device-ai"
 
-type Availability =
-  | "available"
-  | "downloadable"
-  | "downloading"
-  | "unavailable"
+type Availability = "available" | "downloadable" | "downloading" | "unavailable"
 
 interface LanguageModelSession {
   prompt(
@@ -67,25 +65,21 @@ const ENGLISH_TEXT_OPTIONS = {
 const RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["summary", "explanation", "example", "nextAction"],
+  required: ["summary"],
   properties: {
     summary: { type: "string" },
-    explanation: { type: "string" },
-    example: {
-      anyOf: [{ type: "string" }, { type: "null" }],
-    },
-    nextAction: { type: "string" },
   },
 } as const
 
 const ON_DEVICE_INSTRUCTIONS = `
-You are Mr. Kim, Scout ACT's calm, concise tutor. The server has already made a
-reviewed answer. Rewrite that answer so it directly answers the learner in
+You are Mr. Kim, AlexACT's calm, concise tutor. The server has already made a
+reviewed answer whose teaching facts and next action are already verified.
+Write only one short summary sentence that directly answers the learner in
 plain English. Use only facts in the reviewed answer. Do not solve a new
-question, choose an answer, add a rule, invent a score, or weaken any boundary.
-Keep the summary to one sentence, the explanation to at most three short
-sentences, the example optional, and the next action to one sentence. Return
-only JSON that matches the requested fields.
+question, choose an answer, add a rule, example, or score, or weaken any
+boundary. Explain the rule instead of repeating answer-ledger labels such as
+"you chose" or "correct answer." Return only a JSON object with one string
+field named "summary".
 `.trim()
 
 let preparedSession: Promise<LanguageModelSession> | null = null
@@ -94,7 +88,7 @@ function clipped(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength)
 }
 
-function parseAnswer(value: string) {
+function parseSummary(value: string) {
   const unfenced = value
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -105,26 +99,11 @@ function parseAnswer(value: string) {
   } catch {
     return null
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
-  const record = parsed as Record<string, unknown>
-  if (
-    typeof record.summary !== "string" ||
-    typeof record.explanation !== "string" ||
-    (record.example !== null && typeof record.example !== "string") ||
-    typeof record.nextAction !== "string"
-  ) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
     return null
-  }
-  const summary = clipped(record.summary, 180)
-  const explanation = clipped(record.explanation, 600)
-  const example =
-    typeof record.example === "string"
-      ? clipped(record.example, 360) || null
-      : null
-  const nextAction = clipped(record.nextAction, 180)
-  return summary && explanation && nextAction
-    ? { summary, explanation, example, nextAction }
-    : null
+  const record = parsed as Record<string, unknown>
+  if (typeof record.summary !== "string") return null
+  return clipped(record.summary, 180) || null
 }
 
 export function canUseOnDeviceAI(answer: ScoutAnswer) {
@@ -143,8 +122,10 @@ export function canUseOnDeviceAI(answer: ScoutAnswer) {
 }
 
 export async function onDeviceAIAvailability(
-  languageModel: LanguageModelFactory | undefined =
-    typeof window === "undefined" ? undefined : window.LanguageModel
+  languageModel: LanguageModelFactory | undefined = typeof window ===
+  "undefined"
+    ? undefined
+    : window.LanguageModel
 ) {
   if (!languageModel) return "unavailable" as const
   try {
@@ -154,10 +135,12 @@ export async function onDeviceAIAvailability(
   }
 }
 
-export function prepareOnDeviceMrKimAI(input: {
-  languageModel?: LanguageModelFactory
-  onDownloadProgress?: (progress: number) => void
-} = {}) {
+export function prepareOnDeviceMrKimAI(
+  input: {
+    languageModel?: LanguageModelFactory
+    onDownloadProgress?: (progress: number) => void
+  } = {}
+) {
   const languageModel =
     input.languageModel ??
     (typeof window === "undefined" ? undefined : window.LanguageModel)
@@ -174,9 +157,7 @@ export function prepareOnDeviceMrKimAI(input: {
       monitor: input.onDownloadProgress
         ? (monitor) => {
             monitor.addEventListener("downloadprogress", (event) => {
-              input.onDownloadProgress?.(
-                Math.max(0, Math.min(1, event.loaded))
-              )
+              input.onDownloadProgress?.(Math.max(0, Math.min(1, event.loaded)))
             })
           }
         : undefined,
@@ -231,14 +212,16 @@ export async function answerWithOnDeviceMrKimAI(input: {
           : undefined,
       })
     }
-    const recentConversation = (input.history ?? []).slice(-3).map((message) => ({
-      learner: message.question.slice(0, 240),
-      mrKim: {
-        summary: message.answer.summary.slice(0, 180),
-        explanation: message.answer.explanation.slice(0, 360),
-      },
-    }))
-    const generated = parseAnswer(
+    const recentConversation = (input.history ?? [])
+      .slice(-3)
+      .map((message) => ({
+        learner: message.question.slice(0, 240),
+        mrKim: {
+          summary: message.answer.summary.slice(0, 180),
+          explanation: message.answer.explanation.slice(0, 360),
+        },
+      }))
+    const generatedSummary = parseSummary(
       await session.prompt(
         JSON.stringify({
           learnerQuestion: input.question.slice(0, 500),
@@ -253,10 +236,15 @@ export async function answerWithOnDeviceMrKimAI(input: {
         { responseConstraint: RESPONSE_SCHEMA }
       )
     )
-    if (!generated) return input.answer
+    if (
+      !generatedSummary ||
+      !generatedMrKimSummaryIsUsable(generatedSummary, input.answer)
+    ) {
+      return input.answer
+    }
     return {
       ...input.answer,
-      ...generated,
+      summary: generatedSummary,
       source: `Free on-device Mr. Kim AI grounded in ${input.answer.source}`,
       receipt: {
         ...input.answer.receipt,

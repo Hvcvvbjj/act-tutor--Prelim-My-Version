@@ -109,12 +109,12 @@ const TASK_META: Record<
 const HEALTH_COPY = {
   "on-track": {
     label: "Time target met",
-    title: "Your schedule meets Scout’s rough time target.",
+    title: "Your schedule meets AlexACT’s rough time target.",
     className: "text-primary",
   },
   tight: {
     label: "More time may help",
-    title: "Your schedule covers most of Scout’s rough time target.",
+    title: "Your schedule covers most of AlexACT’s rough time target.",
     className: "text-[var(--scout-coral-text)]",
   },
   "under-capacity": {
@@ -201,7 +201,7 @@ function AvailabilityEditor({
       {open ? (
         <div className="mt-5">
           <p className="text-sm leading-6 text-muted-foreground">
-            Choose the days and minutes Scout may schedule. Saving updates
+            Choose the days and minutes AlexACT may schedule. Saving updates
             future work but keeps today and completed tasks.
           </p>
           <div
@@ -834,7 +834,7 @@ export function AdaptivePlanStudio({
           <AlertTriangleIcon />
           <AlertTitle>Finish setup first</AlertTitle>
           <AlertDescription>
-            Scout needs your starting scores before it can build a dated plan.
+            AlexACT needs your starting scores before it can build a dated plan.
           </AlertDescription>
         </Alert>
       </main>
@@ -882,7 +882,7 @@ export function AdaptivePlanStudio({
         className="border-b-2 border-foreground pb-5"
         aria-labelledby="weekly-plan-title"
       >
-        <p className="ink-label text-primary">My week</p>
+        <p className="ink-label text-primary">My schedule</p>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1
@@ -996,7 +996,7 @@ export function AdaptivePlanStudio({
           <h2 className="font-heading text-2xl font-black">{health.title}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             {adaptivePlan.forecast.scheduledMinutes} minutes are scheduled
-            before test day; Scout&apos;s planning target is{" "}
+            before test day; AlexACT&apos;s planning target is{" "}
             {adaptivePlan.forecast.recommendedMinutes} minutes.
           </p>
           <MilestoneRail plan={adaptivePlan} />

@@ -169,12 +169,12 @@ export async function consumeCompletedExamForLearningRound<T>({
     })
   } catch {
     throw new Error(
-      "Your next lesson round and plan are saved, but Scout could not close the completed test. Try again; the result will not be applied twice."
+      "Your next lesson round and plan are saved, but AlexACT could not close the completed test. Try again; the result will not be applied twice."
     )
   }
   if (!response.ok) {
     throw new Error(
-      "Your next lesson round and plan are saved, but Scout could not close the completed test. Try again; the result will not be applied twice."
+      "Your next lesson round and plan are saved, but AlexACT could not close the completed test. Try again; the result will not be applied twice."
     )
   }
   return payload

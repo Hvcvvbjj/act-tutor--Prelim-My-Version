@@ -27,6 +27,7 @@ import {
   formatAssessmentTime,
   resolveAssessmentDeadline,
 } from "@/components/tutor/assessment-display"
+import { AlexActTransition } from "@/components/tutor/alexact-transition"
 import {
   AssessmentRemediation,
   type AssessmentRemediationItem,
@@ -47,13 +48,22 @@ import { cn } from "@/lib/utils"
 
 interface DiagnosticRunnerProps {
   onBack: () => void
-  onComplete: (result: DiagnosticResult, attemptId: string) => void
+  onComplete: (
+    result: DiagnosticResult,
+    attemptId: string,
+    form: DiagnosticFormPublic
+  ) => void
   canViewTechnicalDetails: boolean
   purpose: "baseline" | "round"
   onAskMrKim?: (questionId: string) => void
 }
 
-type RunnerPhase = "questions" | "review" | "results" | "remediation"
+type RunnerPhase =
+  | "questions"
+  | "review"
+  | "scoring"
+  | "results"
+  | "remediation"
 type RunnerStatus = "loading" | "ready" | "submitting" | "error"
 type SaveStatus = "saved" | "saving" | "error"
 
@@ -279,7 +289,7 @@ function ReviewView({
       </h1>
       <p className="mt-4 max-w-2xl text-lg leading-7 text-muted-foreground">
         {timeExpired
-          ? "Time ended. Scout is scoring every unanswered question as blank."
+          ? "Time ended. AlexACT is scoring every unanswered question as blank."
           : "Correct answers stay hidden during the test. Fill any blanks, review, then submit."}
       </p>
 
@@ -544,7 +554,7 @@ function ResultsView({
               <AlertTitle>How this planning number is calculated</AlertTitle>
               <AlertDescription>
                 <p>
-                  For each section, Scout calculates{" "}
+                  For each section, AlexACT calculates{" "}
                   <code className="font-mono text-xs text-foreground">
                     round(1 + ((correct + 1) / (total + 2)) × 35)
                   </code>
@@ -592,6 +602,7 @@ export function DiagnosticRunner({
   const [timerDeadline, setTimerDeadline] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [timeExpired, setTimeExpired] = useState(false)
+  const [transitionReady, setTransitionReady] = useState(false)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const saveRevision = useRef(0)
   const timedSubmitAttempted = useRef(false)
@@ -649,6 +660,7 @@ export function DiagnosticRunner({
     if (
       timerDeadline === null ||
       phase === "results" ||
+      phase === "scoring" ||
       phase === "remediation"
     )
       return
@@ -728,6 +740,8 @@ export function DiagnosticRunner({
       if (!form || status === "submitting") return
       setStatus("submitting")
       setError(null)
+      setTransitionReady(false)
+      setPhase("scoring")
 
       try {
         await saveQueue.current
@@ -759,8 +773,8 @@ export function DiagnosticRunner({
         setAttemptId(body.attemptId)
         setResult(body.result)
         setRemediation(body.remediation)
-        setPhase("results")
         setStatus("ready")
+        setTransitionReady(true)
         try {
           window.localStorage.removeItem(
             diagnosticTimerStorageKey(body.attemptId)
@@ -775,6 +789,7 @@ export function DiagnosticRunner({
             : "The diagnostic could not be scored."
         )
         setStatus("ready")
+        setPhase("review")
       }
     },
     [answers, form, status]
@@ -784,6 +799,7 @@ export function DiagnosticRunner({
     if (
       !timeExpired ||
       phase === "results" ||
+      phase === "scoring" ||
       phase === "remediation" ||
       status !== "ready" ||
       timedSubmitAttempted.current
@@ -864,6 +880,19 @@ export function DiagnosticRunner({
     )
   }
 
+  if (phase === "scoring") {
+    return (
+      <AlexActTransition
+        kind="scoring"
+        ready={transitionReady}
+        onComplete={() => {
+          setPhase("results")
+          setTransitionReady(false)
+        }}
+      />
+    )
+  }
+
   const question = form.questions[currentIndex]
   return (
     <>
@@ -876,7 +905,7 @@ export function DiagnosticRunner({
             <ScoutMark className="size-11" />
             <div className="min-w-0">
               <p className="font-brand text-xl font-black tracking-tight sm:text-2xl">
-                SCOUT ACT
+                AlexACT
               </p>
               <p className="truncate text-sm text-muted-foreground">
                 {form.title}
@@ -1046,7 +1075,7 @@ export function DiagnosticRunner({
                   )
                   return
                 }
-                onComplete(result, attemptId)
+                onComplete(result, attemptId, form)
               }}
             />
           ) : result ? (
@@ -1064,7 +1093,7 @@ export function DiagnosticRunner({
                   )
                   return
                 }
-                onComplete(result, attemptId)
+                onComplete(result, attemptId, form)
               }}
               canViewTechnicalDetails={canViewTechnicalDetails}
             />

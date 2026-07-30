@@ -1,4 +1,4 @@
-# Scout ACT submission kit
+# AlexACT submission kit
 
 This folder contains the competition-facing materials for the Prometheus July AI Challenge. It is deliberately separate from the product and engineering docs so the team can rehearse, record, and submit without rewriting the technical story at the last minute.
 

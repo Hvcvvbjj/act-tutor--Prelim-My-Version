@@ -19,6 +19,10 @@ import type {
 import { SendIcon, Volume2Icon, XIcon } from "lucide-react"
 
 import { replayDashboardTour } from "@/components/tutor/dashboard-tour"
+import {
+  NEEDS_WORK_MR_KIM_EVENT,
+  type NeedsWorkMrKimRequest,
+} from "@/components/tutor/needs-work"
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -28,6 +32,13 @@ import {
   onDeviceAIAvailability,
   prepareOnDeviceMrKimAI,
 } from "@/lib/mr-kim-on-device"
+import {
+  answerWithFreeCloudMrKimAI,
+  beginFreeCloudMrKimConnection,
+  FREE_CLOUD_AI_CHECK,
+  preloadFreeCloudMrKimAI,
+} from "@/lib/mr-kim-free-cloud"
+import { chooseMrKimClientProvider } from "@/lib/mr-kim-client-provider"
 import {
   DEFAULT_ACCOMMODATIONS,
   DEFAULT_EXPLANATION_PREFERENCES,
@@ -50,7 +61,11 @@ interface ScoutProviderValue {
     key: K,
     value: ExplanationPreferences[K]
   ) => void
-  openScout: (question?: string, questionId?: string | null) => void
+  openScout: (
+    question?: string,
+    questionId?: string | null,
+    reviewedContext?: string | null
+  ) => void
   openSettings: () => void
 }
 
@@ -78,7 +93,7 @@ const ACCOMMODATION_OPTIONS: ReadonlyArray<
     "Extra-visible keyboard focus",
     "Makes the focus outline easier to follow.",
   ],
-  ["readAloud", "Read aloud", "Adds speech controls to Scout answers."],
+  ["readAloud", "Read aloud", "Adds speech controls to AlexACT answers."],
   [
     "simplified",
     "Shorter lesson text",
@@ -112,14 +127,14 @@ function ScoutAnswerCard({
   onSimplify?: () => void
 }) {
   return (
-    <div className={compact ? "border-t py-4" : "mt-5"}>
+    <div className={`max-w-full min-w-0 ${compact ? "border-t py-4" : "mt-5"}`}>
       <p className="text-xs font-semibold text-muted-foreground">
         {message.question}
       </p>
       <article
-        className={
+        className={`max-w-full min-w-0 [overflow-wrap:anywhere] ${
           compact ? "mt-2" : "mt-2 bg-[var(--info-surface)] p-4 sm:p-5"
-        }
+        }`}
       >
         <p
           className={
@@ -212,6 +227,7 @@ export function ScoutProvider({
   const [contextQuestionId, setContextQuestionId] = useState<string | null>(
     null
   )
+  const [reviewedContext, setReviewedContext] = useState<string | null>(null)
   const [visibleMessages, setVisibleMessages] = useState<
     Array<{ screen: string; message: ScoutMessage }>
   >([])
@@ -224,7 +240,11 @@ export function ScoutProvider({
   const [onDeviceAiProgress, setOnDeviceAiProgress] = useState<number | null>(
     null
   )
+  const [freeCloudAiStatus, setFreeCloudAiStatus] = useState<
+    "loading" | "ready" | "connecting" | "connected" | "unavailable"
+  >("loading")
   const [busy, setBusy] = useState(false)
+  const [freeAiGenerating, setFreeAiGenerating] = useState(false)
   const scoutDialogRef = useRef<HTMLElement | null>(null)
   const toolsDialogRef = useRef<HTMLElement | null>(null)
   const lastFocusRef = useRef<HTMLElement | null>(null)
@@ -237,7 +257,7 @@ export function ScoutProvider({
           ScoutStateResponse | { error: string }
         if (!response.ok || "error" in payload) {
           throw new Error(
-            "error" in payload ? payload.error : "Scout could not load."
+            "error" in payload ? payload.error : "AlexACT could not load."
           )
         }
         if (cancelled) return
@@ -274,7 +294,7 @@ export function ScoutProvider({
             throw new Error(
               "error" in patched
                 ? patched.error
-                : "Scout preferences were not saved."
+                : "AlexACT preferences were not saved."
             )
           }
         } else {
@@ -289,7 +309,7 @@ export function ScoutProvider({
       .catch((error) => {
         if (cancelled) return
         setAssistantError(
-          error instanceof Error ? error.message : "Scout could not load."
+          error instanceof Error ? error.message : "AlexACT could not load."
         )
       })
     return () => {
@@ -308,6 +328,16 @@ export function ScoutProvider({
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    void preloadFreeCloudMrKimAI().then((loaded) => {
+      if (!cancelled) setFreeCloudAiStatus(loaded ? "ready" : "unavailable")
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     function captureSelection() {
       const selection = window.getSelection()?.toString().trim() ?? ""
       setSelectedText(selection.length >= 3 ? selection.slice(0, 400) : "")
@@ -315,6 +345,30 @@ export function ScoutProvider({
     document.addEventListener("selectionchange", captureSelection)
     return () =>
       document.removeEventListener("selectionchange", captureSelection)
+  }, [])
+
+  useEffect(() => {
+    function openNeedsWorkConversation(event: Event) {
+      if (!(event instanceof CustomEvent)) return
+      const detail = event.detail as Partial<NeedsWorkMrKimRequest> | undefined
+      if (
+        detail?.source !== "needs-work" ||
+        typeof detail.question !== "string" ||
+        !detail.question.trim()
+      ) {
+        return
+      }
+      lastFocusRef.current = document.activeElement as HTMLElement | null
+      setContextQuestionId(null)
+      setQuestion(detail.question)
+      setScoutOpen(true)
+    }
+    window.addEventListener(NEEDS_WORK_MR_KIM_EVENT, openNeedsWorkConversation)
+    return () =>
+      window.removeEventListener(
+        NEEDS_WORK_MR_KIM_EVENT,
+        openNeedsWorkConversation
+      )
   }, [])
 
   useEffect(() => {
@@ -362,12 +416,13 @@ export function ScoutProvider({
           if (response.ok) return
           const payload = (await response.json()) as { error?: string }
           setAssistantError(
-            payload.error ?? "Scout preferences were not saved to this session."
+            payload.error ??
+              "AlexACT preferences were not saved to this session."
           )
         })
         .catch(() => {
           setAssistantError(
-            "This preference is saved on your device and will sync when Scout reconnects."
+            "This preference is saved on your device and will sync when AlexACT reconnects."
           )
         })
       return next
@@ -428,10 +483,14 @@ export function ScoutProvider({
   }, [scoutOpen, toolsOpen])
 
   const prompts = useMemo(() => {
+    if (activeTab === "needs-work")
+      return ["Teach me the top weak skill", "Give me one practice question"]
     if (activeTab === "badges")
       return ["What is my closest badge?", "How does badge progress work?"]
     if (activeTab === "progress")
       return ["Why is this skill next?", "How do I improve this skill?"]
+    if (activeTab === "history")
+      return ["Explain my newest mistake", "What pattern do my misses show?"]
     if (activeTab === "calibrate")
       return ["How many questions are left?", "What happens when I finish?"]
     if (activeTab === "plan")
@@ -444,10 +503,14 @@ export function ScoutProvider({
   }, [activeTab])
 
   const helperCopy = useMemo(() => {
+    if (activeTab === "needs-work")
+      return "Ask Mr. Kim to teach a weak question type or work through an example."
     if (activeTab === "badges")
       return "Ask about your earned badges, closest milestone, points, or streak."
     if (activeTab === "progress")
       return "Ask about a skill estimate or what to practice next."
+    if (activeTab === "history")
+      return "Ask about a saved mistake or request a similar example."
     if (activeTab === "calibrate")
       return "Ask about Quick Check or how many questions remain."
     if (activeTab === "plan") return "Ask about your schedule or missed work."
@@ -473,18 +536,35 @@ export function ScoutProvider({
   const latestWasOnDeviceAI = Boolean(
     latestMessage?.answer.receipt.checks.includes(ON_DEVICE_AI_CHECK)
   )
-  const freeAiCanRun =
-    onDeviceAiStatus === "available" ||
-    onDeviceAiStatus === "downloadable" ||
-    onDeviceAiStatus === "downloading"
+  const latestWasFreeCloudAI = Boolean(
+    latestMessage?.answer.receipt.checks.includes(FREE_CLOUD_AI_CHECK)
+  )
+  const clientProvider = chooseMrKimClientProvider({
+    serverAiAvailable,
+    onDeviceStatus: onDeviceAiStatus,
+    freeCloudStatus: freeCloudAiStatus,
+  })
+  const askUnavailable = busy || freeAiGenerating || clientProvider.askBlocked
 
-  async function ask(nextQuestion = question, selection: string | null = null) {
-    if (!nextQuestion.trim()) return
+  async function ask(
+    nextQuestion = question,
+    selection: string | null = reviewedContext
+  ) {
+    if (!nextQuestion.trim() || freeAiGenerating || clientProvider.askBlocked)
+      return
     setBusy(true)
     setAssistantError(null)
     try {
+      const freeCloudConnection =
+        !serverAiAvailable &&
+        (clientProvider.provider === "free-cloud" ||
+          (clientProvider.provider === "on-device" &&
+            freeCloudAiStatus === "connected"))
+          ? beginFreeCloudMrKimConnection()
+          : null
+      if (freeCloudConnection) setFreeCloudAiStatus("connecting")
       const onDevicePreparation =
-        !serverAiAvailable && freeAiCanRun
+        !serverAiAvailable && clientProvider.provider === "on-device"
           ? (() => {
               if (onDeviceAiStatus !== "available") {
                 setOnDeviceAiStatus("downloading")
@@ -515,57 +595,105 @@ export function ScoutProvider({
         ScoutAskResponse | { error: string }
       if (!response.ok || "error" in payload)
         throw new Error(
-          "error" in payload ? payload.error : "Scout could not answer."
+          "error" in payload ? payload.error : "AlexACT could not answer."
         )
       const nextMessages = [...payload.messages]
       setServerAiAvailable(Boolean(payload.aiAvailable))
       const serverMessage = nextMessages.at(-1)
-      let displayedMessage = serverMessage
+      if (serverMessage) {
+        setVisibleMessages((current) =>
+          [
+            ...current.filter((entry) => entry.screen !== activeTab),
+            ...current.filter((entry) => entry.screen === activeTab).slice(-2),
+            { screen: activeTab, message: serverMessage },
+          ].slice(-15)
+        )
+      }
+      setQuestion("")
+      setReviewedContext(null)
+      if (accommodations.readAloud && serverMessage) {
+        speak(
+          `${serverMessage.answer.summary} ${serverMessage.answer.explanation}`
+        )
+      }
       if (
         serverMessage &&
         !serverMessage.answer.receipt.checks.some((check) =>
           ["openai-responses-api", "openai-compatible-chat"].includes(check)
         ) &&
-        freeAiCanRun
+        (onDevicePreparation || freeCloudConnection)
       ) {
-        await onDevicePreparation
-        const enhancedAnswer = await answerWithOnDeviceMrKimAI({
-          question: nextQuestion,
-          answer: serverMessage.answer,
-          history: screenMessages.map((entry) => entry.message),
-          onDownloadProgress: (progress) => {
-            setOnDeviceAiProgress(progress)
-          },
-        })
-        if (enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK)) {
-          setOnDeviceAiStatus("available")
-          displayedMessage = { ...serverMessage, answer: enhancedAnswer }
-        } else {
-          setOnDeviceAiStatus(
-            await onDeviceAIAvailability().catch(() => "unavailable" as const)
-          )
-        }
-        setOnDeviceAiProgress(null)
+        setFreeAiGenerating(true)
+        void (async () => {
+          let enhancedAnswer = serverMessage.answer
+          try {
+            if (onDevicePreparation) {
+              const prepared = await onDevicePreparation
+              if (prepared) {
+                enhancedAnswer = await answerWithOnDeviceMrKimAI({
+                  question: nextQuestion,
+                  answer: serverMessage.answer,
+                  history: screenMessages.map((entry) => entry.message),
+                  onDownloadProgress: (progress) => {
+                    setOnDeviceAiProgress(progress)
+                  },
+                })
+              }
+            }
+            if (enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK)) {
+              setOnDeviceAiStatus("available")
+            } else if (onDevicePreparation) {
+              setOnDeviceAiStatus(
+                await onDeviceAIAvailability().catch(
+                  () => "unavailable" as const
+                )
+              )
+            }
+
+            if (
+              !enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK) &&
+              freeCloudConnection
+            ) {
+              const connected = await freeCloudConnection
+              setFreeCloudAiStatus(connected ? "connected" : "ready")
+              if (connected) {
+                enhancedAnswer = await answerWithFreeCloudMrKimAI({
+                  question: nextQuestion,
+                  answer: serverMessage.answer,
+                  history: screenMessages.map((entry) => entry.message),
+                })
+              }
+            }
+
+            if (
+              !enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK) &&
+              !enhancedAnswer.receipt.checks.includes(FREE_CLOUD_AI_CHECK)
+            ) {
+              return
+            }
+            setVisibleMessages((current) =>
+              current.map((entry) =>
+                entry.screen === activeTab &&
+                entry.message.id === serverMessage.id
+                  ? {
+                      screen: activeTab,
+                      message: {
+                        ...serverMessage,
+                        answer: enhancedAnswer,
+                      },
+                    }
+                  : entry
+              )
+            )
+          } finally {
+            setOnDeviceAiProgress(null)
+            setFreeAiGenerating(false)
+          }
+        })()
       }
-      if (displayedMessage) {
-        setVisibleMessages((current) =>
-          [
-            ...current.filter((entry) => entry.screen !== activeTab),
-            ...current.filter((entry) => entry.screen === activeTab).slice(-2),
-            { screen: activeTab, message: displayedMessage },
-          ].slice(-15)
-        )
-      }
-      setQuestion("")
-      if (accommodations.readAloud)
-        speak(
-          `${displayedMessage?.answer.summary ?? payload.answer.summary} ${
-            displayedMessage?.answer.explanation ?? payload.answer.explanation
-          }`
-        )
     } catch (error) {
       setAssistantError(
-        error instanceof Error ? error.message : "Scout could not answer."
+        error instanceof Error ? error.message : "AlexACT could not answer."
       )
     } finally {
       setBusy(false)
@@ -578,9 +706,10 @@ export function ScoutProvider({
       explanationPreferences,
       setAccommodation: saveAccommodation,
       setExplanationPreference: saveExplanationPreference,
-      openScout: (nextQuestion, nextQuestionId) => {
+      openScout: (nextQuestion, nextQuestionId, nextReviewedContext) => {
         lastFocusRef.current = document.activeElement as HTMLElement | null
         setContextQuestionId(nextQuestionId ?? null)
+        setReviewedContext(nextReviewedContext ?? null)
         setScoutOpen(true)
         if (nextQuestion) setQuestion(nextQuestion)
       },
@@ -637,19 +766,29 @@ export function ScoutProvider({
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-2xl font-black">Mr. Kim</p>
                 <p className="font-mono text-[0.6rem] font-black text-[var(--scout-mint)] uppercase">
-                  {latestMessage
-                    ? latestWasOnDeviceAI
-                      ? "Free AI · grounded on this device"
-                      : latestWasFreeServerAI
-                        ? "Free AI · grounded in your Scout work"
-                        : latestWasHostedAI
-                          ? "AI answer grounded in your Scout work"
-                          : "Reviewed Scout guidance"
-                    : serverAiAvailable
-                      ? "AI tutor online"
-                      : freeAiCanRun
-                        ? "Free on-device AI ready"
-                        : "Reviewed Scout guidance"}
+                  {freeAiGenerating
+                    ? "Free AI is writing a grounded answer…"
+                    : latestMessage
+                      ? latestWasFreeCloudAI
+                        ? "Free cloud AI · grounded in your AlexACT work"
+                        : latestWasOnDeviceAI
+                          ? "Free AI · grounded on this device"
+                          : latestWasFreeServerAI
+                            ? "Free AI · grounded in your AlexACT work"
+                            : latestWasHostedAI
+                              ? "AI answer grounded in your AlexACT work"
+                              : "Reviewed AlexACT guidance"
+                      : serverAiAvailable
+                        ? "AI tutor online"
+                        : onDeviceAiStatus === "available"
+                          ? "Free on-device AI ready"
+                          : freeCloudAiStatus === "connected"
+                            ? "Free cloud AI connected"
+                            : freeCloudAiStatus === "ready"
+                              ? "Free cloud AI ready"
+                              : freeCloudAiStatus === "loading"
+                                ? "Preparing free AI…"
+                                : "Reviewed AlexACT guidance"}
                 </p>
               </div>
               <Button
@@ -668,6 +807,15 @@ export function ScoutProvider({
                   <p className="text-sm leading-6 text-muted-foreground">
                     {helperCopy}
                   </p>
+                  {!serverAiAvailable &&
+                  clientProvider.provider === "free-cloud" &&
+                  (freeCloudAiStatus === "ready" ||
+                    freeCloudAiStatus === "connecting") ? (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      Your first free cloud-AI answer may open a one-time Puter
+                      permission window. Reviewed help appears immediately.
+                    </p>
+                  ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
                     {prompts.map((prompt) => (
                       <Button
@@ -675,6 +823,7 @@ export function ScoutProvider({
                         type="button"
                         variant="outline"
                         size="sm"
+                        disabled={askUnavailable}
                         onClick={() => void ask(prompt)}
                       >
                         {prompt}
@@ -687,7 +836,7 @@ export function ScoutProvider({
                 role="log"
                 aria-live="polite"
                 aria-relevant="additions text"
-                aria-label="Scout answers"
+                aria-label="AlexACT answers"
               >
                 {latestMessage ? (
                   <ScoutAnswerCard
@@ -759,16 +908,20 @@ export function ScoutProvider({
               <Button
                 type="submit"
                 className="mt-3 w-full"
-                disabled={busy || !question.trim()}
+                disabled={askUnavailable || !question.trim()}
               >
                 <SendIcon />{" "}
-                {busy
-                  ? onDeviceAiProgress === null
-                    ? "Getting an answer…"
-                    : `Preparing free AI… ${Math.round(
-                        onDeviceAiProgress * 100
-                      )}%`
-                  : "Ask Mr. Kim"}
+                {clientProvider.askBlocked
+                  ? "Preparing free AI…"
+                  : freeAiGenerating
+                    ? "Finishing the free AI answer…"
+                    : busy
+                      ? onDeviceAiProgress === null
+                        ? "Getting an answer…"
+                        : `Preparing free AI… ${Math.round(
+                            onDeviceAiProgress * 100
+                          )}%`
+                      : "Ask Mr. Kim"}
               </Button>
             </form>
           </aside>

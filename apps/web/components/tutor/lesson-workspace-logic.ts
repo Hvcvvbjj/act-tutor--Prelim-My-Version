@@ -28,6 +28,32 @@ export function lessonSectionsForDisplay<T extends { id: string }>(
   return sections.filter((section) => section.id !== "transfer")
 }
 
+export function lessonWorkedExamplesForDisplay<
+  T extends {
+    workedExample: {
+      prompt: string
+      answer: string
+      explanation: readonly string[]
+    }
+    workedExamples?: ReadonlyArray<{
+      prompt: string
+      choices: readonly string[]
+      answer: string
+      explanation: readonly string[]
+      wrongAnswerNotes: readonly string[]
+    }>
+  },
+>(lesson: T) {
+  if (lesson.workedExamples?.length) return lesson.workedExamples
+  return [
+    {
+      ...lesson.workedExample,
+      choices: [] as readonly string[],
+      wrongAnswerNotes: [] as readonly string[],
+    },
+  ]
+}
+
 function firstSentence(value: string) {
   return value.split(/(?<=[.!?])\s+/)[0] ?? value
 }

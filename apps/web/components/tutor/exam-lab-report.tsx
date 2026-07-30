@@ -118,10 +118,17 @@ export function ExamLabReport({
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
             {readiness.sufficient
               ? "Your answer accuracy supports this result. Your next focus is beside it."
-              : `You answered ${readiness.answered} of ${result.total} questions. Scout needs more completed work before suggesting a score range or next lesson.`}
+              : `You answered ${readiness.answered} of ${result.total} questions. AlexACT needs more completed work before suggesting a score range or next lesson.`}
           </p>
 
-          <div className="mt-9 grid border-y-2 border-foreground sm:grid-cols-2 sm:divide-x-2 sm:divide-foreground">
+          <div
+            className={cn(
+              "mt-9 grid border-y-2 border-foreground sm:divide-x-2 sm:divide-foreground",
+              readiness.sufficient && result.practiceEstimate.composite
+                ? "sm:grid-cols-3"
+                : "sm:grid-cols-2"
+            )}
+          >
             <div
               data-testid="timed-practice-answer-accuracy"
               className="py-6 sm:pr-8"
@@ -148,6 +155,19 @@ export function ExamLabReport({
                 {result.unanswered} unanswered
               </p>
             </div>
+            {readiness.sufficient && result.practiceEstimate.composite ? (
+              <div className="border-t-2 border-foreground py-6 sm:border-t-0 sm:pl-8">
+                <p className="ink-label text-muted-foreground">
+                  Composite estimate
+                </p>
+                <p className="mt-2 font-heading text-5xl font-black text-primary tabular-nums sm:text-6xl">
+                  {result.practiceEstimate.estimate}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Practice score, not an official ACT score
+                </p>
+              </div>
+            ) : null}
           </div>
           {readiness.sufficient ? (
             canViewTechnicalDetails ? (
@@ -196,7 +216,7 @@ export function ExamLabReport({
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             {readiness.sufficient
               ? result.debrief.nextAction
-              : `Complete at least ${readiness.minimumAnswered} answers before Scout suggests a focus.`}
+              : `Complete at least ${readiness.minimumAnswered} answers before AlexACT suggests a focus.`}
           </p>
           {readiness.sufficient && onUseForNextRound ? (
             <Button
@@ -359,7 +379,7 @@ export function ExamLabReport({
               <p className="mt-4 text-xs leading-5 text-muted-foreground">
                 “Rushed” means under 40% of a question&apos;s bank target time;
                 “Overtime” means above 150%. With at least three answered
-                questions, Scout labels the run “Rushing” when at least 35% are
+                questions, AlexACT labels the run “Rushing” when at least 35% are
                 rushed; otherwise it labels it “Overinvesting” when at least 35%
                 are overtime; otherwise it labels it “Balanced.”
               </p>

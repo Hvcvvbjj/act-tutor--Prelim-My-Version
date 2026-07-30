@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { classifyScoutIntent, SCOUT_SCREENS } from "./scout";
 
-describe("Scout intent classification", () => {
+describe("AlexACT intent classification", () => {
   it("treats badges as a first-class assistant screen", () => {
     expect(SCOUT_SCREENS).toContain("badges");
+    expect(SCOUT_SCREENS).toContain("needs-work");
+    expect(SCOUT_SCREENS).toContain("history");
   });
 
   it("routes calibration definitions before generic plain-English requests", () => {

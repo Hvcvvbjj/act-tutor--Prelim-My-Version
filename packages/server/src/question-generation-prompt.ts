@@ -96,7 +96,7 @@ export function buildActQuestionGenerationMessages(
     {
       role: "system",
       content: [
-        "You write original ACT-style practice questions for Scout.",
+        "You write original ACT-style practice questions for AlexACT.",
         "Write new items; never quote, reconstruct, lightly paraphrase, or claim to reproduce an official ACT question.",
         "The reviewed examples are rigor anchors only. Do not reuse their scenarios, numbers, sentence frames, answer choices, or rationales.",
         "Follow the requested difficulty for each item exactly. Medium and hard questions must require linked reasoning, not one-step arithmetic, direct word matching, or an obvious grammar cue.",

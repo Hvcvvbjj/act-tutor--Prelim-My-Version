@@ -1,14 +1,6 @@
-const DEVELOPMENT_RELEASE = "development"
+import { createHealthPayload } from "./health-payload"
 
 export const dynamic = "force-dynamic"
-
-export function createHealthPayload(release?: string) {
-  return {
-    status: "ok",
-    service: "Scout ACT",
-    release: release?.trim() || DEVELOPMENT_RELEASE,
-  } as const
-}
 
 export function GET() {
   return Response.json(createHealthPayload(process.env.SCOUT_BUILD_COMMIT), {

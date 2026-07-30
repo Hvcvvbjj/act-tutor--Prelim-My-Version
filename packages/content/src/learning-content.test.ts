@@ -16,9 +16,26 @@ describe("ACT learning content", () => {
 
   it("contains one lesson and five focused questions for every skill", () => {
     for (const skill of ACT_SKILLS) {
+      const lessons = ACT_LESSONS.filter(
+        (lesson) => lesson.skill === skill.slug,
+      );
+      expect(lessons).toHaveLength(1);
+      const lesson = lessons[0]!;
       expect(
-        ACT_LESSONS.filter((lesson) => lesson.skill === skill.slug),
-      ).toHaveLength(1);
+        lesson.concept.split(/(?<=[.!?])\s+/).filter(Boolean),
+      ).toHaveLength(3);
+      expect(lesson.workedExamples).toHaveLength(3);
+      for (const example of lesson.workedExamples) {
+        expect(example.choices).toHaveLength(4);
+        expect(example.choices).toContain(example.answer);
+        expect(example.explanation).toHaveLength(2);
+        expect(example.wrongAnswerNotes).toHaveLength(3);
+        expect(
+          example.wrongAnswerNotes.every((note: string) =>
+            note.includes("wrong"),
+          ),
+        ).toBe(true);
+      }
       expect(
         ACT_PRACTICE_QUESTIONS.filter(
           (question) => question.skill === skill.slug,

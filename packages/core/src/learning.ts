@@ -7,6 +7,10 @@ import type {
   MistakeRecordPublic,
 } from "./mission";
 import type { LearningTwinSnapshot } from "./learning-twin";
+import type {
+  LearningRoundRewardSummary,
+  LessonRewardSummary,
+} from "./motivation";
 
 export type SkillSlug = string;
 export type PracticeDifficulty = "easy" | "medium" | "hard";
@@ -42,6 +46,14 @@ export interface SkillDefinition {
   diagnosticSkill: string;
 }
 
+export interface LessonWorkedExample {
+  prompt: string;
+  choices: ReadonlyArray<string>;
+  answer: string;
+  explanation: ReadonlyArray<string>;
+  wrongAnswerNotes: ReadonlyArray<string>;
+}
+
 export interface LessonContent {
   id: string;
   skill: SkillSlug;
@@ -55,6 +67,7 @@ export interface LessonContent {
     answer: string;
     explanation: ReadonlyArray<string>;
   };
+  workedExamples?: ReadonlyArray<LessonWorkedExample>;
   trap: string;
 }
 
@@ -397,13 +410,15 @@ export interface LearningSessionPayload {
   teachBack: TeachBackResult | null;
   lessonHistory?: ReadonlyArray<LessonCheckResult>;
   remediation?: LessonRemediationState | null;
+  lessonReward?: LessonRewardSummary | null;
+  roundReward?: LearningRoundRewardSummary | null;
 }
 
 export function requiredCorrectForLessonCheck(goalScore: number): 3 | 4 {
   if (!Number.isInteger(goalScore) || goalScore < 1 || goalScore > 36) {
     throw new RangeError("Goal score must be an ACT score from 1 to 36.");
   }
-  return goalScore >= 30 ? 4 : 3;
+  return goalScore > 30 ? 4 : 3;
 }
 
 const DIFFICULTY_WEIGHT: Record<PracticeDifficulty, number> = {
@@ -491,7 +506,7 @@ export function reviewDecision(
     return {
       nextReviewAt: addDays(attempt.answeredAt, 1),
       intervalDays: 1,
-      reason: "You missed this question, so Scout scheduled a short review.",
+      reason: "You missed this question, so AlexACT scheduled a short review.",
     };
   }
 
@@ -513,7 +528,7 @@ export function reviewDecision(
   return {
     nextReviewAt: addDays(attempt.answeredAt, intervalDays),
     intervalDays,
-    reason: "You got this right, so Scout moved the review farther out.",
+    reason: "You got this right, so AlexACT moved the review farther out.",
   };
 }
 

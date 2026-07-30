@@ -122,7 +122,7 @@ function TechnicalMethod() {
             2. Update after a scored answer
           </h3>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Scout applies Bayesian Knowledge Tracing to the tested skill. For a
+            AlexACT applies Bayesian Knowledge Tracing to the tested skill. For a
             medium item, the fixed assumptions are 20% guess, 12% slip, and an
             8% learning transition. “Sure,” “Unsure,” and “Guessing” scale the
             update to 100%, 78%, or 48%. Changing an answer before submission
@@ -187,7 +187,7 @@ export function LearningTwinLab({
       >
         <ScoutCoach
           mood="thinking"
-          message="Scout is loading your 12-skill profile."
+          message="AlexACT is loading your 12-skill profile."
           detail="The profile uses your reported scores, diagnostic answers, and later scored practice."
         />
       </main>
@@ -218,7 +218,7 @@ export function LearningTwinLab({
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
             Choose a skill to see its estimate and the answers behind it. Study
-            estimates are not ACT scores. Scout&apos;s adaptive priority may
+            estimates are not ACT scores. AlexACT&apos;s adaptive priority may
             differ from the lesson currently in sequence.
           </p>
         </div>

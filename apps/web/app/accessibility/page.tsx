@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: "Accessibility",
   description:
-    "Review Scout's built-in study-access controls, accessibility commitments, and current limits.",
+    "Review AlexACT's built-in study-access controls, accessibility commitments, and current limits.",
   alternates: {
     canonical: "/accessibility",
   },
@@ -32,7 +32,7 @@ const ACCESS_OPTIONS = [
   },
   {
     label: "Teaching style",
-    copy: "Request simpler wording or device-supported read-aloud controls for lessons and Scout answers.",
+    copy: "Request simpler wording or device-supported read-aloud controls for lessons and AlexACT answers.",
   },
 ] as const
 
@@ -56,16 +56,16 @@ export default function AccessibilityPage() {
           className="inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
         >
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Scout
+          Back to AlexACT
         </Link>
 
         <header className="mt-8 border-b-2 border-foreground pb-9 sm:mt-10 sm:pb-12">
-          <p className="ink-label text-primary">Accessibility at Scout</p>
+          <p className="ink-label text-primary">Accessibility at AlexACT</p>
           <h1 className="mt-4 max-w-4xl font-heading text-4xl leading-[1.03] font-black tracking-[-0.035em] sm:text-6xl">
             Study tools should adapt to how you work.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Scout includes display, focus, pacing, and explanation controls.
+            AlexACT includes display, focus, pacing, and explanation controls.
             This page explains what is available, where to find it, and what is
             still being checked.
           </p>
@@ -132,7 +132,7 @@ export default function AccessibilityPage() {
               href="/"
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-black text-primary-foreground transition-colors hover:bg-[var(--primary-hover)] focus-visible:ring-4 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none"
             >
-              Open Scout
+              Open AlexACT
               <ArrowRightIcon className="size-4" aria-hidden="true" />
             </Link>
           </div>
@@ -182,7 +182,7 @@ export default function AccessibilityPage() {
               </h2>
               <div className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
                 <p>
-                  Scout is a hackathon project, not a formal WCAG conformance
+                  AlexACT is a hackathon project, not a formal WCAG conformance
                   claim or a replacement for an official accommodation plan.
                 </p>
                 <p>

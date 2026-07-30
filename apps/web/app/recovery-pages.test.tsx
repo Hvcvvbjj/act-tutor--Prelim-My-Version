@@ -14,9 +14,9 @@ describe("recovery pages", () => {
       <ErrorPage error={error} unstable_retry={() => undefined} />
     )
 
-    expect(markup).toContain("Scout hit a snag.")
+    expect(markup).toContain("AlexACT hit a snag.")
     expect(markup).toContain("Try again")
-    expect(markup).toContain("Return to Scout home")
+    expect(markup).toContain("Return to AlexACT home")
     expect(markup).toContain("scout-123")
     expect(markup).not.toContain("private database detail")
   })
@@ -24,9 +24,9 @@ describe("recovery pages", () => {
   it("turns an unknown route into a clear path home", () => {
     const markup = renderToStaticMarkup(<NotFound />)
 
-    expect(markup).toContain("Scout can’t find that page.")
+    expect(markup).toContain("AlexACT can’t find that page.")
     expect(markup).toContain('href="/"')
-    expect(markup).toContain("Return to Scout home")
+    expect(markup).toContain("Return to AlexACT home")
   })
 
   it("keeps a self-contained fallback for root-layout failures", () => {
@@ -39,7 +39,7 @@ describe("recovery pages", () => {
 
     expect(markup).toContain("<html")
     expect(markup).toContain("<body")
-    expect(markup).toContain("Scout needs a fresh start.")
+    expect(markup).toContain("AlexACT needs a fresh start.")
     expect(markup).toContain("Try again")
   })
 })

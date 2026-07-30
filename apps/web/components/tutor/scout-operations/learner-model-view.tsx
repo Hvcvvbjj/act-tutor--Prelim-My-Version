@@ -66,12 +66,12 @@ export function LearnerModelView({
   return (
     <div className="space-y-7">
       <section className="border-y-2 border-foreground py-7">
-        <p className="ink-label text-primary">What Scout saves</p>
+        <p className="ink-label text-primary">What AlexACT saves</p>
         <h2 className="mt-2 max-w-3xl font-heading text-3xl font-black">
           Your study plan, scored answers, and learning progress.
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Export a readable copy whenever you want, or remove Scout&apos;s study
+          Export a readable copy whenever you want, or remove AlexACT&apos;s study
           sessions and saved plan. Deleting study data does not delete an
           account&apos;s sign-in.
         </p>
@@ -87,7 +87,7 @@ export function LearnerModelView({
               aria-expanded={deleteArmed}
               onClick={() => setDeleteArmed(true)}
             >
-              <Trash2Icon /> Delete Scout study data
+              <Trash2Icon /> Delete AlexACT study data
             </Button>
           ) : (
             <div
@@ -110,7 +110,7 @@ export function LearnerModelView({
                   onClick={onDeleteData}
                 >
                   {busy
-                    ? "Deleting Scout study data…"
+                    ? "Deleting AlexACT study data…"
                     : "Confirm study-data deletion"}
                 </Button>
                 <Button
@@ -167,7 +167,7 @@ export function LearnerModelView({
               </p>
             </div>
             <p className="mt-4 text-sm leading-6 font-semibold">
-              This percentage is Scout&apos;s practice estimate for one skill.
+              This percentage is AlexACT&apos;s practice estimate for one skill.
               It is not an ACT score or percent correct.
             </p>
           </div>
@@ -199,7 +199,7 @@ export function LearnerModelView({
         </summary>
         <div className="border-t-2 border-foreground py-7">
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Scout saves the label attached to a missed choice. It does not guess
+            AlexACT saves the label attached to a missed choice. It does not guess
             why you chose that answer.
           </p>
           {report.misconceptions.length ? (
@@ -259,7 +259,7 @@ export function LearnerModelView({
         <div className="grid gap-7 border-t-2 border-foreground py-7 lg:grid-cols-2">
           <div>
             <h2 className="font-heading text-2xl font-black">
-              Tell Scout what it got wrong.
+              Tell AlexACT what it got wrong.
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Your note is saved separately from scored answers. New practice
@@ -289,7 +289,7 @@ export function LearnerModelView({
               htmlFor="learner-model-correction"
               className="mt-4 block text-sm font-semibold"
             >
-              What should Scout correct?
+              What should AlexACT correct?
             </label>
             <textarea
               id="learner-model-correction"
@@ -298,7 +298,7 @@ export function LearnerModelView({
               rows={3}
               maxLength={300}
               className="mt-2 w-full border-2 border-foreground bg-background p-3 text-sm"
-              placeholder="What did Scout misunderstand?"
+              placeholder="What did AlexACT misunderstand?"
             />
             <Button
               type="button"

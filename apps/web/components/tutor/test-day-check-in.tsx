@@ -27,6 +27,10 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { ScoutMark } from "@/components/tutor/scout"
 import type { ReportedOfficialScore } from "@/components/tutor/types"
+import {
+  isNationalActTestDate,
+  upcomingNationalActTestDates,
+} from "@/lib/act-test-dates"
 import { cn } from "@/lib/utils"
 import type { CoreSectionScores } from "@act-tutor/core"
 
@@ -151,17 +155,6 @@ function localToday() {
   const month = String(now.getMonth() + 1).padStart(2, "0")
   const day = String(now.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
-}
-
-function addCalendarDays(value: string, days: number) {
-  if (!isCalendarDate(value)) return value
-  const [year, month, day] = value.split("-").map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day + days))
-  return [
-    String(date.getUTCFullYear()).padStart(4, "0"),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-")
 }
 
 function formatCalendarDate(value: string) {
@@ -340,7 +333,10 @@ export function TestDayCheckIn({
   const headingRef = useRef<HTMLHeadingElement>(null)
   const scoreFormRef = useRef<HTMLFormElement>(null)
   const today = useMemo(() => localToday(), [])
-  const earliestNextTestDate = useMemo(() => addCalendarDays(today, 1), [today])
+  const nextNationalTestDates = useMemo(
+    () => upcomingNationalActTestDates(today, 4),
+    [today]
+  )
   const formattedTestDate = useMemo(
     () => formatCalendarDate(testDate),
     [testDate]
@@ -454,10 +450,14 @@ export function TestDayCheckIn({
     }
 
     if (!preserveCurrentCycle && nextStepChoice === "schedule") {
-      if (!isCalendarDate(nextTestDate) || nextTestDate <= today) {
-        setNextStepError("Choose a real date after today.")
+      if (!isNationalActTestDate(nextTestDate) || nextTestDate <= today) {
+        setNextStepError("Choose an upcoming national ACT date.")
         window.requestAnimationFrame(() => {
-          document.getElementById("next-test-date")?.focus()
+          document
+            .querySelector<HTMLElement>(
+              '[aria-labelledby="next-test-date-label"] [role="radio"]'
+            )
+            ?.focus()
         })
         return
       }
@@ -520,7 +520,7 @@ export function TestDayCheckIn({
             <ScoutMark className="size-8" />
           </div>
           <p className="font-brand text-lg font-black tracking-tight">
-            SCOUT <span className="text-primary">ACT</span>
+            Alex<span className="text-primary">ACT</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ export function TestDayCheckIn({
               About Mr. Kim
             </summary>
             <p className="absolute top-[calc(100%+0.5rem)] right-0 z-20 w-72 rounded-lg border bg-background p-4 text-sm leading-6 text-muted-foreground shadow-lg">
-              Mr. Kim is Scout ACT&apos;s AI tutor. He can explain lessons and
+              Mr. Kim is AlexACT&apos;s AI tutor. He can explain lessons and
               adjust practice, but he cannot verify or submit official scores.
             </p>
           </details>
@@ -772,37 +772,47 @@ export function TestDayCheckIn({
                     </RadioGroup>
 
                     {nextStepChoice === "schedule" ? (
-                      <Field
-                        data-invalid={Boolean(nextStepError)}
-                        className="mt-5 max-w-sm"
-                      >
-                        <FieldLabel htmlFor="next-test-date">
-                          Next ACT date
-                        </FieldLabel>
-                        <Input
-                          id="next-test-date"
-                          name="nextTestDate"
-                          type="date"
-                          min={earliestNextTestDate}
-                          required
+                      <div className="mt-5 max-w-2xl">
+                        <p
+                          id="next-test-date-label"
+                          className="text-sm leading-none font-medium"
+                        >
+                          Next national ACT date
+                        </p>
+                        <RadioGroup
                           value={nextTestDate}
-                          aria-invalid={Boolean(nextStepError)}
+                          onValueChange={(value) => {
+                            setNextTestDate(value)
+                            setNextStepError("")
+                            setSubmitError("")
+                          }}
+                          aria-labelledby="next-test-date-label"
                           aria-describedby={
                             nextStepError
                               ? "next-test-date-help next-step-error"
                               : "next-test-date-help"
                           }
-                          className="h-12"
-                          onChange={(event) => {
-                            setNextTestDate(event.target.value)
-                            setNextStepError("")
-                            setSubmitError("")
-                          }}
-                        />
+                          aria-invalid={Boolean(nextStepError)}
+                          className="mt-3 grid gap-3 sm:grid-cols-2"
+                        >
+                          {nextNationalTestDates.map((entry) => (
+                            <ChoiceCard
+                              key={entry.date}
+                              selected={nextTestDate === entry.date}
+                              icon={CalendarDaysIcon}
+                              title={entry.label}
+                              detail="Published national ACT date"
+                            >
+                              <VisuallyHiddenRadioGroupItem
+                                value={entry.date}
+                              />
+                            </ChoiceCard>
+                          ))}
+                        </RadioGroup>
                         <FieldDescription id="next-test-date-help">
-                          Choose a future calendar date.
+                          Only published national ACT dates are available here.
                         </FieldDescription>
-                      </Field>
+                      </div>
                     ) : null}
                     <FieldError id="next-step-error" className="mt-3">
                       {nextStepError}

@@ -2,7 +2,8 @@ import { NextRequest } from "next/server"
 import { createAssessmentRemediationProgress } from "@act-tutor/core"
 import { describe, expect, it } from "vitest"
 
-import { assertRoundRemediationComplete, GET, POST } from "./route"
+import { assertRoundRemediationComplete } from "./round-remediation"
+import { GET, POST } from "./route"
 
 describe("round assessment remediation gate", () => {
   it("rejects an incomplete diagnostic or full-test review", () => {
@@ -62,7 +63,7 @@ describe("student learning API permissions", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
       error:
-        "Complete Scout's full 66-question diagnostic before opening Lessons.",
+        "Complete AlexACT's full 66-question diagnostic before opening Lessons.",
     })
   })
 
@@ -101,7 +102,7 @@ describe("student learning API permissions", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
       error:
-        "Complete Scout's full 66-question diagnostic before opening Lessons.",
+        "Complete AlexACT's full 66-question diagnostic before opening Lessons.",
     })
   })
 
@@ -117,7 +118,7 @@ describe("student learning API permissions", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
       error:
-        "Complete Scout's full 66-question diagnostic before opening Lessons.",
+        "Complete AlexACT's full 66-question diagnostic before opening Lessons.",
     })
   })
 

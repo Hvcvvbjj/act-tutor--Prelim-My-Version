@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { createHealthPayload, GET } from "./route"
+import { createHealthPayload } from "./health-payload"
+import { GET } from "./route"
 
 describe("GET /api/health", () => {
   it("reports liveness and the build-frozen release", async () => {
@@ -16,7 +17,7 @@ describe("GET /api/health", () => {
   it("uses a safe development label when no release is available", () => {
     expect(createHealthPayload()).toEqual({
       status: "ok",
-      service: "Scout ACT",
+      service: "AlexACT",
       release: "development",
     })
   })

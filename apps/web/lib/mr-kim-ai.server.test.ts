@@ -185,6 +185,11 @@ describe("Mr. Kim AI adapter", () => {
     })
 
     expect(answer.summary).toBe("A comma cannot hold two sentences together.")
+    expect(answer.explanation).toBe(
+      "If both sides can stand alone, use a period, semicolon, or a comma with a joining word."
+    )
+    expect(answer.example).toBe("The bell rang; class began.")
+    expect(answer.nextAction).toBe("Check whether each side can stand alone.")
     expect(answer.technical).toBe(fallback.technical)
     expect(answer.source).toContain("Mr. Kim AI grounded in")
     expect(answer.receipt).toMatchObject({
@@ -236,9 +241,74 @@ describe("Mr. Kim AI adapter", () => {
 
     expect(answer.receipt.checks).toContain("openai-compatible-chat")
     expect(answer.source).toContain("Mr. Kim free AI")
+    expect(answer.summary).toBe("Check whether both sides are full sentences.")
+    expect(answer.explanation).toBe(fallback.explanation)
+    expect(answer.example).toBe(fallback.example)
+    expect(answer.nextAction).toBe(fallback.nextAction)
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("http://127.0.0.1:11434/v1/chat/completions")
     expect(init.headers).not.toMatchObject({ Authorization: expect.anything() })
+  })
+
+  it("uses only a small compatible model's summary and preserves every reviewed teaching field", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                structured: {
+                  summary:
+                    "A comma cannot hold two complete sentences together.",
+                  explanation: "Generated detail that must not replace review.",
+                  example: "Generated example that must not replace review.",
+                  nextAction: "Generated action that must not replace review.",
+                },
+              }),
+            },
+          },
+        ],
+      })
+    )
+
+    const answer = await answerWithMrKimAI(input, {
+      apiKey: null,
+      baseUrl: "http://127.0.0.1:11434/v1",
+      model: "small-local-model",
+      fetchImpl,
+    })
+
+    expect(answer.summary).toContain("comma")
+    expect(answer.explanation).toBe(fallback.explanation)
+    expect(answer.example).toBe(fallback.example)
+    expect(answer.nextAction).toBe(fallback.nextAction)
+    expect(answer.receipt.checks).toContain("openai-compatible-chat")
+  })
+
+  it("keeps reviewed guidance when a local model splices answer-ledger labels", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary:
+                  "A semicolon correctly joins the You chose… while the correct answer",
+              }),
+            },
+          },
+        ],
+      })
+    )
+
+    await expect(
+      answerWithMrKimAI(input, {
+        apiKey: null,
+        baseUrl: "http://127.0.0.1:11434/v1",
+        model: "small-local-model",
+        fetchImpl,
+      })
+    ).resolves.toBe(fallback)
   })
 
   it("redacts contact details before model delivery", async () => {

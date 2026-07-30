@@ -1,8 +1,8 @@
-# Scout ACT adaptive-model card
+# AlexACT adaptive-model card
 
 ## Decision summary
 
-Scout uses three bounded adaptive layers:
+AlexACT uses three bounded adaptive layers:
 
 1. **2PL Item Response Theory asks:** which unanswered ACT-aligned item should collect the most useful evidence now?
 2. **Bayesian Knowledge Tracing asks:** which skill should the learner study next after that trusted evidence arrives?
@@ -18,7 +18,7 @@ Reduce baseline uncertainty with fewer questions than another fixed form while p
 
 ### Form
 
-Scout uses a two-parameter logistic model:
+AlexACT uses a two-parameter logistic model:
 
 ```text
 P(correct | theta, a, b) = 1 / (1 + exp(-1.7a(theta - b)))
@@ -35,7 +35,7 @@ information(theta) = (1.7a)^2 P(correct)(1 - P(correct))
 | Medium                   |           0.00 |               1.20 |
 | Hard                     |           1.05 |               1.35 |
 
-These are product priors, not parameters estimated from official ACT response data. Scout therefore labels the output practice readiness and never converts theta into an official score prediction.
+These are product priors, not parameters estimated from official ACT response data. AlexACT therefore labels the output practice readiness and never converts theta into an official score prediction.
 
 ### Selection policy
 

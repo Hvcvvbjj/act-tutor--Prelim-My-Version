@@ -3,28 +3,23 @@ import { describe, expect, it } from "vitest"
 
 import AccessibilityPage, { metadata } from "./page"
 
-describe("Accessibility page", () => {
-  it("publishes the real study-access controls without claiming formal compliance", () => {
+describe("AlexACT accessibility page", () => {
+  it("uses the product name in learner-facing access guidance", () => {
     const markup = renderToStaticMarkup(<AccessibilityPage />)
 
-    expect(markup).toContain("Study tools should adapt to how you work.")
-    expect(markup).toContain("8 study-access options")
-    expect(markup).toContain("Settings → Study access")
-    expect(markup).toContain("Reading and contrast")
-    expect(markup).toContain("Motion and focus")
-    expect(markup).toContain("Pacing")
-    expect(markup).toContain("Teaching style")
-    expect(markup).toContain("not a formal WCAG conformance claim")
-    expect(markup).toContain("Report an accessibility issue")
-    expect(markup).not.toContain("WCAG compliant")
+    expect(markup).toContain("Accessibility at AlexACT")
+    expect(markup).toContain(
+      "AlexACT includes display, focus, pacing, and explanation controls."
+    )
+    expect(markup).toContain("Open AlexACT")
+    expect(markup).toContain("AlexACT is a hackathon project")
   })
 
-  it("publishes route-specific metadata", () => {
+  it("publishes accessibility-specific metadata", () => {
     expect(metadata).toMatchObject({
       title: "Accessibility",
-      alternates: {
-        canonical: "/accessibility",
-      },
+      description: expect.stringContaining("AlexACT"),
+      alternates: { canonical: "/accessibility" },
     })
   })
 })

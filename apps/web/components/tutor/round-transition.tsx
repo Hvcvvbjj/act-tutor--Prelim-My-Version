@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, Clock3Icon } from "lucide-react"
+import { ArrowRightIcon, BookOpenCheckIcon, Clock3Icon } from "lucide-react"
 
 import { ScoutMark } from "@/components/tutor/scout"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ interface RoundTransitionProps {
   busy?: boolean
   onDiagnostic: () => void
   onFullTest: () => void
+  onReviewLessons: () => void
 }
 
 export function RoundTransition({
@@ -19,6 +20,7 @@ export function RoundTransition({
   busy = false,
   onDiagnostic,
   onFullTest,
+  onReviewLessons,
 }: RoundTransitionProps) {
   return (
     <main
@@ -90,6 +92,18 @@ export function RoundTransition({
             </Button>
           </article>
         </section>
+        <div className="mt-7 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            disabled={busy}
+            onClick={onReviewLessons}
+          >
+            <BookOpenCheckIcon aria-hidden="true" />
+            Review completed lessons
+          </Button>
+        </div>
       </div>
     </main>
   )

@@ -11,28 +11,28 @@ describe("public metadata routes", () => {
   it("brands browser, sharing, and installed-app surfaces consistently", () => {
     expect(siteMetadata.metadataBase?.toString()).toBe(`${SITE_URL}/`)
     expect(siteMetadata).toMatchObject({
-      applicationName: "Scout ACT",
+      applicationName: "AlexACT",
       title: {
-        default: "Scout ACT — Adaptive ACT Study Coach",
-        template: "%s | Scout ACT",
+        default: "AlexACT — Adaptive ACT Study Coach",
+        template: "%s | AlexACT",
       },
       alternates: {
         canonical: "/",
       },
       appleWebApp: {
         capable: true,
-        title: "Scout ACT",
+        title: "AlexACT",
         statusBarStyle: "default",
       },
       openGraph: {
         type: "website",
         url: "/",
-        siteName: "Scout ACT",
-        title: "Scout ACT — Adaptive ACT Study Coach",
+        siteName: "AlexACT",
+        title: "AlexACT — Adaptive ACT Study Coach",
       },
       twitter: {
         card: "summary_large_image",
-        title: "Scout ACT — Adaptive ACT Study Coach",
+        title: "AlexACT — Adaptive ACT Study Coach",
       },
     })
     expect(siteViewport).toEqual({
@@ -43,10 +43,10 @@ describe("public metadata routes", () => {
     })
   })
 
-  it("describes Scout as an installable education app", () => {
+  it("describes AlexACT as an installable education app", () => {
     expect(manifest()).toMatchObject({
-      name: "Scout ACT — Adaptive Study Coach",
-      short_name: "Scout ACT",
+      name: "AlexACT — Adaptive Study Coach",
+      short_name: "AlexACT",
       start_url: "/",
       scope: "/",
       display: "standalone",

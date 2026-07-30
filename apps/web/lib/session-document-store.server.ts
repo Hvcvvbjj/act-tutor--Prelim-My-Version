@@ -24,7 +24,21 @@ const CREATE_STORE_TABLE = `
   )
 `
 
+const CREATE_DOCUMENT_LOCK_TABLE = `
+  CREATE TABLE IF NOT EXISTS app_document_locks (
+    document_key TEXT PRIMARY KEY NOT NULL,
+    owner TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  )
+`
+
 let tablePromise: Promise<void> | null = null
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+}
 
 function cloudflareDatabase(): Promise<D1DatabaseLike | null> {
   try {
@@ -55,9 +69,10 @@ class SitesJsonDocumentStore implements JsonDocumentStore {
 
   private async ensureTable(database: D1DatabaseLike) {
     if (!tablePromise) {
-      tablePromise = database
-        .prepare(CREATE_STORE_TABLE)
-        .run()
+      tablePromise = Promise.all([
+        database.prepare(CREATE_STORE_TABLE).run(),
+        database.prepare(CREATE_DOCUMENT_LOCK_TABLE).run(),
+      ])
         .then(() => undefined)
         .catch((error) => {
           tablePromise = null
@@ -65,6 +80,61 @@ class SitesJsonDocumentStore implements JsonDocumentStore {
         })
     }
     await tablePromise
+  }
+
+  /**
+   * D1 requests can run in separate Worker isolates, so an in-memory queue is
+   * not enough to protect the read-modify-write JSON document. This short
+   * lease serializes mutations for the same document across isolates and
+   * prevents two simultaneous signups from silently replacing each other.
+   */
+  async runExclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const database = await this.database()
+    if (!database) return operation()
+    await this.ensureTable(database)
+
+    const owner = globalThis.crypto.randomUUID()
+    let acquired = false
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const now = Date.now()
+      const expiresAt = now + 15_000
+      await database
+        .prepare(
+          `INSERT INTO app_document_locks (document_key, owner, expires_at)
+           VALUES (?1, ?2, ?3)
+           ON CONFLICT(document_key) DO UPDATE SET
+             owner = excluded.owner,
+             expires_at = excluded.expires_at
+           WHERE app_document_locks.expires_at <= ?4`
+        )
+        .bind(this.documentKey, owner, expiresAt, now)
+        .run()
+      const row = await database
+        .prepare("SELECT owner FROM app_document_locks WHERE document_key = ?1")
+        .bind(this.documentKey)
+        .first<{ owner: string }>()
+      if (row?.owner === owner) {
+        acquired = true
+        break
+      }
+      await wait(20 + (attempt % 5) * 5)
+    }
+
+    if (!acquired) {
+      throw new Error("Account storage is busy. Please try again.")
+    }
+
+    try {
+      return await operation()
+    } finally {
+      await database
+        .prepare(
+          "DELETE FROM app_document_locks WHERE document_key = ?1 AND owner = ?2"
+        )
+        .bind(this.documentKey, owner)
+        .run()
+        .catch(() => undefined)
+    }
   }
 
   async read(): Promise<unknown | null> {

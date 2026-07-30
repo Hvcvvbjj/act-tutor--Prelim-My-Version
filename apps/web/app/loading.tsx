@@ -21,7 +21,7 @@ export default function Loading() {
               priority
             />
             <div>
-              <p className="ink-label text-primary">Scout ACT</p>
+              <p className="ink-label text-primary">AlexACT</p>
               <p className="mt-1 text-sm font-semibold text-muted-foreground">
                 Adaptive study coach
               </p>
@@ -36,7 +36,7 @@ export default function Loading() {
               Getting your study space ready.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Scout is checking for a saved plan and preparing the right
+              AlexACT is checking for a saved plan and preparing the right
               starting screen.
             </p>
           </div>

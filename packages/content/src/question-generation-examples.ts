@@ -80,7 +80,7 @@ export const ACT_QUESTION_DIFFICULTY_RUBRIC = {
 const EXAMPLE_META = {
   status: "published",
   license: "original",
-  reviewer: "Scout ACT content review",
+  reviewer: "AlexACT content review",
   reviewedAt: "2026-07-27",
   purpose: "ai-few-shot",
 } as const;
@@ -197,7 +197,7 @@ export const REVIEWED_ACT_QUESTION_EXAMPLES: ReadonlyArray<ReviewedQuestionGener
           id: "C",
           text: "The cedar waxwing, unlike many birds, that defend a feeding territory will often pass berries to another waxwing perched nearby.",
           misconception:
-            "The comma wrongly separates birds from its restrictive relative clause.",
+            "The comma wrongly separates “birds” from the restrictive relative clause that modifies the noun.",
         },
         {
           id: "D",

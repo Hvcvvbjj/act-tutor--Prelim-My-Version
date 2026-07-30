@@ -57,7 +57,7 @@ Working locally or in verification:
 - a generated Today/Plan/My Skills dashboard, goal-aware scheduling, honest mission progress, and personalized generated-or-reviewed lessons;
 - an 8–12 item adaptive Quick Check plus an original reviewed 66-question practice diagnostic, with server autosave, hidden pre-submit keys, server scoring, and transactional learning-session rebasing;
 - cookie-bound anonymous diagnostic and learning sessions with frozen bank versions, atomic local-file writes, idempotent finalization, versioned offline commands, and quarantined stale work;
-- the complete lesson → guided practice → independent exit ticket → skill update → retention loop, plus decision history, plan counterfactuals, Coach Brief, accommodations, Timed Practice, and server-derived Scout guardrails.
+- the complete lesson → guided practice → independent exit ticket → skill update → retention loop, plus decision history, plan counterfactuals, Coach Brief, accommodations, Timed Practice, and server-derived AlexACT guardrails.
 
 Not complete yet:
 

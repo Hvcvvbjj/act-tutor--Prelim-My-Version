@@ -28,6 +28,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import {
+  isNationalActTestDate,
+  upcomingNationalActTestDates,
+} from "@/lib/act-test-dates"
 import { formatCalendarDate } from "@/lib/dates"
 import type {
   AuthViewer,
@@ -98,7 +102,7 @@ const STEP_COPY = [
     title: "Choose your ACT goal",
     description: "Choose the Composite score you want to work toward.",
     technical:
-      "Scout raises English, Math, and Reading targets by whole points. It chooses the combination whose rounded average reaches your goal with the smallest total squared increase; your focus preference breaks ties.",
+      "AlexACT raises English, Math, and Reading targets by whole points. It chooses the combination whose rounded average reaches your goal with the smallest total squared increase; your focus preference breaks ties.",
     next: "Add my starting score",
   },
   {
@@ -224,7 +228,7 @@ function SchedulePreview({
         {draft.minutesPerSession}-minute sessions — {dayLabels.join(", ")}.
         <span className="text-muted-foreground">
           {" "}
-          Change the days later in My Week.
+          Change the days later in My Schedule.
         </span>
       </p>
     </aside>
@@ -272,6 +276,9 @@ export function Onboarding({
   const scoreChoiceRef = useRef<HTMLDivElement>(null)
   const scoreChoiceError =
     error === "Choose what you know about your current ACT scores."
+  const upcomingTestDates = upcomingNationalActTestDates(today)
+  const nextThreeTestDates = upcomingTestDates.slice(0, 3)
+  const laterTestDates = upcomingTestDates.slice(3)
 
   useEffect(() => {
     if (showWelcome) return
@@ -303,7 +310,7 @@ export function Onboarding({
             <div className="flex shrink-0 items-center gap-3">
               <ScoutMark className="size-10" />
               <p className="font-brand text-lg font-black tracking-[-0.03em]">
-                SCOUT <span className="text-primary">ACT</span>
+                Alex<span className="text-primary">ACT</span>
               </p>
             </div>
             <nav
@@ -315,12 +322,6 @@ export function Onboarding({
                 className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
               >
                 How it works
-              </Link>
-              <Link
-                href="/trust"
-                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-              >
-                Data &amp; privacy
               </Link>
               <Link
                 href="/accessibility"
@@ -352,9 +353,9 @@ export function Onboarding({
                 <span className="text-primary">real baseline.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Start with a recent score or a short Quick Check. Scout&apos;s
-                full 66-question diagnostic builds the broadest baseline. Mr.
-                Kim turns the result into lessons that fit your week.
+                Start with a recent score if you have one. Everyone then takes
+                AlexACT&apos;s full 66-question diagnostic so Mr. Kim can turn
+                the result into lessons that fit your week.
               </p>
               <div className="mt-6 flex flex-col">
                 <div className="order-2 mt-6 lg:order-1 lg:mt-0">
@@ -409,8 +410,8 @@ export function Onboarding({
                         <PlayCircleIcon data-icon="inline-start" />
                       )}
                       {judgeDemoBusy
-                        ? "Opening judge demo…"
-                        : "Open the judge demo"}
+                        ? "Opening developer demo…"
+                        : "Open the developer demo"}
                     </Button>
                   ) : null}
                 </div>
@@ -425,14 +426,14 @@ export function Onboarding({
                 </p>
               ) : null}
               <nav
-                aria-label="Learn about Scout"
+                aria-label="Learn about AlexACT"
                 className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary lg:hidden"
               >
                 <Link
                   href="/how-scout-works"
                   className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                 >
-                  How Scout works
+                  How AlexACT works
                 </Link>
                 <Link
                   href="/trust"
@@ -481,7 +482,7 @@ export function Onboarding({
         <div className="flex items-center gap-2.5">
           <ScoutMark className="size-8" />
           <p className="font-brand text-lg font-black tracking-tight">
-            SCOUT <span className="text-primary">ACT</span>
+            Alex<span className="text-primary">ACT</span>
           </p>
         </div>
         <AccountAccess
@@ -524,7 +525,7 @@ export function Onboarding({
             {viewer.technicalDetails && stepCopy.technical ? (
               <details className="mt-4 max-w-2xl border-l-2 border-primary/35 pl-4 text-sm">
                 <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                  How Scout sets section targets
+                  How AlexACT sets section targets
                 </summary>
                 <p className="mt-2 leading-6 text-muted-foreground">
                   {stepCopy.technical}
@@ -656,11 +657,11 @@ export function Onboarding({
 
                   {draft.priorScoreChoice === "scores" ? (
                     <FieldDescription className="mt-4 max-w-2xl">
-                      Add the scores Scout should use as your starting point.
+                      Add the scores AlexACT should use as your starting point.
                     </FieldDescription>
                   ) : draft.priorScoreChoice === "composite_only" ? (
                     <FieldDescription className="mt-4 max-w-2xl">
-                      Scout will use this number until your answers create
+                      AlexACT will use this number until your answers create
                       section-level estimates.
                     </FieldDescription>
                   ) : null}
@@ -779,13 +780,13 @@ export function Onboarding({
                       </p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         You&apos;ll answer 66 English, Math, and Reading
-                        questions in about 63 minutes. Scout autosaves each
+                        questions in about 63 minutes. AlexACT autosaves each
                         section, so you can leave and continue later.
                       </p>
                     </div>
                   ) : (
                     <p className="mt-5 max-w-2xl text-sm text-muted-foreground">
-                      Choose one to continue. Scout will not invent a score for
+                      Choose one to continue. AlexACT will not invent a score for
                       you.
                     </p>
                   )}
@@ -796,35 +797,93 @@ export function Onboarding({
                 <FieldSet>
                   <FieldLegend className="sr-only">Study schedule</FieldLegend>
                   <FieldDescription className="sr-only">
-                    Scout fills only the study blocks you choose. You can change
+                    AlexACT fills only the study blocks you choose. You can change
                     them later.
                   </FieldDescription>
 
                   <div className="mt-5 grid gap-4">
                     <Field data-invalid={Boolean(error)}>
-                      <FieldLabel htmlFor="test-date">Next ACT date</FieldLabel>
-                      <Input
-                        id="test-date"
-                        type="date"
-                        min={today}
-                        value={draft.testDate}
-                        aria-invalid={Boolean(error)}
-                        aria-describedby={
-                          error
-                            ? "test-date-help test-date-error"
-                            : "test-date-help"
-                        }
-                        onChange={(event) =>
-                          onUpdate({ testDate: event.target.value })
-                        }
-                        className="h-12 max-w-sm text-base"
-                      />
+                      <FieldLabel id="test-date-label">
+                        Next national ACT date
+                      </FieldLabel>
+                      {nextThreeTestDates.length ? (
+                        <div
+                          className="grid max-w-3xl gap-2 sm:grid-cols-3"
+                          role="radiogroup"
+                          aria-labelledby="test-date-label"
+                          aria-invalid={Boolean(error)}
+                          aria-describedby={
+                            error
+                              ? "test-date-help test-date-error"
+                              : "test-date-help"
+                          }
+                        >
+                          {nextThreeTestDates.map((entry) => (
+                            <Button
+                              key={entry.date}
+                              type="button"
+                              role="radio"
+                              aria-checked={draft.testDate === entry.date}
+                              variant={
+                                draft.testDate === entry.date
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="min-h-14 justify-start px-4 text-left whitespace-normal"
+                              onClick={() => onUpdate({ testDate: entry.date })}
+                            >
+                              {entry.label}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          ACT has not published another supported national date
+                          yet.
+                        </p>
+                      )}
+                      {laterTestDates.length ? (
+                        <details className="max-w-3xl border-y border-border/80 py-2">
+                          <summary className="min-h-10 cursor-pointer py-2 text-sm font-semibold">
+                            Later official dates
+                          </summary>
+                          <div className="grid gap-2 pb-2 sm:grid-cols-2">
+                            {laterTestDates.map((entry) => (
+                              <Button
+                                key={entry.date}
+                                type="button"
+                                variant={
+                                  draft.testDate === entry.date
+                                    ? "secondary"
+                                    : "ghost"
+                                }
+                                className="justify-start"
+                                onClick={() =>
+                                  onUpdate({ testDate: entry.date })
+                                }
+                              >
+                                {entry.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </details>
+                      ) : null}
                       <FieldDescription
                         id="test-date-help"
                         aria-live="polite"
                         className="max-w-xl"
                       >
-                        {testDateDescription(draft.testDate, today)}
+                        {isNationalActTestDate(draft.testDate)
+                          ? testDateDescription(draft.testDate, today)
+                          : "Choose one of ACT’s published national test dates."}{" "}
+                        <Link
+                          href="https://www.act.org/content/act/en/products-and-services/the-act/registration/test-dates.html"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-primary underline underline-offset-4"
+                        >
+                          Check ACT.org
+                        </Link>
                       </FieldDescription>
                       <FieldError id="test-date-error">{error}</FieldError>
                     </Field>
@@ -957,8 +1016,8 @@ export function Onboarding({
                     <PlayCircleIcon data-icon="inline-start" />
                   )}
                   {judgeDemoBusy
-                    ? "Opening judge demo…"
-                    : "Open the judge demo"}
+                    ? "Opening developer demo…"
+                    : "Open the developer demo"}
                 </Button>
                 {judgeDemoError ? (
                   <p

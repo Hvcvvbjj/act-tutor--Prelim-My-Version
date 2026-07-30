@@ -651,7 +651,7 @@ export function LearnerOrientation({
       <header className="border-b bg-background">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <span className="font-brand text-lg font-black tracking-[-0.02em]">
-            Scout ACT
+            AlexACT
           </span>
         </div>
       </header>
@@ -674,7 +674,7 @@ export function LearnerOrientation({
                 Your starting score is ready.
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-muted-foreground">
-                Scout updates it as you complete scored work.
+                AlexACT updates it as you complete scored work.
               </p>
 
               <div className="mx-auto mt-9 max-w-xl border-y py-7">
@@ -775,7 +775,7 @@ export function LearnerOrientation({
                 className="mx-auto size-28 motion-reduce:animate-none sm:size-36"
               />
               <p className="ink-label mt-5 text-[var(--scout-coral-text)]">
-                Mr. Kim · Scout’s in-app coach
+                Mr. Kim · AlexACT’s in-app coach
               </p>
               <h1
                 ref={headingRef}

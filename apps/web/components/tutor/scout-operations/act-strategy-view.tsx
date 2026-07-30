@@ -19,7 +19,7 @@ export function ActStrategyView({
           Learn the method first. Add the clock in steps.
         </h2>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
-          These are the official section clocks Scout uses when preparing timed
+          These are the official section clocks AlexACT uses when preparing timed
           practice toward your goal of {plan.draft.goal}. A slow correct answer
           is still useful while you are learning.
         </p>

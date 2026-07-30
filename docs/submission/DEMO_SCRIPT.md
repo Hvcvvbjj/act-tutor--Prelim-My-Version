@@ -17,7 +17,7 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 **Say:** “Most ACT tools give every student the same calendar. Generic chatbots can explain a problem, but they do not know what the student has actually proved.”
 
-**Show:** Scout onboarding. Keep the three-input premise visible.
+**Show:** AlexACT onboarding. Keep the three-input premise visible.
 
 ### 0:08–0:22 — Required baseline and skill map
 
@@ -29,7 +29,7 @@ Target runtime: **1:52–1:57**. The official rules state that content after 2:0
 
 **Say:** “Mr. Kim now tours the actual dashboard. Each step scrolls to the real control, darkens the rest of the page, and puts the current action in the visual center.”
 
-**Show:** The spotlight moving through Lessons, My Week, Full Diagnostic, Timed Practice, Progress, Badges, Mr. Kim, and Settings.
+**Show:** The spotlight moving through Lessons, My Schedule, Timed Practice, Progress, Badges, Mr. Kim, and Settings.
 
 ### 0:42–1:10 — Segmented learning path
 

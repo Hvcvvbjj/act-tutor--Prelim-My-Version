@@ -1,15 +1,18 @@
 import { expect, type Page, test } from "@playwright/test"
 
 async function signInAsJudge(page: Page) {
-  const judgeUsername = process.env.SCOUT_JUDGE_USERNAME
-  const judgePassword = process.env.SCOUT_E2E_JUDGE_PASSWORD
+  const judgeUsername =
+    process.env.SCOUT_DEV_USERNAME ?? process.env.SCOUT_JUDGE_USERNAME
+  const judgePassword =
+    process.env.SCOUT_E2E_DEV_PASSWORD ??
+    process.env.SCOUT_E2E_JUDGE_PASSWORD
   expect(
     judgeUsername,
-    "Set SCOUT_JUDGE_USERNAME for the judge flow."
+    "Set SCOUT_DEV_USERNAME for the developer flow."
   ).toBeTruthy()
   expect(
     judgePassword,
-    "Set SCOUT_E2E_JUDGE_PASSWORD for the judge flow."
+    "Set SCOUT_E2E_DEV_PASSWORD for the developer flow."
   ).toBeTruthy()
 
   await page.addInitScript(() => {
@@ -22,10 +25,12 @@ async function signInAsJudge(page: Page) {
   await signIn.getByLabel("Password").fill(judgePassword!)
   await signIn.getByRole("button", { name: "Sign in", exact: true }).click()
 
-  await expect(page.getByRole("button", { name: "Judge view" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Developer mode" })
+  ).toBeVisible()
 }
 
-test("a verified judge can open the demo directly from the welcome screen", async ({
+test("a verified developer can open the demo directly from the welcome screen", async ({
   page,
 }) => {
   await signInAsJudge(page)
@@ -38,16 +43,16 @@ test("a verified judge can open the demo directly from the welcome screen", asyn
     page.getByRole("heading", { name: "Choose your ACT goal" })
   ).toHaveCount(0)
 
-  await page.getByRole("button", { name: "Open the judge demo" }).click()
+  await page.getByRole("button", { name: "Open the developer demo" }).click()
   await expect(page.getByRole("heading", { name: "Quick Check" })).toBeVisible({
     timeout: 20_000,
   })
   await expect(
-    page.getByText("How Scout chose this question", { exact: false })
+    page.getByText("How AlexACT chose this question", { exact: false })
   ).toBeVisible()
 })
 
-test("a failed judge demo stays on the welcome screen with a retry path", async ({
+test("a failed developer demo stays on the welcome screen with a retry path", async ({
   page,
 }) => {
   await signInAsJudge(page)
@@ -64,14 +69,14 @@ test("a failed judge demo stays on the welcome screen with a retry path", async 
   })
 
   const demoButton = page.getByRole("button", {
-    name: "Open the judge demo",
+    name: "Open the developer demo",
   })
   await demoButton.click()
 
   await expect(
     page.getByRole("alert").filter({
       hasText:
-        "The judge demo did not open. Try again, or continue with normal setup.",
+        "The developer demo did not open. Try again, or continue with normal setup.",
     })
   ).toBeVisible()
   await expect(

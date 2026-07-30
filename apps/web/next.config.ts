@@ -43,11 +43,11 @@ export const BUILD_COMMIT =
 
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://js.puter.com${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "font-src 'self'",
-  `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}`,
+  `connect-src 'self' https://api.puter.com https://*.puter.com${isDevelopment ? " ws: wss:" : ""}`,
   "media-src 'self' blob:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
@@ -85,7 +85,7 @@ export const SECURITY_HEADERS = [
     value: "DENY",
   },
   {
-    key: "X-Scout-Release",
+    key: "X-AlexACT-Release",
     value: BUILD_COMMIT,
   },
 ] as const

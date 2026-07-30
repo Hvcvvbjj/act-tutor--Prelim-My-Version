@@ -4,6 +4,8 @@ import { FULL_LENGTH_PRACTICE_FORM } from "@act-tutor/content"
 import { selectExamLabQuestions, type CoreSection } from "@act-tutor/core"
 import { describe, expect, it } from "vitest"
 
+import { shouldShowExamLabDifficulty } from "@/components/tutor/assessment-display"
+
 const root = new URL("../../", import.meta.url)
 
 async function source(path: string) {
@@ -11,7 +13,7 @@ async function source(path: string) {
 }
 
 describe("assessment presentation contract", () => {
-  it("shows difficulty on lesson checks but never on diagnostic or test runners", async () => {
+  it("shows difficulty on lesson and progress checks, but not diagnostics", async () => {
     const [lesson, diagnostic, examRunner] = await Promise.all([
       source("components/tutor/lesson-workspace.tsx"),
       source("components/tutor/diagnostic-runner.tsx"),
@@ -24,8 +26,17 @@ describe("assessment presentation contract", () => {
     )
     expect(diagnostic).not.toContain("practice-difficulty")
     expect(diagnostic).not.toContain("question.difficulty")
-    expect(examRunner).not.toContain("practice-difficulty")
-    expect(examRunner).not.toContain("question.difficulty")
+    expect(examRunner).toContain('data-testid="progress-check-difficulty"')
+    expect(examRunner).toContain("shouldShowExamLabDifficulty(assessmentLabel)")
+    expect(examRunner).toContain(
+      "PRACTICE_DIFFICULTY_LABELS[question.difficulty]"
+    )
+  })
+
+  it("limits exam-lab difficulty tags to progress checks", () => {
+    expect(shouldShowExamLabDifficulty("Progress check")).toBe(true)
+    expect(shouldShowExamLabDifficulty("Timed Practice")).toBe(false)
+    expect(shouldShowExamLabDifficulty("Full-length practice test")).toBe(false)
   })
 
   it("renders countdowns in both the diagnostic and timed test runners", async () => {
