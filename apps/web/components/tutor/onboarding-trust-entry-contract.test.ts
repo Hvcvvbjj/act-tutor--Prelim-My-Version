@@ -9,9 +9,16 @@ async function onboardingSource() {
   })
 }
 
+async function layoutSource() {
+  return readFile(path.join(process.cwd(), "app/layout.tsx"), {
+    encoding: "utf8",
+  })
+}
+
 describe("onboarding trust entry contract", () => {
   it("offers product and privacy context before collecting learner data", async () => {
     const onboarding = await onboardingSource()
+    const layout = await layoutSource()
     const welcomeStart = onboarding.indexOf("if (showWelcome)")
     const setupStart = onboarding.indexOf(
       'data-hide-global-footer\n      className="min-h-svh bg',
@@ -19,11 +26,12 @@ describe("onboarding trust entry contract", () => {
     )
     const welcome = onboarding.slice(welcomeStart, setupStart)
 
-    expect(welcome).toContain('aria-label="Welcome"')
     expect(welcome).toContain('aria-label="Learn about AlexACT"')
-    expect(welcome).toContain('href="/how-scout-works"')
     expect(welcome).toContain('href="/trust"')
-    expect(welcome.match(/href="\/accessibility"/g)).toHaveLength(2)
+    expect(welcome).not.toContain('href="/how-scout-works"')
+    expect(welcome).not.toContain('href="/accessibility"')
+    expect(layout).not.toContain('href="/how-scout-works"')
+    expect(layout).not.toContain('href="/accessibility"')
     expect(welcome).toContain("Data, privacy, and limits")
     expect(welcome).toContain("min-h-11")
     expect(welcome).toContain("Everyone then takes")

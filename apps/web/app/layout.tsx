@@ -58,22 +58,10 @@ export default function RootLayout({
                 className="mt-2 flex flex-wrap gap-x-5"
               >
                 <Link
-                  href="/how-scout-works"
-                  className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-                >
-                  How AlexACT works
-                </Link>
-                <Link
                   href="/trust"
                   className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                 >
                   Data, privacy, and product limits
-                </Link>
-                <Link
-                  href="/accessibility"
-                  className="inline-flex min-h-11 items-center font-bold text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-                >
-                  Accessibility
                 </Link>
                 <a
                   href="https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version"

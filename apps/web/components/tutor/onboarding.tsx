@@ -313,23 +313,6 @@ export function Onboarding({
                 Alex<span className="text-primary">ACT</span>
               </p>
             </div>
-            <nav
-              className="hidden items-center gap-6 text-sm font-bold text-primary lg:flex"
-              aria-label="Welcome"
-            >
-              <Link
-                href="/how-scout-works"
-                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-              >
-                How it works
-              </Link>
-              <Link
-                href="/accessibility"
-                className="inline-flex min-h-11 items-center underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-              >
-                Accessibility
-              </Link>
-            </nav>
             <div className="flex items-center">
               <AccountAccess
                 viewer={viewer}
@@ -430,22 +413,10 @@ export function Onboarding({
                 className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary lg:hidden"
               >
                 <Link
-                  href="/how-scout-works"
-                  className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-                >
-                  How AlexACT works
-                </Link>
-                <Link
                   href="/trust"
                   className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                 >
                   Data, privacy, and limits
-                </Link>
-                <Link
-                  href="/accessibility"
-                  className="inline-flex min-h-11 items-center underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-                >
-                  Accessibility
                 </Link>
               </nav>
             </div>

@@ -155,7 +155,7 @@ describe("dashboard tour interaction contract", () => {
         /<nav[\s\S]*?aria-label="Welcome"[\s\S]*?<\/nav>/
       )?.[0] ?? ""
 
-    expect(welcomeNav).toContain("How it works")
+    expect(welcomeNav).toBe("")
     expect(welcomeNav).not.toContain("Full diagnostic")
     expect(welcomeNav).not.toContain("Meet Mr. Kim")
     expect(onboarding).toContain('step === 1 && "text-center"')
