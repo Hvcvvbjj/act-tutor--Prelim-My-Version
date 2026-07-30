@@ -92,6 +92,9 @@ describe("free cloud Mr. Kim AI", () => {
     expect(answer.receipt.permissions).toEqual(fallback.receipt.permissions)
     expect(answer.source).toContain("Free cloud Mr. Kim AI")
     expect(puter.chat).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(puter.chat.mock.calls[0])).toContain(
+      "multiple ways to apply a rule"
+    )
   })
 
   it("keeps a complete generated summary between 181 and 600 characters without truncating it", async () => {

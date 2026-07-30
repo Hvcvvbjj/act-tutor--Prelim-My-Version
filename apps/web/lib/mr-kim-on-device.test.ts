@@ -99,6 +99,9 @@ describe("free on-device Mr. Kim AI", () => {
     expect(answer.receipt.permissions).toEqual(fallback.receipt.permissions)
     expect(answer.source).toContain("Free on-device Mr. Kim AI")
     expect(model.destroy).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(model.factory.create.mock.calls[0])).toContain(
+      "multiple ways to apply a rule"
+    )
   })
 
   it("keeps a complete generated summary between 181 and 600 characters without truncating it", async () => {
