@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     "out/**",
     "build/**",
+    // Staged third-party browser client; lint the loader, not minified vendor code.
+    "public/vendor/**",
     "next-env.d.ts",
   ]),
 ])
