@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: "How AlexACT Works",
   description:
-    "See how AlexACT turns a scored answer into learning evidence and the next ACT study action.",
+    "See how AlexACT turns a scored answer into learning evidence and rechecks later-round study priorities.",
   alternates: {
     canonical: "/how-scout-works",
   },
@@ -34,7 +34,7 @@ const STEPS = [
 const PROOF_POINTS = [
   "The estimate before and after a scored answer.",
   "How many answers support the estimate.",
-  "Why the next skill changed—or why it stayed the same.",
+  "Why the later-round priority changed—or why it stayed the same.",
   "Whether AlexACT used a generated explanation or its reviewed fallback.",
 ] as const
 

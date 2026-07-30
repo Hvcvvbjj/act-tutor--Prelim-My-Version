@@ -183,6 +183,14 @@ test("the public explainer makes AlexACT's adaptive loop inspectable", async ({
   await expect(page.getByText("IRT · question picker")).toBeVisible()
   await expect(page.getByText("BKT · learning estimate")).toBeVisible()
   await expect(page.getByText("AI · explanation")).toBeVisible()
+  await page.getByText("What you can inspect", { exact: true }).click()
+  await expect(
+    page.getByText(
+      "Why the later-round priority changed—or why it stayed the same.",
+      { exact: true }
+    )
+  ).toBeVisible()
+  await expect(page.getByText("Why the next skill changed")).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Source code" })).toHaveAttribute(
     "href",
     "https://github.com/Hvcvvbjj/act-tutor--Prelim-My-Version"

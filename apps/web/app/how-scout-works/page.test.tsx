@@ -29,6 +29,10 @@ describe("How AlexACT works", () => {
     expect(markup).toContain('href="/trust"')
     expect(markup).not.toContain("update the lesson order")
     expect(markup).toContain("What you can inspect")
+    expect(markup).toContain(
+      "Why the later-round priority changed—or why it stayed the same."
+    )
+    expect(markup).not.toContain("Why the next skill changed")
     expect(markup).not.toContain("The product promise")
     expect(markup).not.toContain("Try the one-answer adaptive demo.")
   })
@@ -36,6 +40,8 @@ describe("How AlexACT works", () => {
   it("publishes route-specific metadata", () => {
     expect(metadata).toMatchObject({
       title: "How AlexACT Works",
+      description:
+        "See how AlexACT turns a scored answer into learning evidence and rechecks later-round study priorities.",
       alternates: {
         canonical: "/how-scout-works",
       },
