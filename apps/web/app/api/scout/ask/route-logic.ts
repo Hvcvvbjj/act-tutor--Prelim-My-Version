@@ -467,12 +467,10 @@ export function answerFor(input: {
         : "review"
       : "study"
   const learningQuestion =
-    request.screen === "today"
-      ? request.questionId
-        ? learning?.questions.find(
-            (question) => question.id === request.questionId
-          )
-        : learning?.questions[learning.currentQuestionIndex]
+    request.screen === "today" && request.questionId
+      ? learning?.questions.find(
+          (question) => question.id === request.questionId
+        )
       : undefined
   const examQuestion = request.questionId
     ? exam?.questions.find((question) => question.id === request.questionId)

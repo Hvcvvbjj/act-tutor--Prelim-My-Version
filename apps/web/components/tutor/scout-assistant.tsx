@@ -196,7 +196,6 @@ function ScoutAnswerCard({
 export function ScoutProvider({
   children,
   activeTab,
-  learning,
   canViewTechnicalDetails = false,
   onEditPlan,
   onOpenDataPrivacy,
@@ -577,11 +576,7 @@ export function ScoutProvider({
         body: JSON.stringify({
           question: nextQuestion,
           screen: activeTab,
-          questionId:
-            contextQuestionId ??
-            (activeTab === "today"
-              ? (learning?.questions[learning.currentQuestionIndex]?.id ?? null)
-              : null),
+          questionId: contextQuestionId,
           selectedText: selection,
         }),
       })

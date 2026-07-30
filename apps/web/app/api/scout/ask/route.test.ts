@@ -294,6 +294,9 @@ describe("AlexACT server policy", () => {
     )
     expect(answer.explanation).toContain("comma splice")
     expect(answer.summary).not.toContain("You are working on")
+    expect(answer.receipt.questionId).toBeNull()
+    expect(answer.receipt.skillId).toBe("sentence-boundaries")
+    expect(answer.receipt.permissions).toContain("CAN_REPHRASE")
   })
 
   it("ends rule explanations with a direct next step", () => {

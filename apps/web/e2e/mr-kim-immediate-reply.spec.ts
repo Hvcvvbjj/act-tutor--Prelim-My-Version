@@ -38,6 +38,7 @@ test("a reviewed Mr. Kim reply appears before optional AI and survives its failu
   page,
 }) => {
   let askedQuestion = ""
+  let askedQuestionId: string | null | undefined
   const messages: ScoutMessage[] = []
 
   await page.route("**/vendor/puter-v2.5.4.js", async (route) => {
@@ -81,8 +82,13 @@ test("a reviewed Mr. Kim reply appears before optional AI and survives its failu
     }
 
     if (request.method() === "POST") {
-      const body = request.postDataJSON() as { question: string; screen: string }
+      const body = request.postDataJSON() as {
+        question: string
+        questionId?: string | null
+        screen: string
+      }
       askedQuestion = body.question
+      askedQuestionId = body.questionId
       const message: ScoutMessage = {
         id: "reviewed-answer-1",
         askedAt: "2026-07-29T12:01:00.000Z",
@@ -129,6 +135,7 @@ test("a reviewed Mr. Kim reply appears before optional AI and survives its failu
     )
     .toBe(true)
   expect(askedQuestion).toBe(question)
+  expect(askedQuestionId).toBeNull()
 
   await expect(dialog.getByText(question, { exact: true })).toBeVisible()
   await expect(
