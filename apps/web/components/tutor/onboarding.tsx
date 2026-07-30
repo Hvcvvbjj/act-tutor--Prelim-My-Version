@@ -64,16 +64,16 @@ const STEP_LABELS = ["Goal", "Scores", "Schedule"] as const
 
 const WELCOME_PROOF = [
   {
-    label: "Answer",
-    copy: "Reviewed score",
+    label: "Question",
+    copy: "Match updated",
   },
   {
-    label: "Evidence",
-    copy: "Visible skill update",
+    label: "Skill",
+    copy: "One estimate updated",
   },
   {
-    label: "Plan",
-    copy: "Next lesson + week",
+    label: "Priority",
+    copy: "Later priority rechecked",
   },
 ] as const
 
@@ -320,6 +320,7 @@ export function Onboarding({
                 pendingSetup={pendingSetup}
                 onViewerChange={onViewerChange}
                 guestLabel="Sign in"
+                showLabelOnMobile
               />
             </div>
           </div>
@@ -343,10 +344,10 @@ export function Onboarding({
               <div className="mt-6 flex flex-col">
                 <div className="order-2 mt-6 lg:order-1 lg:mt-0">
                   <p className="font-mono text-[0.68rem] font-black tracking-[0.13em] text-primary uppercase">
-                    One scored answer can change
+                    One answer. Three visible results.
                   </p>
                   <ol
-                    aria-label="What one scored answer can change"
+                    aria-label="What AlexACT shows after one scored answer"
                     className="mt-2 grid max-w-2xl grid-cols-3 overflow-hidden rounded-xl border border-border/80 bg-background/75 shadow-sm backdrop-blur-sm"
                   >
                     {WELCOME_PROOF.map((proof, index) => (
@@ -757,8 +758,8 @@ export function Onboarding({
                     </div>
                   ) : (
                     <p className="mt-5 max-w-2xl text-sm text-muted-foreground">
-                      Choose one to continue. AlexACT will not invent a score for
-                      you.
+                      Choose one to continue. AlexACT will not invent a score
+                      for you.
                     </p>
                   )}
                 </FieldSet>
@@ -768,8 +769,8 @@ export function Onboarding({
                 <FieldSet>
                   <FieldLegend className="sr-only">Study schedule</FieldLegend>
                   <FieldDescription className="sr-only">
-                    AlexACT fills only the study blocks you choose. You can change
-                    them later.
+                    AlexACT fills only the study blocks you choose. You can
+                    change them later.
                   </FieldDescription>
 
                   <div className="mt-5 grid gap-4">

@@ -33,6 +33,7 @@ interface AccountAccessProps {
   onViewerChange: (viewer: AuthViewer) => void
   className?: string
   guestLabel?: string
+  showLabelOnMobile?: boolean
 }
 
 type Mode = "login" | "signup"
@@ -85,6 +86,7 @@ export function AccountAccess({
   onViewerChange,
   className,
   guestLabel,
+  showLabelOnMobile = false,
 }: AccountAccessProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>("login")
@@ -279,7 +281,14 @@ export function AccountAccess({
         ) : (
           <SaveIcon />
         )}
-        <span className="hidden truncate sm:inline">{buttonLabel}</span>
+        <span
+          className={cn(
+            "truncate",
+            showLabelOnMobile ? "inline" : "hidden sm:inline"
+          )}
+        >
+          {buttonLabel}
+        </span>
       </Button>
 
       {open ? (

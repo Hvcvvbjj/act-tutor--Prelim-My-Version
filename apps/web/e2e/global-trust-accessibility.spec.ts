@@ -79,15 +79,30 @@ test("the welcome screen leads with a real baseline and Mr. Kim", async ({
   ).toBeVisible()
   await expect(page.getByText(/full 66-question diagnostic/)).toBeVisible()
   await expect(
-    page.getByText(/Mr\. Kim turns the result into lessons/)
+    page.getByText(/Mr\. Kim can turn\s+the result into lessons/)
   ).toBeVisible()
+  const welcomeProof = page.getByRole("list", {
+    name: "What AlexACT shows after one scored answer",
+  })
+  await expect(
+    page.getByText("One answer. Three visible results.", { exact: true })
+  ).toBeVisible()
+  await expect(welcomeProof.getByText("Match updated")).toBeVisible()
+  await expect(welcomeProof.getByText("One estimate updated")).toBeVisible()
+  await expect(welcomeProof.getByText("Later priority rechecked")).toBeVisible()
+  await expect(
+    page.getByText("Next lesson + week", { exact: true })
+  ).toHaveCount(0)
   await expect(page.getByTestId("learning-data-notice")).toHaveCount(0)
   await expect(
     page.getByRole("button", { name: "See one answer change the plan" })
   ).toHaveCount(0)
-  await expect(
-    page.getByRole("button", { name: "Sign in", exact: true })
-  ).toBeVisible()
+  const signInButton = page.getByRole("button", {
+    name: "Sign in",
+    exact: true,
+  })
+  await expect(signInButton).toBeVisible()
+  await expect(signInButton.getByText("Sign in", { exact: true })).toBeVisible()
 
   await expect
     .poll(() =>
@@ -261,9 +276,9 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   }
 
   await expect(header.getByRole("button", { name: "More" })).toHaveCount(0)
-  await expect(page.getByRole("menu", { name: "More from AlexACT" })).toHaveCount(
-    0
-  )
+  await expect(
+    page.getByRole("menu", { name: "More from AlexACT" })
+  ).toHaveCount(0)
 
   await expect(
     header.getByRole("button", { name: "Full Diagnostic" })

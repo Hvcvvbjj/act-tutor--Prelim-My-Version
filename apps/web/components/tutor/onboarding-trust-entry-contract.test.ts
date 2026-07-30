@@ -40,15 +40,20 @@ describe("onboarding trust entry contract", () => {
     expect(layout).not.toContain('href="/accessibility"')
     expect(welcome).toContain("Data, privacy, and limits")
     expect(welcome).toContain("min-h-11")
+    expect(welcome).toContain("showLabelOnMobile")
     expect(welcome).toContain("Everyone then takes")
     expect(welcome).toContain("full 66-question diagnostic")
-    expect(welcome).toContain("One scored answer can change")
-    expect(welcome).toContain('aria-label="What one scored answer can change"')
+    expect(welcome).toContain("One answer. Three visible results.")
+    expect(welcome).toContain(
+      'aria-label="What AlexACT shows after one scored answer"'
+    )
     expect(welcome).toContain("WELCOME_PROOF.map")
-    expect(onboarding).toContain('copy: "Reviewed score"')
-    expect(onboarding).toContain('copy: "Visible skill update"')
-    expect(onboarding).toContain('copy: "Next lesson + week"')
-    expect(welcome.indexOf("One scored answer can change")).toBeLessThan(
+    expect(onboarding).toContain('copy: "Match updated"')
+    expect(onboarding).toContain('copy: "One estimate updated"')
+    expect(onboarding).toContain('copy: "Later priority rechecked"')
+    expect(onboarding).not.toContain('copy: "Reviewed score"')
+    expect(onboarding).not.toContain('copy: "Next lesson + week"')
+    expect(welcome.indexOf("One answer. Three visible results.")).toBeLessThan(
       welcome.indexOf("Build my starting plan")
     )
     expect(welcome.indexOf('aria-label="Learn about AlexACT"')).toBeGreaterThan(
