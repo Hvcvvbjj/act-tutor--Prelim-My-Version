@@ -88,6 +88,19 @@ describe("free cloud Mr. Kim AI", () => {
     expect(puter.chat).toHaveBeenCalledTimes(1)
   })
 
+  it("lets Puter AI start its automatic auth flow for an unsigned learner", async () => {
+    const puter = client({ signedIn: false })
+    const answer = await answerWithFreeCloudMrKimAI({
+      question: "Can you explain that more simply?",
+      answer: fallback,
+      puter,
+    })
+
+    expect(puter.chat).toHaveBeenCalledTimes(1)
+    expect(puter.signIn).not.toHaveBeenCalled()
+    expect(answer.receipt.checks).toContain(FREE_CLOUD_AI_CHECK)
+  })
+
   it("keeps reviewed guidance when the model output is malformed", async () => {
     const puter = client({ output: "not json" })
     await expect(
@@ -95,6 +108,20 @@ describe("free cloud Mr. Kim AI", () => {
         question: "Help",
         answer: fallback,
         puter,
+      })
+    ).resolves.toBe(fallback)
+  })
+
+  it("keeps reviewed guidance when optional cloud AI stalls", async () => {
+    const puter = client()
+    puter.ai.chat = vi.fn(() => new Promise(() => {}))
+
+    await expect(
+      answerWithFreeCloudMrKimAI({
+        question: "Help",
+        answer: fallback,
+        puter,
+        timeoutMs: 1,
       })
     ).resolves.toBe(fallback)
   })

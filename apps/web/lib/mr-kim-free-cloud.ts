@@ -43,6 +43,7 @@ interface PuterClient {
 const PUTER_MODEL = "gpt-5.4-nano"
 const PUTER_SCRIPT_ID = "alexact-free-ai"
 const PUTER_LOAD_TIMEOUT_MS = 8_000
+const PUTER_ANSWER_TIMEOUT_MS = 45_000
 
 type PuterWindow = {
   puter?: PuterClient
@@ -103,6 +104,23 @@ function runtimePuterWindow(): PuterWindow | undefined {
   return typeof window === "undefined"
     ? undefined
     : (window as unknown as PuterWindow)
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Optional AI timed out.")),
+          timeoutMs
+        )
+      }),
+    ])
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout)
+  }
 }
 
 export function preloadFreeCloudMrKimAI(
@@ -172,10 +190,11 @@ export async function answerWithFreeCloudMrKimAI(input: {
   answer: ScoutAnswer
   history?: ReadonlyArray<ScoutMessage>
   puter?: PuterClient
+  timeoutMs?: number
 }) {
   if (!canUseOnDeviceAI(input.answer)) return input.answer
   const puter = input.puter ?? runtimePuterWindow()?.puter
-  if (!puter || !puter.auth.isSignedIn()) return input.answer
+  if (!puter) return input.answer
 
   const recentConversation = (input.history ?? []).slice(-3).map((message) => ({
     learner: message.question.slice(0, 240),
@@ -186,24 +205,27 @@ export async function answerWithFreeCloudMrKimAI(input: {
   }))
 
   try {
-    const response = await puter.ai.chat(
-      [
-        { role: "system", content: FREE_CLOUD_INSTRUCTIONS },
-        {
-          role: "user",
-          content: JSON.stringify({
-            learnerQuestion: input.question.slice(0, 500),
-            reviewedAnswer: {
-              summary: input.answer.summary,
-              explanation: input.answer.explanation,
-              example: input.answer.example,
-              nextAction: input.answer.nextAction,
-            },
-            recentConversation,
-          }),
-        },
-      ],
-      { model: PUTER_MODEL, stream: false }
+    const response = await withTimeout(
+      puter.ai.chat(
+        [
+          { role: "system", content: FREE_CLOUD_INSTRUCTIONS },
+          {
+            role: "user",
+            content: JSON.stringify({
+              learnerQuestion: input.question.slice(0, 500),
+              reviewedAnswer: {
+                summary: input.answer.summary,
+                explanation: input.answer.explanation,
+                example: input.answer.example,
+                nextAction: input.answer.nextAction,
+              },
+              recentConversation,
+            }),
+          },
+        ],
+        { model: PUTER_MODEL, stream: false }
+      ),
+      input.timeoutMs ?? PUTER_ANSWER_TIMEOUT_MS
     )
     const generatedSummary = parseSummary(response)
     if (

@@ -637,7 +637,7 @@ export function answerFor(input: {
     request.selectedText ?? "",
     corpus
   )
-  let summary = `You are working on ${lessonTitle}.`
+  let summary = rule
   let explanation = objective
   let example: string | null = null
   let nextAction = "Continue the current mission."

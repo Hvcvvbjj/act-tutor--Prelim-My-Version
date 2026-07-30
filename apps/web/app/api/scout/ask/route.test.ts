@@ -278,6 +278,24 @@ describe("AlexACT server policy", () => {
     )
   })
 
+  it("answers a normal lesson question with the reviewed rule instead of a generic status", () => {
+    const answer = answerFor({
+      request: {
+        question: "Why can’t a comma join two complete sentences?",
+        screen: "today",
+      },
+      preferences,
+      learning,
+      exam: null,
+    })
+
+    expect(answer.summary).toBe(
+      "A comma alone cannot join two complete sentences."
+    )
+    expect(answer.explanation).toContain("comma splice")
+    expect(answer.summary).not.toContain("You are working on")
+  })
+
   it("ends rule explanations with a direct next step", () => {
     const answer = answerFor({
       request: {

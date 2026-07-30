@@ -113,7 +113,9 @@ export function classifyScoutIntent(input: {
   ) {
     return "calibration-definition";
   }
-  if (/why.*(plan|skill|mission)|why this/.test(lower)) return "plan-reason";
+  if (/why.*(plan|skill|mission|lesson)|why this/.test(lower)) {
+    return "plan-reason";
+  }
   if (/confidence|percent|mastery|skill estimate|certainty/.test(lower)) {
     return "estimate";
   }

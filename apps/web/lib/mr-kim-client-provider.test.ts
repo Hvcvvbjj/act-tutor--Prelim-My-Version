@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest"
 import { chooseMrKimClientProvider } from "./mr-kim-client-provider"
 
 describe("Mr. Kim client provider selection", () => {
-  it("blocks an early Ask until the free cloud connection can start from that click", () => {
+  it("keeps reviewed help available while optional AI is still loading", () => {
     expect(
       chooseMrKimClientProvider({
         serverAiAvailable: false,
         onDeviceStatus: "checking",
         freeCloudStatus: "loading",
       })
-    ).toEqual({ askBlocked: true, provider: "none" })
+    ).toEqual({ askBlocked: false, provider: "none" })
 
     expect(
       chooseMrKimClientProvider({
@@ -19,6 +19,16 @@ describe("Mr. Kim client provider selection", () => {
         freeCloudStatus: "ready",
       })
     ).toEqual({ askBlocked: false, provider: "free-cloud" })
+  })
+
+  it("keeps reviewed help available while a cloud connection is pending", () => {
+    expect(
+      chooseMrKimClientProvider({
+        serverAiAvailable: false,
+        onDeviceStatus: "unavailable",
+        freeCloudStatus: "connecting",
+      })
+    ).toEqual({ askBlocked: false, provider: "none" })
   })
 
   it("uses ready free cloud AI instead of waiting for a Chrome model download", () => {

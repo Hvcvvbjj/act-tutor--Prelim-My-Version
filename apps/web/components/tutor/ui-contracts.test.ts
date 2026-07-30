@@ -138,7 +138,8 @@ describe("dashboard tour interaction contract", () => {
     expect(assistant).toContain("NEEDS_WORK_MR_KIM_EVENT")
     expect(assistant).toContain('>("loading")')
     expect(assistant).toContain("disabled={askUnavailable}")
-    expect(provider).toContain("askBlocked: true")
+    expect(assistant).toContain("const askUnavailable = busy")
+    expect(provider).not.toContain("askBlocked: true")
     expect(provider.indexOf('freeCloudStatus === "ready"')).toBeLessThan(
       provider.indexOf('onDeviceStatus === "downloadable"')
     )

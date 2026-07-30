@@ -34,7 +34,6 @@ import {
 } from "@/lib/mr-kim-on-device"
 import {
   answerWithFreeCloudMrKimAI,
-  beginFreeCloudMrKimConnection,
   FREE_CLOUD_AI_CHECK,
   preloadFreeCloudMrKimAI,
 } from "@/lib/mr-kim-free-cloud"
@@ -544,25 +543,20 @@ export function ScoutProvider({
     onDeviceStatus: onDeviceAiStatus,
     freeCloudStatus: freeCloudAiStatus,
   })
-  const askUnavailable = busy || freeAiGenerating || clientProvider.askBlocked
+  const askUnavailable = busy
 
   async function ask(
     nextQuestion = question,
     selection: string | null = reviewedContext
   ) {
-    if (!nextQuestion.trim() || freeAiGenerating || clientProvider.askBlocked)
-      return
+    if (!nextQuestion.trim() || busy) return
     setBusy(true)
     setAssistantError(null)
     try {
-      const freeCloudConnection =
+      const useFreeCloudEnhancement =
         !serverAiAvailable &&
         (clientProvider.provider === "free-cloud" ||
-          (clientProvider.provider === "on-device" &&
-            freeCloudAiStatus === "connected"))
-          ? beginFreeCloudMrKimConnection()
-          : null
-      if (freeCloudConnection) setFreeCloudAiStatus("connecting")
+          freeCloudAiStatus === "connected")
       const onDevicePreparation =
         !serverAiAvailable && clientProvider.provider === "on-device"
           ? (() => {
@@ -621,7 +615,7 @@ export function ScoutProvider({
         !serverMessage.answer.receipt.checks.some((check) =>
           ["openai-responses-api", "openai-compatible-chat"].includes(check)
         ) &&
-        (onDevicePreparation || freeCloudConnection)
+        (onDevicePreparation || useFreeCloudEnhancement)
       ) {
         setFreeAiGenerating(true)
         void (async () => {
@@ -652,17 +646,19 @@ export function ScoutProvider({
 
             if (
               !enhancedAnswer.receipt.checks.includes(ON_DEVICE_AI_CHECK) &&
-              freeCloudConnection
+              useFreeCloudEnhancement
             ) {
-              const connected = await freeCloudConnection
-              setFreeCloudAiStatus(connected ? "connected" : "ready")
-              if (connected) {
-                enhancedAnswer = await answerWithFreeCloudMrKimAI({
-                  question: nextQuestion,
-                  answer: serverMessage.answer,
-                  history: screenMessages.map((entry) => entry.message),
-                })
-              }
+              setFreeCloudAiStatus("connecting")
+              enhancedAnswer = await answerWithFreeCloudMrKimAI({
+                question: nextQuestion,
+                answer: serverMessage.answer,
+                history: screenMessages.map((entry) => entry.message),
+              })
+              setFreeCloudAiStatus(
+                enhancedAnswer.receipt.checks.includes(FREE_CLOUD_AI_CHECK)
+                  ? "connected"
+                  : "ready"
+              )
             }
 
             if (
@@ -911,17 +907,13 @@ export function ScoutProvider({
                 disabled={askUnavailable || !question.trim()}
               >
                 <SendIcon />{" "}
-                {clientProvider.askBlocked
-                  ? "Preparing free AI…"
-                  : freeAiGenerating
-                    ? "Finishing the free AI answer…"
-                    : busy
-                      ? onDeviceAiProgress === null
-                        ? "Getting an answer…"
-                        : `Preparing free AI… ${Math.round(
-                            onDeviceAiProgress * 100
-                          )}%`
-                      : "Ask Mr. Kim"}
+                {busy
+                  ? onDeviceAiProgress === null
+                    ? "Getting an answer…"
+                    : `Preparing free AI… ${Math.round(
+                        onDeviceAiProgress * 100
+                      )}%`
+                  : "Ask Mr. Kim"}
               </Button>
             </form>
           </aside>

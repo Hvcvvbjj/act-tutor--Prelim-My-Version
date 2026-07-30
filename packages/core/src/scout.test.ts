@@ -34,5 +34,12 @@ describe("AlexACT intent classification", () => {
         hasSelectedText: false,
       }),
     ).toBe("plan-reason");
+
+    expect(
+      classifyScoutIntent({
+        question: "Why is this lesson next?",
+        hasSelectedText: false,
+      }),
+    ).toBe("plan-reason");
   });
 });

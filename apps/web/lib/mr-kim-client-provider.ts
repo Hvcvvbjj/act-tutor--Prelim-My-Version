@@ -14,9 +14,10 @@ export interface MrKimClientProviderDecision {
 /**
  * Choose the no-operator-cost enhancement before an Ask action starts.
  *
- * The free cloud SDK must be ready before the click so its optional sign-in
- * popup keeps the browser's user activation. A Chrome model that still needs a
- * download is not treated as ready while the cloud provider is available.
+ * Reviewed help never waits for an optional provider. Puter can start its own
+ * visible authorization flow from ai.chat once its client is ready, and a
+ * Chrome model that still needs a download is not treated as ready while the
+ * cloud provider is available.
  */
 export function chooseMrKimClientProvider(input: {
   serverAiAvailable: boolean
@@ -40,7 +41,7 @@ export function chooseMrKimClientProvider(input: {
     input.freeCloudStatus === "connecting" ||
     input.onDeviceStatus === "checking"
   ) {
-    return { askBlocked: true, provider: "none" }
+    return { askBlocked: false, provider: "none" }
   }
   if (
     input.onDeviceStatus === "downloadable" ||
