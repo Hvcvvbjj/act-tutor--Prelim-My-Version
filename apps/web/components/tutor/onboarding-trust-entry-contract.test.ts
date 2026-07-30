@@ -25,9 +25,15 @@ describe("onboarding trust entry contract", () => {
       welcomeStart
     )
     const welcome = onboarding.slice(welcomeStart, setupStart)
+    const aboutNavStart = welcome.indexOf('aria-label="Learn about AlexACT"')
+    const aboutNav = welcome.slice(
+      aboutNavStart,
+      welcome.indexOf("</nav>", aboutNavStart)
+    )
 
     expect(welcome).toContain('aria-label="Learn about AlexACT"')
     expect(welcome).toContain('href="/trust"')
+    expect(aboutNav).not.toContain("lg:hidden")
     expect(welcome).not.toContain('href="/how-scout-works"')
     expect(welcome).not.toContain('href="/accessibility"')
     expect(layout).not.toContain('href="/how-scout-works"')

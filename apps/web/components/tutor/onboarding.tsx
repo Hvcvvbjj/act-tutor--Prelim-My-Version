@@ -410,7 +410,7 @@ export function Onboarding({
               ) : null}
               <nav
                 aria-label="Learn about AlexACT"
-                className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary lg:hidden"
+                className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm font-bold text-primary"
               >
                 <Link
                   href="/trust"
