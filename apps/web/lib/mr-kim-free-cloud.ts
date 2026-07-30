@@ -2,7 +2,11 @@
 
 import type { ScoutAnswer, ScoutMessage } from "@act-tutor/core"
 
-import { generatedMrKimSummaryIsUsable } from "@/lib/mr-kim-generated-summary"
+import {
+  generatedMrKimSummaryIsUsable,
+  MAX_GENERATED_MR_KIM_SUMMARY_LENGTH,
+  normalizeGeneratedMrKimSummary,
+} from "@/lib/mr-kim-generated-summary"
 import { canUseOnDeviceAI } from "@/lib/mr-kim-on-device"
 
 export const FREE_CLOUD_AI_CHECK = "puter-user-cloud-ai"
@@ -54,19 +58,17 @@ type PuterWindow = {
 const FREE_CLOUD_INSTRUCTIONS = `
 You are Mr. Kim, AlexACT's calm and concise AI tutor. The app has already made
 a reviewed answer whose teaching facts and next action are already verified.
-Write only one short summary sentence that directly answers the learner in
-plain English. Use only facts in the reviewed answer. Do not solve a new
-question, choose an answer, invent a rule, example, or score, or weaken any
-safety boundary. Explain the rule instead of repeating answer-ledger labels
-such as "you chose" or "correct answer." Return only a JSON object with one
-string field named "summary".
+Write one to four short sentences that directly answer the learner in plain
+English. Use the reviewed answer as the source of truth. You may create a brief
+example only when the learner asks for one and it illustrates the reviewed
+rule. Do not solve a new or unanswered test question, choose an answer, invent
+a score, or weaken any safety boundary. Explain the rule instead of repeating
+answer-ledger labels such as "you chose" or "correct answer." Stay under
+${MAX_GENERATED_MR_KIM_SUMMARY_LENGTH} characters. Return only a JSON object
+with one string field named "summary".
 `.trim()
 
 let scriptPromise: Promise<boolean> | null = null
-
-function clipped(value: string, maxLength: number) {
-  return value.trim().slice(0, maxLength)
-}
 
 function responseText(response: PuterChatResponse) {
   if (typeof response === "string") return response
@@ -97,7 +99,7 @@ function parseSummary(response: PuterChatResponse) {
   }
   const record = parsed as Record<string, unknown>
   if (typeof record.summary !== "string") return null
-  return clipped(record.summary, 180) || null
+  return normalizeGeneratedMrKimSummary(record.summary)
 }
 
 function runtimePuterWindow(): PuterWindow | undefined {

@@ -4,15 +4,24 @@ const ANSWER_LEDGER_LABEL =
   /\b(?:you chose|your answer|correct answer|reviewed rationale|the learner chose)\b/i
 const INCOMPLETE_ENDING =
   /\b(?:a|an|and|are|because|but|for|is|of|or|the|to|while|with)$/i
+export const MAX_GENERATED_MR_KIM_SUMMARY_LENGTH = 600
+
+export function normalizeGeneratedMrKimSummary(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim()
+  return normalized.length > 0 &&
+    normalized.length <= MAX_GENERATED_MR_KIM_SUMMARY_LENGTH
+    ? normalized
+    : null
+}
 
 export function generatedMrKimSummaryIsUsable(
   summary: string,
   reviewedAnswer: ScoutAnswer
 ) {
-  const normalized = summary.replace(/\s+/g, " ").trim()
+  const normalized = normalizeGeneratedMrKimSummary(summary)
   if (
+    !normalized ||
     normalized.length < 16 ||
-    normalized.length > 180 ||
     normalized.includes("…") ||
     normalized.includes("...") ||
     ANSWER_LEDGER_LABEL.test(normalized) ||
@@ -21,7 +30,7 @@ export function generatedMrKimSummaryIsUsable(
   ) {
     return false
   }
-  if ((normalized.match(/[.!?]/g) ?? []).length > 2) return false
+  if ((normalized.match(/[.!?]/g) ?? []).length > 5) return false
 
   const reviewedText =
     `${reviewedAnswer.summary} ${reviewedAnswer.explanation}`.toLowerCase()

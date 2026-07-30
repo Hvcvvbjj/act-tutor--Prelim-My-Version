@@ -27,6 +27,12 @@ const fallback: ScoutAnswer = {
   },
 }
 
+const completeLongSummary =
+  "A comma cannot connect two complete sentences by itself, so first check whether each side can stand alone, then use a period, a semicolon, or a comma with a coordinating conjunction to join the ideas correctly."
+
+const overLimitCompleteSummary =
+  `A comma cannot join two complete sentences by itself, ${"and the joining rule remains the same ".repeat(16).trim()}.`
+
 function localModel(output: string) {
   const destroy = vi.fn()
   return {
@@ -93,6 +99,37 @@ describe("free on-device Mr. Kim AI", () => {
     expect(answer.receipt.permissions).toEqual(fallback.receipt.permissions)
     expect(answer.source).toContain("Free on-device Mr. Kim AI")
     expect(model.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps a complete generated summary between 181 and 600 characters without truncating it", async () => {
+    const model = localModel(
+      JSON.stringify({ summary: completeLongSummary })
+    )
+    const answer = await answerWithOnDeviceMrKimAI({
+      question: "Can you explain that in more detail?",
+      answer: fallback,
+      languageModel: model.factory,
+    })
+
+    expect(completeLongSummary.length).toBeGreaterThan(180)
+    expect(completeLongSummary.length).toBeLessThanOrEqual(600)
+    expect(answer.summary).toBe(completeLongSummary)
+    expect(answer.receipt.checks).toContain(ON_DEVICE_AI_CHECK)
+  })
+
+  it("keeps reviewed guidance when a generated summary exceeds 600 characters", async () => {
+    const model = localModel(
+      JSON.stringify({ summary: overLimitCompleteSummary })
+    )
+
+    expect(overLimitCompleteSummary.length).toBeGreaterThan(600)
+    await expect(
+      answerWithOnDeviceMrKimAI({
+        question: "Can you explain that in more detail?",
+        answer: fallback,
+        languageModel: model.factory,
+      })
+    ).resolves.toBe(fallback)
   })
 
   it("uses reviewed guidance if local output is malformed", async () => {

@@ -27,6 +27,12 @@ const fallback: ScoutAnswer = {
   },
 }
 
+const completeLongSummary =
+  "A comma cannot connect two complete sentences by itself, so first check whether each side can stand alone, then use a period, a semicolon, or a comma with a coordinating conjunction to join the ideas correctly."
+
+const overLimitCompleteSummary =
+  `A comma cannot join two complete sentences by itself, ${"and the joining rule remains the same ".repeat(16).trim()}.`
+
 function client(input?: { signedIn?: boolean; output?: unknown }) {
   let signedIn = input?.signedIn ?? true
   const signIn = vi.fn().mockImplementation(async () => {
@@ -86,6 +92,45 @@ describe("free cloud Mr. Kim AI", () => {
     expect(answer.receipt.permissions).toEqual(fallback.receipt.permissions)
     expect(answer.source).toContain("Free cloud Mr. Kim AI")
     expect(puter.chat).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps a complete generated summary between 181 and 600 characters without truncating it", async () => {
+    const puter = client({
+      output: {
+        message: {
+          content: JSON.stringify({ summary: completeLongSummary }),
+        },
+      },
+    })
+    const answer = await answerWithFreeCloudMrKimAI({
+      question: "Can you explain that in more detail?",
+      answer: fallback,
+      puter,
+    })
+
+    expect(completeLongSummary.length).toBeGreaterThan(180)
+    expect(completeLongSummary.length).toBeLessThanOrEqual(600)
+    expect(answer.summary).toBe(completeLongSummary)
+    expect(answer.receipt.checks).toContain(FREE_CLOUD_AI_CHECK)
+  })
+
+  it("keeps reviewed guidance when a generated summary exceeds 600 characters", async () => {
+    const puter = client({
+      output: {
+        message: {
+          content: JSON.stringify({ summary: overLimitCompleteSummary }),
+        },
+      },
+    })
+
+    expect(overLimitCompleteSummary.length).toBeGreaterThan(600)
+    await expect(
+      answerWithFreeCloudMrKimAI({
+        question: "Can you explain that in more detail?",
+        answer: fallback,
+        puter,
+      })
+    ).resolves.toBe(fallback)
   })
 
   it("lets Puter AI start its automatic auth flow for an unsigned learner", async () => {

@@ -2,7 +2,11 @@
 
 import type { ScoutAnswer, ScoutMessage } from "@act-tutor/core"
 
-import { generatedMrKimSummaryIsUsable } from "@/lib/mr-kim-generated-summary"
+import {
+  generatedMrKimSummaryIsUsable,
+  MAX_GENERATED_MR_KIM_SUMMARY_LENGTH,
+  normalizeGeneratedMrKimSummary,
+} from "@/lib/mr-kim-generated-summary"
 
 export const ON_DEVICE_AI_CHECK = "chrome-on-device-ai"
 
@@ -74,19 +78,17 @@ const RESPONSE_SCHEMA = {
 const ON_DEVICE_INSTRUCTIONS = `
 You are Mr. Kim, AlexACT's calm, concise tutor. The server has already made a
 reviewed answer whose teaching facts and next action are already verified.
-Write only one short summary sentence that directly answers the learner in
-plain English. Use only facts in the reviewed answer. Do not solve a new
-question, choose an answer, add a rule, example, or score, or weaken any
-boundary. Explain the rule instead of repeating answer-ledger labels such as
-"you chose" or "correct answer." Return only a JSON object with one string
-field named "summary".
+Write one to four short sentences that directly answer the learner in plain
+English. Use the reviewed answer as the source of truth. You may create a brief
+example only when the learner asks for one and it illustrates the reviewed
+rule. Do not solve a new or unanswered test question, choose an answer, invent
+a score, or weaken any safety boundary. Explain the rule instead of repeating
+answer-ledger labels such as "you chose" or "correct answer." Stay under
+${MAX_GENERATED_MR_KIM_SUMMARY_LENGTH} characters. Return only a JSON object
+with one string field named "summary".
 `.trim()
 
 let preparedSession: Promise<LanguageModelSession> | null = null
-
-function clipped(value: string, maxLength: number) {
-  return value.trim().slice(0, maxLength)
-}
 
 function parseSummary(value: string) {
   const unfenced = value
@@ -103,7 +105,7 @@ function parseSummary(value: string) {
     return null
   const record = parsed as Record<string, unknown>
   if (typeof record.summary !== "string") return null
-  return clipped(record.summary, 180) || null
+  return normalizeGeneratedMrKimSummary(record.summary)
 }
 
 export function canUseOnDeviceAI(answer: ScoutAnswer) {

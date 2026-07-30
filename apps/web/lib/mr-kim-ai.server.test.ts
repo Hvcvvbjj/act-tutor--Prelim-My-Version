@@ -38,6 +38,12 @@ const input = {
   ],
 } as const
 
+const completeLongSummary =
+  "A comma cannot connect two complete sentences by itself, so first check whether each side can stand alone, then use a period, a semicolon, or a comma with a coordinating conjunction to join the ideas correctly."
+
+const overLimitCompleteSummary =
+  `A comma cannot join two complete sentences by itself, ${"and the joining rule remains the same ".repeat(16).trim()}.`
+
 function response(payload: unknown, ok = true) {
   return {
     ok,
@@ -283,6 +289,59 @@ describe("Mr. Kim AI adapter", () => {
     expect(answer.example).toBe(fallback.example)
     expect(answer.nextAction).toBe(fallback.nextAction)
     expect(answer.receipt.checks).toContain("openai-compatible-chat")
+  })
+
+  it("keeps a complete compatible-model summary without clipping it", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: completeLongSummary,
+              }),
+            },
+          },
+        ],
+      })
+    )
+
+    const answer = await answerWithMrKimAI(input, {
+      apiKey: null,
+      baseUrl: "http://127.0.0.1:11434/v1",
+      model: "small-local-model",
+      fetchImpl,
+    })
+
+    expect(completeLongSummary.length).toBeGreaterThan(180)
+    expect(answer.summary).toBe(completeLongSummary)
+    expect(answer.receipt.checks).toContain("openai-compatible-chat")
+  })
+
+  it("keeps reviewed guidance when a compatible-model summary exceeds 600 characters", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      response({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: overLimitCompleteSummary,
+              }),
+            },
+          },
+        ],
+      })
+    )
+
+    expect(overLimitCompleteSummary.length).toBeGreaterThan(600)
+    await expect(
+      answerWithMrKimAI(input, {
+        apiKey: null,
+        baseUrl: "http://127.0.0.1:11434/v1",
+        model: "small-local-model",
+        fetchImpl,
+      })
+    ).resolves.toBe(fallback)
   })
 
   it("keeps reviewed guidance when a local model splices answer-ledger labels", async () => {

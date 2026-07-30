@@ -6,7 +6,10 @@ import type {
   ScoutMessage,
 } from "@act-tutor/core"
 
-import { generatedMrKimSummaryIsUsable } from "@/lib/mr-kim-generated-summary"
+import {
+  generatedMrKimSummaryIsUsable,
+  normalizeGeneratedMrKimSummary,
+} from "@/lib/mr-kim-generated-summary"
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
@@ -127,6 +130,13 @@ const RESPONSE_SCHEMA = {
 
 function clipped(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength)
+}
+
+function bounded(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim()
+  return normalized.length > 0 && normalized.length <= maxLength
+    ? normalized
+    : null
 }
 
 export function redactSensitiveText(value: string) {
@@ -252,7 +262,7 @@ function parseGeneratedSummary(
 ) {
   const record = parsedModelRecord(payload, parser)
   if (!record || typeof record.summary !== "string") return null
-  return clipped(record.summary, 180) || null
+  return normalizeGeneratedMrKimSummary(record.summary)
 }
 
 function parseModelAnswer(
@@ -269,13 +279,13 @@ function parseModelAnswer(
   ) {
     return null
   }
-  const summary = clipped(record.summary, 180)
-  const explanation = clipped(record.explanation, 600)
+  const summary = bounded(record.summary, 180)
+  const explanation = bounded(record.explanation, 600)
   const example =
     typeof record.example === "string"
-      ? clipped(record.example, 360) || null
+      ? bounded(record.example, 360)
       : null
-  const nextAction = clipped(record.nextAction, 180)
+  const nextAction = bounded(record.nextAction, 180)
   if (!summary || !explanation || !nextAction) return null
   return { summary, explanation, example, nextAction }
 }
