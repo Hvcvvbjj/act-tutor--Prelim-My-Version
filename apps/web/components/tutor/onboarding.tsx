@@ -462,6 +462,7 @@ export function Onboarding({
           savedPlan={savedPlan}
           pendingSetup={pendingSetup}
           onViewerChange={onViewerChange}
+          showCompactLabelOnMobile
         />
       </header>
 

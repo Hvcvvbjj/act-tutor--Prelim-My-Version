@@ -227,6 +227,13 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 })
   await page.goto("/")
   await page.getByRole("button", { name: "Build my starting plan" }).click()
+  const saveProgressAction = page.getByRole("button", {
+    name: "Sign in / save progress",
+  })
+  await expect(saveProgressAction).toBeVisible()
+  await expect(
+    saveProgressAction.getByText("Save", { exact: true })
+  ).toBeVisible()
   const setupProgress = page.getByRole("navigation", {
     name: "Setup progress",
   })

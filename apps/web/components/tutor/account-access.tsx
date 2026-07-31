@@ -34,6 +34,7 @@ interface AccountAccessProps {
   className?: string
   guestLabel?: string
   showLabelOnMobile?: boolean
+  showCompactLabelOnMobile?: boolean
 }
 
 type Mode = "login" | "signup"
@@ -87,6 +88,7 @@ export function AccountAccess({
   className,
   guestLabel,
   showLabelOnMobile = false,
+  showCompactLabelOnMobile = false,
 }: AccountAccessProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>("login")
@@ -263,6 +265,12 @@ export function AccountAccess({
       : viewer.role === "learner"
         ? viewer.displayName || viewer.username || "My account"
         : (guestLabel ?? "Sign in / save progress")
+  const compactButtonLabel =
+    viewer.role === "judge"
+      ? "Developer"
+      : viewer.role === "learner"
+        ? "Account"
+        : "Save"
 
   return (
     <>
@@ -281,14 +289,16 @@ export function AccountAccess({
         ) : (
           <SaveIcon />
         )}
-        <span
-          className={cn(
-            "truncate",
-            showLabelOnMobile ? "inline" : "hidden sm:inline"
-          )}
-        >
-          {buttonLabel}
-        </span>
+        {showLabelOnMobile ? (
+          <span className="truncate">{buttonLabel}</span>
+        ) : showCompactLabelOnMobile ? (
+          <>
+            <span className="truncate sm:hidden">{compactButtonLabel}</span>
+            <span className="hidden truncate sm:inline">{buttonLabel}</span>
+          </>
+        ) : (
+          <span className="hidden truncate sm:inline">{buttonLabel}</span>
+        )}
       </Button>
 
       {open ? (
