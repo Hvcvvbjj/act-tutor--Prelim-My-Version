@@ -20,6 +20,8 @@ describe("trust center", () => {
     expect(markup).toContain("The on-device option stays on your device.")
     expect(markup).toContain("separate server path")
     expect(markup).toContain("not an official score report")
+    expect(markup).toContain("See how scoring, evidence, and planning connect")
+    expect(markup).toContain('href="/how-scout-works"')
     expect(markup).toContain('href="/"')
   })
 

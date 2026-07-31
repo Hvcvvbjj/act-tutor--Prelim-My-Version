@@ -141,7 +141,7 @@ test("the public trust center explains storage, control, and AI limits", async (
   await expect(
     page.getByRole("heading", { name: "Optional free cloud enhancement" })
   ).toBeVisible()
-  await expect(page.getByText(/sign in to Puter/)).toBeVisible()
+  await expect(page.getByText(/accept a Puter sign-in/)).toBeVisible()
 
   await expect
     .poll(() =>
@@ -151,6 +151,18 @@ test("the public trust center explains storage, control, and AI limits", async (
       }))
     )
     .toEqual({ pageWidth: 320, viewportWidth: 320 })
+
+  await page
+    .getByRole("link", {
+      name: "See how scoring, evidence, and planning connect",
+    })
+    .click()
+  await expect(page).toHaveURL(/\/how-scout-works$/)
+  await expect(
+    page.getByRole("heading", {
+      name: "AlexACT uses scored answers to guide what comes after Round 1.",
+    })
+  ).toBeVisible()
 
   await page.getByRole("link", { name: "Back to AlexACT" }).click()
   await expect(

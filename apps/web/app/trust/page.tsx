@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   BotIcon,
   DownloadIcon,
   KeyRoundIcon,
@@ -168,6 +169,13 @@ export default function TrustPage() {
                 </ul>
               </div>
             </div>
+            <Link
+              href="/how-scout-works"
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-sm font-black text-primary underline underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+            >
+              See how scoring, evidence, and planning connect
+              <ArrowRightIcon className="size-4" aria-hidden="true" />
+            </Link>
             <div className="mt-6 rounded-xl border border-primary/35 bg-[var(--info-surface)] p-4 text-sm leading-6 text-muted-foreground">
               <h3 className="font-bold text-foreground">
                 Optional free cloud enhancement
