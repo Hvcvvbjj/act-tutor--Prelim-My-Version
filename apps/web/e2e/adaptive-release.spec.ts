@@ -227,10 +227,18 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 })
   await page.goto("/")
   await page.getByRole("button", { name: "Build my starting plan" }).click()
+  const setupProgress = page.getByRole("navigation", {
+    name: "Setup progress",
+  })
+  const goalStep = setupProgress.getByText("1. Goal", { exact: true })
+  const scoreStep = setupProgress.getByText("2. Scores", { exact: true })
+  const scheduleStep = setupProgress.getByText("3. Schedule", { exact: true })
   const goalHeading = page.getByRole("heading", {
     name: "Choose your ACT goal",
   })
   await expect(goalHeading).toBeFocused()
+  await expect(goalStep).toBeVisible()
+  await expect(goalStep.locator("..")).toHaveAttribute("aria-current", "step")
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
   await page.getByRole("button", { name: "Add my starting score" }).click()
@@ -238,6 +246,8 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
     name: "Choose your starting point",
   })
   await expect(scoreHeading).toBeFocused()
+  await expect(scoreStep).toBeVisible()
+  await expect(scoreStep.locator("..")).toHaveAttribute("aria-current", "step")
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
   await page.getByRole("radio", { name: "I haven’t taken the ACT" }).check()
@@ -246,6 +256,11 @@ test("mobile onboarding actions stay within the viewport", async ({ page }) => {
     name: "Make a schedule you can keep",
   })
   await expect(scheduleHeading).toBeFocused()
+  await expect(scheduleStep).toBeVisible()
+  await expect(scheduleStep.locator("..")).toHaveAttribute(
+    "aria-current",
+    "step"
+  )
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
   for (const width of [320, 375, 390]) {

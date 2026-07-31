@@ -245,6 +245,12 @@ describe("shared visual system contract", () => {
     expect(mission).not.toContain("lg:grid-cols-[minmax(0,1fr)_19rem]")
     expect(onboarding).toContain("grid grid-cols-3 gap-2")
     expect(onboarding).toContain(
+      '\"mt-2 block truncate text-[0.68rem] font-semibold sm:text-sm\"'
+    )
+    expect(onboarding).not.toContain(
+      '\"mt-2 hidden truncate text-sm font-semibold sm:block\"'
+    )
+    expect(onboarding).toContain(
       "lg:grid-cols-[minmax(0,1fr)_minmax(26rem,0.88fr)]"
     )
     expect(onboarding).toContain("Your ACT plan starts with a")

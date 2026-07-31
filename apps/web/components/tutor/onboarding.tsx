@@ -179,7 +179,7 @@ function StepTracker({ step }: { step: number }) {
               />
               <span
                 className={cn(
-                  "mt-2 hidden truncate text-sm font-semibold sm:block",
+                  "mt-2 block truncate text-[0.68rem] font-semibold sm:text-sm",
                   active
                     ? "text-primary"
                     : complete
