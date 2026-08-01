@@ -1115,21 +1115,30 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
       data-hide-global-footer
       className="min-h-[calc(100svh-3.5rem)] bg-background"
     >
-      <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-border px-4 sm:px-7">
+      <header
+        data-testid="lesson-workspace-header"
+        className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 sm:grid-cols-[1fr_auto_1fr] sm:gap-y-0 sm:px-7 sm:py-0"
+      >
         <Button
           type="button"
           variant="ghost"
-          className="justify-self-start px-0 text-primary hover:bg-transparent"
+          className="min-w-0 justify-self-start px-0 text-primary hover:bg-transparent"
           onClick={props.onClose}
           aria-label="Close lesson workspace"
         >
           <ArrowLeftIcon data-icon="inline-start" />
           Back to Lessons
         </Button>
-        <h1 className="max-w-64 truncate text-center text-sm font-bold sm:max-w-md sm:text-base">
+        <h1
+          data-testid="lesson-workspace-title"
+          className="col-span-2 row-start-2 max-w-full min-w-0 truncate text-left text-sm font-bold sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:max-w-md sm:text-center sm:text-base"
+        >
           {workspaceTitle}
         </h1>
-        <p className="justify-self-end text-sm text-muted-foreground tabular-nums">
+        <p
+          data-testid="lesson-workspace-position"
+          className="col-start-2 row-start-1 justify-self-end text-sm text-muted-foreground tabular-nums sm:col-start-3"
+        >
           {positionLabel}
           {segmentMinutes === null ? null : (
             <span className="hidden sm:inline"> · {segmentMinutes} min</span>
@@ -1139,7 +1148,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
 
       {!props.learning.lessonComplete && !props.learning.remediation ? (
         <nav
-          className="mx-auto grid w-full max-w-5xl grid-cols-6 px-3 pt-4 sm:px-7"
+          className="mx-auto grid w-full max-w-5xl grid-cols-3 px-3 pt-4 sm:grid-cols-6 sm:px-7"
           aria-label="Lesson stages"
         >
           {SECTION_SHORT_LABELS.slice(0, lessonSections.length).map(
@@ -1152,7 +1161,7 @@ export function LessonWorkspace(props: LessonWorkspaceProps) {
                   props.activeSection === index ? "step" : undefined
                 }
                 className={cn(
-                  "min-w-0 rounded-none border-b-2 border-border px-1 py-3 text-xs text-muted-foreground sm:text-sm",
+                  "h-auto min-h-12 w-full min-w-0 rounded-none border-b-2 border-border px-2 py-2 text-center text-xs leading-tight whitespace-normal text-muted-foreground sm:min-h-11 sm:px-1 sm:py-3 sm:text-sm",
                   props.activeSection === index &&
                     "border-primary text-primary hover:text-primary"
                 )}
@@ -1211,26 +1220,26 @@ export function LessonReviewWorkspace({
       data-hide-global-footer
       className="min-h-[calc(100svh-3.5rem)] bg-background"
     >
-      <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-border px-4 sm:px-7">
+      <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 sm:grid-cols-[1fr_auto_1fr] sm:gap-y-0 sm:px-7 sm:py-0">
         <Button
           type="button"
           variant="ghost"
-          className="justify-self-start px-0 text-primary hover:bg-transparent"
+          className="min-w-0 justify-self-start px-0 text-primary hover:bg-transparent"
           onClick={onClose}
         >
           <ArrowLeftIcon data-icon="inline-start" />
           Back to Lessons
         </Button>
-        <h1 className="max-w-64 truncate text-center text-sm font-bold sm:max-w-md sm:text-base">
+        <h1 className="col-span-2 row-start-2 max-w-full min-w-0 truncate text-left text-sm font-bold sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:max-w-md sm:text-center sm:text-base">
           {review.lesson.title}
         </h1>
-        <p className="justify-self-end text-sm text-muted-foreground tabular-nums">
+        <p className="col-start-2 row-start-1 justify-self-end text-sm text-muted-foreground tabular-nums sm:col-start-3">
           Review · {review.correct}/5
         </p>
       </header>
 
       <nav
-        className="mx-auto grid w-full max-w-5xl grid-cols-6 px-3 pt-4 sm:px-7"
+        className="mx-auto grid w-full max-w-5xl grid-cols-3 px-3 pt-4 sm:grid-cols-6 sm:px-7"
         aria-label="Completed lesson stages"
       >
         {SECTION_SHORT_LABELS.slice(0, lessonSections.length).map(
@@ -1241,7 +1250,7 @@ export function LessonReviewWorkspace({
               variant="ghost"
               aria-current={visibleSectionIndex === index ? "step" : undefined}
               className={cn(
-                "min-w-0 rounded-none border-b-2 border-border px-1 py-3 text-xs text-muted-foreground sm:text-sm",
+                "h-auto min-h-12 w-full min-w-0 rounded-none border-b-2 border-border px-2 py-2 text-center text-xs leading-tight whitespace-normal text-muted-foreground sm:min-h-11 sm:px-1 sm:py-3 sm:text-sm",
                 visibleSectionIndex === index &&
                   "border-primary text-primary hover:text-primary"
               )}

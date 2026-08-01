@@ -559,7 +559,8 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
 
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
   const stageButtons = stages.getByRole("button")
-  await expect(stageButtons).toHaveCount(5)
+  await expect(stageButtons).toHaveCount(6)
+  const workspaceHeader = page.getByTestId("lesson-workspace-header")
 
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -586,10 +587,41 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
       expect(bounds).not.toBeNull()
       expect(bounds!.x).toBeGreaterThanOrEqual(stageLayout.left)
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(stageLayout.right)
+      expect(
+        await button.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth
+        )
+      ).toBe(true)
     }
+
+    const headerLayout = await workspaceHeader.evaluate((header) => {
+      const back = header.querySelector("button")?.getBoundingClientRect()
+      const title = header
+        .querySelector('[data-testid="lesson-workspace-title"]')
+        ?.getBoundingClientRect()
+      const position = header
+        .querySelector('[data-testid="lesson-workspace-position"]')
+        ?.getBoundingClientRect()
+      return {
+        firstRowBottom: Math.max(back?.bottom ?? 0, position?.bottom ?? 0),
+        titleTop: title?.top ?? 0,
+      }
+    })
+    expect(headerLayout.titleTop).toBeGreaterThanOrEqual(
+      headerLayout.firstRowBottom
+    )
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }))
+      )
+      .toEqual({ pageWidth: width, viewportWidth: width })
   }
 
-  for (const name of ["Idea", "Example", "Method", "Need to know"]) {
+  for (const name of ["Idea", "Examples", "Method", "Need to know"]) {
     const stage = stages.getByRole("button", { name })
     await stage.click()
     await expect(stage).toHaveAttribute("aria-current", "step")
