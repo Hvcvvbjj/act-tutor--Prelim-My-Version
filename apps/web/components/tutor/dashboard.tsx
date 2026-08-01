@@ -35,7 +35,10 @@ import { BadgesSurface } from "@/components/tutor/badges-surface"
 import { DashboardTour } from "@/components/tutor/dashboard-tour"
 import { GoalSupportPrompt } from "@/components/tutor/goal-support-prompt"
 import { learningBaselineSkillResults } from "@/components/tutor/learning-baseline-evidence"
-import { lessonReviewById } from "@/components/tutor/lesson-history"
+import {
+  lessonBadgeSectionProgress,
+  lessonReviewById,
+} from "@/components/tutor/lesson-history"
 import { LessonsCommandCenter } from "@/components/tutor/lessons-command-center"
 import { shouldShowRoundTransition } from "@/components/tutor/lesson-workspace-logic"
 import type { LessonRewardNarrationProvider } from "@/components/tutor/learning-reward-summary"
@@ -1138,6 +1141,12 @@ export function Dashboard({
     learning?.learningTwin.skills.filter(
       (skill) => skill.learnedProbability >= 0.82 && skill.evidenceCount >= 6
     ).length ?? 0
+  const badgeSectionProgress = learning
+    ? lessonBadgeSectionProgress(
+        learning.lessonHistory ?? [],
+        learning.learningTwin.skills
+      )
+    : []
   const needsWorkUnlocked = Boolean(
     learning &&
     (learning.cycle.roundNumber > 1 ||
@@ -1490,6 +1499,7 @@ export function Dashboard({
                   evidenceCount,
                 })
               )}
+              sectionProgress={badgeSectionProgress}
               estimatedActImprovement={Math.max(
                 0,
                 learning.roundReward?.estimatedActScoreDelta ?? 0

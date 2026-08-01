@@ -832,6 +832,14 @@ test("lesson check opens review and rewards at the top", async ({ page }) => {
       name: "Up next lesson: Concision and redundancy",
     })
   ).toBeVisible()
+
+  await page.getByRole("tab", { name: "Badges" }).click()
+  const englishReps = page
+    .getByRole("heading", { name: "English Reps I", exact: true })
+    .locator("..")
+    .locator("..")
+    .locator("..")
+  await expect(englishReps.getByText("5 / 25", { exact: true })).toBeVisible()
 })
 
 test("timed practice opens at the first question on a narrow phone", async ({

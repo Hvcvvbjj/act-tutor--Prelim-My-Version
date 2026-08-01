@@ -4,6 +4,7 @@ import type { LessonCheckResult } from "@act-tutor/core"
 import {
   currentRoundLessonCheck,
   historicalLessonRounds,
+  lessonBadgeSectionProgress,
   lessonReviewById,
 } from "@/components/tutor/lesson-history"
 
@@ -19,6 +20,10 @@ function lessonCheck(
     roundNumber,
     cycleKind,
     skill,
+    correct: 4,
+    total: 5,
+    requiredCorrect: 4,
+    passedInitially: true,
     completedAt,
     lesson: { title: `${skill} lesson` },
   } as LessonCheckResult
@@ -78,5 +83,38 @@ describe("completed lesson history", () => {
       skill: "sentence-boundaries",
     })
     expect(lessonReviewById(history, "missing-check")).toBeNull()
+  })
+
+  it("counts completed lesson answers in the matching section badge", () => {
+    const progress = lessonBadgeSectionProgress(history, [
+      {
+        skill: "sentence-boundaries",
+        section: "english",
+        learnedProbability: 0.94,
+        evidenceCount: 12,
+      },
+      {
+        skill: "linear-equations",
+        section: "math",
+        learnedProbability: 0.52,
+        evidenceCount: 7,
+      },
+      {
+        skill: "supported-inference",
+        section: "reading",
+        learnedProbability: 0.61,
+        evidenceCount: 8,
+      },
+    ])
+
+    expect(progress).toEqual([
+      expect.objectContaining({
+        section: "english",
+        answered: 5,
+        secureSkills: 1,
+      }),
+      expect.objectContaining({ section: "math", answered: 5 }),
+      expect.objectContaining({ section: "reading", answered: 5 }),
+    ])
   })
 })
