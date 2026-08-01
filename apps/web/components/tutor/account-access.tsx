@@ -1,6 +1,14 @@
 "use client"
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react"
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+} from "react"
+import { createPortal } from "react-dom"
 import {
   BellRingIcon,
   CheckCircle2Icon,
@@ -35,6 +43,11 @@ interface AccountAccessProps {
   guestLabel?: string
   showLabelOnMobile?: boolean
   showCompactLabelOnMobile?: boolean
+}
+
+function AccountPortal(props: ComponentProps<"div">) {
+  if (typeof document === "undefined") return null
+  return createPortal(<div {...props} />, document.body)
 }
 
 type Mode = "login" | "signup"
@@ -302,7 +315,7 @@ export function AccountAccess({
       </Button>
 
       {open ? (
-        <div
+        <AccountPortal
           className="fixed inset-0 z-[80] flex items-end justify-center bg-foreground/40 p-0 sm:items-center sm:p-5"
           role="presentation"
           onMouseDown={() => setOpen(false)}
@@ -453,8 +466,9 @@ export function AccountAccess({
                   id={descriptionId}
                   className="mt-5 text-sm leading-6 text-muted-foreground"
                 >
-                  Accounts are optional. Create one to save this plan across
-                  devices.
+                  Accounts are optional. Without one, you can resume only in
+                  this browser. Create one to continue across devices. This
+                  preview does not offer automatic password recovery.
                 </p>
 
                 <div
@@ -578,7 +592,7 @@ export function AccountAccess({
               </>
             )}
           </div>
-        </div>
+        </AccountPortal>
       ) : null}
     </>
   )

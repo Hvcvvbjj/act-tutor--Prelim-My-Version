@@ -112,6 +112,33 @@ test("the welcome screen leads with a real baseline and Mr. Kim", async ({
       }))
     )
     .toEqual({ pageWidth: 390, viewportWidth: 390 })
+
+  await signInButton.click()
+  const accountDialog = page.getByRole("dialog", { name: "Welcome back." })
+  await expect(accountDialog).toBeVisible()
+  await expect(accountDialog).toContainText(
+    "Without one, you can resume only in this browser."
+  )
+  await expect
+    .poll(() =>
+      accountDialog.evaluate((dialog) => {
+        const bounds = dialog.getBoundingClientRect()
+        return {
+          fullyInsideViewport:
+            bounds.top >= 0 &&
+            bounds.right <= window.innerWidth &&
+            bounds.bottom <= window.innerHeight &&
+            bounds.left >= 0,
+          pageWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }
+      })
+    )
+    .toEqual({
+      fullyInsideViewport: true,
+      pageWidth: 390,
+      viewportWidth: 390,
+    })
 })
 
 test("the public trust center explains storage, control, and AI limits", async ({

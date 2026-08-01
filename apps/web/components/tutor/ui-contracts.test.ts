@@ -494,7 +494,7 @@ describe("account access contract", () => {
       "Judges can sign in with the credentials provided with the submission."
     )
     expect(normalizedAccount).toContain(
-      "Accounts are optional. Create one to save this plan across devices."
+      "Accounts are optional. Without one, you can resume only in this browser. Create one to continue across devices. This preview does not offer automatic password recovery."
     )
   })
 })
