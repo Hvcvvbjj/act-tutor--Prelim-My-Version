@@ -191,11 +191,12 @@ function QuestionView({
         ))}
       </RadioGroup>
 
-      <div className="mt-8 flex gap-3 border-t-2 border-foreground pt-6">
+      <div className="mt-8 flex flex-col gap-3 border-t-2 border-foreground pt-6 sm:flex-row">
         <Button
           type="button"
           variant="outline"
           size="xl"
+          className="w-full sm:w-auto"
           onClick={onPrevious}
           disabled={currentIndex === 0}
         >
@@ -205,7 +206,7 @@ function QuestionView({
         <Button
           type="button"
           size="xl"
-          className="flex-1"
+          className="w-full sm:min-w-0 sm:flex-1"
           onClick={onNext}
           disabled={!answers[question.id]}
         >
@@ -223,15 +224,15 @@ function QuestionView({
   return (
     <section
       key={question.id}
-      className="animate-in duration-200 fade-in motion-reduce:animate-none"
+      className="min-w-0 animate-in duration-200 fade-in motion-reduce:animate-none"
     >
       <Progress
         value={progress}
         aria-label={`Diagnostic question ${currentIndex + 1} of ${form.questions.length}`}
       />
       {question.format === "passage" && question.stimulus ? (
-        <div className="paper-panel mt-6 grid overflow-hidden border-2 border-foreground bg-background lg:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
-          <article className="border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:max-h-[70svh] lg:overflow-y-auto lg:border-r-2 lg:border-b-0 lg:px-8">
+        <div className="paper-panel mt-6 grid min-w-0 overflow-hidden border-2 border-foreground bg-background lg:grid-cols-[minmax(0,1.12fr)_minmax(25rem,0.88fr)]">
+          <article className="min-w-0 border-b-2 border-foreground bg-[var(--rail)] px-5 py-7 lg:max-h-[70svh] lg:overflow-y-auto lg:border-r-2 lg:border-b-0 lg:px-8">
             <p className="ink-label text-primary">
               {question.section === "english" ? "Passage to revise" : "Passage"}
             </p>
@@ -242,7 +243,7 @@ function QuestionView({
               {question.stimulus}
             </div>
           </article>
-          <div className="px-5 py-7 lg:px-8">{answerPanel}</div>
+          <div className="min-w-0 px-5 py-7 lg:px-8">{answerPanel}</div>
         </div>
       ) : (
         <div className="mx-auto mt-8 max-w-4xl border-y-2 border-foreground py-8">

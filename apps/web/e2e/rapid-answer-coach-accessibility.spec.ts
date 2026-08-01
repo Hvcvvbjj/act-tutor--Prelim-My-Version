@@ -42,6 +42,47 @@ async function chooseFirstAnswer(page: Page, expectedAnswerCount: number) {
   expect((await save).ok()).toBeTruthy()
 }
 
+test("a full diagnostic question stays inside a 320px viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 760 })
+  await startFreshDiagnostic(page)
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Which revision of sentence 2 correctly joins its clauses?",
+    })
+  ).toBeVisible()
+
+  const answerChoices = page.getByRole("radiogroup", {
+    name: "Answer choices for question 1",
+  })
+  const previous = page.getByRole("button", { name: "Previous" })
+  const nextQuestion = page.getByRole("button", { name: "Next question" })
+  const [answerBounds, previousBounds, nextBounds] = await Promise.all([
+    answerChoices.boundingBox(),
+    previous.boundingBox(),
+    nextQuestion.boundingBox(),
+  ])
+
+  for (const bounds of [answerBounds, previousBounds, nextBounds]) {
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x).toBeGreaterThanOrEqual(0)
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320)
+  }
+  expect(previousBounds!.width).toBeGreaterThanOrEqual(240)
+  expect(nextBounds!.width).toBeGreaterThanOrEqual(240)
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
+})
+
 test("the rapid-answer pace check behaves as a true keyboard modal", async ({
   page,
 }) => {
