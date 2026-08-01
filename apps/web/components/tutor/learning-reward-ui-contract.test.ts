@@ -17,22 +17,26 @@ describe("learning reward UI contract", () => {
 
     expect(summary).toContain("Mr. Kim says")
     expect(summary).toContain("study points")
+    expect(summary).toContain("Toward momentum level")
+    expect(summary).toContain("Study points unlock momentum levels")
     expect(summary).toContain("Badges earned or evolved this lesson")
     expect(summary).toContain('role="progressbar"')
-    expect(summary).toContain("Scored diagnostics and full")
     expect(workspace).toContain("<LessonRewardSummaryCard")
     expect(workspace).toContain("See lesson rewards")
   })
 
-  it("keeps assessment movement separate from the 1,000-to-1 point equivalent", async () => {
+  it("keeps assessment movement separate from study-point momentum", async () => {
     const [summary, commandCenter] = await Promise.all([
       source("components/tutor/learning-reward-summary.tsx"),
       source("components/tutor/lessons-command-center.tsx"),
     ])
 
     expect(summary).toContain("Assessment estimate")
-    expect(summary).toContain("1,000-to-1 point equivalent")
-    expect(summary).toContain("The assessment change comes from scored answers")
+    expect(summary).toContain("Next round")
+    expect(summary).toContain(
+      "The assessment change comes from scored assessment answers"
+    )
+    expect(summary).not.toContain("motivational ACT-point")
     expect(commandCenter).toContain("<LearningRoundRewardSummary")
   })
 

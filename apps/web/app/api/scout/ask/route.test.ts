@@ -143,10 +143,9 @@ describe("AlexACT server policy", () => {
     expect(answer.summary).toBe("Full-week streak is your closest badge.")
     expect(answer.explanation).toContain("1,250 points")
     expect(answer.explanation).toContain("4-day streak")
-    expect(answer.example).toContain(
-      "equal one motivational estimated ACT composite point"
-    )
-    expect(answer.example).toContain("points do not alter a scored result")
+    expect(answer.example).toContain("unlock one momentum level")
+    expect(answer.example).toContain("scored diagnostic and full-test answers")
+    expect(answer.example).not.toContain("estimated ACT composite point")
     expect(answer.example).not.toContain("one ACT point")
     expect(answer.source).toBe("Server learning progress and fixed badge rules")
     expect(answer.receipt.questionId).toBeNull()

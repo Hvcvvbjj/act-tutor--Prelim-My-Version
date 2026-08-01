@@ -462,6 +462,7 @@ export function MasteryProfile({
     contributions.reduce((sum, item) => sum + item.points, 0)
   )
   const pointProgress = pointsProgressToNextMomentumLevel(points)
+  const nextMomentumLevel = pointProgress.completedLevels + 1
   const selectedSkillHeadingRef = useRef<HTMLHeadingElement>(null)
 
   function selectSkill(skill: string) {
@@ -513,14 +514,16 @@ export function MasteryProfile({
               <p className="font-mono text-[0.68rem] font-black tracking-[0.1em] text-[var(--scout-sun)] uppercase">
                 Study momentum
               </p>
-              <p className="mt-1 font-heading text-3xl font-black tabular-nums">
-                Level {pointProgress.completedLevels}
+              <p className="mt-1 font-heading text-2xl leading-tight font-black tabular-nums">
+                Toward momentum level {nextMomentumLevel}
               </p>
               <p className="mt-1 text-xs leading-5 text-white/65">
                 {pointProgress.pointsInCurrentLevel.toLocaleString("en-US")} /
-                1,000 points toward level {pointProgress.completedLevels + 1}.
-                Points reward study momentum; only scored answers shape the
-                skill map and ACT estimates.
+                1,000 points.{" "}
+                {pointProgress.pointsUntilNextLevel.toLocaleString("en-US")}{" "}
+                more unlocks level {nextMomentumLevel}. Points reward study
+                momentum; only scored answers shape the skill map and ACT
+                estimates.
               </p>
             </div>
             <p className="font-mono text-xs font-black tracking-[0.1em] text-white/60 uppercase">

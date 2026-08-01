@@ -10,7 +10,10 @@ import type {
   MotivationBadgeTier,
   RewardGrowthAxis,
 } from "@act-tutor/core"
-import { buildLessonRewardNarrationPrompt } from "@act-tutor/core"
+import {
+  buildLessonRewardNarrationPrompt,
+  pointsProgressToNextMomentumLevel,
+} from "@act-tutor/core"
 import {
   AwardIcon,
   BookOpenCheckIcon,
@@ -87,12 +90,6 @@ export type LessonRewardNarrationProvider = (input: {
 function formatSigned(value: number) {
   if (value > 0) return `+${value}`
   return String(value)
-}
-
-function formatEquivalent(value: number) {
-  return Number(value.toFixed(3)).toLocaleString("en-US", {
-    maximumFractionDigits: 3,
-  })
 }
 
 function readStringArray(key: string, storage: Storage) {
@@ -528,9 +525,9 @@ export function LessonRewardSummaryCard({
   onContinue: () => void
   loadNarration?: LessonRewardNarrationProvider
 }) {
-  const progressPercent = Math.round(
-    reward.progressToNextEstimatedActPoint * 100
-  )
+  const momentumProgress = pointsProgressToNextMomentumLevel(reward.pointsAfter)
+  const nextMomentumLevel = momentumProgress.completedLevels + 1
+  const progressPercent = Math.round(momentumProgress.progress * 100)
   const badgeEvents = useMemo(() => legacyLessonBadgeEvents(reward), [reward])
   const growth = useMemo(() => lessonGrowth(reward), [reward])
   const [narration, setNarration] = useState<string | null>(null)
@@ -616,10 +613,10 @@ export function LessonRewardSummaryCard({
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="ink-label text-muted-foreground">
-                  Toward the next estimated ACT point
+                  Toward momentum level {nextMomentumLevel}
                 </p>
                 <p className="mt-2 font-heading text-3xl font-black tracking-[-0.03em] tabular-nums">
-                  {reward.pointsTowardNextEstimatedActPoint.toLocaleString(
+                  {momentumProgress.pointsInCurrentLevel.toLocaleString(
                     "en-US"
                   )}
                   <span className="ml-2 text-base text-muted-foreground">
@@ -634,10 +631,10 @@ export function LessonRewardSummaryCard({
             <div
               className="mt-3 h-3 overflow-hidden rounded-full bg-muted"
               role="progressbar"
-              aria-label="Study points toward the next estimated ACT point"
+              aria-label={`Study points toward momentum level ${nextMomentumLevel}`}
               aria-valuemin={0}
               aria-valuemax={1_000}
-              aria-valuenow={reward.pointsTowardNextEstimatedActPoint}
+              aria-valuenow={momentumProgress.pointsInCurrentLevel}
             >
               <div
                 className="h-full rounded-full bg-primary transition-[width] duration-700 motion-reduce:transition-none"
@@ -645,9 +642,8 @@ export function LessonRewardSummaryCard({
               />
             </div>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              1,000 study points equals one estimated ACT composite point in
-              AlexACT&apos;s motivational system. Scored diagnostics and full
-              tests set the separate assessment estimate.
+              Study points unlock momentum levels; they do not change skill or
+              assessment estimates. Scored answers drive those estimates.
             </p>
           </div>
           <div className="text-left lg:text-right">
@@ -801,10 +797,10 @@ export function LearningRoundRewardSummary({
             </div>
             <div>
               <p className="text-xs font-bold text-muted-foreground uppercase">
-                1,000-to-1 point equivalent
+                Next round
               </p>
               <p className="mt-1 font-heading text-xl font-black tabular-nums">
-                +{formatEquivalent(reward.studyPointActEquivalent)}
+                Round {reward.nextRoundNumber}
               </p>
             </div>
           </div>
@@ -813,9 +809,9 @@ export function LearningRoundRewardSummary({
               className="mt-0.5 size-3.5 shrink-0 text-primary"
               aria-hidden="true"
             />
-            The assessment change comes from scored answers. Exactly 1,000 study
-            points equals one motivational ACT-point estimate; neither is an
-            official ACT score.
+            The assessment change comes from scored assessment answers—not study
+            points. Study points track completed work; neither is an official
+            ACT score.
           </p>
           {badgeEvents.length ? (
             <ul className="mt-4 flex flex-wrap gap-2">

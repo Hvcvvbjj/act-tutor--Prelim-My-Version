@@ -344,7 +344,7 @@ export function BadgesSurface({
           <div className="flex items-center gap-2 text-primary">
             <SparklesIcon className="size-5" aria-hidden="true" />
             <h2 id="points-title" className="text-sm font-black">
-              Momentum level {nextMomentumLevel}
+              Toward momentum level {nextMomentumLevel}
             </h2>
           </div>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -371,16 +371,16 @@ export function BadgesSurface({
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
             <p className="font-semibold">
               {pointProgress.pointsUntilNextLevel.toLocaleString("en-US")}{" "}
-              points to the next level
+              points to momentum level {nextMomentumLevel}
             </p>
             <p className="font-bold text-primary">
-              1,000 study points = 1 estimated ACT composite point
+              1,000 study points = one momentum level
             </p>
           </div>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Points track completed study. Scored answers update ACT estimates.{" "}
-            This is AlexACT&apos;s motivational conversion. Your scored diagnostic
-            and full-test answers determine the separate assessment estimate.
+            Points track completed study and unlock momentum levels. They do not
+            change skill or assessment estimates; those come from scored
+            answers.
           </p>
         </div>
 

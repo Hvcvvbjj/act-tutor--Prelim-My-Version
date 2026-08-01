@@ -733,7 +733,7 @@ export function answerFor(input: {
       explanation = nextBadge
         ? `You have ${badgeProgress.points.toLocaleString("en-US")} points, a ${badgeProgress.currentStreak}-day streak, and ${badgeProgress.secureSkills} of ${badgeProgress.totalSkills} secure skills. ${nextBadge.title} is at ${nextBadge.progress} of ${nextBadge.target}.`
         : `You have earned every current badge. You have ${badgeProgress.points.toLocaleString("en-US")} points and a ${badgeProgress.currentStreak}-day streak.`
-      example = `${POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} study points equal one motivational estimated ACT composite point. Scored diagnostic and full-test answers set the separate assessment estimate; points do not alter a scored result.`
+      example = `${POINTS_PER_MOMENTUM_LEVEL.toLocaleString("en-US")} study points unlock one momentum level. Study points track completed work; scored diagnostic and full-test answers set the separate assessment estimate.`
       nextAction = nextBadge
         ? nextBadge.description
         : "Keep studying to protect your streak and secure skills."

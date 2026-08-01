@@ -50,9 +50,9 @@ describe("badge evolution surface", () => {
     expect(markup).toContain("Platinum")
     expect(markup).toContain("Linear equations Secure")
     expect(markup).toContain("Composite Climb +5")
-    expect(markup).toContain(
-      "1,000 study points = 1 estimated ACT composite point"
-    )
+    expect(markup).toContain("Toward momentum level 6")
+    expect(markup).toContain("1,000 study points = one momentum level")
+    expect(markup).not.toContain("estimated ACT composite point")
     expect(markup).toContain("Weeks on plan")
     expect(markup.match(/role="progressbar"/g)?.length).toBeGreaterThan(10)
   })

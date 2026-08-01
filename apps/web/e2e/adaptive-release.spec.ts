@@ -789,6 +789,14 @@ test("lesson check opens review and rewards at the top", async ({ page }) => {
     name: /Sentence boundaries is complete/,
   })
   await expect(rewardSummary).toBeVisible()
+  await expect(
+    rewardSummary.getByText("Toward momentum level 1", { exact: true })
+  ).toBeVisible()
+  await expect(
+    rewardSummary.getByText(
+      /Study points unlock momentum levels; they do not change/
+    )
+  ).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
   const celebrationClose = page.getByRole("button", {
@@ -833,7 +841,18 @@ test("lesson check opens review and rewards at the top", async ({ page }) => {
     })
   ).toBeVisible()
 
+  await page.getByRole("tab", { name: "Progress" }).click()
+  await expect(
+    page.getByText("Toward momentum level 1", { exact: true })
+  ).toBeVisible()
+
   await page.getByRole("tab", { name: "Badges" }).click()
+  await expect(
+    page.getByRole("heading", {
+      name: "Toward momentum level 1",
+      exact: true,
+    })
+  ).toBeVisible()
   const englishReps = page
     .getByRole("heading", { name: "English Reps I", exact: true })
     .locator("..")

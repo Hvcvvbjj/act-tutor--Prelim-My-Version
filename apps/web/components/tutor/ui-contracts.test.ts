@@ -444,24 +444,41 @@ describe("motivation and score evidence contract", () => {
     const progress = await source("components/tutor/mastery-profile.tsx")
     const orientation = await source("components/tutor/learner-orientation.tsx")
     const tour = await source("components/tutor/dashboard-tour.tsx")
-    const assistant = await source("app/api/scout/ask/route.ts")
-    const learnerCopy = [badges, progress, orientation, tour, assistant].join(
-      "\n"
-    )
+    const rewards = await source("components/tutor/learning-reward-summary.tsx")
+    const [assistant, assistantLogic] = await Promise.all([
+      source("app/api/scout/ask/route.ts"),
+      source("app/api/scout/ask/route-logic.ts"),
+    ])
+    const learnerCopy = [
+      badges,
+      progress,
+      orientation,
+      tour,
+      rewards,
+      assistant,
+      assistantLogic,
+    ].join("\n")
     const normalizedBadges = badges.replace(/\s+/g, " ")
     const normalizedProgress = progress.replace(/\s+/g, " ")
+    const normalizedRewards = rewards.replace(/\s+/g, " ")
 
     expect(learnerCopy).toContain("momentum level")
     expect(normalizedBadges).toContain(
-      "Points track completed study. Scored answers update ACT estimates."
+      "Points track completed study and unlock momentum levels."
     )
     expect(normalizedProgress).toContain(
       "Points reward study momentum; only scored answers shape"
+    )
+    expect(normalizedRewards).toContain(
+      "Study points unlock momentum levels; they do not change skill or assessment estimates."
     )
     expect(learnerCopy).not.toContain("Points-based score estimate")
     expect(learnerCopy).not.toContain("points = +1 ACT")
     expect(learnerCopy).not.toContain("matching ACT-scale marker")
     expect(learnerCopy).not.toContain("one ACT point")
+    expect(learnerCopy).not.toContain("estimated ACT composite point")
+    expect(learnerCopy).not.toContain("motivational ACT-point")
+    expect(learnerCopy).not.toContain("1,000-to-1 point equivalent")
   })
 })
 
