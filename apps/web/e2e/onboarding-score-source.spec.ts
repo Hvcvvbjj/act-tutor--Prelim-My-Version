@@ -426,6 +426,53 @@ test("legacy prefilled defaults do not return as learner evidence", async ({
   ).toBeVisible()
 })
 
+test("guest setup ignores a draft saved by a different viewer role", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "ai-act-tutor-placement-v3",
+      JSON.stringify({
+        version: 6,
+        draft: {
+          goal: 36,
+          priorScoreChoice: "scores",
+          scoreSource: "practice",
+          startingCheckChoice: "take",
+          composite: 24,
+          english: 22,
+          math: 25,
+          reading: 24,
+          scienceEnabled: false,
+          science: 0,
+          testDate: "2026-09-19",
+          studyDaysPerWeek: 5,
+          minutesPerSession: 60,
+          preferredSection: "balanced",
+        },
+        guestPlan: null,
+        viewerRole: "judge",
+        resumeSurface: null,
+        diagnosticPurpose: null,
+      })
+    )
+  })
+
+  await page.goto("/")
+  await page.getByRole("button", { name: "Build my starting plan" }).click()
+  await expect(
+    page.getByRole("spinbutton", { name: "Goal Composite" })
+  ).toHaveValue("30")
+  await page.getByRole("button", { name: "Add my starting score" }).click()
+
+  const scoreSources = page.getByRole("radio")
+  await expect(scoreSources).toHaveCount(3)
+  for (const source of await scoreSources.all()) {
+    await expect(source).not.toBeChecked()
+  }
+  await expect(page.locator('input[type="number"]')).toHaveCount(0)
+})
+
 test("a saved-plan label cannot bypass the server-verified Round 0 diagnostic", async ({
   page,
 }) => {

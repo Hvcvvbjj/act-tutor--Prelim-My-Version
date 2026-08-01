@@ -934,10 +934,17 @@ export function TutorApp({
             resumeSurface?: unknown
             diagnosticPurpose?: unknown
           }
+          const localDraftMatchesViewer =
+            parsed.viewerRole === undefined ||
+            parsed.viewerRole === initialViewer.role
           let resumableSetupAvailable = Boolean(
             restoredAtLoad || pendingSetupAtLoad
           )
-          if (!restoredAtLoad && initialViewer.role === "guest") {
+          if (
+            !restoredAtLoad &&
+            initialViewer.role === "guest" &&
+            localDraftMatchesViewer
+          ) {
             const restoredGuestPlan =
               parsed.version === 2 ||
               parsed.version === 3 ||
