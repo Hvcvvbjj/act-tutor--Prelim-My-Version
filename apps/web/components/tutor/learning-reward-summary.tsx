@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
   BadgeEvolutionEvent,
   LearningRoundRewardSummary as LearningRoundReward,
@@ -309,12 +309,14 @@ function RewardCelebrationOverlay({
   growth,
   headline,
   support,
+  onDismiss,
 }: {
   rewardId: string
   events: ReadonlyArray<BadgeEvolutionEvent>
   growth: ReadonlyArray<RewardGrowthAxis>
   headline: string
   support: string
+  onDismiss?: () => void
 }) {
   const [visible, setVisible] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
@@ -322,6 +324,12 @@ function RewardCelebrationOverlay({
   const closeRef = useRef<HTMLButtonElement>(null)
   const playedRef = useRef(false)
   const primaryEvent = events[0] ?? null
+
+  const dismiss = useCallback(() => {
+    rememberString(DISMISSED_CELEBRATIONS_KEY, rewardId, window.sessionStorage)
+    setVisible(false)
+    window.requestAnimationFrame(() => onDismiss?.())
+  }, [onDismiss, rewardId])
 
   useEffect(() => {
     if (!primaryEvent) return
@@ -346,12 +354,7 @@ function RewardCelebrationOverlay({
     document.body.style.overflow = "hidden"
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        rememberString(
-          DISMISSED_CELEBRATIONS_KEY,
-          rewardId,
-          window.sessionStorage
-        )
-        setVisible(false)
+        dismiss()
       }
       if (event.key === "Tab") {
         const focusable = Array.from(
@@ -376,7 +379,7 @@ function RewardCelebrationOverlay({
       document.body.style.overflow = previousOverflow
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [rewardId, visible])
+  }, [dismiss, visible])
 
   useEffect(() => {
     if (!visible || !audioEnabled || playedRef.current || !primaryEvent) return
@@ -385,11 +388,6 @@ function RewardCelebrationOverlay({
   }, [audioEnabled, primaryEvent, visible])
 
   if (!visible || !primaryEvent) return null
-
-  const dismiss = () => {
-    rememberString(DISMISSED_CELEBRATIONS_KEY, rewardId, window.sessionStorage)
-    setVisible(false)
-  }
 
   return (
     <div
@@ -536,6 +534,15 @@ export function LessonRewardSummaryCard({
   const badgeEvents = useMemo(() => legacyLessonBadgeEvents(reward), [reward])
   const growth = useMemo(() => lessonGrowth(reward), [reward])
   const [narration, setNarration] = useState<string | null>(null)
+  const rewardHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      rewardHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [reward.id])
 
   useEffect(() => {
     if (!loadNarration) return
@@ -573,6 +580,9 @@ export function LessonRewardSummaryCard({
             ? `Your ${badgeEvents[0].previousBadge?.title ?? "badge"} evolved to ${TIER_LABEL[badgeEvents[0].badge.tier]}. ${reward.pointsGained.toLocaleString("en-US")} lesson points moved the skill map, too.`
             : `You earned ${TIER_LABEL[badgeEvents[0]?.badge.tier ?? "single"]} through scored work in ${reward.skillLabel}.`
         }
+        onDismiss={() =>
+          rewardHeadingRef.current?.focus({ preventScroll: true })
+        }
       />
       <section
         className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-4xl flex-col justify-center px-5 py-12 sm:px-8"
@@ -584,8 +594,10 @@ export function LessonRewardSummaryCard({
           <div className="min-w-0 text-center sm:text-left">
             <p className="ink-label text-primary">Mr. Kim says</p>
             <h2
+              ref={rewardHeadingRef}
               id="lesson-reward-title"
-              className="mt-2 font-heading text-4xl leading-tight font-black tracking-[-0.035em] sm:text-5xl"
+              tabIndex={-1}
+              className="mt-2 font-heading text-4xl leading-tight font-black tracking-[-0.035em] outline-none sm:text-5xl"
             >
               {reward.skillLabel} is complete.
             </h2>

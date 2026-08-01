@@ -36,6 +36,15 @@ describe("learning reward UI contract", () => {
     expect(commandCenter).toContain("<LearningRoundRewardSummary")
   })
 
+  it("does not open optional cloud authorization from an automatic reward recap", async () => {
+    const dashboard = await source("components/tutor/dashboard.tsx")
+
+    expect(dashboard).toContain('"openai-responses-api"')
+    expect(dashboard).toContain("if (!alreadyGenerated) return null")
+    expect(dashboard).not.toContain("beginFreeCloudMrKimConnection")
+    expect(dashboard).not.toContain("answerWithFreeCloudMrKimAI")
+  })
+
   it("ships one-time badge evolution celebrations with accessible motion and audio controls", async () => {
     const [summary, badges, motivation] = await Promise.all([
       source("components/tutor/learning-reward-summary.tsx"),
@@ -46,6 +55,9 @@ describe("learning reward UI contract", () => {
     expect(summary).toContain('role="dialog"')
     expect(summary).toContain('aria-modal="true"')
     expect(summary).toContain("Close badge celebration")
+    expect(summary).toContain(
+      "window.requestAnimationFrame(() => onDismiss?.())"
+    )
     expect(summary).toContain("Turn celebration sound off")
     expect(summary).toContain("prefers-reduced-motion: reduce")
     expect(summary).toContain("playCelebrationSound")

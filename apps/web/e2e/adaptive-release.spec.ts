@@ -628,9 +628,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
   }
 })
 
-test("practice keeps scored feedback with its question until Next question", async ({
-  page,
-}) => {
+test("lesson check opens review and rewards at the top", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 })
   await openStarterPlan(page)
   await page.getByRole("button", { name: "Open lesson" }).click()
@@ -724,6 +722,94 @@ test("practice keeps scored feedback with its question until Next question", asy
       `Question ${scored.currentQuestionIndex + 1} of ${scored.questions.length}`,
       { exact: true }
     )
+  ).toBeVisible()
+
+  for (const question of lesson.questions.slice(scored.currentQuestionIndex)) {
+    const reviewed = ACT_PRACTICE_QUESTIONS.find(
+      (candidate) => candidate.id === question.id
+    )
+    expect(reviewed).toBeTruthy()
+    const correctChoiceIndex = question.choices.findIndex(
+      (choice) => choice.id === reviewed?.correctChoiceId
+    )
+    expect(correctChoiceIndex).toBeGreaterThanOrEqual(0)
+
+    const practiceChoices = page.getByRole("radiogroup", {
+      name: "Practice answer choices",
+    })
+    const correctChoice = practiceChoices
+      .getByRole("radio")
+      .nth(correctChoiceIndex)
+    await practiceChoices.locator("label").nth(correctChoiceIndex).click()
+    await expect(correctChoice).toBeChecked()
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/learning") &&
+        response.request().method() === "POST" &&
+        response.ok()
+    )
+    await page.getByRole("button", { name: "Check answer" }).click()
+    await responsePromise
+
+    if (question.id !== lesson.questions.at(-1)?.id) {
+      await page.getByRole("button", { name: "Next question" }).click()
+    }
+  }
+
+  const remediationHeading = page.getByRole("heading", {
+    name: "Let's fix each missed question.",
+  })
+  await expect(remediationHeading).toBeVisible()
+  await expect(remediationHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  const correctReviewChoiceIndex = current.choices.findIndex(
+    (choice) => choice.id === secureQuestion?.correctChoiceId
+  )
+  expect(correctReviewChoiceIndex).toBeGreaterThanOrEqual(0)
+  const reviewChoices = page.getByRole("radiogroup", {
+    name: "Required review answer choices",
+  })
+  const correctReviewChoice = reviewChoices
+    .getByRole("radio")
+    .nth(correctReviewChoiceIndex)
+  await reviewChoices.locator("label").nth(correctReviewChoiceIndex).click()
+  await expect(correctReviewChoice).toBeChecked()
+  const remediationResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/learning") &&
+      response.request().method() === "POST" &&
+      response.ok()
+  )
+  await page.getByRole("button", { name: "Check answer" }).click()
+  await remediationResponsePromise
+
+  const rewardSummary = page.getByTestId("lesson-reward-summary")
+  const rewardHeading = page.getByRole("heading", {
+    name: /Sentence boundaries is complete/,
+  })
+  await expect(rewardSummary).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  const celebrationClose = page.getByRole("button", {
+    name: "Close badge celebration",
+  })
+  if (await celebrationClose.isVisible()) {
+    await expect(celebrationClose).toBeFocused()
+    await celebrationClose.click()
+  }
+  await expect(rewardHeading).toBeFocused()
+
+  await page.getByRole("button", { name: "Back to Lessons" }).last().click()
+  await expect(
+    page.getByRole("progressbar", {
+      name: "Round 1 lesson progress",
+    })
+  ).toHaveAttribute("aria-valuenow", "1")
+  await expect(
+    page.getByRole("button", {
+      name: "Up next lesson: Concision and redundancy",
+    })
   ).toBeVisible()
 })
 

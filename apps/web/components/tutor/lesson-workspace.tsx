@@ -509,16 +509,28 @@ function RemediationStage({
 >) {
   const remediation = learning.remediation
   const { openScout } = useScoutContext()
-  if (!remediation) return null
-  const requiredQuestionIds = remediation.progress.requiredQuestionIds
+  const remediationHeadingRef = useRef<HTMLHeadingElement>(null)
+  const requiredQuestionIds = remediation?.progress.requiredQuestionIds ?? []
+  const remediationStatus = remediation?.progress.status
   const correctedCount = requiredQuestionIds.filter(
     (questionId) =>
-      remediation.progress.responses[questionId]?.correctedAt !== null &&
-      remediation.progress.responses[questionId]?.correctedAt !== undefined
+      remediation?.progress.responses[questionId]?.correctedAt !== null &&
+      remediation?.progress.responses[questionId]?.correctedAt !== undefined
   ).length
   const currentQuestionId = requiredQuestionIds.find(
-    (questionId) => !remediation.progress.responses[questionId]?.correctedAt
+    (questionId) => !remediation?.progress.responses[questionId]?.correctedAt
   )
+
+  useEffect(() => {
+    if (!remediationStatus) return
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      remediationHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [currentQuestionId, remediationStatus])
+
+  if (!remediation) return null
   const currentItem = remediation.items.find(
     (item) => item.questionId === currentQuestionId
   )
@@ -550,7 +562,11 @@ function RemediationStage({
       <section className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-3xl flex-col justify-center px-5 py-12 text-center sm:px-8">
         <ScoutMark className="mx-auto size-20 border-2 border-primary" />
         <p className="ink-label mt-6 text-primary">Review complete</p>
-        <h2 className="mt-3 font-heading text-5xl leading-tight font-black tracking-[-0.03em]">
+        <h2
+          ref={remediationHeadingRef}
+          tabIndex={-1}
+          className="mt-3 font-heading text-5xl leading-tight font-black tracking-[-0.03em] outline-none"
+        >
           You fixed every miss.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-muted-foreground">
@@ -603,7 +619,11 @@ function RemediationStage({
               ? "Relearn recommended"
               : "Correction review"}
           </p>
-          <h2 className="mt-1 font-heading text-3xl leading-tight font-black">
+          <h2
+            ref={remediationHeadingRef}
+            tabIndex={-1}
+            className="mt-1 font-heading text-3xl leading-tight font-black outline-none"
+          >
             Let&apos;s fix each missed question.
           </h2>
         </div>

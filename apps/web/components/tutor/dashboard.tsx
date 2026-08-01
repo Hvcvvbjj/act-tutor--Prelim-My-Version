@@ -63,11 +63,6 @@ import {
   loadLearningSession,
   readCachedLearningSession,
 } from "@/lib/learning-client"
-import {
-  answerWithFreeCloudMrKimAI,
-  beginFreeCloudMrKimConnection,
-  preloadFreeCloudMrKimAI,
-} from "@/lib/mr-kim-free-cloud"
 import { readScoutSettings } from "@/lib/scout-settings"
 import { studyTaskLaunchDecision } from "@/lib/study-task-routing"
 
@@ -502,19 +497,8 @@ export function Dashboard({
       const alreadyGenerated = payload.answer.receipt.checks.some((check) =>
         ["openai-responses-api", "openai-compatible-chat"].includes(check)
       )
-      if (alreadyGenerated) {
-        return `${payload.answer.summary} ${payload.answer.explanation}`.trim()
-      }
-      const loaded = await preloadFreeCloudMrKimAI()
-      const connected = loaded ? await beginFreeCloudMrKimConnection() : false
-      if (!connected) return null
-      const enhanced = await answerWithFreeCloudMrKimAI({
-        question: prompt,
-        answer: payload.answer,
-        history: payload.messages,
-      })
-      if (enhanced === payload.answer) return null
-      return `${enhanced.summary} ${enhanced.explanation}`.trim()
+      if (!alreadyGenerated) return null
+      return `${payload.answer.summary} ${payload.answer.explanation}`.trim()
     },
     []
   )
