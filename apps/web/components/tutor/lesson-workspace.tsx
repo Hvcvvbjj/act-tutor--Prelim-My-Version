@@ -378,7 +378,11 @@ function LessonStage({
         : displayExplanation
 
   useEffect(() => {
-    sectionHeadingRef.current?.focus()
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      sectionHeadingRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [visibleSectionIndex])
 
   return (
@@ -800,6 +804,7 @@ function PracticeStage({
   const [hintLevel, setHintLevel] = useState(0)
   const startedAt = useRef<number | null>(null)
   const feedbackRef = useRef<HTMLDivElement>(null)
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
   const explanation =
     visibleFeedback && displayedQuestion
       ? buildPracticeExplanation({
@@ -817,6 +822,17 @@ function PracticeStage({
   useEffect(() => {
     startedAt.current = window.performance.now()
   }, [displayedQuestion?.id])
+
+  useEffect(() => {
+    if (showingFeedback) return
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      if (learning.status !== "complete") {
+        questionHeadingRef.current?.focus({ preventScroll: true })
+      }
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [displayedQuestion?.id, learning.status, showingFeedback])
 
   useEffect(() => {
     if (!showingFeedback) return
@@ -911,7 +927,11 @@ function PracticeStage({
             {displayedQuestion.stimulus}
           </div>
         ) : null}
-        <h2 className="mt-8 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] sm:text-4xl">
+        <h2
+          ref={questionHeadingRef}
+          tabIndex={-1}
+          className="mt-8 max-w-2xl font-heading text-3xl leading-tight font-black tracking-[-0.02em] outline-none sm:text-4xl"
+        >
           {displayedQuestion?.prompt}
         </h2>
         {displayedQuestion ? (
@@ -1212,7 +1232,11 @@ export function LessonReviewWorkspace({
   const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
-    headingRef.current?.focus()
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+      headingRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [visibleSectionIndex])
 
   return (

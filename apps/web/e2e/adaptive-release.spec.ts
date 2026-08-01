@@ -631,6 +631,7 @@ test("all lesson stages stay visible and reachable on narrow phones", async ({
 test("practice keeps scored feedback with its question until Next question", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 740 })
   await openStarterPlan(page)
   await page.getByRole("button", { name: "Open lesson" }).click()
 
@@ -645,11 +646,20 @@ test("practice keeps scored feedback with its question until Next question", asy
     currentQuestionIndex: number
   }
   const stages = page.getByRole("navigation", { name: "Lesson stages" })
-  await expect(stages.getByRole("button")).toHaveCount(5)
-  await stages.getByRole("button", { name: "Need to know" }).click()
+  await expect(stages.getByRole("button")).toHaveCount(6)
+  await stages.getByRole("button", { name: "Still confused?" }).click()
 
-  await page.getByRole("button", { name: "Start focused practice" }).click()
+  const startPractice = page.getByRole("button", {
+    name: "Start lesson check",
+  })
+  await startPractice.scrollIntoViewIfNeeded()
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await startPractice.click()
   const current = lesson.questions[lesson.currentQuestionIndex]
+  const currentHeading = page.getByRole("heading", { name: current.prompt })
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+  await expect(currentHeading).toBeFocused()
+  await expect(page.getByText("Question 1 of 5", { exact: true })).toBeVisible()
   const secureQuestion = ACT_PRACTICE_QUESTIONS.find(
     (question) => question.id === current.id
   )
@@ -705,7 +715,10 @@ test("practice keeps scored feedback with its question until Next question", asy
   await expect(page.getByRole("button", { name: "Simpler" })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Next question" }).click()
-  await expect(page.getByRole("heading", { name: next.prompt })).toBeVisible()
+  const nextHeading = page.getByRole("heading", { name: next.prompt })
+  await expect(nextHeading).toBeVisible()
+  await expect(nextHeading).toBeFocused()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
   await expect(
     page.getByText(
       `Question ${scored.currentQuestionIndex + 1} of ${scored.questions.length}`,
