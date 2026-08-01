@@ -88,12 +88,20 @@ export function DiagnosticIntro({
             ACT items. About 63 minutes · autosaves as you go.
           </p>
 
-          <div className="mt-9 flex items-center gap-4 border-y-2 border-foreground py-7">
-            <Button type="button" size="xl" onClick={onStart}>
+          <div className="mt-9 grid gap-4 border-y-2 border-foreground py-7 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+            <Button
+              type="button"
+              size="xl"
+              className="w-full sm:w-auto"
+              onClick={onStart}
+            >
               Start diagnostic
               <ArrowRightIcon data-icon="inline-end" />
             </Button>
-            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+            <p
+              data-testid="diagnostic-plan-promise"
+              className="max-w-sm text-sm leading-6 text-muted-foreground"
+            >
               I&apos;ll use this result to build a plan for your {goal} goal on{" "}
               {formatCalendarDate(testDate)}.
             </p>

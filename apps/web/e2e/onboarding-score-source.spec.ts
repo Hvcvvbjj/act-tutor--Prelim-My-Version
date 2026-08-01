@@ -51,6 +51,39 @@ test("goal and schedule setup are keyboard-editable and preview the real commitm
       }))
     )
     .toEqual({ pageWidth: 390, viewportWidth: 390 })
+
+  await page.setViewportSize({ width: 320, height: 760 })
+  await page
+    .getByRole("button", { name: "Continue to full diagnostic" })
+    .click()
+  await expect(
+    page.getByRole("heading", { name: "Find your starting point." })
+  ).toBeVisible()
+
+  const startDiagnostic = page.getByRole("button", {
+    name: "Start diagnostic",
+  })
+  const planPromise = page.getByTestId("diagnostic-plan-promise")
+  const [startBounds, promiseBounds] = await Promise.all([
+    startDiagnostic.boundingBox(),
+    planPromise.boundingBox(),
+  ])
+  expect(startBounds).not.toBeNull()
+  expect(promiseBounds).not.toBeNull()
+  expect(startBounds!.width).toBeGreaterThanOrEqual(280)
+  expect(promiseBounds!.width).toBeGreaterThanOrEqual(280)
+  expect(promiseBounds!.y).toBeGreaterThanOrEqual(
+    startBounds!.y + startBounds!.height + 12
+  )
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }))
+    )
+    .toEqual({ pageWidth: 320, viewportWidth: 320 })
 })
 
 test("entered ACT values are retained while the full diagnostic builds the skill map", async ({
