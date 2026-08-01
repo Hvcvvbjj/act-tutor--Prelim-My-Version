@@ -1383,6 +1383,7 @@ export function Dashboard({
               learning={learning}
               busy={submitting}
               onLaunchTask={launchPlanTask}
+              onOpenLessons={() => setActiveTab("today")}
               canViewTechnicalDetails={viewer.technicalDetails}
             />
           ) : (

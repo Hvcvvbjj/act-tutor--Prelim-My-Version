@@ -811,6 +811,27 @@ test("lesson check opens review and rewards at the top", async ({ page }) => {
       name: "Up next lesson: Concision and redundancy",
     })
   ).toBeVisible()
+
+  await page.getByRole("tab", { name: "Schedule" }).click()
+  const schedule = page.getByRole("tabpanel", { name: "Schedule" })
+  await expect(
+    schedule.getByText("1 completed day · 30 min done", { exact: false })
+  ).toBeVisible()
+  await expect(
+    schedule.getByRole("img", {
+      name: "Sentence boundaries lesson completed in Lessons",
+    })
+  ).toBeVisible()
+  await expect(schedule.getByText("Completed in Lessons")).toBeVisible()
+  await expect(
+    schedule.getByRole("button", { name: "Start this task" })
+  ).toHaveCount(0)
+  await schedule.getByRole("button", { name: "Open next lesson" }).click()
+  await expect(
+    page.getByRole("button", {
+      name: "Up next lesson: Concision and redundancy",
+    })
+  ).toBeVisible()
 })
 
 test("timed practice opens at the first question on a narrow phone", async ({

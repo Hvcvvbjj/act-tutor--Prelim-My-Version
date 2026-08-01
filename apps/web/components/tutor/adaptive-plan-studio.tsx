@@ -5,7 +5,6 @@ import {
   preferredTaskForStudyWeek,
   shiftStudyWeek,
   studyWeekStart,
-  summarizeStudyWeek,
   tasksForStudyWeek,
   type AdaptiveStudyPlan,
   type LearningSessionPayload,
@@ -40,6 +39,11 @@ import {
   loadInitialStudyPlan,
   studyPlanRequest,
 } from "@/components/tutor/adaptive-plan-studio-client"
+import {
+  learningAwareStudyTasks,
+  summarizeStudyTaskStatuses,
+  summarizeStudyWeekStatuses,
+} from "@/components/tutor/adaptive-plan-studio-logic"
 import { ScoutCoach } from "@/components/tutor/scout"
 import type { GeneratedPlan } from "@/components/tutor/types"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -53,6 +57,7 @@ interface AdaptivePlanStudioProps {
   learning: LearningSessionPayload
   busy: boolean
   onLaunchTask: (task: StudyPlanTask) => void
+  onOpenLessons: () => void
   canViewTechnicalDetails: boolean
 }
 
@@ -125,6 +130,8 @@ const HEALTH_COPY = {
 } as const
 
 const MINUTE_OPTIONS = [15, 20, 30, 45, 60, 75, 90, 120] as const
+const EMPTY_STUDY_TASKS: ReadonlyArray<StudyPlanTask> = []
+const EMPTY_VERIFIED_TASK_IDS: ReadonlySet<string> = new Set()
 
 function shortDate(value: string) {
   const [year, month, day] = value.split("-").map(Number)
@@ -335,12 +342,14 @@ function TaskBlock({
   task,
   selected,
   changing,
+  verifiedComplete,
   onSelect,
   onToggle,
 }: {
   task: StudyPlanTask
   selected: boolean
   changing: boolean
+  verifiedComplete: boolean
   onSelect: () => void
   onToggle: () => void
 }) {
@@ -363,25 +372,37 @@ function TaskBlock({
       )}
     >
       <div className="flex items-start gap-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          disabled={changing}
-          className="flex size-11 shrink-0 items-center justify-center outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
-          aria-label={
-            task.status === "complete"
-              ? `Mark ${task.title} incomplete`
-              : `Mark ${task.title} complete`
-          }
-        >
-          <span className="flex size-6 items-center justify-center border-2 border-foreground bg-background">
-            {task.status === "complete" ? (
+        {verifiedComplete ? (
+          <span
+            className="flex size-11 shrink-0 items-center justify-center"
+            role="img"
+            aria-label={`${task.title} completed in Lessons`}
+          >
+            <span className="flex size-6 items-center justify-center border-2 border-primary bg-background text-primary">
               <CheckIcon className="size-4" aria-hidden="true" />
-            ) : (
-              <CircleIcon className="size-3" aria-hidden="true" />
-            )}
+            </span>
           </span>
-        </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={changing}
+            className="flex size-11 shrink-0 items-center justify-center outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+            aria-label={
+              task.status === "complete"
+                ? `Mark ${task.title} incomplete`
+                : `Mark ${task.title} complete`
+            }
+          >
+            <span className="flex size-6 items-center justify-center border-2 border-foreground bg-background">
+              {task.status === "complete" ? (
+                <CheckIcon className="size-4" aria-hidden="true" />
+              ) : (
+                <CircleIcon className="size-3" aria-hidden="true" />
+              )}
+            </span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onSelect}
@@ -409,20 +430,24 @@ function TaskBlock({
 
 function WeekPlanner({
   plan,
+  tasks: allTasks,
   weekStart,
   selectedTaskId,
   changingTaskId,
+  verifiedTaskIds,
   onSelect,
   onToggle,
 }: {
   plan: AdaptiveStudyPlan
+  tasks: ReadonlyArray<StudyPlanTask>
   weekStart: string
   selectedTaskId: string | null
   changingTaskId: string | null
+  verifiedTaskIds: ReadonlySet<string>
   onSelect: (taskId: string) => void
   onToggle: (task: StudyPlanTask) => void
 }) {
-  const weekTasks = tasksForStudyWeek(plan.tasks, weekStart)
+  const weekTasks = tasksForStudyWeek(allTasks, weekStart)
   const dates = Array.from({ length: 7 }, (_, index) =>
     addCalendarDaysFrom(weekStart, index)
   )
@@ -433,15 +458,20 @@ function WeekPlanner({
     >
       {dates.map((date) => {
         const tasks = weekTasks.filter((task) => task.date === date)
-        let plannedMinutes = 0
-        let missedMinutes = 0
-        for (const task of tasks) {
-          if (task.status === "skipped") {
-            missedMinutes += task.minutes
-          } else {
-            plannedMinutes += task.minutes
-          }
-        }
+        const daySummary = summarizeStudyTaskStatuses(tasks)
+        const minuteStatus = [
+          daySummary.scheduledMinutes
+            ? `${daySummary.scheduledMinutes} min left`
+            : null,
+          daySummary.completedMinutes
+            ? `${daySummary.completedMinutes} min done`
+            : null,
+          daySummary.missedMinutes
+            ? `${daySummary.missedMinutes} min missed`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
         const isToday = date === plan.today
         const afterTest = date >= plan.testDate
         return (
@@ -491,9 +521,7 @@ function WeekPlanner({
               </div>
               {tasks.length ? (
                 <p className="shrink-0 font-mono text-xs font-bold text-muted-foreground">
-                  {plannedMinutes > 0
-                    ? `${plannedMinutes} min`
-                    : `${missedMinutes} min missed`}
+                  {minuteStatus}
                 </p>
               ) : null}
             </header>
@@ -505,6 +533,7 @@ function WeekPlanner({
                     task={task}
                     selected={task.id === selectedTaskId}
                     changing={task.id === changingTaskId}
+                    verifiedComplete={verifiedTaskIds.has(task.id)}
                     onSelect={() => onSelect(task.id)}
                     onToggle={() => onToggle(task)}
                   />
@@ -526,13 +555,17 @@ function TaskInspector({
   task,
   learning,
   busy,
+  verifiedComplete,
   onLaunch,
+  onOpenLessons,
   canViewTechnicalDetails,
 }: {
   task: StudyPlanTask | null
   learning: LearningSessionPayload
   busy: boolean
+  verifiedComplete: boolean
   onLaunch: (task: StudyPlanTask) => void
+  onOpenLessons: () => void
   canViewTechnicalDetails: boolean
 }) {
   if (!task) {
@@ -547,7 +580,9 @@ function TaskInspector({
   const Icon = meta.icon
   const launchDecision = studyTaskLaunchDecision(task, learning)
   const canSwitch =
-    launchDecision.type !== "blocked" && launchDecision.type !== "unavailable"
+    task.status !== "complete" &&
+    launchDecision.type !== "blocked" &&
+    launchDecision.type !== "unavailable"
   const launchLabel =
     launchDecision.type === "timed-practice"
       ? "Open timed practice"
@@ -587,22 +622,51 @@ function TaskInspector({
         {task.title}
       </h2>
 
-      <Button
-        type="button"
-        size="xl"
-        className="mt-6 w-full"
-        onClick={() => onLaunch(task)}
-        disabled={busy || !canSwitch}
-      >
-        {busy ? (
-          <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />
-        ) : task.kind === "rehearsal" || task.kind === "timed" ? (
-          <TimerResetIcon data-icon="inline-start" />
-        ) : (
-          <ArrowRightIcon data-icon="inline-start" />
-        )}
-        {launchLabel}
-      </Button>
+      {task.status === "complete" ? (
+        <div className="mt-6">
+          <p
+            className="flex min-h-12 items-center gap-2 border-y border-primary bg-secondary px-4 py-3 text-sm font-bold text-primary"
+            role="status"
+          >
+            <CheckIcon className="size-5" aria-hidden="true" />
+            {verifiedComplete ? "Completed in Lessons" : "Task completed"}
+          </p>
+          {verifiedComplete ? (
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="mt-3 w-full"
+              onClick={onOpenLessons}
+            >
+              <ArrowRightIcon data-icon="inline-start" />
+              {learning.cycle.status === "assessment-choice"
+                ? "Choose next assessment"
+                : "Open next lesson"}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <Button
+          type="button"
+          size="xl"
+          className="mt-6 w-full"
+          onClick={() => onLaunch(task)}
+          disabled={busy || !canSwitch}
+        >
+          {busy ? (
+            <LoaderCircleIcon
+              className="animate-spin"
+              data-icon="inline-start"
+            />
+          ) : task.kind === "rehearsal" || task.kind === "timed" ? (
+            <TimerResetIcon data-icon="inline-start" />
+          ) : (
+            <ArrowRightIcon data-icon="inline-start" />
+          )}
+          {launchLabel}
+        </Button>
+      )}
 
       <details className="mt-5 border-y py-3">
         <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
@@ -629,6 +693,7 @@ export function AdaptivePlanStudio({
   learning,
   busy: parentBusy,
   onLaunchTask,
+  onOpenLessons,
   canViewTechnicalDetails,
 }: AdaptivePlanStudioProps) {
   const [adaptivePlan, setAdaptivePlan] = useState<AdaptiveStudyPlan | null>(
@@ -673,6 +738,29 @@ export function AdaptivePlanStudio({
   )
   const skillsKey = useMemo(() => JSON.stringify(skills), [skills])
   const current = plan.evidence.planningBaseline
+  const learningTasks = useMemo(
+    () =>
+      adaptivePlan
+        ? learningAwareStudyTasks({
+            tasks: adaptivePlan.tasks,
+            today: adaptivePlan.today,
+            roundNumber: learning.cycle.roundNumber,
+            completedSkills: learning.cycle.completedSkills,
+            lessonHistory: learning.lessonHistory,
+            completedAtFallback: learning.updatedAt,
+          })
+        : {
+            tasks: EMPTY_STUDY_TASKS,
+            verifiedTaskIds: EMPTY_VERIFIED_TASK_IDS,
+          },
+    [
+      adaptivePlan,
+      learning.cycle.completedSkills,
+      learning.cycle.roundNumber,
+      learning.lessonHistory,
+      learning.updatedAt,
+    ]
+  )
 
   useEffect(() => {
     if (!current) return
@@ -747,17 +835,15 @@ export function AdaptivePlanStudio({
   ])
 
   const selectedTask =
-    adaptivePlan?.tasks.find((task) => task.id === selectedTaskId) ?? null
+    learningTasks.tasks.find((task) => task.id === selectedTaskId) ?? null
 
   function showWeek(
     nextWeek: string,
-    sourcePlan: AdaptiveStudyPlan | null = adaptivePlan
+    sourceTasks: ReadonlyArray<StudyPlanTask> = learningTasks.tasks
   ) {
     setWeekStart(nextWeek)
     setSelectedTaskId(
-      sourcePlan
-        ? (preferredTaskForStudyWeek(sourcePlan.tasks, nextWeek)?.id ?? null)
-        : null
+      preferredTaskForStudyWeek(sourceTasks, nextWeek)?.id ?? null
     )
   }
 
@@ -812,7 +898,15 @@ export function AdaptivePlanStudio({
         today: plan.today,
       })
       setAdaptivePlan(nextPlan)
-      showWeek(studyWeekStart(nextPlan.today), nextPlan)
+      const nextLearningTasks = learningAwareStudyTasks({
+        tasks: nextPlan.tasks,
+        today: nextPlan.today,
+        roundNumber: learning.cycle.roundNumber,
+        completedSkills: learning.cycle.completedSkills,
+        lessonHistory: learning.lessonHistory,
+        completedAtFallback: learning.updatedAt,
+      })
+      showWeek(studyWeekStart(nextPlan.today), nextLearningTasks.tasks)
       setError(null)
     } catch (caught) {
       setError(
@@ -867,7 +961,24 @@ export function AdaptivePlanStudio({
   const firstWeek = studyWeekStart(adaptivePlan.today)
   const finalWeek = studyWeekStart(adaptivePlan.testDate)
   const weekEnd = addCalendarDaysFrom(weekStart, 6)
-  const weekSummary = summarizeStudyWeek(adaptivePlan.tasks, weekStart)
+  const weekSummary = summarizeStudyWeekStatuses(learningTasks.tasks, weekStart)
+  const weekStatus = [
+    weekSummary.scheduledDays
+      ? `${weekSummary.scheduledDays} planned ${
+          weekSummary.scheduledDays === 1 ? "day" : "days"
+        } · ${weekSummary.scheduledMinutes} min scheduled`
+      : null,
+    weekSummary.completedDays
+      ? `${weekSummary.completedDays} completed ${
+          weekSummary.completedDays === 1 ? "day" : "days"
+        } · ${weekSummary.completedMinutes} min done`
+      : null,
+    weekSummary.missedMinutes
+      ? `${weekSummary.missedMinutes} min missed`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
   const canGoBack = weekStart > firstWeek
   const canGoForward = weekStart < finalWeek
   const busy = parentBusy || saving || changingTaskId !== null
@@ -892,15 +1003,8 @@ export function AdaptivePlanStudio({
               {shortDate(weekStart)}–{shortDate(weekEnd)}
             </h1>
             <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              {weekSummary.plannedDays > 0
-                ? `${weekSummary.plannedDays} planned ${
-                    weekSummary.plannedDays === 1 ? "day" : "days"
-                  } · ${weekSummary.plannedMinutes} min scheduled`
-                : "No active study days this week"}
-              {weekSummary.missedMinutes > 0
-                ? ` · ${weekSummary.missedMinutes} min missed`
-                : null}{" "}
-              · Test {shortDate(adaptivePlan.testDate)}
+              {weekStatus || "No active study days this week"} · Test{" "}
+              {shortDate(adaptivePlan.testDate)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -948,9 +1052,11 @@ export function AdaptivePlanStudio({
         <section className="min-w-0" aria-label="Weekly assignments">
           <WeekPlanner
             plan={adaptivePlan}
+            tasks={learningTasks.tasks}
             weekStart={weekStart}
             selectedTaskId={selectedTaskId}
             changingTaskId={changingTaskId}
+            verifiedTaskIds={learningTasks.verifiedTaskIds}
             onSelect={setSelectedTaskId}
             onToggle={toggleTask}
           />
@@ -962,7 +1068,11 @@ export function AdaptivePlanStudio({
               task={selectedTask}
               learning={learning}
               busy={busy}
+              verifiedComplete={learningTasks.verifiedTaskIds.has(
+                selectedTask.id
+              )}
               onLaunch={onLaunchTask}
+              onOpenLessons={onOpenLessons}
               canViewTechnicalDetails={canViewTechnicalDetails}
             />
           ) : (
@@ -970,7 +1080,9 @@ export function AdaptivePlanStudio({
               task={null}
               learning={learning}
               busy={busy}
+              verifiedComplete={false}
               onLaunch={onLaunchTask}
+              onOpenLessons={onOpenLessons}
               canViewTechnicalDetails={canViewTechnicalDetails}
             />
           )}
