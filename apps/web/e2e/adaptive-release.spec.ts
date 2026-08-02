@@ -861,6 +861,25 @@ test("lesson check opens review and rewards at the top", async ({ page }) => {
   await expect(englishReps.getByText("5 / 25", { exact: true })).toBeVisible()
 })
 
+test("the selected learner tab survives a refresh", async ({ page }) => {
+  await openStarterPlan(page)
+
+  await page.getByRole("tab", { name: "History" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Every miss, in one place." })
+  ).toBeVisible()
+
+  await page.reload()
+
+  await expect(page.getByRole("tab", { name: "History" })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
+  await expect(
+    page.getByRole("heading", { name: "Every miss, in one place." })
+  ).toBeVisible()
+})
+
 test("timed practice opens at the first question on a narrow phone", async ({
   page,
 }) => {

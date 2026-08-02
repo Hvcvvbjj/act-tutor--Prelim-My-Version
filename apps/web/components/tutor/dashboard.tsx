@@ -32,6 +32,12 @@ import {
 
 import { AccountAccess } from "@/components/tutor/account-access"
 import { BadgesSurface } from "@/components/tutor/badges-surface"
+import {
+  ACTIVE_DASHBOARD_TAB_STORAGE_KEY,
+  type DashboardDestination,
+  isDashboardDestination,
+  resolveDashboardDestination,
+} from "@/components/tutor/dashboard-navigation"
 import { DashboardTour } from "@/components/tutor/dashboard-tour"
 import { GoalSupportPrompt } from "@/components/tutor/goal-support-prompt"
 import { learningBaselineSkillResults } from "@/components/tutor/learning-baseline-evidence"
@@ -223,23 +229,6 @@ interface DashboardProps {
   onUseFullTestAssessment: (
     session: ExamLabSessionPayload
   ) => Promise<void> | void
-}
-
-const DASHBOARD_DESTINATIONS = [
-  "today",
-  "needs-work",
-  "plan",
-  "calibrate",
-  "progress",
-  "history",
-  "badges",
-  "lab",
-  "control",
-] as const
-type DashboardDestination = (typeof DASHBOARD_DESTINATIONS)[number]
-
-function isDashboardDestination(value: string): value is DashboardDestination {
-  return DASHBOARD_DESTINATIONS.some((destination) => destination === value)
 }
 
 interface CalibrationRebaseResponse {
@@ -465,12 +454,15 @@ export function Dashboard({
     const stored = window.sessionStorage.getItem("scout-round-assessment-view")
     return stored === "full-test" || stored === "lessons" ? stored : "choice"
   })
-  const [activeTab, setActiveTab] = useState<DashboardDestination>(
-    initialTab ??
-      (representativeDemo || plan.adaptiveBaselineRequired
-        ? "calibrate"
-        : "today")
+  const [activeTab, setActiveTab] = useState<DashboardDestination>(() =>
+    resolveDashboardDestination({
+      initialTab,
+      representativeDemo,
+      adaptiveBaselineRequired: Boolean(plan.adaptiveBaselineRequired),
+      storedTab: null,
+    })
   )
+  const [activeTabRestored, setActiveTabRestored] = useState(false)
   const [labLaunch, setLabLaunch] = useState<{
     mode: ExamLabMode
     section: CoreSection
@@ -505,6 +497,38 @@ export function Dashboard({
     },
     []
   )
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      let storedTab: string | null = null
+      try {
+        storedTab = window.sessionStorage.getItem(
+          ACTIVE_DASHBOARD_TAB_STORAGE_KEY
+        )
+      } catch {
+        // Navigation still works when session storage is unavailable.
+      }
+      setActiveTab(
+        resolveDashboardDestination({
+          initialTab,
+          representativeDemo,
+          adaptiveBaselineRequired: Boolean(plan.adaptiveBaselineRequired),
+          storedTab,
+        })
+      )
+      setActiveTabRestored(true)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [initialTab, plan.adaptiveBaselineRequired, representativeDemo])
+
+  useEffect(() => {
+    if (!activeTabRestored) return
+    try {
+      window.sessionStorage.setItem(ACTIVE_DASHBOARD_TAB_STORAGE_KEY, activeTab)
+    } catch {
+      // Navigation still works when session storage is unavailable.
+    }
+  }, [activeTab, activeTabRestored])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
