@@ -1402,6 +1402,9 @@ test("a learner can save a reported-score plan and restore it after sign-in", as
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true })
   ).toBeVisible()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("view"))
+    .toBeNull()
 
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
   const signIn = page.getByRole("dialog", { name: "Welcome back." })
@@ -1411,6 +1414,9 @@ test("a learner can save a reported-score plan and restore it after sign-in", as
   await expect(page.getByTestId("lessons-command-center")).toBeVisible({
     timeout: 15_000,
   })
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("view"))
+    .toBeNull()
   await expect(
     page.getByText("Your starter plan uses a temporary 18.")
   ).toHaveCount(0)

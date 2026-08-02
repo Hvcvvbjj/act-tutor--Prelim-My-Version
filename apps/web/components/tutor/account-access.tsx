@@ -24,6 +24,7 @@ import {
   LessonReminderFields,
   lessonReminderDraftFromPreferences,
 } from "@/components/tutor/lesson-reminder-fields"
+import { ACTIVE_DASHBOARD_TAB_STORAGE_KEY } from "@/components/tutor/dashboard-navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type {
@@ -264,6 +265,11 @@ export function AccountAccess({
       if (!response.ok) {
         const payload = (await response.json()) as { error?: string }
         throw new Error(payload.error ?? "Could not sign out.")
+      }
+      try {
+        window.sessionStorage.removeItem(ACTIVE_DASHBOARD_TAB_STORAGE_KEY)
+      } catch {
+        // Sign-out still completes when browser storage is unavailable.
       }
       window.location.assign("/")
     } catch (caught) {
