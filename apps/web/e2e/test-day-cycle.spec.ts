@@ -116,7 +116,12 @@ test("a pending official score survives a new test date and prompts again", asyn
     page.getByRole("heading", { name: "No need to guess." })
   ).toBeVisible()
   await page.getByText("Yes—add my next date", { exact: true }).click()
-  await page.getByRole("radio", { name: /September 19, 2026/ }).check()
+  const nextTestDate = page.getByRole("radio", {
+    name: /September 19, 2026/,
+  })
+  await nextTestDate.focus()
+  await nextTestDate.press("Space")
+  await expect(nextTestDate).toHaveAttribute("aria-checked", "true")
   await page.getByRole("button", { name: "Save check-in" }).click()
 
   await expect

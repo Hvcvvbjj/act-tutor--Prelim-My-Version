@@ -213,6 +213,15 @@ function draftWithOfficialTestDate(
   }
 }
 
+function draftWithRestoredTestDate(
+  draft: PlacementDraft,
+  today: string
+): PlacementDraft {
+  const savedDateHasArrived =
+    /^\d{4}-\d{2}-\d{2}$/.test(draft.testDate) && draft.testDate <= today
+  return savedDateHasArrived ? draft : draftWithOfficialTestDate(draft, today)
+}
+
 function clearLegacyDefaultScoreAssumptions(
   draft: PlacementDraft
 ): PlacementDraft {
@@ -586,7 +595,7 @@ function restoredPlanFrom(today: string, value: unknown): GeneratedPlan | null {
     ) {
       return null
     }
-    const normalizedDraft = draftWithOfficialTestDate(
+    const normalizedDraft = draftWithRestoredTestDate(
       {
         ...savedPlan.draft,
         scoreSource: savedPlan.draft.scoreSource ?? "practice",
