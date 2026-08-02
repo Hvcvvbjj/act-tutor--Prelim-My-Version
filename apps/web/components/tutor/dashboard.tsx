@@ -35,6 +35,8 @@ import { BadgesSurface } from "@/components/tutor/badges-surface"
 import {
   ACTIVE_DASHBOARD_TAB_STORAGE_KEY,
   type DashboardDestination,
+  dashboardDestinationFromSearch,
+  dashboardUrlForDestination,
   isDashboardDestination,
   resolveDashboardDestination,
 } from "@/components/tutor/dashboard-navigation"
@@ -186,6 +188,27 @@ function preloadDashboardSurface(value: string) {
     case "control":
       void loadScoutOperationsLab()
       break
+  }
+}
+
+function updateDashboardHistory(
+  destination: DashboardDestination,
+  mode: "push" | "replace"
+) {
+  try {
+    const nextUrl = dashboardUrlForDestination(
+      window.location.href,
+      destination
+    )
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    if (nextUrl === currentUrl) return
+    if (mode === "push") {
+      window.history.pushState(window.history.state, "", nextUrl)
+      return
+    }
+    window.history.replaceState(window.history.state, "", nextUrl)
+  } catch {
+    // The dashboard remains usable if browser history is unavailable.
   }
 }
 
@@ -465,6 +488,7 @@ export function Dashboard({
       initialTab,
       representativeDemo,
       adaptiveBaselineRequired: Boolean(plan.adaptiveBaselineRequired),
+      urlTab: null,
       storedTab: null,
     })
   )
@@ -519,6 +543,7 @@ export function Dashboard({
           initialTab,
           representativeDemo,
           adaptiveBaselineRequired: Boolean(plan.adaptiveBaselineRequired),
+          urlTab: dashboardDestinationFromSearch(window.location.search),
           storedTab,
         })
       )
@@ -528,12 +553,27 @@ export function Dashboard({
   }, [initialTab, plan.adaptiveBaselineRequired, representativeDemo])
 
   useEffect(() => {
+    const restoreDestinationFromHistory = () => {
+      const destination =
+        representativeDemo || plan.adaptiveBaselineRequired
+          ? "calibrate"
+          : (dashboardDestinationFromSearch(window.location.search) ?? "today")
+      preloadDashboardSurface(destination)
+      setActiveTab(destination)
+    }
+    window.addEventListener("popstate", restoreDestinationFromHistory)
+    return () =>
+      window.removeEventListener("popstate", restoreDestinationFromHistory)
+  }, [plan.adaptiveBaselineRequired, representativeDemo])
+
+  useEffect(() => {
     if (!activeTabRestored) return
     try {
       window.sessionStorage.setItem(ACTIVE_DASHBOARD_TAB_STORAGE_KEY, activeTab)
     } catch {
       // Navigation still works when session storage is unavailable.
     }
+    updateDashboardHistory(activeTab, "replace")
   }, [activeTab, activeTabRestored])
 
   useEffect(() => {
@@ -1196,7 +1236,10 @@ export function Dashboard({
         value={activeTab}
         onValueChange={(value) => {
           preloadDashboardSurface(value)
-          if (isDashboardDestination(value)) setActiveTab(value)
+          if (isDashboardDestination(value)) {
+            updateDashboardHistory(value, "push")
+            setActiveTab(value)
+          }
         }}
         className={`min-h-svh gap-0 bg-[var(--canvas)] ${
           workspaceOpen && activeTab === "today"

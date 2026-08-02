@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveDashboardDestination } from "@/components/tutor/dashboard-navigation"
+import {
+  dashboardDestinationFromSearch,
+  dashboardUrlForDestination,
+  resolveDashboardDestination,
+} from "@/components/tutor/dashboard-navigation"
 
 const defaultInput = {
   representativeDemo: false,
   adaptiveBaselineRequired: false,
+  urlTab: null,
   storedTab: null,
 } as const
 
@@ -21,11 +26,22 @@ describe("restorable dashboard navigation", () => {
     ).toBe("today")
   })
 
-  it("keeps explicit and required Quick Check entry ahead of saved navigation", () => {
+  it("uses the URL destination ahead of a saved destination", () => {
+    expect(
+      resolveDashboardDestination({
+        ...defaultInput,
+        urlTab: "progress",
+        storedTab: "history",
+      })
+    ).toBe("progress")
+  })
+
+  it("keeps explicit and required Quick Check entry ahead of restored navigation", () => {
     expect(
       resolveDashboardDestination({
         ...defaultInput,
         initialTab: "today",
+        urlTab: "history",
         storedTab: "badges",
       })
     ).toBe("today")
@@ -33,6 +49,7 @@ describe("restorable dashboard navigation", () => {
       resolveDashboardDestination({
         ...defaultInput,
         adaptiveBaselineRequired: true,
+        urlTab: "progress",
         storedTab: "history",
       })
     ).toBe("calibrate")
@@ -40,8 +57,30 @@ describe("restorable dashboard navigation", () => {
       resolveDashboardDestination({
         ...defaultInput,
         representativeDemo: true,
+        urlTab: "history",
         storedTab: "progress",
       })
     ).toBe("calibrate")
+  })
+
+  it("reads only supported destinations from the URL", () => {
+    expect(dashboardDestinationFromSearch("?view=history")).toBe("history")
+    expect(dashboardDestinationFromSearch("?view=unknown")).toBeNull()
+    expect(dashboardDestinationFromSearch("?other=history")).toBeNull()
+  })
+
+  it("updates the destination without dropping other URL context", () => {
+    expect(
+      dashboardUrlForDestination(
+        "https://example.test/?mode=demo#main-content",
+        "history"
+      )
+    ).toBe("/?mode=demo&view=history#main-content")
+    expect(
+      dashboardUrlForDestination(
+        "https://example.test/?mode=demo&view=history#main-content",
+        "today"
+      )
+    ).toBe("/?mode=demo#main-content")
   })
 })
