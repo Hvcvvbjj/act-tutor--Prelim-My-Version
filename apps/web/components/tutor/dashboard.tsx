@@ -193,11 +193,15 @@ function DashboardTab({
   value,
   className,
   tourId,
+  ariaLabel,
+  onActivate,
   children,
 }: {
   value: string
   className?: string
   tourId?: string
+  ariaLabel?: string
+  onActivate?: () => void
   children: ReactNode
 }) {
   const preload = () => preloadDashboardSurface(value)
@@ -206,9 +210,11 @@ function DashboardTab({
       value={value}
       className={className}
       data-tour-id={tourId}
+      aria-label={ariaLabel}
       onPointerEnter={preload}
       onPointerDown={preload}
       onFocus={preload}
+      onClick={onActivate}
     >
       {children}
     </TabsTrigger>
@@ -1233,19 +1239,15 @@ export function Dashboard({
                   >
                     My Schedule
                   </DashboardTab>
-                  <Button
-                    type="button"
-                    variant={activeTab === "lab" ? "secondary" : "ghost"}
+                  <DashboardTab
+                    value="lab"
                     className="min-h-11 px-3"
-                    data-tour-id="nav-practice"
-                    aria-label="Timed Practice"
-                    aria-current={activeTab === "lab" ? "page" : undefined}
-                    onPointerEnter={() => preloadDashboardSurface("lab")}
-                    onFocus={() => preloadDashboardSurface("lab")}
-                    onClick={openTimedPractice}
+                    tourId="nav-practice"
+                    ariaLabel="Timed Practice"
+                    onActivate={openTimedPractice}
                   >
                     Practice
-                  </Button>
+                  </DashboardTab>
                   <DashboardTab
                     value="progress"
                     className="min-h-11 px-3"
@@ -1583,50 +1585,38 @@ export function Dashboard({
                 needsWorkUnlocked ? "grid-cols-7" : "grid-cols-6"
               }`}
             >
-              <DashboardTab
-                value="today"
-                className="min-h-14 px-0.5 text-[0.65rem]"
-              >
+              <DashboardTab value="today" className="min-h-14 px-0.5 text-xs">
                 Lessons
               </DashboardTab>
               {needsWorkUnlocked ? (
                 <DashboardTab
                   value="needs-work"
-                  className="min-h-14 px-0.5 text-[0.65rem]"
+                  className="min-h-14 px-0.5 text-xs"
                 >
                   Needs
                 </DashboardTab>
               ) : null}
-              <DashboardTab
-                value="plan"
-                className="min-h-14 px-0.5 text-[0.65rem]"
-              >
+              <DashboardTab value="plan" className="min-h-14 px-0.5 text-xs">
                 Schedule
               </DashboardTab>
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-14 rounded-none px-0.5 text-[0.65rem]"
-                onClick={openTimedPractice}
+              <DashboardTab
+                value="lab"
+                className="min-h-14 rounded-none px-0.5 text-xs"
+                ariaLabel="Timed Practice"
+                onActivate={openTimedPractice}
               >
                 Practice
-              </Button>
+              </DashboardTab>
               <DashboardTab
                 value="progress"
-                className="min-h-14 px-0.5 text-[0.65rem]"
+                className="min-h-14 px-0.5 text-xs"
               >
                 Progress
               </DashboardTab>
-              <DashboardTab
-                value="history"
-                className="min-h-14 px-0.5 text-[0.65rem]"
-              >
+              <DashboardTab value="history" className="min-h-14 px-0.5 text-xs">
                 History
               </DashboardTab>
-              <DashboardTab
-                value="badges"
-                className="min-h-14 px-0.5 text-[0.65rem]"
-              >
+              <DashboardTab value="badges" className="min-h-14 px-0.5 text-xs">
                 Badges
               </DashboardTab>
             </TabsList>

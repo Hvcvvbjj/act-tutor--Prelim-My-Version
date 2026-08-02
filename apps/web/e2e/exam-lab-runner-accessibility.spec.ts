@@ -27,7 +27,7 @@ test("timed practice keeps timer, navigation, and review controls accessible", a
 
   await page
     .getByRole("navigation", { name: "Primary study navigation" })
-    .getByRole("button", { name: "Practice", exact: true })
+    .getByRole("tab", { name: "Timed Practice", exact: true })
     .click()
   await expect(
     page.getByRole("heading", { name: "Choose a practice run." })

@@ -326,7 +326,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   const primaryNavigation = page.getByRole("navigation", {
     name: "Primary study navigation",
   })
-  await expect(primaryNavigation.getByRole("tab")).toHaveCount(4)
+  await expect(primaryNavigation.getByRole("tab")).toHaveCount(6)
   await expect(
     primaryNavigation.getByRole("tab", { name: "Lessons" })
   ).toBeVisible()
@@ -334,7 +334,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
     primaryNavigation.getByRole("tab", { name: "Badges" })
   ).toBeVisible()
   await expect(
-    primaryNavigation.getByRole("button", { name: "Practice" })
+    primaryNavigation.getByRole("tab", { name: "Timed Practice" })
   ).toBeVisible()
   await expect(page.getByRole("button", { name: "Ask Mr. Kim" })).toBeVisible()
   await expect(
@@ -521,7 +521,7 @@ test("mobile study navigation fits and Mr. Kim behaves as a focus-trapped bottom
   await expect(dialog).toBeHidden()
   await expect(launcher).toBeFocused()
 
-  await primaryNavigation.getByRole("button", { name: "Practice" }).click()
+  await primaryNavigation.getByRole("tab", { name: "Timed Practice" }).click()
   await expect(
     page.getByRole("heading", { name: "Choose a practice run." })
   ).toBeVisible()
@@ -889,7 +889,7 @@ test("timed practice opens at the first question on a narrow phone", async ({
 
   await page
     .getByRole("navigation", { name: "Primary study navigation" })
-    .getByRole("button", { name: "Practice" })
+    .getByRole("tab", { name: "Timed Practice" })
     .click()
   await expect(
     page.getByRole("heading", { name: "Choose a practice run." })
@@ -1274,7 +1274,7 @@ test("incomplete timed practice keeps its honest summary above the mobile fold",
 
   await page
     .getByRole("navigation", { name: "Primary study navigation" })
-    .getByRole("button", { name: "Practice" })
+    .getByRole("tab", { name: "Timed Practice" })
     .click()
 
   await expect(

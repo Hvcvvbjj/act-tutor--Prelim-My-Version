@@ -18,10 +18,11 @@ describe("mobile navigation contract", () => {
         dashboard.indexOf('aria-label="Primary study navigation"')
       )
     )
-    expect(mobileNav.match(/<DashboardTab/g)).toHaveLength(6)
+    expect(mobileNav.match(/<DashboardTab/g)).toHaveLength(7)
     expect(mobileNav).toContain('value="today"')
     expect(mobileNav).toContain('value="needs-work"')
     expect(mobileNav).toContain('value="plan"')
+    expect(mobileNav).toContain('value="lab"')
     expect(mobileNav).toContain('value="progress"')
     expect(mobileNav).toContain('value="history"')
     expect(mobileNav).toContain('value="badges"')
@@ -60,7 +61,8 @@ describe("mobile navigation contract", () => {
         dashboard.indexOf('aria-label="Study navigation"')
       )
     )
-    expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(6)
+    expect(desktopNav.match(/<DashboardTab/g)).toHaveLength(7)
+    expect(desktopNav).toContain('value="lab"')
     const labels = [
       "Lessons",
       "Needs Work",

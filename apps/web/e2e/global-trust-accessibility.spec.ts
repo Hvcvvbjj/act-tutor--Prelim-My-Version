@@ -306,7 +306,7 @@ test("compact desktop navigation keeps primary controls easy to target", async (
   const targets = [
     header.getByRole("tab", { name: "Lessons" }),
     header.getByRole("tab", { name: "My Schedule" }),
-    header.getByRole("button", { name: "Timed Practice" }),
+    header.getByRole("tab", { name: "Timed Practice" }),
     header.getByRole("tab", { name: "Progress" }),
     header.getByRole("tab", { name: "History" }),
     header.getByRole("tab", { name: "Badges" }),
@@ -364,6 +364,34 @@ test("compact desktop navigation keeps primary controls easy to target", async (
       }))
     )
     .toEqual({ pageWidth: 1024, viewportWidth: 1024 })
+})
+
+test("timed practice participates in primary tab keyboard navigation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openReportedScorePlan(page)
+
+  const navigation = page.getByRole("navigation", {
+    name: "Primary study navigation",
+  })
+  const schedule = navigation.getByRole("tab", { name: "Schedule" })
+  const timedPractice = navigation.getByRole("tab", {
+    name: "Timed Practice",
+  })
+
+  await schedule.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(timedPractice).toBeFocused()
+  await page.keyboard.press("Space")
+
+  await expect(timedPractice).toHaveAttribute("aria-selected", "true")
+  await expect(
+    page.getByRole("tabpanel", { name: "Timed Practice" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Choose a practice run." })
+  ).toBeVisible()
 })
 
 test("the desktop tour scrolls to and precisely spotlights the real lesson action", async ({

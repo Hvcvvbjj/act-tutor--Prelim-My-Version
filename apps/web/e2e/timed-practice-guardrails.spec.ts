@@ -9,7 +9,7 @@ test("timed practice explains its boundaries before starting", async ({
   await page.setViewportSize({ width: 320, height: 760 })
   await openReportedScorePlan(page)
 
-  await page.getByRole("button", { name: "Practice", exact: true }).click()
+  await page.getByRole("tab", { name: "Timed Practice", exact: true }).click()
   await expect(
     page.getByRole("heading", { name: "Choose a practice run." })
   ).toBeVisible()
