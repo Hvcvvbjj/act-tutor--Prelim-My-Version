@@ -234,7 +234,7 @@ function AssessmentRow({
   }).format(new Date(entry.completedAt))
   return (
     <details className="group border-b-2 border-foreground" open={defaultOpen}>
-      <summary className="grid min-h-24 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-5 py-5 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+      <summary className="grid min-h-24 cursor-pointer list-none grid-cols-1 items-center gap-3 py-5 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-5 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="ink-label text-primary">
@@ -252,10 +252,10 @@ function AssessmentRow({
             {entry.mistakes.length === 1 ? "mistake" : "mistakes"} saved
           </p>
         </div>
-        <div className="flex items-center gap-5">
-          <div className="text-right">
-            <p className="ink-label text-muted-foreground">Composite</p>
-            <p className="font-heading text-4xl font-black text-primary">
+        <div className="flex items-center justify-between gap-5 sm:justify-start">
+          <div className="flex items-baseline gap-2 text-left sm:block sm:text-right">
+            <p className="ink-label text-muted-foreground">Practice estimate</p>
+            <p className="font-heading text-3xl font-black text-primary sm:text-4xl">
               {entry.compositeScore}
             </p>
           </div>
@@ -266,6 +266,9 @@ function AssessmentRow({
         </div>
       </summary>
       <div className="pb-7">
+        <p className="mb-3 pt-3 text-xs font-semibold text-muted-foreground">
+          Section practice estimates · not official ACT scores
+        </p>
         <dl className="mb-6 grid grid-cols-3 divide-x-2 divide-foreground border-y-2 border-foreground py-4 text-center">
           {(
             Object.entries(entry.sectionScores) as Array<

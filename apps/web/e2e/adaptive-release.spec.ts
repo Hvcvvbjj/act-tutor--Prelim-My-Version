@@ -871,6 +871,15 @@ test("the selected learner tab survives a refresh", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Every miss, in one place." })
   ).toBeVisible()
+  await expect(
+    page.getByText("Practice estimate", { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByText("Section practice estimates · not official ACT scores", {
+      exact: true,
+    })
+  ).toBeVisible()
+  await expect(page.getByText("Composite", { exact: true })).toHaveCount(0)
 
   await page.reload()
 

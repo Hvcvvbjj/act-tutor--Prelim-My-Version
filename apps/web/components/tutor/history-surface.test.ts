@@ -109,7 +109,9 @@ describe("History surface", () => {
 
     expect(source).toContain("Every miss, in one place.")
     expect(source).toContain("Lesson checks and focused practice")
-    expect(source).toContain("Composite")
+    expect(source).toContain("Practice estimate")
+    expect(source).toContain("Section practice estimates")
+    expect(source).toContain("not official ACT scores")
     expect(source).toContain("Ask Mr. Kim")
     expect(source).toContain("entry.sectionScores")
   })
