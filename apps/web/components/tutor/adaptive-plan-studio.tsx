@@ -41,6 +41,8 @@ import {
 } from "@/components/tutor/adaptive-plan-studio-client"
 import {
   learningAwareStudyTasks,
+  preferredCurrentWeekTaskId,
+  studyPlanSkillPriority,
   summarizeStudyTaskStatuses,
   summarizeStudyWeekStatuses,
 } from "@/components/tutor/adaptive-plan-studio-logic"
@@ -711,7 +713,7 @@ export function AdaptivePlanStudio({
     key: string
     promise: Promise<AdaptiveStudyPlan>
   } | null>(null)
-  const skills = useMemo(
+  const initialSkills = useMemo(
     () =>
       learning.learningTwin.skills.map((skill) => ({
         skill: skill.skill,
@@ -735,6 +737,22 @@ export function AdaptivePlanStudio({
       learning.nextSkill,
       learning.todaySkill,
     ]
+  )
+  const skills = useMemo(
+    () =>
+      initialSkills.map((skill) => ({
+        ...skill,
+        priority: studyPlanSkillPriority(skill.skill, {
+          status: learning.status,
+          todaySkill: learning.todaySkill,
+          nextSkill: learning.nextSkill,
+        }),
+      })),
+    [initialSkills, learning.nextSkill, learning.status, learning.todaySkill]
+  )
+  const initialSkillsKey = useMemo(
+    () => JSON.stringify(initialSkills),
+    [initialSkills]
   )
   const skillsKey = useMemo(() => JSON.stringify(skills), [skills])
   const current = plan.evidence.planningBaseline
@@ -783,10 +801,14 @@ export function AdaptivePlanStudio({
               testDate: plan.draft.testDate,
               current,
               target: plan.target.scores,
-              skills,
+              skills: initialSkills,
               studyDaysPerWeek: plan.intensity.studyDaysPerWeek,
               minutesPerSession: plan.intensity.minutesPerSession,
-            })
+            }).then((nextPlan) =>
+              initialSkillsKey === skillsKey
+                ? nextPlan
+                : studyPlanRequest({ action: "sync_evidence", skills })
+            )
           : studyPlanRequest({ action: "sync_evidence", skills })
     pendingRequestRef.current = { key: requestKey, promise: pending }
     pending
@@ -798,10 +820,7 @@ export function AdaptivePlanStudio({
         setSelectedTaskId((selected) =>
           selected && nextPlan.tasks.some((task) => task.id === selected)
             ? selected
-            : (nextPlan.tasks.find((task) => task.date === nextPlan.today)
-                ?.id ??
-              nextPlan.tasks[0]?.id ??
-              null)
+            : preferredCurrentWeekTaskId(nextPlan.tasks, nextPlan.today)
         )
         setError(null)
       })
@@ -824,6 +843,8 @@ export function AdaptivePlanStudio({
     }
   }, [
     current,
+    initialSkills,
+    initialSkillsKey,
     initializedKey,
     plan.draft.testDate,
     plan.intensity.minutesPerSession,

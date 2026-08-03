@@ -1,8 +1,16 @@
 import {
+  preferredTaskForStudyWeek,
+  studyWeekStart,
   tasksForStudyWeek,
   type LessonCheckResult,
+  type LearningSessionPayload,
   type StudyPlanTask,
 } from "@act-tutor/core"
+
+type LearningPriorityState = Pick<
+  LearningSessionPayload,
+  "status" | "todaySkill" | "nextSkill"
+>
 
 interface LearningTaskReconciliationInput {
   tasks: ReadonlyArray<StudyPlanTask>
@@ -22,6 +30,26 @@ export interface StudyTaskStatusSummary {
   completedMinutes: number
   missedDays: number
   missedMinutes: number
+}
+
+export function studyPlanSkillPriority(
+  skill: string,
+  learning: LearningPriorityState
+) {
+  if (learning.status === "complete") {
+    return skill === learning.nextSkill ? 1 : 0
+  }
+  if (skill === learning.todaySkill) return 1
+  return skill === learning.nextSkill ? 0.5 : 0
+}
+
+export function preferredCurrentWeekTaskId(
+  tasks: ReadonlyArray<StudyPlanTask>,
+  today: string
+) {
+  const todayTask = tasks.find((task) => task.date === today)
+  if (todayTask) return todayTask.id
+  return preferredTaskForStudyWeek(tasks, studyWeekStart(today))?.id ?? null
 }
 
 export function learningAwareStudyTasks({

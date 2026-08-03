@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   learningAwareStudyTasks,
+  preferredCurrentWeekTaskId,
+  studyPlanSkillPriority,
   summarizeStudyWeekStatuses,
 } from "./adaptive-plan-studio-logic"
 
@@ -36,6 +38,53 @@ const HISTORY = [
 >
 
 describe("adaptive plan learning reconciliation", () => {
+  it("advances future schedule priority after the current lesson is complete", () => {
+    const completedLesson = {
+      status: "complete",
+      todaySkill: "sentence-boundaries",
+      nextSkill: "concision-and-redundancy",
+    } as const
+
+    expect(studyPlanSkillPriority("sentence-boundaries", completedLesson)).toBe(
+      0
+    )
+    expect(
+      studyPlanSkillPriority("concision-and-redundancy", completedLesson)
+    ).toBe(1)
+  })
+
+  it("keeps the active and upcoming skills ranked during a lesson", () => {
+    const activeLesson = {
+      status: "practice",
+      todaySkill: "sentence-boundaries",
+      nextSkill: "concision-and-redundancy",
+    } as const
+
+    expect(studyPlanSkillPriority("sentence-boundaries", activeLesson)).toBe(1)
+    expect(
+      studyPlanSkillPriority("concision-and-redundancy", activeLesson)
+    ).toBe(0.5)
+    expect(studyPlanSkillPriority("linear-equations", activeLesson)).toBe(0)
+  })
+
+  it("selects an assignment from the visible current week", () => {
+    const oldTask = task({ id: "old", date: "2026-08-01" })
+    const visibleTask = task({ id: "visible", date: "2026-08-04" })
+
+    expect(
+      preferredCurrentWeekTaskId([oldTask, visibleTask], "2026-08-03")
+    ).toBe("visible")
+  })
+
+  it("keeps today's task selected for its completion confirmation", () => {
+    const completedToday = task({ id: "today", status: "complete" })
+    const upcoming = task({ id: "upcoming", date: "2026-08-02" })
+
+    expect(
+      preferredCurrentWeekTaskId([completedToday, upcoming], "2026-08-01")
+    ).toBe("today")
+  })
+
   it("shows today's matching lesson as verified complete", () => {
     const result = learningAwareStudyTasks({
       tasks: [task()],
