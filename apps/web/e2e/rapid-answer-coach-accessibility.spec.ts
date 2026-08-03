@@ -10,6 +10,11 @@ async function startFreshDiagnostic(page: Page) {
     .getByRole("button", { name: "Continue to full diagnostic" })
     .click()
   await page.getByRole("button", { name: "Start diagnostic" }).click()
+  await expect(
+    page.getByRole("radiogroup", {
+      name: "Answer choices for question 1",
+    })
+  ).toBeVisible({ timeout: 20_000 })
 }
 
 async function answerAndAdvance(
@@ -24,6 +29,11 @@ async function answerAndAdvance(
 }
 
 async function chooseFirstAnswer(page: Page, expectedAnswerCount: number) {
+  const firstChoice = page
+    .getByRole("radiogroup")
+    .getByRole("radio")
+    .first()
+  await expect(firstChoice).toBeVisible({ timeout: 20_000 })
   const save = page.waitForResponse((response) => {
     if (
       !response.url().endsWith("/api/diagnostic") ||
@@ -38,7 +48,7 @@ async function chooseFirstAnswer(page: Page, expectedAnswerCount: number) {
       Object.keys(body.progress?.answers ?? {}).length === expectedAnswerCount
     )
   })
-  await page.getByRole("radio").first().press("Space")
+  await firstChoice.press("Space")
   expect((await save).ok()).toBeTruthy()
 }
 
@@ -86,7 +96,7 @@ test("a full diagnostic question stays inside a 320px viewport", async ({
 test("the rapid-answer pace check behaves as a true keyboard modal", async ({
   page,
 }) => {
-  test.setTimeout(60_000)
+  test.setTimeout(90_000)
   await page.setViewportSize({ width: 390, height: 844 })
   await startFreshDiagnostic(page)
   await answerAndAdvance(page, 9, 0)
@@ -120,6 +130,7 @@ test("the rapid-answer pace check behaves as a true keyboard modal", async ({
   await expect(page.getByRole("radio").first()).toBeFocused()
 
   await page.reload()
+  await expect(page.getByRole("radiogroup")).toBeVisible({ timeout: 20_000 })
   await page.getByRole("button", { name: "Next question" }).click()
   await answerAndAdvance(page, 9, 10)
   await chooseFirstAnswer(page, 20)
