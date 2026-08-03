@@ -32,6 +32,16 @@ test("Progress keeps its skill comparison readable at mobile and desktop sizes",
   await expect(
     overview.getByRole("listitem").filter({ hasText: "Math" })
   ).toContainText("Selected skill is here")
+  const selectedSkillDetail = page.locator("#selected-skill-detail")
+  await expect(selectedSkillDetail).toContainText(
+    /All \d+ came from your diagnostic\./
+  )
+  await expect(
+    selectedSkillDetail.getByRole("heading", { name: "Latest evidence" })
+  ).toBeVisible()
+  await expect(selectedSkillDetail).toContainText(
+    /Your diagnostic set this estimate from \d+ scored answers?\./
+  )
   await expect
     .poll(() =>
       page.evaluate(() => ({

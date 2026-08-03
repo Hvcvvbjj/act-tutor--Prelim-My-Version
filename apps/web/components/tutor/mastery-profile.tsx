@@ -8,6 +8,10 @@ import type {
 } from "@act-tutor/core"
 import { pointsProgressToNextMomentumLevel } from "@act-tutor/core"
 
+import {
+  describeMasteryEvidenceOrigin,
+  describeMasteryStartingEvidence,
+} from "@/lib/mastery-evidence-copy"
 import { cn } from "@/lib/utils"
 
 const SECTION_ORDER = ["english", "math", "reading"] as const
@@ -613,9 +617,14 @@ export function MasteryProfile({
         <dl className="mt-6 grid gap-5 border-t pt-5 sm:grid-cols-2">
           <div>
             <dt className="ink-label text-muted-foreground">Evidence</dt>
-            <dd className="mt-2 text-sm leading-6 font-semibold">
-              {selected.evidenceCount} scored{" "}
-              {selected.evidenceCount === 1 ? "answer" : "answers"}
+            <dd className="mt-2">
+              <span className="block text-sm leading-6 font-semibold">
+                {selected.evidenceCount} scored{" "}
+                {selected.evidenceCount === 1 ? "answer" : "answers"}
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                {describeMasteryEvidenceOrigin(selected)}
+              </span>
             </dd>
           </div>
           <div>
@@ -628,9 +637,7 @@ export function MasteryProfile({
 
         <div className="mt-6 grid gap-6 border-t pt-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
           <div>
-            <h3 className="font-heading text-xl font-black">
-              Last scored change
-            </h3>
+            <h3 className="font-heading text-xl font-black">Latest evidence</h3>
             {selected.lastUpdate ? (
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {selected.lastUpdate.correct ? "Correct" : "Missed"} on a{" "}
@@ -642,8 +649,7 @@ export function MasteryProfile({
               </p>
             ) : (
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                No skill-specific practice or Quick Check answer has changed
-                this estimate yet.
+                {describeMasteryStartingEvidence(selected)}
               </p>
             )}
           </div>
